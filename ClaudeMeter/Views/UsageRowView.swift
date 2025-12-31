@@ -63,19 +63,19 @@ struct UsageRowView: View {
             )
         )
         UsageRowView(
-            title: "Weekly",
+            title: "Opus",
             usage: UsageWindow(
                 utilization: 8,
                 resetsAt: Date().addingTimeInterval(86400 * 3),
-                windowType: .weekly
+                windowType: .opus
             )
         )
         UsageRowView(
-            title: "Warning Example",
+            title: "Sonnet",
             usage: UsageWindow(
-                utilization: 75,
-                resetsAt: Date().addingTimeInterval(3600),
-                windowType: .session
+                utilization: 3,
+                resetsAt: Date().addingTimeInterval(86400 * 3),
+                windowType: .sonnet
             )
         )
     }

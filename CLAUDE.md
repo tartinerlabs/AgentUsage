@@ -45,9 +45,19 @@ CredentialService (actor)  +  ClaudeAPIService (actor)
 
 | Model | Purpose |
 |-------|---------|
-| `UsageSnapshot` | Contains session (5-hour) and weekly (7-day) `UsageWindow` + fetch timestamp |
-| `UsageWindow` | Utilization % (0-100) + reset time. Computed: `normalized` (0-1), `color` (green/yellow/red thresholds) |
-| `ClaudeOAuthCredentials` | Token validation: checks expiry and `user:profile` scope |
+| `UsageSnapshot` | Contains `session`, `opus`, and optional `sonnet` usage windows + fetch timestamp |
+| `UsageWindow` | Utilization %, reset time, window type. Computed: `normalized`, `status`, `timeUntilReset` |
+| `UsageWindowType` | Enum: `.session`, `.opus`, `.sonnet` |
+| `UsageStatus` | Enum: `.onTrack`, `.warning`, `.critical` - calculated from usage rate |
+| `ClaudeOAuthCredentials` | Token validation + `planDisplayName` for UI |
+
+### API Response Mapping
+
+| API Field | Model Field | Description |
+|-----------|-------------|-------------|
+| `five_hour` | `session` | 5-hour session window |
+| `seven_day` | `opus` | Default weekly limit (Opus) |
+| `seven_day_sonnet` | `sonnet` | Separate Sonnet limit (if available) |
 
 ### Patterns Used
 
@@ -56,6 +66,10 @@ CredentialService (actor)  +  ClaudeAPIService (actor)
 - `@MainActor` on ViewModel for UI thread safety
 - `@Environment` for dependency injection from App to Views
 - `@Bindable` in SettingsView for two-way binding with @Observable
+
+### Coding Conventions
+
+Follow [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/).
 
 ## External Integration
 

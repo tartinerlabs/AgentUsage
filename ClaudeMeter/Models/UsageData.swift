@@ -37,13 +37,15 @@ enum UsageStatus: Sendable {
 }
 
 enum UsageWindowType: Sendable {
-    case session  // 5 hours
-    case weekly   // 7 days
+    case session  // 5 hours (five_hour)
+    case opus     // 7 days - default weekly limit (seven_day)
+    case sonnet   // 7 days - separate Sonnet limit (seven_day_sonnet)
 
     var totalDuration: TimeInterval {
         switch self {
         case .session: 5 * 60 * 60      // 5 hours in seconds
-        case .weekly: 7 * 24 * 60 * 60  // 7 days in seconds
+        case .opus: 7 * 24 * 60 * 60    // 7 days in seconds
+        case .sonnet: 7 * 24 * 60 * 60  // 7 days in seconds
         }
     }
 }
@@ -106,7 +108,8 @@ struct UsageWindow: Sendable {
 
 struct UsageSnapshot: Sendable {
     let session: UsageWindow
-    let weekly: UsageWindow
+    let opus: UsageWindow      // Weekly default limit (was "seven_day")
+    let sonnet: UsageWindow?   // Separate Sonnet limit (if available)
     let fetchedAt: Date
 
     var lastUpdatedDescription: String {

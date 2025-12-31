@@ -58,13 +58,24 @@ actor ClaudeAPIService {
     }
 
     private func parseUsageResponse(_ data: Data) throws -> UsageSnapshot {
+        // Debug: Log raw API response to see all available fields
+        #if DEBUG
+        if let json = try? JSONSerialization.jsonObject(with: data),
+           let prettyData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted),
+           let prettyString = String(data: prettyData, encoding: .utf8) {
+            print("📊 Claude API Response:\n\(prettyString)")
+        }
+        #endif
+
         struct APIResponse: Decodable {
             let fiveHour: UsageWindowResponse?
-            let sevenDay: UsageWindowResponse?
+            let sevenDay: UsageWindowResponse?       // Default weekly = Opus limit
+            let sevenDaySonnet: UsageWindowResponse? // Separate Sonnet limit
 
             enum CodingKeys: String, CodingKey {
                 case fiveHour = "five_hour"
                 case sevenDay = "seven_day"
+                case sevenDaySonnet = "seven_day_sonnet"
             }
         }
 
@@ -92,17 +103,28 @@ actor ClaudeAPIService {
             )
         } ?? UsageWindow(utilization: 0, resetsAt: Date(), windowType: .session)
 
-        let weekly = response.sevenDay.map {
+        // seven_day is now the default weekly limit (Opus)
+        let opus = response.sevenDay.map {
             UsageWindow(
                 utilization: $0.utilization,
                 resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
-                windowType: .weekly
+                windowType: .opus
             )
-        } ?? UsageWindow(utilization: 0, resetsAt: Date(), windowType: .weekly)
+        } ?? UsageWindow(utilization: 0, resetsAt: Date(), windowType: .opus)
+
+        // Separate Sonnet limit (if available)
+        let sonnet = response.sevenDaySonnet.map {
+            UsageWindow(
+                utilization: $0.utilization,
+                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
+                windowType: .sonnet
+            )
+        }
 
         return UsageSnapshot(
             session: session,
-            weekly: weekly,
+            opus: opus,
+            sonnet: sonnet,
             fetchedAt: Date()
         )
     }
