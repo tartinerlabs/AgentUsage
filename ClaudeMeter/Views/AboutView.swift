@@ -36,11 +36,11 @@ struct AboutView: View {
 
             // Links
             HStack(spacing: 16) {
-                Link(destination: URL(string: "https://github.com/ruchernchong/ClaudeMeter")!) {
+                Link(destination: URL(string: "https://github.com/tartinerlabs/ClaudeMeter")!) {
                     Label("GitHub", systemImage: "link")
                 }
 
-                Link(destination: URL(string: "https://github.com/ruchernchong/ClaudeMeter/issues")!) {
+                Link(destination: URL(string: "https://github.com/tartinerlabs/ClaudeMeter/issues")!) {
                     Label("Report Issue", systemImage: "ladybug")
                 }
             }

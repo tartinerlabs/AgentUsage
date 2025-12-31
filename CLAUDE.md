@@ -26,11 +26,11 @@ MVVM with Swift Actors for thread safety.
 ```
 ClaudeMeterApp (@main)
     ↓
-MenuBarExtra + Settings Scene
+MenuBarExtra + Settings Scene + About Window
     ↓ (.environment injection)
-UsageViewModel (@Observable, @MainActor)
+UsageViewModel (@Observable, @MainActor)  +  UpdaterController (@ObservableObject, @MainActor)
     ↓
-CredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (actor)
+CredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (actor)  +  Sparkle (SPUStandardUpdaterController)
 ```
 
 ### Key Components
@@ -41,6 +41,7 @@ CredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (ac
 | `CredentialService` | Services/ | Loads OAuth token from `~/.claude/.credentials.json`. Falls back to `NSOpenPanel` if sandboxed. |
 | `ClaudeAPIService` | Services/ | Fetches usage from Anthropic API. API constants in `Utilities/Constants.swift`. |
 | `TokenUsageService` | Services/ | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. |
+| `UpdaterController` | Services/ | Sparkle updater integration for automatic updates. Observes `canCheckForUpdates` state. |
 
 ### Data Models
 
@@ -94,3 +95,32 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 - Menu bar only app: `LSUIElement = true` in Info.plist
 - Sandbox disabled in entitlements (required for ~/.claude access)
 - Network client entitlement enabled
+
+## Auto-Updates (Sparkle)
+
+The app uses [Sparkle](https://sparkle-project.org/) framework for automatic updates:
+
+- **UpdaterController**: Wrapper around `SPUStandardUpdaterController` for SwiftUI integration
+- **Feed URL**: `https://raw.githubusercontent.com/tartinerlabs/ClaudeMeter/main/appcast.xml` (in Info.plist)
+- **Public Key**: EdDSA public key in Info.plist for signature verification
+- **Check for Updates**: Manual check button in Settings view, disabled when update check is already in progress
+- **Auto-check**: Sparkle automatically checks based on user preferences
+
+### Release Workflow
+
+GitHub Actions automates releases via `.github/workflows/release.yml`:
+
+1. **Trigger**: Push a version tag (e.g., `git tag v1.0.0 && git push --tags`) or publish a GitHub release
+2. **Build**: Workflow builds unsigned app, creates zip archive
+3. **Appcast**: Uses Sparkle's `generate_appcast` to create/update appcast.xml with release info
+4. **Upload**: Attaches zip to GitHub release
+5. **Commit**: Pushes updated appcast.xml back to main branch
+
+**Creating a release:**
+```bash
+git tag -a "v1.0.0" -m "Release v1.0.0"
+git push origin "v1.0.0"
+gh release create v1.0.0 --generate-notes
+```
+
+For pre-releases, add `--prerelease` flag to `gh release create`.

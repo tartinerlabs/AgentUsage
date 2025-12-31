@@ -15,6 +15,7 @@ ClaudeMeter is a lightweight menu bar app that displays your Claude Code API usa
 - **Visual Indicators**: Color-coded usage levels (green, yellow, red) based on consumption
 - **Countdown Timers**: See when your usage limits will reset
 - **Auto-Refresh**: Configurable refresh intervals (1, 2, 5, or 15 minutes)
+- **Auto-Updates**: Built-in Sparkle updater checks for new versions automatically
 - **Native macOS**: Built with Swift and SwiftUI using Claude brand colors
 - **Menu Bar Integration**: Lightweight app that lives in your menu bar
 
@@ -25,6 +26,16 @@ ClaudeMeter is a lightweight menu bar app that displays your Claude Code API usa
 - Active Claude Code subscription
 
 ## Installation
+
+### Download
+
+Download the latest release from the [Releases page](https://github.com/tartinerlabs/ClaudeMeter/releases).
+
+**First-time setup:**
+1. Download `ClaudeMeter.zip` from the latest release
+2. Unzip and move `ClaudeMeter.app` to your Applications folder
+3. Launch ClaudeMeter - it will appear in your menu bar
+4. The app will automatically check for updates
 
 ### Prerequisites
 
@@ -72,8 +83,9 @@ xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Rel
    - **Sonnet**: 7-day rate limit for Sonnet 4.5 model (if available)
    - **Token Usage**: Today's and last 7 days' token consumption with cost estimates
    - Reset timers showing when limits refresh
-4. Click **Settings** to configure auto-refresh interval
-5. Click **Refresh** to manually update usage data
+4. Click **Settings** to configure auto-refresh interval and check for updates
+5. Click **About ClaudeMeter** to view app version and links
+6. Click **Refresh** to manually update usage data
 
 ### Understanding Usage Indicators
 
@@ -93,14 +105,24 @@ ClaudeMeter analyzes your local Claude Code JSONL logs to provide detailed token
 
 ## Configuration
 
-### Refresh Intervals
+### Settings
 
-Choose from the Settings menu:
+Access settings by clicking the menu bar icon and selecting **Settings**:
+
+**Refresh Intervals:**
 - Manual (refresh on demand)
 - 1 minute
 - 2 minutes
 - 5 minutes (default)
 - 15 minutes
+
+**Updates:**
+- **Check for Updates**: Manually check for new versions
+- App automatically checks for updates in the background
+
+**Info:**
+- **Version**: Shows current app version and build number
+- **Credentials**: Displays if `~/.claude/.credentials.json` is found
 
 ### Credentials
 
@@ -200,11 +222,22 @@ xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter test
 - **UI Framework**: SwiftUI with Claude brand colors
 - **Minimum macOS**: 14.0 (Sonoma)
 - **Architecture**: MVVM with Swift Actors for thread safety
+- **Auto-Updates**: [Sparkle 2.8.1](https://sparkle-project.org/) for automatic updates
 - **API**: Anthropic OAuth API (`https://api.anthropic.com/api/oauth/usage`)
 - **Data Sources**:
   - Rate limits: Anthropic API
   - Token usage: Local JSONL logs (`~/.claude/projects/`)
   - Pricing: Based on [LiteLLM pricing data](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)
+
+### Release Process
+
+Releases are automated via GitHub Actions:
+1. Create and push a version tag (e.g., `v1.0.0`)
+2. GitHub Actions builds the app and creates a release
+3. Release assets include `ClaudeMeter.zip` and auto-generated appcast.xml
+4. Sparkle updater uses appcast.xml to notify users of new versions
+
+View all releases at: https://github.com/tartinerlabs/ClaudeMeter/releases
 
 ## License
 
@@ -223,7 +256,9 @@ For issues or questions:
 
 ## Version
 
-Current version: 1.0
+Current version: 1.0.0-beta.1
+
+See all versions and release notes at: https://github.com/tartinerlabs/ClaudeMeter/releases
 
 ---
 
