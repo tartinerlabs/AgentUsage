@@ -14,6 +14,7 @@ actor TokenUsageService {
     // Caching and state tracking
     private var lastSnapshot: TokenUsageSnapshot?
     private var fileState: [URL: Date] = [:]
+    private var cachedEntriesByFile: [URL: [UsageEntry]] = [:]
 
     // Reuse a single formatter
     private let isoFormatter: ISO8601DateFormatter = {
@@ -25,9 +26,6 @@ actor TokenUsageService {
     /// Fetch token usage from local JSONL logs
     func fetchUsage() async throws -> TokenUsageSnapshot {
         if let task = inFlightTask {
-            #if DEBUG
-            print("⏳ Reusing in-flight token usage fetch")
-            #endif
             return try await task.value
         }
 
@@ -43,48 +41,55 @@ actor TokenUsageService {
     private func computeSnapshot() async throws -> TokenUsageSnapshot {
         let now = Date()
         let todayStart = Calendar.current.startOfDay(for: now)
-        let last7DaysStart = Calendar.current.date(byAdding: .day, value: -7, to: todayStart)!
-        let cutoff = last7DaysStart
+        let last30DaysStart = Calendar.current.date(byAdding: .day, value: -30, to: todayStart)!
+        let fileCutoff = Calendar.current.date(byAdding: .day, value: -31, to: todayStart)!
 
-        // Load file list
-        let jsonlFiles = try await self.loadAllJSONLFiles()
+        // Load only files modified in last 31 days
+        let jsonlFiles = try await self.loadAllJSONLFiles(modifiedAfter: fileCutoff)
+        let jsonlFileSet = Set(jsonlFiles)
 
         // Determine which files changed since last scan
         let (changed, unchanged) = self.filesNeedingUpdate(jsonlFiles)
 
-        // If no files changed and we have a snapshot, return it immediately
+        // If no files changed and we have a cached snapshot, return it
         if changed.isEmpty, let cached = self.lastSnapshot {
             return cached
         }
 
-        // Parse changed files concurrently and combine with unchanged by reusing previous aggregates if available
-        let changedEntries = try await self.parseJSONLFilesConcurrently(changed, cutoff: cutoff)
+        // Collect entries: reuse cached for unchanged files, parse changed files
+        var allEntries: [UsageEntry] = []
 
-        // For unchanged files, we avoid re-parsing to save time by relying on previous snapshot
-        // We still need all entries to compute today and last7Days summaries. If no cached snapshot, parse all.
-        var allEntries: [UsageEntry]
-        if let _ = self.lastSnapshot, !unchanged.isEmpty {
-            let unchangedEntries = try await self.parseJSONLFilesConcurrently(unchanged, cutoff: cutoff)
-            allEntries = changedEntries + unchangedEntries
-        } else {
-            let allParsed = try await self.parseJSONLFilesConcurrently(jsonlFiles, cutoff: cutoff)
-            allEntries = allParsed
+        // Add cached entries from unchanged files
+        for file in unchanged {
+            if let entries = cachedEntriesByFile[file] {
+                allEntries.append(contentsOf: entries.filter { $0.timestamp >= last30DaysStart })
+            }
+        }
+
+        // Parse changed files and cache results
+        for file in changed {
+            let entries = try parseJSONLFile(at: file, cutoff: last30DaysStart)
+            cachedEntriesByFile[file] = entries
+            allEntries.append(contentsOf: entries)
+        }
+
+        // Remove stale files from cache
+        for file in Set(cachedEntriesByFile.keys).subtracting(jsonlFileSet) {
+            cachedEntriesByFile.removeValue(forKey: file)
         }
 
         // Aggregate summaries
         let todayEntries = allEntries.filter { $0.timestamp >= todayStart }
-        let last7DaysEntries = allEntries // already filtered by cutoff during parsing
 
-        // Aggregate by model for last 7 days
         var byModel: [String: TokenCount] = [:]
-        for entry in last7DaysEntries {
+        for entry in allEntries {
             let existing = byModel[entry.model] ?? .zero
             byModel[entry.model] = existing + entry.tokens
         }
 
         let snapshot = TokenUsageSnapshot(
             today: self.aggregateSummary(entries: todayEntries, period: .today),
-            last7Days: self.aggregateSummary(entries: last7DaysEntries, period: .last7Days),
+            last30Days: self.aggregateSummary(entries: allEntries, period: .last30Days),
             byModel: byModel,
             fetchedAt: now
         )
@@ -98,24 +103,13 @@ actor TokenUsageService {
 
     // MARK: - Private Methods
 
-    private func loadAllJSONLFiles() async throws -> [URL] {
+    private func loadAllJSONLFiles(modifiedAfter cutoffDate: Date) async throws -> [URL] {
         var jsonlFiles: [URL] = []
         for directory in Constants.claudeProjectsDirectories {
-            let exists = fileManager.fileExists(atPath: directory.path)
-            #if DEBUG
-            print("📂 Checking \(directory.path): exists=\(exists)")
-            #endif
-            guard exists else { continue }
-
-            let files = try findJSONLFiles(in: directory)
-            #if DEBUG
-            print("📄 Found \(files.count) JSONL files in \(directory.lastPathComponent)")
-            #endif
+            guard fileManager.fileExists(atPath: directory.path) else { continue }
+            let files = try findJSONLFiles(in: directory, modifiedAfter: cutoffDate)
             jsonlFiles.append(contentsOf: files)
         }
-        #if DEBUG
-        print("📄 Total JSONL files: \(jsonlFiles.count)")
-        #endif
         return jsonlFiles
     }
 
@@ -140,19 +134,22 @@ actor TokenUsageService {
         }
     }
 
-    private func findJSONLFiles(in directory: URL) throws -> [URL] {
+    private func findJSONLFiles(in directory: URL, modifiedAfter cutoffDate: Date) throws -> [URL] {
         var jsonlFiles: [URL] = []
 
         guard let enumerator = fileManager.enumerator(
             at: directory,
-            includingPropertiesForKeys: [.isRegularFileKey],
+            includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
             options: [.skipsHiddenFiles]
         ) else {
             return []
         }
 
         for case let fileURL as URL in enumerator {
-            if fileURL.pathExtension == "jsonl" {
+            guard fileURL.pathExtension == "jsonl" else { continue }
+
+            if let modDate = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+               modDate >= cutoffDate {
                 jsonlFiles.append(fileURL)
             }
         }
@@ -160,52 +157,18 @@ actor TokenUsageService {
         return jsonlFiles
     }
 
-    private func parseJSONLFilesConcurrently(_ files: [URL], cutoff: Date?) async throws -> [UsageEntry] {
-        try await withThrowingTaskGroup(of: [UsageEntry].self) { group in
-            for file in files {
-                group.addTask { [weak self] in
-                    guard let self else { return [] }
-                    return try await self.parseJSONLFile(at: file, cutoff: cutoff)
-                }
-            }
-            var combined: [UsageEntry] = []
-            for try await entries in group {
-                combined.append(contentsOf: entries)
-            }
-            return combined
-        }
-    }
-
     private func parseJSONLFile(at url: URL, cutoff: Date?) throws -> [UsageEntry] {
-        let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
+        let data = try Data(contentsOf: url)
+        guard let content = String(data: data, encoding: .utf8) else { return [] }
 
-        var buffer = Data()
         var entries: [UsageEntry] = []
-
-        while true {
-            let chunk = try handle.read(upToCount: 64 * 1024)
-            if let chunk, !chunk.isEmpty {
-                buffer.append(chunk)
-                // Process complete lines
-                while let range = buffer.firstRange(of: Data([0x0A])) { // newline
-                    let lineData = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
-                    buffer.removeSubrange(buffer.startIndex...range.lowerBound)
-                    guard !lineData.isEmpty else { continue }
-                    if let entry = parseLogEntry(data: lineData, cutoff: cutoff) {
-                        entries.append(entry)
-                    }
-                }
-            } else {
-                break
+        for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
+            guard let lineData = line.data(using: .utf8),
+                  let entry = parseLogEntry(data: lineData, cutoff: cutoff) else {
+                continue
             }
-        }
-
-        // Process any remaining data as the last line (no trailing newline)
-        if !buffer.isEmpty, let entry = parseLogEntry(data: buffer, cutoff: cutoff) {
             entries.append(entry)
         }
-
         return entries
     }
 
