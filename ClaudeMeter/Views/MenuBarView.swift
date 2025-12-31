@@ -84,38 +84,68 @@ struct MenuBarView: View {
     }
 
     private func tokenCostSection(tokenSnapshot: TokenUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Divider()
 
-            Text("Token Usage")
+            Text("Token Usage & Cost")
                 .font(.subheadline)
                 .fontWeight(.semibold)
 
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Today")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 12) {
-                        Label(tokenSnapshot.today.formattedTokens, systemImage: "text.word.spacing")
-                        Label(tokenSnapshot.today.formattedCost, systemImage: "dollarsign.circle")
-                            .foregroundStyle(Constants.brandPrimary)
-                    }
+            // Today's usage - prominent display
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Today")
                     .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text(tokenSnapshot.today.formattedCost)
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(Constants.brandPrimary)
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.stack.3d.up")
+                            .font(.caption)
+                        Text(tokenSnapshot.today.formattedTokens)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundStyle(.secondary)
                 }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Constants.brandPrimary.opacity(0.08))
+            )
+
+            // 30-day usage - secondary display
+            HStack {
+                Text("30 Days")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("30 Days")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 12) {
-                        Label(tokenSnapshot.last30Days.formattedTokens, systemImage: "text.word.spacing")
-                        Label(tokenSnapshot.last30Days.formattedCost, systemImage: "dollarsign.circle")
-                            .foregroundStyle(Constants.brandPrimary)
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.stack.3d.up")
+                            .font(.caption2)
+                        Text(tokenSnapshot.last30Days.formattedTokens)
+                            .font(.caption)
+                            .fontWeight(.medium)
                     }
-                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    Text(tokenSnapshot.last30Days.formattedCost)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Constants.brandPrimary)
                 }
             }
         }
