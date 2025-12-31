@@ -13,34 +13,27 @@ struct SettingsView: View {
         @Bindable var viewModel = viewModel
 
         Form {
-            Section {
-                Picker("Refresh Interval", selection: $viewModel.refreshInterval) {
-                    ForEach(RefreshFrequency.allCases) { frequency in
-                        Text(frequency.displayName).tag(frequency)
-                    }
+            Picker("Refresh Interval", selection: $viewModel.refreshInterval) {
+                ForEach(RefreshFrequency.allCases) { frequency in
+                    Text(frequency.displayName).tag(frequency)
                 }
-            } header: {
-                Text("General")
             }
 
-            Section {
-                Button("Check for Updates…") {
+            LabeledContent("Check for Updates") {
+                Button("Check Now") {
                     updaterController.checkForUpdates()
                 }
                 .disabled(!updaterController.canCheckForUpdates)
-            } header: {
-                Text("Updates")
             }
 
-            Section {
-                LabeledContent("Version", value: Bundle.main.appVersion)
-                LabeledContent("Credentials", value: credentialsStatus)
-            } header: {
-                Text("About")
-            }
+            Divider()
+                .padding(.vertical, 4)
+
+            LabeledContent("Version", value: Bundle.main.appVersion)
+            LabeledContent("Credentials", value: credentialsStatus)
         }
         .formStyle(.grouped)
-        .frame(width: 350, height: 250)
+        .frame(width: 350, height: 200)
     }
 
     private var credentialsStatus: String {
