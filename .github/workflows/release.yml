@@ -68,13 +68,37 @@ jobs:
           cp build/${{ env.APP_NAME }}.zip releases/
 
           if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
-            # Use generate_appcast with private key via stdin (recommended by Sparkle maintainers)
-            # --unsafe-allow-unsigned is required for apps without Apple code signing
-            echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/generate_appcast \
-              --ed-key-file - \
-              --unsafe-allow-unsigned \
-              --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/" \
-              releases/
+            # Sign the zip with EdDSA and generate appcast manually (generate_appcast requires Apple code signing)
+            SIGNATURE=$(echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/sign_update --ed-key-file - -p build/${{ env.APP_NAME }}.zip)
+            FILE_SIZE=$(stat -f%z build/${{ env.APP_NAME }}.zip)
+            VERSION="${{ steps.version.outputs.version }}"
+            BUILD="${{ steps.version.outputs.build_number }}"
+            DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.APP_NAME }}.zip"
+            PUB_DATE=$(date -R)
+
+            cat > releases/appcast.xml << EOF
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>ClaudeMeter Updates</title>
+        <link>https://github.com/${{ github.repository }}/releases</link>
+        <description>Most recent updates to ClaudeMeter</description>
+        <language>en</language>
+        <item>
+            <title>Version ${VERSION}</title>
+            <pubDate>${PUB_DATE}</pubDate>
+            <sparkle:version>${BUILD}</sparkle:version>
+            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="${DOWNLOAD_URL}"
+                length="${FILE_SIZE}"
+                type="application/octet-stream"
+                sparkle:edSignature="${SIGNATURE}" />
+        </item>
+    </channel>
+</rss>
+EOF
 
             # Move generated appcast to repo root
             mv releases/appcast.xml appcast.xml
