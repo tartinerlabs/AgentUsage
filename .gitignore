@@ -1,0 +1,19 @@
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+build/
+
+# Sparkle private key (NEVER commit this!)
+sparkle_private_key
+*.pem
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Archives
+*.zip
+*.dmg

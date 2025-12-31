@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+env:
+  APP_NAME: ClaudeMeter
+  SCHEME: ClaudeMeter
+  SPARKLE_VERSION: "2.6.4"
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from release tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$(echo $VERSION | tr -d '.')" >> $GITHUB_OUTPUT
+
+      - name: Update version in project
+        run: |
+          sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${{ steps.version.outputs.version }};/g" ${{ env.APP_NAME }}.xcodeproj/project.pbxproj
+          sed -i '' "s/CURRENT_PROJECT_VERSION = .*;/CURRENT_PROJECT_VERSION = ${{ steps.version.outputs.build_number }};/g" ${{ env.APP_NAME }}.xcodeproj/project.pbxproj
+
+      - name: Build and archive
+        run: |
+          xcodebuild -project ${{ env.APP_NAME }}.xcodeproj \
+            -scheme ${{ env.SCHEME }} \
+            -configuration Release \
+            -archivePath build/${{ env.APP_NAME }}.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export app
+        run: |
+          mkdir -p build/export
+          cp -R "build/${{ env.APP_NAME }}.xcarchive/Products/Applications/${{ env.APP_NAME }}.app" build/export/
+
+      - name: Create zip
+        run: |
+          cd build/export
+          zip -r -y ../${{ env.APP_NAME }}.zip ${{ env.APP_NAME }}.app
+
+      - name: Download Sparkle
+        run: |
+          curl -L -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/${{ env.SPARKLE_VERSION }}/Sparkle-${{ env.SPARKLE_VERSION }}.tar.xz"
+          mkdir -p sparkle
+          tar -xf sparkle.tar.xz -C sparkle
+
+      - name: Sign update and generate appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          mkdir -p releases
+          cp build/${{ env.APP_NAME }}.zip releases/
+
+          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+            # Use generate_appcast with private key via stdin (recommended by Sparkle maintainers)
+            echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/generate_appcast \
+              --ed-key-file - \
+              --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/" \
+              releases/
+
+            # Move generated appcast to repo root
+            mv releases/appcast.xml appcast.xml
+          else
+            echo "::warning::SPARKLE_PRIVATE_KEY secret not set. Skipping signing."
+          fi
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/${{ env.APP_NAME }}.zip
+
+      - name: Commit updated appcast
+        if: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git diff --staged --quiet || git commit -m "Update appcast for ${{ github.ref_name }}"
+          git push origin HEAD:main

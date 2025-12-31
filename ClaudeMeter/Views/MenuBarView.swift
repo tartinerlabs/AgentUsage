@@ -233,5 +233,6 @@ struct MenuBarView: View {
 #Preview {
     MenuBarView()
         .environment(UsageViewModel())
+        .environmentObject(UpdaterController())
 }
 

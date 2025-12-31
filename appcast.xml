@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>ClaudeMeter Updates</title>
+        <link>https://github.com/tartinerlabs/ClaudeMeter/releases</link>
+        <description>Most recent updates to ClaudeMeter</description>
+        <language>en</language>
+
+        <!-- Example release entry - update this when you publish new versions -->
+        <item>
+            <title>Version 1.0</title>
+            <pubDate>Wed, 01 Jan 2025 00:00:00 +0000</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h2>Initial Release</h2>
+                <ul>
+                    <li>Monitor Claude API usage from your menu bar</li>
+                    <li>Track session, Opus, and Sonnet usage windows</li>
+                    <li>View token usage and costs</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v1.0/ClaudeMeter.zip"
+                length="0"
+                type="application/octet-stream"
+                sparkle:edSignature="SIGNATURE_HERE" />
+        </item>
+
+    </channel>
+</rss>
