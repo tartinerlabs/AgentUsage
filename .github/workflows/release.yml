@@ -86,7 +86,6 @@ jobs:
           files: build/${{ env.APP_NAME }}.zip
 
       - name: Commit updated appcast
-        if: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
