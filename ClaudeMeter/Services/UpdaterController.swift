@@ -3,6 +3,7 @@
 //  ClaudeMeter
 //
 
+internal import Combine
 import Foundation
 import Sparkle
 
@@ -34,3 +35,5 @@ final class UpdaterController: ObservableObject {
         updaterController.checkForUpdates(nil)
     }
 }
+
+
