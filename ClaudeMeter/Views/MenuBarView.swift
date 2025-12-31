@@ -9,6 +9,7 @@ internal import Combine
 struct MenuBarView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @State private var lastRefreshTap: Date?
     @State private var now = Date()
     private let uiThrottle: TimeInterval = 5
@@ -196,7 +197,10 @@ struct MenuBarView: View {
 
             Spacer()
 
-            SettingsLink {
+            Button {
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+            } label: {
                 Label("Settings", systemImage: "gear")
             }
 
