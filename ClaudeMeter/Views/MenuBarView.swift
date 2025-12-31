@@ -64,7 +64,10 @@ struct MenuBarView: View {
     private func contentSection(snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 16) {
             UsageRowView(title: "Session", usage: snapshot.session)
-            UsageRowView(title: "Weekly", usage: snapshot.weekly)
+            UsageRowView(title: "Opus", usage: snapshot.opus)
+            if let sonnet = snapshot.sonnet {
+                UsageRowView(title: "Sonnet", usage: sonnet)
+            }
         }
     }
 
