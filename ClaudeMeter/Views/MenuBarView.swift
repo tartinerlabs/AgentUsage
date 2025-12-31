@@ -122,32 +122,36 @@ struct MenuBarView: View {
                     .fill(Constants.brandPrimary.opacity(0.08))
             )
 
-            // 30-day usage - secondary display
-            HStack {
+            // 30-day usage - prominent display
+            VStack(alignment: .leading, spacing: 8) {
                 Text("30 Days")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .tracking(0.5)
 
-                Spacer()
+                HStack(alignment: .firstTextBaseline) {
+                    Text(tokenSnapshot.last30Days.formattedCost)
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(Constants.brandPrimary)
 
-                HStack(spacing: 16) {
+                    Spacer()
+
                     HStack(spacing: 4) {
                         Image(systemName: "square.stack.3d.up")
-                            .font(.caption2)
-                        Text(tokenSnapshot.last30Days.formattedTokens)
                             .font(.caption)
+                        Text(tokenSnapshot.last30Days.formattedTokens)
+                            .font(.subheadline)
                             .fontWeight(.medium)
                     }
                     .foregroundStyle(.secondary)
-
-                    Text(tokenSnapshot.last30Days.formattedCost)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Constants.brandPrimary)
                 }
             }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Constants.brandPrimary.opacity(0.08))
+            )
         }
     }
 
