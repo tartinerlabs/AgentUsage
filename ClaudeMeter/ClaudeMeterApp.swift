@@ -16,8 +16,7 @@ struct ClaudeMeterApp: App {
             MenuBarView()
                 .environment(viewModel)
                 .task {
-                    await viewModel.refresh()
-                    viewModel.startAutoRefresh()
+                    await viewModel.initializeIfNeeded()
                 }
         } label: {
             Image(systemName: "chart.bar.fill")

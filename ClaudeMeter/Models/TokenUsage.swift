@@ -107,7 +107,6 @@ struct TokenUsageSummary: Sendable {
 
     enum UsagePeriod: Sendable {
         case today
-        case last7Days
         case last30Days
     }
 
@@ -132,7 +131,7 @@ struct TokenUsageSummary: Sendable {
 /// Complete token usage snapshot
 struct TokenUsageSnapshot: Sendable {
     let today: TokenUsageSummary
-    let last7Days: TokenUsageSummary
+    let last30Days: TokenUsageSummary
     let byModel: [String: TokenCount]
     let fetchedAt: Date
 }

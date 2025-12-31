@@ -28,6 +28,7 @@ final class UsageViewModel {
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
     private let minForceRefreshInterval: TimeInterval = 20
+    private var hasInitialized = false
 
     init() {
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
@@ -63,6 +64,13 @@ final class UsageViewModel {
 
         lastRefreshTime = Date()
         isLoading = false
+    }
+
+    func initializeIfNeeded() async {
+        guard !hasInitialized else { return }
+        hasInitialized = true
+        await refresh()
+        startAutoRefresh()
     }
 
     func startAutoRefresh() {

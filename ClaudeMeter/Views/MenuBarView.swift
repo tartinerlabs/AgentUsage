@@ -111,12 +111,12 @@ struct MenuBarView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("7 Days")
+                    Text("30 Days")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     HStack(spacing: 12) {
-                        Label(tokenSnapshot.last7Days.formattedTokens, systemImage: "text.word.spacing")
-                        Label(tokenSnapshot.last7Days.formattedCost, systemImage: "dollarsign.circle")
+                        Label(tokenSnapshot.last30Days.formattedTokens, systemImage: "text.word.spacing")
+                        Label(tokenSnapshot.last30Days.formattedCost, systemImage: "dollarsign.circle")
                             .foregroundStyle(Constants.brandPrimary)
                     }
                     .font(.caption)
