@@ -10,11 +10,13 @@ import SwiftUI
 @main
 struct ClaudeMeterApp: App {
     @State private var viewModel = UsageViewModel()
+    @StateObject private var updaterController = UpdaterController()
 
     var body: some Scene {
         MenuBarExtra {
             MenuBarView()
                 .environment(viewModel)
+                .environmentObject(updaterController)
                 .task {
                     await viewModel.initializeIfNeeded()
                 }
@@ -26,6 +28,7 @@ struct ClaudeMeterApp: App {
         Settings {
             SettingsView()
                 .environment(viewModel)
+                .environmentObject(updaterController)
         }
 
         Window("About ClaudeMeter", id: "about") {

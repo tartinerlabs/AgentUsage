@@ -7,6 +7,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(UsageViewModel.self) private var viewModel
+    @EnvironmentObject private var updaterController: UpdaterController
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -23,6 +24,15 @@ struct SettingsView: View {
             }
 
             Section {
+                Button("Check for Updates…") {
+                    updaterController.checkForUpdates()
+                }
+                .disabled(!updaterController.canCheckForUpdates)
+            } header: {
+                Text("Updates")
+            }
+
+            Section {
                 LabeledContent("Version", value: Bundle.main.appVersion)
                 LabeledContent("Credentials", value: credentialsStatus)
             } header: {
@@ -30,7 +40,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 350, height: 200)
+        .frame(width: 350, height: 250)
     }
 
     private var credentialsStatus: String {
@@ -53,4 +63,5 @@ extension Bundle {
 #Preview {
     SettingsView()
         .environment(UsageViewModel())
+        .environmentObject(UpdaterController())
 }
