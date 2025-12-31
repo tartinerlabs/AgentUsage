@@ -30,7 +30,7 @@ MenuBarExtra + Settings Scene
     ↓ (.environment injection)
 UsageViewModel (@Observable, @MainActor)
     ↓
-CredentialService (actor)  +  ClaudeAPIService (actor)
+CredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (actor)
 ```
 
 ### Key Components
@@ -40,6 +40,7 @@ CredentialService (actor)  +  ClaudeAPIService (actor)
 | `UsageViewModel` | ViewModels/ | State manager with auto-refresh via `Task`. Persists refresh interval to `UserDefaults`. |
 | `CredentialService` | Services/ | Loads OAuth token from `~/.claude/.credentials.json`. Falls back to `NSOpenPanel` if sandboxed. |
 | `ClaudeAPIService` | Services/ | Fetches usage from Anthropic API. API constants in `Utilities/Constants.swift`. |
+| `TokenUsageService` | Services/ | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. |
 
 ### Data Models
 
@@ -50,6 +51,10 @@ CredentialService (actor)  +  ClaudeAPIService (actor)
 | `UsageWindowType` | Enum: `.session`, `.opus`, `.sonnet` |
 | `UsageStatus` | Enum: `.onTrack`, `.warning`, `.critical` - calculated from usage rate |
 | `ClaudeOAuthCredentials` | Token validation + `planDisplayName` for UI |
+| `TokenUsageSnapshot` | Contains `today`, `last7Days` summaries + `byModel` breakdown |
+| `TokenUsageSummary` | Aggregated tokens + cost USD for a period |
+| `TokenCount` | Input, output, cache creation, cache read token counts |
+| `ModelPricing` | Per-model pricing rates (MTok) from LiteLLM data |
 
 ### API Response Mapping
 
@@ -76,6 +81,13 @@ Follow [Swift API Design Guidelines](https://www.swift.org/documentation/api-des
 - **API**: `https://api.anthropic.com/api/oauth/usage`
 - **Auth**: Bearer token from `~/.claude/.credentials.json` (Claude CLI creates this)
 - **API Config**: See `Utilities/Constants.swift` for URLs and beta header
+
+### Local JSONL Logs
+
+Token usage and costs are calculated from Claude Code's local JSONL logs:
+- **Location**: `~/.claude/projects/` or `~/.config/claude/projects/`
+- **Format**: One JSON object per line with `message.model`, `message.usage`, `timestamp`
+- **Pricing**: Hardcoded rates from [LiteLLM pricing data](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)
 
 ## App Configuration
 
