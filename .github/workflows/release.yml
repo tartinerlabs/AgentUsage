@@ -69,8 +69,10 @@ jobs:
 
           if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
             # Use generate_appcast with private key via stdin (recommended by Sparkle maintainers)
+            # --unsafe-allow-unsigned is required for apps without Apple code signing
             echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/generate_appcast \
               --ed-key-file - \
+              --unsafe-allow-unsigned \
               --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/" \
               releases/
 
