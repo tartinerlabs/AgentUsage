@@ -9,6 +9,7 @@ import SwiftUI
 @MainActor @Observable
 final class UsageViewModel {
     var snapshot: UsageSnapshot?
+    var planType: String = "Free"
     var isLoading = false
     var errorMessage: String?
 
@@ -34,6 +35,7 @@ final class UsageViewModel {
 
         do {
             let credentials = try await credentialService.loadCredentials()
+            planType = credentials.planDisplayName
             snapshot = try await apiService.fetchUsage(token: credentials.accessToken)
         } catch {
             errorMessage = error.localizedDescription
