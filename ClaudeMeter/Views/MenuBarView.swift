@@ -76,13 +76,9 @@ struct MenuBarView: View {
                 UsageRowView(title: "Sonnet", usage: sonnet)
             }
 
-            // Token usage and cost
+            // Token usage and cost (shown when available, no loading indicator)
             if let tokenSnapshot = viewModel.tokenSnapshot {
                 tokenCostSection(tokenSnapshot: tokenSnapshot)
-            } else {
-                Text("Token data loading...")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }

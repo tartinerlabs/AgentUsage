@@ -55,15 +55,17 @@ final class UsageViewModel {
             errorMessage = error.localizedDescription
         }
 
-        // Fetch token usage separately (don't fail if this errors)
-        do {
-            tokenSnapshot = try await tokenService.fetchUsage()
-        } catch {
-            print("Token usage error: \(error)")
-        }
-
         lastRefreshTime = Date()
         isLoading = false
+
+        // Fetch token usage in background (don't block main refresh)
+        Task {
+            do {
+                tokenSnapshot = try await tokenService.fetchUsage()
+            } catch {
+                print("Token usage error: \(error)")
+            }
+        }
     }
 
     func initializeIfNeeded() async {
