@@ -9,66 +9,112 @@ struct MenuBarView: View {
     @Environment(UsageViewModel.self) private var viewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack {
-                Text("Claude Code Usage")
-                    .font(.headline)
-                Spacer()
-                if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                }
-            }
+            headerSection
 
             Divider()
+                .padding(.vertical, 8)
 
             // Content
             if let snapshot = viewModel.snapshot {
-                UsageRowView(title: "Session (5hr)", usage: snapshot.session)
-                UsageRowView(title: "Weekly", usage: snapshot.weekly)
-
-                Divider()
-
-                Text("Updated \(snapshot.lastUpdatedDescription)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                contentSection(snapshot: snapshot)
             } else if let error = viewModel.errorMessage {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Error", systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.red)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                errorSection(error: error)
             } else {
-                Text("Loading...")
-                    .foregroundStyle(.secondary)
+                loadingSection
             }
 
             Divider()
+                .padding(.vertical, 8)
 
             // Actions
-            HStack {
-                Button("Refresh") {
-                    Task { await viewModel.refresh() }
-                }
-                .disabled(viewModel.isLoading)
+            actionsSection
+        }
+        .padding(16)
+        .frame(width: 300)
+    }
 
-                Spacer()
+    // MARK: - Header
 
-                SettingsLink {
-                    Text("Settings")
-                }
-
-                Button("Quit") {
-                    NSApplication.shared.terminate(nil)
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text("Claude")
+                    .font(.headline)
+                Text(viewModel.planType)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+                if viewModel.isLoading {
+                    ProgressView()
+                        .scaleEffect(0.6)
                 }
             }
-            .buttonStyle(.borderless)
+            if let snapshot = viewModel.snapshot {
+                Text("Updated \(snapshot.lastUpdatedDescription)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .padding()
-        .frame(width: 280)
+    }
+
+    // MARK: - Content
+
+    private func contentSection(snapshot: UsageSnapshot) -> some View {
+        VStack(spacing: 16) {
+            UsageRowView(title: "Session", usage: snapshot.session)
+            UsageRowView(title: "Weekly", usage: snapshot.weekly)
+        }
+    }
+
+    private func errorSection(error: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Error", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var loadingSection: some View {
+        HStack {
+            Spacer()
+            ProgressView()
+            Text("Loading...")
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.vertical, 20)
+    }
+
+    // MARK: - Actions
+
+    private var actionsSection: some View {
+        HStack {
+            Button {
+                Task { await viewModel.refresh() }
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
+            }
+            .disabled(viewModel.isLoading)
+
+            Spacer()
+
+            SettingsLink {
+                Label("Settings", systemImage: "gear")
+            }
+
+            Button(role: .destructive) {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label("Quit", systemImage: "power")
+            }
+        }
+        .buttonStyle(.borderless)
+        .labelStyle(.iconOnly)
     }
 }
 

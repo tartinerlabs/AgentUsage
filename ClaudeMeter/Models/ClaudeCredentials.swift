@@ -32,4 +32,17 @@ struct ClaudeOAuthCredentials: Codable {
         guard let scopes else { return true }
         return scopes.contains("user:profile")
     }
+
+    /// Human-readable plan name for display
+    var planDisplayName: String {
+        guard let subscriptionType else { return "Free" }
+        switch subscriptionType.lowercased() {
+        case "max", "claude_max": return "Max"
+        case "pro", "claude_pro": return "Pro"
+        case "team", "claude_team": return "Team"
+        case "enterprise": return "Enterprise"
+        case "free": return "Free"
+        default: return subscriptionType.capitalized
+        }
+    }
 }

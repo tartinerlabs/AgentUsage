@@ -10,19 +10,44 @@ struct UsageRowView: View {
     let usage: UsageWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Gauge(value: usage.normalized) {
+        VStack(alignment: .leading, spacing: 8) {
+            // Title row
+            HStack {
                 Text(title)
-            } currentValueLabel: {
-                Text("\(usage.percentUsed)%")
-                    .foregroundStyle(usage.color)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text("Resets in \(usage.timeUntilReset)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .gaugeStyle(.linearCapacity)
-            .tint(usage.color)
 
-            Text("Resets in \(usage.timeUntilReset)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Track
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(height: 8)
+
+                    // Fill
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Constants.brandPrimary)
+                        .frame(width: geometry.size.width * usage.normalized, height: 8)
+                }
+            }
+            .frame(height: 8)
+
+            // Stats row
+            HStack {
+                Text("\(usage.percentUsed)% used")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Label(usage.status.label, systemImage: usage.status.icon)
+                    .font(.caption)
+                    .foregroundStyle(usage.status.color)
+            }
         }
     }
 }
@@ -30,14 +55,30 @@ struct UsageRowView: View {
 #Preview {
     VStack(spacing: 20) {
         UsageRowView(
-            title: "Session (5hr)",
-            usage: UsageWindow(utilization: 45, resetsAt: Date().addingTimeInterval(3600))
+            title: "Session",
+            usage: UsageWindow(
+                utilization: 25,
+                resetsAt: Date().addingTimeInterval(3600),
+                windowType: .session
+            )
         )
         UsageRowView(
             title: "Weekly",
-            usage: UsageWindow(utilization: 75, resetsAt: Date().addingTimeInterval(86400))
+            usage: UsageWindow(
+                utilization: 8,
+                resetsAt: Date().addingTimeInterval(86400 * 3),
+                windowType: .weekly
+            )
+        )
+        UsageRowView(
+            title: "Warning Example",
+            usage: UsageWindow(
+                utilization: 75,
+                resetsAt: Date().addingTimeInterval(3600),
+                windowType: .session
+            )
         )
     }
     .padding()
-    .frame(width: 280)
+    .frame(width: 300)
 }

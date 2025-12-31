@@ -87,16 +87,18 @@ actor ClaudeAPIService {
         let session = response.fiveHour.map {
             UsageWindow(
                 utilization: $0.utilization,
-                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date()
+                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
+                windowType: .session
             )
-        } ?? UsageWindow(utilization: 0, resetsAt: Date())
+        } ?? UsageWindow(utilization: 0, resetsAt: Date(), windowType: .session)
 
         let weekly = response.sevenDay.map {
             UsageWindow(
                 utilization: $0.utilization,
-                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date()
+                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
+                windowType: .weekly
             )
-        } ?? UsageWindow(utilization: 0, resetsAt: Date())
+        } ?? UsageWindow(utilization: 0, resetsAt: Date(), windowType: .weekly)
 
         return UsageSnapshot(
             session: session,
