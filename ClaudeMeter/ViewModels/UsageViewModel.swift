@@ -9,6 +9,7 @@ import SwiftUI
 @MainActor @Observable
 final class UsageViewModel {
     var snapshot: UsageSnapshot?
+    var tokenSnapshot: TokenUsageSnapshot?
     var planType: String = "Free"
     var isLoading = false
     var errorMessage: String?
@@ -22,14 +23,26 @@ final class UsageViewModel {
 
     private let credentialService = CredentialService()
     private let apiService = ClaudeAPIService()
+    private let tokenService = TokenUsageService()
     private var refreshTask: Task<Void, Never>?
+    private var lastRefreshTime: Date?
+    private let minRefreshInterval: TimeInterval = 30
+    private let minForceRefreshInterval: TimeInterval = 20
 
     init() {
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
     }
 
-    func refresh() async {
+    func refresh(force: Bool = false) async {
+        let minInterval = force ? minForceRefreshInterval : minRefreshInterval
+
+        // Rate limit: skip if refreshed recently (first load always proceeds)
+        if let lastRefresh = lastRefreshTime,
+           Date().timeIntervalSince(lastRefresh) < minInterval {
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
@@ -41,6 +54,14 @@ final class UsageViewModel {
             errorMessage = error.localizedDescription
         }
 
+        // Fetch token usage separately (don't fail if this errors)
+        do {
+            tokenSnapshot = try await tokenService.fetchUsage()
+        } catch {
+            print("Token usage error: \(error)")
+        }
+
+        lastRefreshTime = Date()
         isLoading = false
     }
 

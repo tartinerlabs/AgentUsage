@@ -26,4 +26,13 @@ enum Constants {
     static var usageURL: URL {
         URL(string: apiBaseURL + apiUsagePath)!
     }
+
+    // MARK: - Local Data
+    nonisolated static var claudeProjectsDirectories: [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return [
+            home.appendingPathComponent(".claude/projects"),
+            home.appendingPathComponent(".config/claude/projects")
+        ]
+    }
 }
