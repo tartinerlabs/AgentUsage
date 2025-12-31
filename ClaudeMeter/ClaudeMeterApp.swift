@@ -27,5 +27,11 @@ struct ClaudeMeterApp: App {
             SettingsView()
                 .environment(viewModel)
         }
+
+        Window("About ClaudeMeter", id: "about") {
+            AboutView()
+        }
+        .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
     }
 }
