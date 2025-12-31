@@ -125,6 +125,7 @@
 			);
 			name = ClaudeMeter;
 			packageProductDependencies = (
+				D8EFFFC12F05CD75006A2183 /* Sparkle */,
 			);
 			productName = ClaudeMeter;
 			productReference = D8EFFF722F05796A006A2183 /* ClaudeMeter.app */;
@@ -644,6 +645,14 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D8EFFFC12F05CD75006A2183 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D8EFFFC02F05CD75006A2183 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D8EFFF6A2F05796A006A2183 /* Project object */;
 }
