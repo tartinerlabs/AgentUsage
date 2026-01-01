@@ -17,17 +17,18 @@ enum Constants {
     static let apiUsagePath = "/api/oauth/usage"
     static let anthropicBetaHeader = "oauth-2025-04-20"
 
+    static var usageURL: URL {
+        URL(string: apiBaseURL + apiUsagePath)!
+    }
+
+    // MARK: - macOS Only (file system access)
+    #if os(macOS)
     static var credentialsFileURL: URL {
         return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude")
             .appendingPathComponent(".credentials.json")
     }
 
-    static var usageURL: URL {
-        URL(string: apiBaseURL + apiUsagePath)!
-    }
-
-    // MARK: - Local Data
     nonisolated static var claudeProjectsDirectories: [URL] {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return [
@@ -35,4 +36,5 @@ enum Constants {
             home.appendingPathComponent(".config/claude/projects")
         ]
     }
+    #endif
 }

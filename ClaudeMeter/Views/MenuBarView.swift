@@ -3,6 +3,7 @@
 //  ClaudeMeter
 //
 
+#if os(macOS)
 import SwiftUI
 internal import Combine
 
@@ -230,7 +231,6 @@ struct MenuBarView: View {
     }
 }
 
-#if os(macOS)
 #Preview {
     MenuBarView()
         .environment(UsageViewModel(credentialProvider: MacOSCredentialService()))

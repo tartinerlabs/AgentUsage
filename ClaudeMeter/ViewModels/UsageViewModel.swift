@@ -23,13 +23,16 @@ final class UsageViewModel {
 
     private let credentialProvider: any CredentialProvider
     private let apiService = ClaudeAPIService()
-    private let tokenService: TokenUsageService?  // nil on iOS
+    #if os(macOS)
+    private let tokenService: TokenUsageService?
+    #endif
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
     private let minForceRefreshInterval: TimeInterval = 20
     private var hasInitialized = false
 
+    #if os(macOS)
     init(
         credentialProvider: any CredentialProvider,
         tokenService: TokenUsageService? = nil
@@ -39,6 +42,13 @@ final class UsageViewModel {
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
     }
+    #else
+    init(credentialProvider: any CredentialProvider) {
+        self.credentialProvider = credentialProvider
+        let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
+        self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
+    }
+    #endif
 
     func refresh(force: Bool = false) async {
         let minInterval = force ? minForceRefreshInterval : minRefreshInterval
@@ -64,6 +74,7 @@ final class UsageViewModel {
         isLoading = false
 
         // Fetch token usage in background (macOS only)
+        #if os(macOS)
         if let tokenService {
             Task {
                 do {
@@ -73,6 +84,7 @@ final class UsageViewModel {
                 }
             }
         }
+        #endif
     }
 
     func initializeIfNeeded() async {

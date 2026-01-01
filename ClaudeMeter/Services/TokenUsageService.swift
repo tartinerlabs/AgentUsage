@@ -3,6 +3,7 @@
 //  ClaudeMeter
 //
 
+#if os(macOS)
 import Foundation
 
 actor TokenUsageService {
@@ -233,3 +234,4 @@ actor TokenUsageService {
         return inputCost + outputCost + cacheWriteCost + cacheReadCost
     }
 }
+#endif

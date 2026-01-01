@@ -3,6 +3,7 @@
 //  ClaudeMeter
 //
 
+#if os(macOS)
 import SwiftUI
 
 struct AboutView: View {
@@ -61,3 +62,4 @@ struct AboutView: View {
 #Preview {
     AboutView()
 }
+#endif
