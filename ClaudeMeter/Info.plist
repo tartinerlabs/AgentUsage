@@ -5,7 +5,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/tartinerlabs/ClaudeMeter/main/appcast.xml</string>
+	<string>https://tartinerlabs.github.io/ClaudeMeter/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>pX1LB6RuvVq8WZPQv181rs1Aq0eoR0w/87lMlf4xg/s=</string>
 </dict>
