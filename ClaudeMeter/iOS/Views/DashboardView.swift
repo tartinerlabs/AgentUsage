@@ -1,0 +1,167 @@
+//
+//  DashboardView.swift
+//  ClaudeMeter
+//
+
+#if os(iOS)
+import SwiftUI
+
+/// Main iOS dashboard showing Claude usage
+struct DashboardView: View {
+    @Environment(UsageViewModel.self) private var viewModel
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                headerCard
+
+                if let snapshot = viewModel.snapshot {
+                    usageCardsSection(snapshot: snapshot)
+                } else if let error = viewModel.errorMessage {
+                    errorView(error)
+                } else if viewModel.isLoading {
+                    loadingView
+                } else {
+                    emptyStateView
+                }
+            }
+            .padding()
+        }
+        .background(Color(.systemGroupedBackground))
+        .refreshable {
+            await viewModel.refresh(force: true)
+        }
+        .navigationTitle("ClaudeMeter")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink {
+                    SettingsView()
+                        .environment(viewModel)
+                } label: {
+                    Image(systemName: "gear")
+                }
+            }
+        }
+        .task {
+            await viewModel.initializeIfNeeded()
+        }
+    }
+
+    // MARK: - Header
+
+    private var headerCard: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Claude")
+                    .font(.headline)
+                Text(viewModel.planType)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Constants.brandPrimary.opacity(0.2))
+                    .foregroundStyle(Constants.brandPrimary)
+                    .clipShape(Capsule())
+                Spacer()
+                if viewModel.isLoading {
+                    ProgressView()
+                }
+            }
+            if let snapshot = viewModel.snapshot {
+                Text("Updated \(snapshot.lastUpdatedDescription)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
+    }
+
+    // MARK: - Usage Cards
+
+    @ViewBuilder
+    private func usageCardsSection(snapshot: UsageSnapshot) -> some View {
+        UsageCardView(title: "Session", usage: snapshot.session)
+        UsageCardView(title: "Opus", usage: snapshot.opus)
+        if let sonnet = snapshot.sonnet {
+            UsageCardView(title: "Sonnet", usage: sonnet)
+        }
+    }
+
+    // MARK: - States
+
+    private func errorView(_ error: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+            Text("Unable to Load Usage")
+                .font(.headline)
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Retry") {
+                Task {
+                    await viewModel.refresh(force: true)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Constants.brandPrimary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .scaleEffect(1.5)
+            Text("Loading usage data...")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text("No Data")
+                .font(.headline)
+            Text("Pull down to refresh")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
+    }
+}
+
+#Preview {
+    NavigationStack {
+        DashboardView()
+            .environment(UsageViewModel(
+                credentialProvider: iOSCredentialService()
+            ))
+    }
+}
+#endif
