@@ -66,6 +66,13 @@ final class UsageViewModel {
             let credentials = try await credentialProvider.loadCredentials()
             planType = credentials.planDisplayName
             snapshot = try await apiService.fetchUsage(token: credentials.accessToken)
+
+            // Cache snapshot for widgets (iOS only)
+            #if os(iOS)
+            if let snapshot {
+                await WidgetDataManager.shared.save(snapshot)
+            }
+            #endif
         } catch {
             errorMessage = error.localizedDescription
         }

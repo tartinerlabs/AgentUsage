@@ -1,6 +1,9 @@
 //
 //  UsageData.swift
-//  ClaudeMeter
+//  ClaudeMeterWidgets
+//
+//  Shared models for widget extension
+//  Note: This is a copy of the main app's UsageData.swift for widget target membership
 //
 
 import Foundation
@@ -37,21 +40,21 @@ enum UsageStatus: String, Sendable, Codable {
 }
 
 enum UsageWindowType: String, Sendable, Codable {
-    case session  // 5 hours (five_hour)
-    case opus     // 7 days - default weekly limit (seven_day)
-    case sonnet   // 7 days - separate Sonnet limit (seven_day_sonnet)
+    case session
+    case opus
+    case sonnet
 
     var totalDuration: TimeInterval {
         switch self {
-        case .session: 5 * 60 * 60      // 5 hours in seconds
-        case .opus: 7 * 24 * 60 * 60    // 7 days in seconds
-        case .sonnet: 7 * 24 * 60 * 60  // 7 days in seconds
+        case .session: 5 * 60 * 60
+        case .opus: 7 * 24 * 60 * 60
+        case .sonnet: 7 * 24 * 60 * 60
         }
     }
 }
 
 struct UsageWindow: Sendable, Codable {
-    let utilization: Double  // API returns percentage (0-100), not decimal (0-1)
+    let utilization: Double
     let resetsAt: Date
     let windowType: UsageWindowType
 
@@ -60,7 +63,7 @@ struct UsageWindow: Sendable, Codable {
     }
 
     var normalized: Double {
-        min(max(utilization / 100.0, 0), 1)  // Clamped 0-1 for Gauge/ProgressView
+        min(max(utilization / 100.0, 0), 1)
     }
 
     var timeUntilReset: String {
@@ -80,7 +83,6 @@ struct UsageWindow: Sendable, Codable {
         }
     }
 
-    /// Calculate usage status based on whether current usage rate is sustainable
     var status: UsageStatus {
         let timeRemaining = resetsAt.timeIntervalSinceNow
         guard timeRemaining > 0 else { return .onTrack }
@@ -88,14 +90,9 @@ struct UsageWindow: Sendable, Codable {
         let totalDuration = windowType.totalDuration
         let timeElapsed = totalDuration - timeRemaining
         let timeElapsedRatio = timeElapsed / totalDuration
-
-        // Expected usage if consuming evenly over the window
         let expectedUsage = timeElapsedRatio * 100
-
-        // How much ahead/behind schedule
         let difference = utilization - expectedUsage
 
-        // Thresholds: within 10% is on track, within 25% is warning
         if difference <= 10 {
             return .onTrack
         } else if difference <= 25 {
@@ -108,8 +105,8 @@ struct UsageWindow: Sendable, Codable {
 
 struct UsageSnapshot: Sendable, Codable {
     let session: UsageWindow
-    let opus: UsageWindow      // Weekly default limit (was "seven_day")
-    let sonnet: UsageWindow?   // Separate Sonnet limit (if available)
+    let opus: UsageWindow
+    let sonnet: UsageWindow?
     let fetchedAt: Date
 
     var lastUpdatedDescription: String {
@@ -118,7 +115,6 @@ struct UsageSnapshot: Sendable, Codable {
         return formatter.localizedString(for: fetchedAt, relativeTo: Date())
     }
 
-    /// Placeholder data for widget previews
     static let placeholder = UsageSnapshot(
         session: UsageWindow(
             utilization: 45,
