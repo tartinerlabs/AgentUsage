@@ -21,16 +21,21 @@ final class UsageViewModel {
         }
     }
 
-    private let credentialService = CredentialService()
+    private let credentialProvider: any CredentialProvider
     private let apiService = ClaudeAPIService()
-    private let tokenService = TokenUsageService()
+    private let tokenService: TokenUsageService?  // nil on iOS
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
     private let minForceRefreshInterval: TimeInterval = 20
     private var hasInitialized = false
 
-    init() {
+    init(
+        credentialProvider: any CredentialProvider,
+        tokenService: TokenUsageService? = nil
+    ) {
+        self.credentialProvider = credentialProvider
+        self.tokenService = tokenService
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
     }
@@ -48,7 +53,7 @@ final class UsageViewModel {
         errorMessage = nil
 
         do {
-            let credentials = try await credentialService.loadCredentials()
+            let credentials = try await credentialProvider.loadCredentials()
             planType = credentials.planDisplayName
             snapshot = try await apiService.fetchUsage(token: credentials.accessToken)
         } catch {
@@ -58,12 +63,14 @@ final class UsageViewModel {
         lastRefreshTime = Date()
         isLoading = false
 
-        // Fetch token usage in background (don't block main refresh)
-        Task {
-            do {
-                tokenSnapshot = try await tokenService.fetchUsage()
-            } catch {
-                print("Token usage error: \(error)")
+        // Fetch token usage in background (macOS only)
+        if let tokenService {
+            Task {
+                do {
+                    tokenSnapshot = try await tokenService.fetchUsage()
+                } catch {
+                    print("Token usage error: \(error)")
+                }
             }
         }
     }

@@ -230,9 +230,11 @@ struct MenuBarView: View {
     }
 }
 
+#if os(macOS)
 #Preview {
     MenuBarView()
-        .environment(UsageViewModel())
+        .environment(UsageViewModel(credentialProvider: MacOSCredentialService()))
         .environmentObject(UpdaterController())
 }
+#endif
 

@@ -6,7 +6,7 @@
 import Foundation
 import SwiftUI
 
-enum UsageStatus: Sendable {
+enum UsageStatus: String, Sendable, Codable {
     case onTrack
     case warning
     case critical
@@ -36,7 +36,7 @@ enum UsageStatus: Sendable {
     }
 }
 
-enum UsageWindowType: Sendable {
+enum UsageWindowType: String, Sendable, Codable {
     case session  // 5 hours (five_hour)
     case opus     // 7 days - default weekly limit (seven_day)
     case sonnet   // 7 days - separate Sonnet limit (seven_day_sonnet)
@@ -50,7 +50,7 @@ enum UsageWindowType: Sendable {
     }
 }
 
-struct UsageWindow: Sendable {
+struct UsageWindow: Sendable, Codable {
     let utilization: Double  // API returns percentage (0-100), not decimal (0-1)
     let resetsAt: Date
     let windowType: UsageWindowType
@@ -106,7 +106,7 @@ struct UsageWindow: Sendable {
     }
 }
 
-struct UsageSnapshot: Sendable {
+struct UsageSnapshot: Sendable, Codable {
     let session: UsageWindow
     let opus: UsageWindow      // Weekly default limit (was "seven_day")
     let sonnet: UsageWindow?   // Separate Sonnet limit (if available)

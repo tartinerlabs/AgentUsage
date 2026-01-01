@@ -3,6 +3,7 @@
 //  ClaudeMeter
 //
 
+#if os(macOS)
 import SwiftUI
 
 struct SettingsView: View {
@@ -55,6 +56,7 @@ extension Bundle {
 
 #Preview {
     SettingsView()
-        .environment(UsageViewModel())
+        .environment(UsageViewModel(credentialProvider: MacOSCredentialService()))
         .environmentObject(UpdaterController())
 }
+#endif

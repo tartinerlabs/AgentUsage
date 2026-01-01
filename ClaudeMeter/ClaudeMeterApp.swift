@@ -9,8 +9,17 @@ import SwiftUI
 
 @main
 struct ClaudeMeterApp: App {
-    @State private var viewModel = UsageViewModel()
+    @State private var viewModel: UsageViewModel
     @StateObject private var updaterController = UpdaterController()
+
+    init() {
+        let credentialService = MacOSCredentialService()
+        let tokenService = TokenUsageService()
+        _viewModel = State(initialValue: UsageViewModel(
+            credentialProvider: credentialService,
+            tokenService: tokenService
+        ))
+    }
 
     var body: some Scene {
         MenuBarExtra {
