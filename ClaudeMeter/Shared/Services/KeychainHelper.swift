@@ -6,12 +6,13 @@
 import Foundation
 import Security
 
-/// Helper for iCloud Keychain credential storage and sync
+/// Helper for Keychain credential storage
+/// TODO: Enable iCloud Keychain sync when paid developer account is available
 enum KeychainHelper {
     static let service = "com.tartinerlabs.ClaudeMeter"
     static let account = "claude-oauth-credentials"
 
-    /// Save credentials to iCloud Keychain (syncs across devices)
+    /// Save credentials to Keychain
     static func saveCredentials(_ credentials: ClaudeOAuthCredentials) throws {
         let encoder = JSONEncoder()
         let data = try encoder.encode(credentials)
@@ -21,38 +22,49 @@ enum KeychainHelper {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
+            // TODO: Uncomment for iCloud sync (requires paid developer account)
+            // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
-        SecItemDelete(deleteQuery as CFDictionary)
+        let deleteStatus = SecItemDelete(deleteQuery as CFDictionary)
+        print("[KeychainHelper] Delete existing: \(deleteStatus)")
 
-        // Add new item with iCloud sync enabled
+        // Add new item to Keychain
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: data,
-            kSecAttrSynchronizable as String: kCFBooleanTrue!,  // Enable iCloud Keychain sync
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+            // TODO: Uncomment for iCloud sync (requires paid developer account)
+            // kSecAttrSynchronizable as String: kCFBooleanTrue!
         ]
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
+        print("[KeychainHelper] Save credentials: \(status) (\(status == errSecSuccess ? "success" : "error: \(status)"))")
+
         guard status == errSecSuccess else {
             throw CredentialError.keychainError(status)
         }
+
+        print("[KeychainHelper] Credentials saved to Keychain successfully")
     }
 
-    /// Load credentials from iCloud Keychain
+    /// Load credentials from Keychain
     static func loadCredentials() throws -> ClaudeOAuthCredentials {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,  // Search both sync and non-sync items
             kSecReturnData as String: kCFBooleanTrue!,
             kSecMatchLimit as String: kSecMatchLimitOne
+            // TODO: Uncomment for iCloud sync (requires paid developer account)
+            // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        print("[KeychainHelper] Load credentials: \(status) (\(status == errSecSuccess ? "success" : status == errSecItemNotFound ? "not found" : "error: \(status)"))")
 
         guard status == errSecSuccess else {
             if status == errSecItemNotFound {
@@ -66,7 +78,9 @@ enum KeychainHelper {
         }
 
         let decoder = JSONDecoder()
-        return try decoder.decode(ClaudeOAuthCredentials.self, from: data)
+        let credentials = try decoder.decode(ClaudeOAuthCredentials.self, from: data)
+        print("[KeychainHelper] Credentials loaded successfully")
+        return credentials
     }
 
     /// Delete credentials from Keychain
@@ -74,8 +88,9 @@ enum KeychainHelper {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+            kSecAttrAccount as String: account
+            // TODO: Uncomment for iCloud sync (requires paid developer account)
+            // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
         SecItemDelete(query as CFDictionary)
     }
