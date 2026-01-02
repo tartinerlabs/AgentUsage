@@ -11,5 +11,6 @@ struct ClaudeMeterWidgetsBundle: WidgetBundle {
     var body: some Widget {
         ClaudeMeterWidgets()
         ClaudeMeterLockScreenWidget()
+        ClaudeMeterWidgetsLiveActivity()
     }
 }

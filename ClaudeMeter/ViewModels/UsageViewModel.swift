@@ -67,10 +67,11 @@ final class UsageViewModel {
             planType = credentials.planDisplayName
             snapshot = try await apiService.fetchUsage(token: credentials.accessToken)
 
-            // Cache snapshot for widgets (iOS only)
+            // Cache snapshot for widgets and update Live Activity (iOS only)
             #if os(iOS)
             if let snapshot {
                 await WidgetDataManager.shared.save(snapshot)
+                await LiveActivityManager.shared.update(snapshot: snapshot)
             }
             #endif
         } catch {

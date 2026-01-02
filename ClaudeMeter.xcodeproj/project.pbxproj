@@ -89,6 +89,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				iOS/Services/iOSCredentialService.swift,
+				iOS/Services/LiveActivityManager.swift,
 				iOS/Views/DashboardView.swift,
 				"iOS/Views/SettingsView+iOS.swift",
 				Models/ClaudeCredentials.swift,
@@ -97,6 +98,7 @@
 				Services/ClaudeAPIService.swift,
 				Services/TokenUsageService.swift,
 				Services/UpdaterController.swift,
+				Shared/Models/LiveActivityAttributes.swift,
 				Shared/Services/CredentialProvider.swift,
 				Shared/Services/KeychainHelper.swift,
 				Shared/Services/WidgetDataManager.swift,
