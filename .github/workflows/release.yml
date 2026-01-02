@@ -21,12 +21,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Extract version from release tag
+      - name: Read version from xcconfig
         id: version
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          VERSION=$(grep 'MARKETING_VERSION' Config/Version.xcconfig | cut -d'=' -f2 | tr -d ' ')
+          BUILD_NUMBER=$(grep 'CURRENT_PROJECT_VERSION' Config/Version.xcconfig | cut -d'=' -f2 | tr -d ' ')
+          TAG_VERSION=${GITHUB_REF_NAME#v}
+
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match xcconfig version ($VERSION)"
+            exit 1
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "build_number=$(echo $VERSION | tr -d '.')" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Update version in project
         run: |
