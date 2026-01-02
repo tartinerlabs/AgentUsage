@@ -40,13 +40,14 @@ struct ClaudeMeterWidgetsLiveActivity: Widget {
             DynamicIsland {
                 // Expanded regions
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 4) {
+                    HStack {
                         Image(systemName: context.state.status.icon)
                             .foregroundStyle(context.state.status.color)
                         Text(context.attributes.selectedMetric)
                             .font(.caption)
                             .fontWeight(.medium)
                     }
+                    .padding(.horizontal, 6)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
@@ -54,6 +55,7 @@ struct ClaudeMeterWidgetsLiveActivity: Widget {
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundStyle(context.state.status.color)
+                        .padding(.horizontal, 6)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
@@ -61,17 +63,17 @@ struct ClaudeMeterWidgetsLiveActivity: Widget {
                         // Progress bar
                         GeometryReader { geometry in
                             ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: 0)
                                     .fill(Color.secondary.opacity(0.3))
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: 0)
                                     .fill(context.state.status.color)
                                     .frame(width: geometry.size.width * CGFloat(context.state.percentUsed) / 100)
                             }
                         }
-                        .frame(height: 8)
+                        .padding(.horizontal, 6)
 
                         HStack {
-                            Text("Usage")
+                            Text("\(context.state.percentUsed)% used")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -79,8 +81,9 @@ struct ClaudeMeterWidgetsLiveActivity: Widget {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
+                        .padding(.horizontal, 6)
                     }
-                    .padding(.top, 4)
+                    .padding(.horizontal, 6)
                 }
 
             } compactLeading: {
@@ -190,3 +193,4 @@ extension ClaudeMeterLiveActivityAttributes.ContentState {
     ClaudeMeterLiveActivityAttributes.ContentState.warning
     ClaudeMeterLiveActivityAttributes.ContentState.critical
 }
+
