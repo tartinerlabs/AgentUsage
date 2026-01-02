@@ -4,11 +4,13 @@
 //
 
 #if os(iOS)
+import ActivityKit
 import SwiftUI
 
 /// Main iOS dashboard showing Claude usage
 struct DashboardView: View {
     @Environment(UsageViewModel.self) private var viewModel
+    @StateObject private var liveActivityManager = LiveActivityManager.shared
 
     var body: some View {
         ScrollView {
@@ -16,6 +18,7 @@ struct DashboardView: View {
                 headerCard
 
                 if let snapshot = viewModel.snapshot {
+                    liveActivityCard(snapshot: snapshot)
                     usageCardsSection(snapshot: snapshot)
                 } else if let error = viewModel.errorMessage {
                     errorView(error)
@@ -44,6 +47,64 @@ struct DashboardView: View {
         }
         .task {
             await viewModel.initializeIfNeeded()
+        }
+    }
+
+    // MARK: - Live Activity Card
+
+    @ViewBuilder
+    private func liveActivityCard(snapshot: UsageSnapshot) -> some View {
+        if ActivityAuthorizationInfo().areActivitiesEnabled {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "person.text.rectangle")
+                        .foregroundStyle(Constants.brandPrimary)
+                    Text("Live Activity")
+                        .font(.headline)
+                    Spacer()
+                    if liveActivityManager.isRunning {
+                        Text("Active")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                if liveActivityManager.isRunning {
+                    HStack {
+                        Text("Tracking: \(liveActivityManager.selectedMetric.displayName)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Stop") {
+                            liveActivityManager.stop()
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                    }
+                } else {
+                    Text("Show usage in Dynamic Island")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        ForEach([MetricType.session, .opus, .sonnet], id: \.self) { metric in
+                            Button {
+                                liveActivityManager.start(snapshot: snapshot, metric: metric)
+                            } label: {
+                                Text(metric.displayName)
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(Constants.brandPrimary)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.regularMaterial)
+            )
         }
     }
 
