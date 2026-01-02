@@ -106,21 +106,63 @@ The app uses [Sparkle](https://sparkle-project.org/) framework for automatic upd
 - **Check for Updates**: Manual check button in Settings view, disabled when update check is already in progress
 - **Auto-check**: Sparkle automatically checks based on user preferences
 
+### Versioning
+
+Version is managed via `Config/Version.xcconfig` (single source of truth):
+
+```xcconfig
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+```
+
+- **MARKETING_VERSION**: User-facing version (X.Y.Z format, per Apple guidelines)
+- **CURRENT_PROJECT_VERSION**: Build number (must always increase)
+
 ### Release Workflow
 
 GitHub Actions automates releases via `.github/workflows/release.yml`:
 
-1. **Trigger**: Push a version tag (e.g., `git tag v1.0.0 && git push --tags`) or publish a GitHub release
-2. **Build**: Workflow builds unsigned app, creates zip archive
-3. **Appcast**: Uses Sparkle's `generate_appcast` to create/update appcast.xml with release info
-4. **Upload**: Attaches zip to GitHub release
-5. **Commit**: Pushes updated appcast.xml back to main branch
+1. **Trigger**: Publish a GitHub release
+2. **Validate**: Ensures git tag matches `Config/Version.xcconfig` version
+3. **Build**: Builds unsigned app, creates zip archive
+4. **Sign**: Signs update with Sparkle EdDSA key
+5. **Appcast**: Generates appcast.xml with version and signature
+6. **Upload**: Attaches zip to GitHub release
+7. **Commit**: Pushes updated appcast.xml back to main branch
 
 **Creating a release:**
+
 ```bash
-git tag -a "v1.0.0" -m "Release v1.0.0"
-git push origin "v1.0.0"
-gh release create v1.0.0 --generate-notes
+# 1. Update Config/Version.xcconfig
+MARKETING_VERSION = 0.2.0
+CURRENT_PROJECT_VERSION = 2
+
+# 2. Update CHANGELOG.md with release notes
+
+# 3. Commit
+git add . && git commit -m "Bump version to 0.2.0"
+
+# 4. Tag (must match xcconfig version)
+git tag v0.2.0
+
+# 5. Push
+git push && git push --tags
+
+# 6. Create release with detailed notes
+gh release create v0.2.0 --title "ClaudeMeter 0.2.0" --notes-file - --prerelease <<'EOF'
+## What's New
+
+### Added
+- Feature description here
+
+### Fixed
+- Bug fix description here
+
+### Changed
+- Change description here
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
+EOF
 ```
 
-For pre-releases, add `--prerelease` flag to `gh release create`.
+For stable releases (1.0.0+), omit `--prerelease` flag.
