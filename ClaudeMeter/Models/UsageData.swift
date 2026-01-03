@@ -13,9 +13,9 @@ enum UsageStatus: String, Sendable, Codable {
 
     var label: String {
         switch self {
-        case .onTrack: "On track"
-        case .warning: "Heavy usage"
-        case .critical: "At risk"
+        case .onTrack: "Low"
+        case .warning: "Moderate"
+        case .critical: "High"
         }
     }
 
