@@ -6,33 +6,26 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.5.0</title>
-            <pubDate>Sat, 03 Jan 2026 16:19:48 +0000</pubDate>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+            <title>Version 0.5.1</title>
+            <pubDate>Sat, 03 Jan 2026 16:26:05 +0000</pubDate>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-<h3>Added</h3>
+<h3>Fixed</h3>
 <ul>
-<li>Usage threshold notifications with customizable alert levels</li>
-<li>Test notification button in Settings for verifying notification permissions</li>
-<li>Visual progress bar dividers at 25%, 50%, 75% markers</li>
-</ul>
-
-<h3>Changed</h3>
-<ul>
-<li>Updated deployment targets to macOS 15 and iOS 17</li>
+<li>Restore Liquid Glass effect in release builds by updating CI runner to macOS 26</li>
 </ul>
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.0/ClaudeMeter.zip"
-                length="1089268"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.1/ClaudeMeter.zip"
+                length="1294718"
                 type="application/octet-stream"
-                sparkle:edSignature="b2VFV4l9wz5ahQFmtioaS6PKfxoJ1ouOdpquoFreZcZU/TGzOJqR5ngZmVPE1ZV08IkJbSpV3vHaj9JAK3fqBQ==" />
+                sparkle:edSignature="FNuS01ydakaNqWTs4U2244f9QhBVoJerNa8ulG+b6i6ncF2nrOTZklWV6AIWkN+DPXQuBp4mjqpnOqa3etJ5Cg==" />
         </item>
     </channel>
 </rss>
