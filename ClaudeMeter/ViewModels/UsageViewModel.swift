@@ -21,6 +21,17 @@ final class UsageViewModel {
         }
     }
 
+    #if os(macOS)
+    var notificationsEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
+            if notificationsEnabled {
+                Task { await NotificationService.shared.requestPermission() }
+            }
+        }
+    }
+    #endif
+
     private let credentialProvider: any CredentialProvider
     private let apiService = ClaudeAPIService()
     #if os(macOS)
@@ -57,6 +68,7 @@ final class UsageViewModel {
         self.tokenService = tokenService
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
+        self.notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
     }
     #else
     init(credentialProvider: any CredentialProvider) {
@@ -78,10 +90,25 @@ final class UsageViewModel {
         isLoading = true
         errorMessage = nil
 
+        // Store old snapshot for threshold comparison (macOS only)
+        #if os(macOS)
+        let oldSnapshot = snapshot
+        #endif
+
         do {
             let credentials = try await credentialProvider.loadCredentials()
             planType = credentials.planDisplayName
             snapshot = try await apiService.fetchUsage(token: credentials.accessToken)
+
+            // Check for threshold crossings and send notifications (macOS only)
+            #if os(macOS)
+            if notificationsEnabled, let newSnapshot = snapshot {
+                await NotificationService.shared.checkThresholdCrossings(
+                    oldSnapshot: oldSnapshot,
+                    newSnapshot: newSnapshot
+                )
+            }
+            #endif
 
             // Cache snapshot for widgets and update Live Activity (iOS only)
             #if os(iOS)
