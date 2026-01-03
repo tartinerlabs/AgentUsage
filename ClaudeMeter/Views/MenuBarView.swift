@@ -9,6 +9,7 @@ internal import Combine
 
 struct MenuBarView: View {
     @Environment(UsageViewModel.self) private var viewModel
+    @EnvironmentObject private var updaterController: UpdaterController
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @State private var lastRefreshTap: Date?
@@ -17,6 +18,11 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Update banner (if available)
+            if updaterController.updateAvailable {
+                updateBanner
+            }
+
             // Header
             headerSection
 
@@ -178,6 +184,31 @@ struct MenuBarView: View {
             Spacer()
         }
         .padding(.vertical, 20)
+    }
+
+    // MARK: - Update Banner
+
+    private var updateBanner: some View {
+        HStack {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(.white)
+            Text("Update Available")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+            Spacer()
+            Button("View") {
+                updaterController.checkForUpdates()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.orange)
+        )
+        .padding(.bottom, 8)
     }
 
     // MARK: - Actions
