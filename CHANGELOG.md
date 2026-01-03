@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-01-03
+
+### Added
+- Popover menu with quick access to Settings, About, and Quit
+- Dynamic dock icon behavior (shows when main window is open, hides otherwise)
+- TabView navigation for iOS and macOS platforms
+
+### Changed
+- Improved Settings and About tab layouts with better visual hierarchy
+- Added hover effect to menu items for better interactivity
+- Main window no longer shows on launch (menu bar-first experience)
+
 ## [0.3.0] - 2026-01-03
 
 ### Added
@@ -71,7 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.1...v0.2.2
