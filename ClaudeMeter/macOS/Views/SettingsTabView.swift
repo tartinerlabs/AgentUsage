@@ -14,39 +14,139 @@ struct SettingsTabView: View {
     var body: some View {
         @Bindable var viewModel = viewModel
 
-        Form {
-            Section("Refresh") {
-                Picker("Refresh Interval", selection: $viewModel.refreshInterval) {
-                    ForEach(RefreshFrequency.allCases) { frequency in
-                        Text(frequency.displayName).tag(frequency)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Refresh Section
+                settingsCard(title: "Refresh") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Refresh Interval")
+                                .font(.body)
+                            Text("How often to fetch usage data")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Picker("", selection: $viewModel.refreshInterval) {
+                            ForEach(RefreshFrequency.allCases) { frequency in
+                                Text(frequency.displayName).tag(frequency)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 120)
                     }
                 }
-            }
 
-            Section("Credentials") {
-                LabeledContent("Status", value: credentialsStatus)
-            }
+                // Credentials Section
+                settingsCard(title: "Credentials") {
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Status")
+                                    .font(.body)
+                                Text("Claude CLI credentials file")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            HStack(spacing: 6) {
+                                Image(systemName: credentialsFound ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(credentialsFound ? Color.green : Color.red)
+                                Text(credentialsFound ? "Found" : "Not found")
+                                    .foregroundStyle(credentialsFound ? Color.primary : Color.red)
+                            }
+                        }
 
-            Section("Updates") {
-                LabeledContent("Version", value: Bundle.main.appVersion)
+                        Divider()
 
-                HStack {
-                    Text("Check for Updates")
-                    Spacer()
-                    Button("Check Now") {
-                        updaterController.checkForUpdates()
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Location")
+                                    .font(.body)
+                                Text(Constants.credentialsFileURL.path)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            Spacer()
+                            Button {
+                                NSWorkspace.shared.selectFile(
+                                    Constants.credentialsFileURL.path,
+                                    inFileViewerRootedAtPath: Constants.credentialsFileURL.deletingLastPathComponent().path
+                                )
+                            } label: {
+                                Image(systemName: "folder")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(!credentialsFound)
+                        }
                     }
-                    .disabled(!updaterController.canCheckForUpdates)
                 }
+
+                // Updates Section
+                settingsCard(title: "Updates") {
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Current Version")
+                                    .font(.body)
+                                Text("Installed app version")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(Bundle.main.appVersion)
+                                .font(.body.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Check for Updates")
+                                    .font(.body)
+                                Text("Download and install the latest version")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Check Now") {
+                                updaterController.checkForUpdates()
+                            }
+                            .disabled(!updaterController.canCheckForUpdates)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 0)
             }
+            .padding(24)
         }
-        .formStyle(.grouped)
+        .background(Color(NSColor.windowBackgroundColor))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var credentialsStatus: String {
+    private var credentialsFound: Bool {
         FileManager.default.fileExists(atPath: Constants.credentialsFileURL.path)
-            ? "Found" : "Not found"
+    }
+
+    private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 0) {
+                content()
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(NSColor.controlBackgroundColor))
+            )
+        }
     }
 }
 
