@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-01-04
+
+### Changed
+- Style subscription tier as brand badge for better visual distinction
+- Update labels and fonts to follow Apple Human Interface Guidelines
+
+### Fixed
+- Fix Check for Updates button state not updating correctly
+
 ## [0.6.2] - 2026-01-04
 
 ### Fixed
@@ -127,7 +136,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.2...v0.6.0
