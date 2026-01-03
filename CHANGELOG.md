@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-01-04
+
+### Added
+- Countdown timer in menu bar when usage reaches 100%
+- Reset notifications when usage window resets after being near/at limit
+- Keyboard shortcut tooltips on menu bar action buttons (Refresh, Settings, Quit)
+
+### Changed
+- Menu bar now shows time remaining until reset when at capacity
+
 ## [0.5.1] - 2026-01-04
 
 ### Fixed
@@ -98,7 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.3.0...v0.4.0
