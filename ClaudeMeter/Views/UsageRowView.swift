@@ -8,6 +8,7 @@ import SwiftUI
 struct UsageRowView: View {
     let title: String
     let usage: UsageWindow
+    var now: Date = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -17,7 +18,7 @@ struct UsageRowView: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()
-                Text("Resets in \(usage.timeUntilReset)")
+                Text("Resets in \(usage.timeUntilReset(from: now))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

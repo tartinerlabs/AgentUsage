@@ -64,7 +64,11 @@ struct UsageWindow: Sendable, Codable {
     }
 
     var timeUntilReset: String {
-        let interval = resetsAt.timeIntervalSinceNow
+        timeUntilReset(from: Date())
+    }
+
+    func timeUntilReset(from now: Date) -> String {
+        let interval = resetsAt.timeIntervalSince(now)
         guard interval > 0 else { return "now" }
 
         let days = Int(interval) / 86400

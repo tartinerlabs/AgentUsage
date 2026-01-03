@@ -10,6 +10,7 @@ import SwiftUI
 struct UsageCardView: View {
     let title: String
     let usage: UsageWindow
+    var now: Date = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -30,7 +31,7 @@ struct UsageCardView: View {
                         .font(.title)
                         .fontWeight(.bold)
                         .foregroundStyle(usage.status.color)
-                    Text("Resets in \(usage.timeUntilReset)")
+                    Text("Resets in \(usage.timeUntilReset(from: now))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
