@@ -30,7 +30,8 @@ struct ClaudeMeterApp: App {
                     await viewModel.initializeIfNeeded()
                 }
         } label: {
-            Image(systemName: "chart.bar.fill")
+            MenuBarIconView()
+                .environment(viewModel)
         }
         .menuBarExtraStyle(.window)
 

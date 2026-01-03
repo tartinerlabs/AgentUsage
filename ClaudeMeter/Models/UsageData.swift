@@ -80,11 +80,19 @@ struct UsageWindow: Sendable, Codable {
         }
     }
 
-    /// Calculate usage status based on whether current usage rate is sustainable
+    /// Calculate usage status based on absolute usage and consumption rate
     var status: UsageStatus {
         let timeRemaining = resetsAt.timeIntervalSinceNow
         guard timeRemaining > 0 else { return .onTrack }
 
+        // Check absolute usage first - high usage is always concerning
+        if utilization >= 90 {
+            return .critical
+        } else if utilization >= 75 {
+            return .warning
+        }
+
+        // Then check pace relative to time elapsed
         let totalDuration = windowType.totalDuration
         let timeElapsed = totalDuration - timeRemaining
         let timeElapsedRatio = timeElapsed / totalDuration

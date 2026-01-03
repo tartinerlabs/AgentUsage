@@ -32,6 +32,22 @@ final class UsageViewModel {
     private let minForceRefreshInterval: TimeInterval = 20
     private var hasInitialized = false
 
+    /// Overall status computed from the worst status across all usage windows
+    var overallStatus: UsageStatus {
+        guard let snapshot else { return .onTrack }
+
+        let statuses = [
+            snapshot.session.status,
+            snapshot.opus.status,
+            snapshot.sonnet?.status
+        ].compactMap { $0 }
+
+        // Return worst status: critical > warning > onTrack
+        if statuses.contains(.critical) { return .critical }
+        if statuses.contains(.warning) { return .warning }
+        return .onTrack
+    }
+
     #if os(macOS)
     init(
         credentialProvider: any CredentialProvider,
