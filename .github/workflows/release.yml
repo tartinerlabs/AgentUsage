@@ -49,13 +49,16 @@ jobs:
             -archivePath build/${{ env.APP_NAME }}.xcarchive \
             archive \
             CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_REQUIRED=NO
 
       - name: Export app
         run: |
           mkdir -p build/export
           cp -R "build/${{ env.APP_NAME }}.xcarchive/Products/Applications/${{ env.APP_NAME }}.app" build/export/
+          # Re-sign with ad-hoc signature to ensure valid code signature
+          codesign --force --deep --sign - "build/export/${{ env.APP_NAME }}.app"
+          # Verify the signature is valid
+          codesign --verify --deep --strict "build/export/${{ env.APP_NAME }}.app"
 
       - name: Create zip
         run: |
