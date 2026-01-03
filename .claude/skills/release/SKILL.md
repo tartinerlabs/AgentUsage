@@ -32,13 +32,17 @@ Or accept a specific version if provided.
 
 ### Step 3: Update Version Files
 
-1. Update `Config/Version.xcconfig`:
+**IMPORTANT**: All platforms (macOS, iOS, widgets, tests) must have the same version numbers.
+
+1. Update `Config/Version.xcconfig` (source of truth):
    - Increment `MARKETING_VERSION` to new version
    - Increment `CURRENT_PROJECT_VERSION` by 1
 
-2. Update `ClaudeMeter.xcodeproj/project.pbxproj`:
-   - Use `sed` to update all `MARKETING_VERSION` entries
-   - Use `sed` to update all `CURRENT_PROJECT_VERSION` entries
+2. Update `ClaudeMeter.xcodeproj/project.pbxproj` to sync ALL targets:
+   - Replace all `MARKETING_VERSION = X.Y.Z;` with the new version
+   - Replace all `CURRENT_PROJECT_VERSION = N;` with the new build number
+   - This includes: ClaudeMeter (macOS), ClaudeMeter-iOS, ClaudeMeterWidgetsExtension, and all test targets
+   - Use the Edit tool with `replace_all: true` to update all occurrences
 
 ### Step 4: Update CHANGELOG.md
 
