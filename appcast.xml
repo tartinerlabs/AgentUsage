@@ -11,6 +11,7 @@
             <sparkle:version>2</sparkle:version>
             <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.1.1</sparkle:releaseNotesLink>
             <enclosure
                 url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.1/ClaudeMeter.zip"
                 length="1008082"
