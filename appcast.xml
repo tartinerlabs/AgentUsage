@@ -7,16 +7,16 @@
         <language>en</language>
         <item>
             <title>Version 0.2.1</title>
-            <pubDate>Sat, 03 Jan 2026 08:15:30 +0000</pubDate>
+            <pubDate>Sat, 03 Jan 2026 08:22:58 +0000</pubDate>
             <sparkle:version>4</sparkle:version>
             <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:releaseNotesLink>https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.2.1</sparkle:releaseNotesLink>
             <enclosure
                 url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.1/ClaudeMeter.zip"
-                length="1011273"
+                length="1011551"
                 type="application/octet-stream"
-                sparkle:edSignature="IS/jNhHyIkHdAV2jmmp+oZ68sGAPsqcXRwEmkslXkNKXhnEOLHXFfRiaNevs+u3fXA2CHV2dnaG7eS30SHSBBw==" />
+                sparkle:edSignature="ntu1CPwslUxd0YdqiXPO5SgWm1uDFA7UqHl30pyR5eBinSZ8Po6ERRlGIUoqn4X8hqzialg4AvX1I4Fq+lwJCw==" />
         </item>
     </channel>
 </rss>
