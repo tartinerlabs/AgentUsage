@@ -55,13 +55,19 @@ struct MenuBarView: View {
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Text("Claude")
                     .font(.headline)
                 Text(viewModel.planType)
-                    .font(.footnote)
+                    .font(.caption2)
                     .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Constants.brandPrimary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Constants.brandPrimary.opacity(0.12))
+                    )
                 if viewModel.isLoading {
                     ProgressView()
                         .scaleEffect(0.6)
