@@ -59,7 +59,7 @@ struct MenuBarView: View {
                 Text("Claude")
                     .font(.headline)
                 Text(viewModel.planType)
-                    .font(.caption)
+                    .font(.footnote)
                     .fontWeight(.medium)
                     .foregroundStyle(.secondary)
                 if viewModel.isLoading {
@@ -69,7 +69,7 @@ struct MenuBarView: View {
             }
             if let snapshot = viewModel.snapshot {
                 Text("Updated \(relativeDescription(from: snapshot.fetchedAt, to: now))")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
@@ -79,10 +79,19 @@ struct MenuBarView: View {
 
     private func contentSection(snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 16) {
-            UsageRowView(title: "Session", usage: snapshot.session, now: now)
-            UsageRowView(title: "Opus", usage: snapshot.opus, now: now)
-            if let sonnet = snapshot.sonnet {
-                UsageRowView(title: "Sonnet", usage: sonnet, now: now)
+            UsageRowView(title: "Current session", usage: snapshot.session, now: now)
+
+            // Weekly limits group
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Weekly")
+                    .font(.callout)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+
+                UsageRowView(title: "All models", usage: snapshot.opus, now: now)
+                if let sonnet = snapshot.sonnet {
+                    UsageRowView(title: "Sonnet", usage: sonnet, now: now)
+                }
             }
 
             // Token usage and cost (shown when available, no loading indicator)
@@ -97,13 +106,13 @@ struct MenuBarView: View {
             Divider()
 
             Text("Token Usage & Cost")
-                .font(.subheadline)
+                .font(.callout)
                 .fontWeight(.semibold)
 
             // Today's usage - prominent display
             VStack(alignment: .leading, spacing: 8) {
                 Text("Today")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .tracking(0.5)
@@ -117,9 +126,9 @@ struct MenuBarView: View {
 
                     HStack(spacing: 4) {
                         Image(systemName: "square.stack.3d.up")
-                            .font(.caption)
+                            .font(.footnote)
                         Text(tokenSnapshot.today.formattedTokens)
-                            .font(.subheadline)
+                            .font(.callout)
                             .fontWeight(.medium)
                     }
                     .foregroundStyle(.secondary)
@@ -134,7 +143,7 @@ struct MenuBarView: View {
             // 30-day usage - prominent display
             VStack(alignment: .leading, spacing: 8) {
                 Text("30 Days")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .tracking(0.5)
@@ -148,9 +157,9 @@ struct MenuBarView: View {
 
                     HStack(spacing: 4) {
                         Image(systemName: "square.stack.3d.up")
-                            .font(.caption)
+                            .font(.footnote)
                         Text(tokenSnapshot.last30Days.formattedTokens)
-                            .font(.subheadline)
+                            .font(.callout)
                             .fontWeight(.medium)
                     }
                     .foregroundStyle(.secondary)
@@ -169,7 +178,7 @@ struct MenuBarView: View {
             Label("Error", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
             Text(error)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -180,6 +189,7 @@ struct MenuBarView: View {
             Spacer()
             ProgressView()
             Text("Loading...")
+                .font(.callout)
                 .foregroundStyle(.secondary)
             Spacer()
         }
@@ -193,7 +203,7 @@ struct MenuBarView: View {
             Image(systemName: "arrow.down.circle.fill")
                 .foregroundStyle(.white)
             Text("Update Available")
-                .font(.subheadline)
+                .font(.callout)
                 .fontWeight(.medium)
                 .foregroundStyle(.white)
             Spacer()

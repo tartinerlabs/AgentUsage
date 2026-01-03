@@ -15,11 +15,11 @@ struct UsageRowView: View {
             // Title row
             HStack {
                 Text(title)
-                    .font(.subheadline)
+                    .font(.callout)
                     .fontWeight(.semibold)
                 Spacer()
                 Text("Resets in \(usage.timeUntilReset(from: now))")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
@@ -50,11 +50,11 @@ struct UsageRowView: View {
             // Stats row
             HStack {
                 Text("\(usage.percentUsed)% used")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Label(usage.status.label, systemImage: usage.status.icon)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(usage.status.color)
             }
         }
