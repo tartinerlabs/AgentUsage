@@ -6,26 +6,30 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.2.3</title>
-            <pubDate>Sat, 03 Jan 2026 09:02:12 +0000</pubDate>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>0.2.3</sparkle:shortVersionString>
+            <title>Version 0.3.0</title>
+            <pubDate>Sat, 03 Jan 2026 13:38:40 +0000</pubDate>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-<h3>Fixed</h3>
+<h3>Added</h3>
 <ul>
-<li>Fix invalid code signature in release builds preventing Sparkle updates</li>
+<li>Gentle reminders for Sparkle updates in menu bar apps</li>
 </ul>
+  - Orange badge dot on menu bar icon when update available
+  - "Update Available" banner in popover with View button
+  - System notification posted when scheduled update is found
+  - State resets when user engages with update or session ends
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.3/ClaudeMeter.zip"
-                length="1009975"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.3.0/ClaudeMeter.zip"
+                length="1017082"
                 type="application/octet-stream"
-                sparkle:edSignature="QF9grNpNlUyqgyvVEX3RPO1BXTYc2hISi9yp/dd/36QHAy2hzKXr62m59hyMByCmojhVKhpnh3PU6nDCjMbVBA==" />
+                sparkle:edSignature="gbH8fQiKnAkDhpW5xLHKrYbluTZIy17ze7NTBY3W1aX0fMBRhJXAm0HNPl7lVxHvuUwUNDt6IToZpsmLJpziBQ==" />
         </item>
     </channel>
 </rss>
