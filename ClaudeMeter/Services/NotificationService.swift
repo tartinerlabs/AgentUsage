@@ -23,7 +23,7 @@ actor NotificationService {
     func requestPermission() async -> Bool {
         do {
             let granted = try await notificationCenter.requestAuthorization(
-                options: [.alert, .sound]
+                options: [.alert, .sound, .badge]
             )
             return granted
         } catch {
