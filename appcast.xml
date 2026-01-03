@@ -6,35 +6,33 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.4.0</title>
-            <pubDate>Sat, 03 Jan 2026 15:42:55 +0000</pubDate>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <title>Version 0.5.0</title>
+            <pubDate>Sat, 03 Jan 2026 16:19:48 +0000</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <h3>Added</h3>
 <ul>
-<li>Popover menu with quick access to Settings, About, and Quit</li>
-<li>Dynamic dock icon behavior (shows when main window is open, hides otherwise)</li>
-<li>TabView navigation for iOS and macOS platforms</li>
+<li>Usage threshold notifications with customizable alert levels</li>
+<li>Test notification button in Settings for verifying notification permissions</li>
+<li>Visual progress bar dividers at 25%, 50%, 75% markers</li>
 </ul>
 
 <h3>Changed</h3>
 <ul>
-<li>Improved Settings and About tab layouts with better visual hierarchy</li>
-<li>Added hover effect to menu items for better interactivity</li>
-<li>Main window no longer shows on launch (menu bar-first experience)</li>
+<li>Updated deployment targets to macOS 15 and iOS 17</li>
 </ul>
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.4.0/ClaudeMeter.zip"
-                length="1068072"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.0/ClaudeMeter.zip"
+                length="1089268"
                 type="application/octet-stream"
-                sparkle:edSignature="TPz8jEkZSg/glPitO3qGsigITjGKae7Zu/KGoG2RiS1HAMu8+Q6TRZqfxMrfh+eXM9HLE3Rjmj8WDTN2VrB1BA==" />
+                sparkle:edSignature="b2VFV4l9wz5ahQFmtioaS6PKfxoJ1ouOdpquoFreZcZU/TGzOJqR5ngZmVPE1ZV08IkJbSpV3vHaj9JAK3fqBQ==" />
         </item>
     </channel>
 </rss>
