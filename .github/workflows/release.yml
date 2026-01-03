@@ -78,7 +78,16 @@ jobs:
 
           if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
             # Sign the zip with EdDSA and generate appcast manually (generate_appcast requires Apple code signing)
-            SIGNATURE=$(echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/sign_update --ed-key-file - -p build/${{ env.APP_NAME }}.zip)
+            # sign_update outputs: sparkle:edSignature="..." length="..."
+            # We need to extract just the signature value
+            SIGN_OUTPUT=$(echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/sign_update build/${{ env.APP_NAME }}.zip --ed-key-file -)
+            echo "sign_update output: $SIGN_OUTPUT"
+            SIGNATURE=$(echo "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+            if [ -z "$SIGNATURE" ]; then
+              echo "::error::Failed to extract signature from sign_update output"
+              exit 1
+            fi
+            echo "Extracted signature: $SIGNATURE"
             FILE_SIZE=$(stat -f%z build/${{ env.APP_NAME }}.zip)
             VERSION="${{ steps.version.outputs.version }}"
             BUILD="${{ steps.version.outputs.build_number }}"
