@@ -197,6 +197,24 @@ struct SettingsTabView: View {
 
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
+                                Text("Automatic Updates")
+                                    .font(.body)
+                                Text("Check for updates automatically")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { updaterController.automaticallyChecksForUpdates },
+                                set: { updaterController.automaticallyChecksForUpdates = $0 }
+                            ))
+                            .labelsHidden()
+                        }
+
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("Check for Updates")
                                     .font(.body)
                                 Text("Download and install the latest version")
@@ -204,10 +222,25 @@ struct SettingsTabView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Button("Check Now") {
-                                updaterController.checkForUpdates()
+
+                            if updaterController.isChecking {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else if let result = updaterController.lastCheckResult {
+                                HStack(spacing: 4) {
+                                    Image(systemName: result.systemImage)
+                                        .foregroundStyle(resultColor(for: result))
+                                    Text(result.message)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            } else {
+                                Button("Check Now") {
+                                    updaterController.checkForUpdates()
+                                }
+                                .disabled(!updaterController.canCheckForUpdates)
                             }
-                            .disabled(!updaterController.canCheckForUpdates)
                         }
                     }
                 }
@@ -222,6 +255,17 @@ struct SettingsTabView: View {
 
     private var credentialsFound: Bool {
         FileManager.default.fileExists(atPath: Constants.credentialsFileURL.path)
+    }
+
+    private func resultColor(for result: UpdateCheckResult) -> Color {
+        switch result {
+        case .upToDate:
+            return .green
+        case .updateAvailable:
+            return .blue
+        case .error:
+            return .orange
+        }
     }
 
     private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
