@@ -10,7 +10,6 @@ internal import Combine
 struct MenuBarView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @EnvironmentObject private var updaterController: UpdaterController
-    @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @State private var lastRefreshTap: Date?
     @State private var now = Date()
@@ -226,6 +225,7 @@ struct MenuBarView: View {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
             .disabled(viewModel.isLoading)
+            .keyboardShortcut("r", modifiers: .command)
 
             Spacer()
 
@@ -235,10 +235,11 @@ struct MenuBarView: View {
             } label: {
                 Label("Settings", systemImage: "gear")
             }
+            .keyboardShortcut(",", modifiers: .command)
 
             Button {
                 NSApp.activate(ignoringOtherApps: true)
-                openWindow(id: "about")
+                openSettings()
             } label: {
                 Label("About", systemImage: "info.circle")
             }
@@ -248,6 +249,7 @@ struct MenuBarView: View {
             } label: {
                 Label("Quit", systemImage: "power")
             }
+            .keyboardShortcut("q", modifiers: .command)
         }
         .buttonStyle(.borderless)
         .labelStyle(.iconOnly)

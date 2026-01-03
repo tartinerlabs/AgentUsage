@@ -105,7 +105,6 @@
 				Shared/Views/UsageCardView.swift,
 				Utilities/Constants.swift,
 				ViewModels/UsageViewModel.swift,
-				Views/AboutView.swift,
 				Views/MenuBarView.swift,
 				Views/SettingsView.swift,
 				Views/UsageRowView.swift,
