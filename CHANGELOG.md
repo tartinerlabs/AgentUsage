@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-01-03
+
+### Added
+- Gentle reminders for Sparkle updates in menu bar apps
+  - Orange badge dot on menu bar icon when update available
+  - "Update Available" banner in popover with View button
+  - System notification posted when scheduled update is found
+  - State resets when user engages with update or session ends
+
 ## [0.2.3] - 2026-01-03
 
 ### Fixed
@@ -62,7 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.0...v0.2.1
