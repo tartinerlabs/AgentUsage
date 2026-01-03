@@ -6,33 +6,32 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.5.2</title>
-            <pubDate>Sat, 03 Jan 2026 16:58:58 +0000</pubDate>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
+            <title>Version 0.6.0</title>
+            <pubDate>Sat, 03 Jan 2026 17:21:31 +0000</pubDate>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <h3>Added</h3>
 <ul>
-<li>Countdown timer in menu bar when usage reaches 100%</li>
-<li>Reset notifications when usage window resets after being near/at limit</li>
-<li>Keyboard shortcut tooltips on menu bar action buttons (Refresh, Settings, Quit)</li>
+<li>Launch at Login option in Settings to start ClaudeMeter automatically on login</li>
 </ul>
 
 <h3>Changed</h3>
 <ul>
-<li>Menu bar now shows time remaining until reset when at capacity</li>
+<li>Load usage stats immediately on app launch instead of waiting for menu bar click</li>
+<li>Improved update checking with better feedback UI and state management</li>
 </ul>
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.2/ClaudeMeter.zip"
-                length="1299992"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.0/ClaudeMeter.zip"
+                length="1326433"
                 type="application/octet-stream"
-                sparkle:edSignature="kOkSBE/wuRxr7N9GXwXNy8TBdtmVXypS4l8UOv6pBmVudTUWWkxm8nodipNUcEgsc/kv1hAnbelBMGt6JcjJDg==" />
+                sparkle:edSignature="6zaNGXsjSkzszNSjjLr6DowOvbWDSjLLR2m7vQnMc3VQp9aR7k5WF4aQpev+Gb0VE5OvpiEhvpVi5nLN77zbAQ==" />
         </item>
     </channel>
 </rss>
