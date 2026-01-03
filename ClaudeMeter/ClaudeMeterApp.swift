@@ -9,6 +9,7 @@ import SwiftUI
 
 @main
 struct ClaudeMeterApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var viewModel: UsageViewModel
     @StateObject private var updaterController = UpdaterController()
     @AppStorage("selectedMainWindowTab") private var selectedTab: MainWindowTab = .dashboard
