@@ -195,6 +195,7 @@ final class UpdaterController: ObservableObject {
 
     func handleSessionFinished() {
         updateAvailable = false
+        lastCheckResult = nil
         removeUpdateNotification()
     }
 
