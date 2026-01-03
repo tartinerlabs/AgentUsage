@@ -6,17 +6,17 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.1.1</title>
-            <pubDate>Sat, 03 Jan 2026 05:54:56 +0000</pubDate>
-            <sparkle:version>2</sparkle:version>
-            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <title>Version 0.2.0</title>
+            <pubDate>Sat, 03 Jan 2026 08:03:41 +0000</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:releaseNotesLink>https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.1.1</sparkle:releaseNotesLink>
+            <sparkle:releaseNotesLink>https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.2.0</sparkle:releaseNotesLink>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.1/ClaudeMeter.zip"
-                length="1008082"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.0/ClaudeMeter.zip"
+                length="1011264"
                 type="application/octet-stream"
-                sparkle:edSignature="FH3ObEzt/IFO5Bl6nU5wNgXn3axdYkSQiLLUA+hxEr4LOgVQh6eK7ysA/2JbH/mU36uBrzKSfu0vji60ESsHBA==" />
+                sparkle:edSignature="9gHZNM38Hn+o0PabQzLvNALOsLAS2kqny0B0srFFU9mOQ+GIPPRN+I4T0qCEoWBf0byfoqO4pbcoi+2g6uotCw==" />
         </item>
     </channel>
 </rss>
