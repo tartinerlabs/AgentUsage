@@ -32,6 +32,7 @@ struct ClaudeMeterApp: App {
         } label: {
             MenuBarIconView()
                 .environment(viewModel)
+                .environmentObject(updaterController)
         }
         .menuBarExtraStyle(.window)
 
