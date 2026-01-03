@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-01-04
+
+### Added
+- Usage threshold notifications with customizable alert levels
+- Test notification button in Settings for verifying notification permissions
+- Visual progress bar dividers at 25%, 50%, 75% markers
+
+### Changed
+- Updated deployment targets to macOS 15 and iOS 17
+
 ## [0.4.0] - 2026-01-03
 
 ### Added
@@ -83,7 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.2...v0.2.3
