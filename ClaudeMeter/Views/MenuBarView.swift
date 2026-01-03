@@ -214,28 +214,52 @@ struct MenuBarView: View {
     // MARK: - Actions
 
     private var actionsSection: some View {
-        VStack(spacing: 0) {
-            MenuItemButton(title: "Open ClaudeMeter", shortcut: "⌘O") {
-                selectedTab = .dashboard
-                openWindow(id: Constants.mainWindowID)
-                NSApp.activate(ignoringOtherApps: true)
+        HStack {
+            Button {
+                let now = Date()
+                if let last = lastRefreshTap, now.timeIntervalSince(last) < uiThrottle {
+                    return
+                }
+                lastRefreshTap = now
+                Task { await viewModel.refresh(force: true) }
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
             }
+            .disabled(viewModel.isLoading)
+            .keyboardShortcut("r", modifiers: .command)
+            .help("Refresh (⌘R)")
 
-            MenuItemButton(title: "Settings", shortcut: "⌘,") {
+            Spacer()
+
+//            Button {
+//                selectedTab = .dashboard
+//                openWindow(id: Constants.mainWindowID)
+//                NSApp.activate(ignoringOtherApps: true)
+//            } label: {
+//                Label("Open", systemImage: "macwindow")
+//            }
+//            .keyboardShortcut("o", modifiers: .command)
+
+            Button {
                 selectedTab = .settings
                 openWindow(id: Constants.mainWindowID)
                 NSApp.activate(ignoringOtherApps: true)
+            } label: {
+                Label("Settings", systemImage: "gear")
             }
+            .keyboardShortcut(",", modifiers: .command)
+            .help("Settings (⌘,)")
 
-            Divider()
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-
-            MenuItemButton(title: "Quit", shortcut: "⌘Q") {
+            Button(role: .destructive) {
                 NSApplication.shared.terminate(nil)
+            } label: {
+                Label("Quit", systemImage: "power")
             }
+            .keyboardShortcut("q", modifiers: .command)
+            .help("Quit (⌘Q)")
         }
-        .padding(.horizontal, -16)
+        .buttonStyle(.borderless)
+        .labelStyle(.iconOnly)
     }
 
     private func relativeDescription(from past: Date, to current: Date) -> String {
