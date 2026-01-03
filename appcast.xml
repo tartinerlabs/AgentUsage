@@ -13,9 +13,9 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure
                 url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.1/ClaudeMeter.zip"
-                length="1007499"
+                length="1008082"
                 type="application/octet-stream"
-                sparkle:edSignature="cJCg5+gb9ovk9zXRhAFu3OtB1uQ5X1jlhh80Hr8vWnVv+Edq+sq/JQxLAyNKVqER4oSO5gxxIrULnyl1L4G8Dw==" />
+                sparkle:edSignature="FH3ObEzt/IFO5Bl6nU5wNgXn3axdYkSQiLLUA+hxEr4LOgVQh6eK7ysA/2JbH/mU36uBrzKSfu0vji60ESsHBA==" />
         </item>
     </channel>
 </rss>
