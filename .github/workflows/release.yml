@@ -93,37 +93,42 @@ jobs:
             BUILD="${{ steps.version.outputs.build_number }}"
             DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.APP_NAME }}.zip"
             PUB_DATE=$(date -R)
-            RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
 
             # Fetch release notes from GitHub and convert to HTML
-            RELEASE_BODY=$(gh release view "${{ github.ref_name }}" --json body -q '.body' | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
-            # Convert markdown headers and lists to basic HTML
-            RELEASE_HTML=$(echo "$RELEASE_BODY" | sed 's/^## \(.*\)/<h2>\1<\/h2>/; s/^### \(.*\)/<h3>\1<\/h3>/; s/^- \(.*\)/<li>\1<\/li>/')
+            RELEASE_BODY=$(gh release view "${{ github.ref_name }}" --json body -q '.body')
+            # Convert markdown to basic HTML for Sparkle display
+            RELEASE_HTML=$(echo "$RELEASE_BODY" | sed \
+              -e 's/^## \(.*\)/<h2>\1<\/h2>/' \
+              -e 's/^### \(.*\)/<h3>\1<\/h3>/' \
+              -e 's/^- \(.*\)/<li>\1<\/li>/' \
+              | awk 'BEGIN{in_list=0} /<li>/{if(!in_list){print "<ul>"; in_list=1}} !/<li>/&&in_list{print "</ul>"; in_list=0} {print} END{if(in_list)print "</ul>"}')
 
-            {
-              echo '<?xml version="1.0" encoding="utf-8"?>'
-              echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">'
-              echo '    <channel>'
-              echo '        <title>ClaudeMeter Updates</title>'
-              echo "        <link>https://github.com/${{ github.repository }}/releases</link>"
-              echo '        <description>Most recent updates to ClaudeMeter</description>'
-              echo '        <language>en</language>'
-              echo '        <item>'
-              echo "            <title>Version ${VERSION}</title>"
-              echo "            <pubDate>${PUB_DATE}</pubDate>"
-              echo "            <sparkle:version>${BUILD}</sparkle:version>"
-              echo "            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"
-              echo '            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>'
-              echo "            <sparkle:releaseNotesLink>${RELEASE_NOTES_URL}</sparkle:releaseNotesLink>"
-              echo '            <enclosure'
-              echo "                url=\"${DOWNLOAD_URL}\""
-              echo "                length=\"${FILE_SIZE}\""
-              echo '                type="application/octet-stream"'
-              echo "                sparkle:edSignature=\"${SIGNATURE}\" />"
-              echo '        </item>'
-              echo '    </channel>'
-              echo '</rss>'
-            } > releases/appcast.xml
+            cat > releases/appcast.xml << APPCAST_EOF
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>ClaudeMeter Updates</title>
+        <link>https://github.com/${{ github.repository }}/releases</link>
+        <description>Most recent updates to ClaudeMeter</description>
+        <language>en</language>
+        <item>
+            <title>Version ${VERSION}</title>
+            <pubDate>${PUB_DATE}</pubDate>
+            <sparkle:version>${BUILD}</sparkle:version>
+            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+${RELEASE_HTML}
+            ]]></description>
+            <enclosure
+                url="${DOWNLOAD_URL}"
+                length="${FILE_SIZE}"
+                type="application/octet-stream"
+                sparkle:edSignature="${SIGNATURE}" />
+        </item>
+    </channel>
+</rss>
+APPCAST_EOF
 
             # Move generated appcast to repo root
             mv releases/appcast.xml appcast.xml
