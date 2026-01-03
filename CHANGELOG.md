@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-03
+
+### Added
+- Colored status bar icon that dynamically changes based on usage status
+  - Green: On track (usage < 75% and within expected pace)
+  - Orange: Warning (usage 75-89% or moderately ahead of pace)
+  - Red: Critical (usage ≥ 90% or significantly ahead of pace)
+- Icon displays worst status across all usage windows for at-a-glance monitoring
+
+### Changed
+- Improved status calculation to check absolute usage levels in addition to consumption rate
+- Status thresholds now prioritize high absolute usage (≥90% always critical, ≥75% always warning)
+
 ## [0.1.1] - 2026-01-03
 
 ### Fixed
@@ -34,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.1.0
