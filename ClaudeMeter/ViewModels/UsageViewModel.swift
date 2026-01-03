@@ -30,6 +30,10 @@ final class UsageViewModel {
             }
         }
     }
+
+    #if DEBUG
+    var debugSimulate100Percent: Bool = false
+    #endif
     #endif
 
     private let credentialProvider: any CredentialProvider

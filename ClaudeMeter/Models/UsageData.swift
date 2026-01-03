@@ -59,6 +59,10 @@ struct UsageWindow: Sendable, Codable {
         Int(utilization)
     }
 
+    var isAtLimit: Bool {
+        utilization >= 100
+    }
+
     var normalized: Double {
         min(max(utilization / 100.0, 0), 1)  // Clamped 0-1 for Gauge/ProgressView
     }
