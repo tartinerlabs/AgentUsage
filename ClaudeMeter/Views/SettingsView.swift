@@ -37,11 +37,14 @@ struct SettingsView: View {
 
 private struct GeneralTab: View {
     @Environment(UsageViewModel.self) private var viewModel
+    @StateObject private var launchAtLogin = LaunchAtLoginService.shared
 
     var body: some View {
         @Bindable var viewModel = viewModel
 
         Form {
+            Toggle("Launch at Login", isOn: $launchAtLogin.isEnabled)
+
             Picker("Refresh Interval", selection: $viewModel.refreshInterval) {
                 ForEach(RefreshFrequency.allCases) { frequency in
                     Text(frequency.displayName).tag(frequency)

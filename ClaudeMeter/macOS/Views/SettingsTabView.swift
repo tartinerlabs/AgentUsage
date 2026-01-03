@@ -10,30 +10,48 @@ import SwiftUI
 struct SettingsTabView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @EnvironmentObject private var updaterController: UpdaterController
+    @StateObject private var launchAtLogin = LaunchAtLoginService.shared
 
     var body: some View {
         @Bindable var viewModel = viewModel
 
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Refresh Section
-                settingsCard(title: "Refresh") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Refresh Interval")
-                                .font(.body)
-                            Text("How often to fetch usage data")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Picker("", selection: $viewModel.refreshInterval) {
-                            ForEach(RefreshFrequency.allCases) { frequency in
-                                Text(frequency.displayName).tag(frequency)
+                // General Section
+                settingsCard(title: "General") {
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Launch at Login")
+                                    .font(.body)
+                                Text("Automatically start ClaudeMeter when you log in")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
+                            Spacer()
+                            Toggle("", isOn: $launchAtLogin.isEnabled)
+                                .labelsHidden()
                         }
-                        .labelsHidden()
-                        .frame(width: 120)
+
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Refresh Interval")
+                                    .font(.body)
+                                Text("How often to fetch usage data")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Picker("", selection: $viewModel.refreshInterval) {
+                                ForEach(RefreshFrequency.allCases) { frequency in
+                                    Text(frequency.displayName).tag(frequency)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 120)
+                        }
                     }
                 }
 
