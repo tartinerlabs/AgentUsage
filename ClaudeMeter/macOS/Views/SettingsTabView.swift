@@ -37,6 +37,22 @@ struct SettingsTabView: View {
                     }
                 }
 
+                // Notifications Section
+                settingsCard(title: "Notifications") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Usage Alerts")
+                                .font(.body)
+                            Text("Notify when usage crosses 25%, 50%, 75%, or 100%")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $viewModel.notificationsEnabled)
+                            .labelsHidden()
+                    }
+                }
+
                 // Credentials Section
                 settingsCard(title: "Credentials") {
                     VStack(spacing: 12) {
