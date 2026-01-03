@@ -85,6 +85,11 @@ actor NotificationService {
             // Reset period changed, clear notified thresholds for old key
             let oldKey = "\(name)-\(oldUsage.resetsAt.timeIntervalSince1970)"
             notifiedThresholds.removeValue(forKey: oldKey)
+
+            // If user was near/at limit before reset, notify them it's reset
+            if oldUsage.percentUsed >= 90 {
+                await sendResetNotification(windowName: name)
+            }
         }
 
         // Initialize set for this window if needed
@@ -115,7 +120,7 @@ actor NotificationService {
         }
     }
 
-    // MARK: - Test Notification
+    // MARK: - Test Notifications
 
     func sendTestNotification() async {
         let hasPermission = await checkPermission()
@@ -141,6 +146,17 @@ actor NotificationService {
             print("Failed to send test notification: \(error)")
         }
     }
+
+    #if DEBUG
+    func sendTestResetNotification() async {
+        let hasPermission = await checkPermission()
+        guard hasPermission else {
+            _ = await requestPermission()
+            return
+        }
+        await sendResetNotification(windowName: "Session")
+    }
+    #endif
 
     private func sendNotification(
         windowName: String,
@@ -176,6 +192,25 @@ actor NotificationService {
             try await notificationCenter.add(request)
         } catch {
             print("Failed to send notification: \(error)")
+        }
+    }
+
+    private func sendResetNotification(windowName: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = "\(windowName) Usage Reset"
+        content.body = "Your \(windowName.lowercased()) limit has reset. You're back to 0%!"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await notificationCenter.add(request)
+        } catch {
+            print("Failed to send reset notification: \(error)")
         }
     }
 }

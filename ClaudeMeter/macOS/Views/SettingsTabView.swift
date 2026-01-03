@@ -120,6 +120,44 @@ struct SettingsTabView: View {
                     }
                 }
 
+                #if DEBUG
+                // Debug Section (only in debug builds)
+                settingsCard(title: "Debug") {
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Simulate 100% Usage")
+                                    .font(.body)
+                                Text("Show countdown in menu bar as if at limit")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $viewModel.debugSimulate100Percent)
+                                .labelsHidden()
+                        }
+
+                        if viewModel.debugSimulate100Percent {
+                            Divider()
+
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Test Reset Notification")
+                                        .font(.body)
+                                    Text("Simulate a usage window reset")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button("Send") {
+                                    Task { await NotificationService.shared.sendTestResetNotification() }
+                                }
+                            }
+                        }
+                    }
+                }
+                #endif
+
                 // Updates Section
                 settingsCard(title: "Updates") {
                     VStack(spacing: 12) {
