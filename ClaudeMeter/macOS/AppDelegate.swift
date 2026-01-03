@@ -6,13 +6,27 @@
 //
 
 import AppKit
+import UserNotifications
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var windowObservers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindowObservers()
         updateActivationPolicy()
+
+        // Set notification delegate to show banners even when app is in foreground
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        // Show banner and play sound even when app is in foreground
+        [.banner, .sound]
     }
 
     private func setupWindowObservers() {
