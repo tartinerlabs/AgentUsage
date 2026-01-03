@@ -35,6 +35,14 @@ struct UsageRowView: View {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(Constants.brandPrimary)
                         .frame(width: geometry.size.width * usage.normalized, height: 8)
+
+                    // Dividers at 25%, 50%, 75%
+                    ForEach([0.25, 0.5, 0.75], id: \.self) { position in
+                        Rectangle()
+                            .fill(Color.primary.opacity(0.15))
+                            .frame(width: 1, height: 8)
+                            .offset(x: geometry.size.width * position)
+                    }
                 }
             }
             .frame(height: 8)
