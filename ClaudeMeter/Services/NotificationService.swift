@@ -115,6 +115,33 @@ actor NotificationService {
         }
     }
 
+    // MARK: - Test Notification
+
+    func sendTestNotification() async {
+        let hasPermission = await checkPermission()
+        guard hasPermission else {
+            _ = await requestPermission()
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Test Notification"
+        content.body = "Usage alerts are working correctly."
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await notificationCenter.add(request)
+        } catch {
+            print("Failed to send test notification: \(error)")
+        }
+    }
+
     private func sendNotification(
         windowName: String,
         threshold: Int,

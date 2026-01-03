@@ -39,17 +39,37 @@ struct SettingsTabView: View {
 
                 // Notifications Section
                 settingsCard(title: "Notifications") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Usage Alerts")
-                                .font(.body)
-                            Text("Notify when usage crosses 25%, 50%, 75%, or 100%")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Usage Alerts")
+                                    .font(.body)
+                                Text("Notify when usage crosses 25%, 50%, 75%, or 100%")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $viewModel.notificationsEnabled)
+                                .labelsHidden()
                         }
-                        Spacer()
-                        Toggle("", isOn: $viewModel.notificationsEnabled)
-                            .labelsHidden()
+
+                        if viewModel.notificationsEnabled {
+                            Divider()
+
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Test Notification")
+                                        .font(.body)
+                                    Text("Send a test notification to verify setup")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button("Test") {
+                                    Task { await NotificationService.shared.sendTestNotification() }
+                                }
+                            }
+                        }
                     }
                 }
 
