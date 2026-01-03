@@ -71,6 +71,7 @@ jobs:
       - name: Sign update and generate appcast
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p releases
           cp build/${{ env.APP_NAME }}.zip releases/
@@ -83,6 +84,12 @@ jobs:
             BUILD="${{ steps.version.outputs.build_number }}"
             DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.APP_NAME }}.zip"
             PUB_DATE=$(date -R)
+            RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+
+            # Fetch release notes from GitHub and convert to HTML
+            RELEASE_BODY=$(gh release view "${{ github.ref_name }}" --json body -q '.body' | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+            # Convert markdown headers and lists to basic HTML
+            RELEASE_HTML=$(echo "$RELEASE_BODY" | sed 's/^## \(.*\)/<h2>\1<\/h2>/; s/^### \(.*\)/<h3>\1<\/h3>/; s/^- \(.*\)/<li>\1<\/li>/')
 
             {
               echo '<?xml version="1.0" encoding="utf-8"?>'
@@ -98,6 +105,7 @@ jobs:
               echo "            <sparkle:version>${BUILD}</sparkle:version>"
               echo "            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"
               echo '            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>'
+              echo "            <sparkle:releaseNotesLink>${RELEASE_NOTES_URL}</sparkle:releaseNotesLink>"
               echo '            <enclosure'
               echo "                url=\"${DOWNLOAD_URL}\""
               echo "                length=\"${FILE_SIZE}\""
