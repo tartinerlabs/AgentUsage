@@ -36,6 +36,7 @@ struct ClaudeMeterApp: App {
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
+        .defaultLaunchBehavior(.suppressed)
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {
