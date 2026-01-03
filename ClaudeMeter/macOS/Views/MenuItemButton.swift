@@ -12,20 +12,27 @@ struct MenuItemButton: View {
     let shortcut: String
     let action: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         Button(action: action) {
             HStack {
                 Text(title)
+                    .foregroundStyle(isHovered ? .white : .primary)
                 Spacer()
                 Text(shortcut)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 36, alignment: .trailing)
+                    .foregroundStyle(isHovered ? .white.opacity(0.8) : .secondary)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isHovered ? Color.accentColor : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }
 
