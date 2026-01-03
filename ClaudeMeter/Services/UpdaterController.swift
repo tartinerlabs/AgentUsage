@@ -9,6 +9,37 @@ import Foundation
 import Sparkle
 import UserNotifications
 
+// MARK: - Update Check Result
+
+/// Result of an update check operation
+enum UpdateCheckResult: Equatable {
+    case upToDate
+    case updateAvailable(version: String)
+    case error(message: String)
+
+    var message: String {
+        switch self {
+        case .upToDate:
+            return "You're up to date!"
+        case let .updateAvailable(version):
+            return "Version \(version) available"
+        case let .error(message):
+            return message
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .upToDate:
+            return "checkmark.circle.fill"
+        case .updateAvailable:
+            return "arrow.down.circle.fill"
+        case .error:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+}
+
 // MARK: - User Driver Delegate
 
 /// Delegate for gentle reminders in background (menu bar) apps.
@@ -39,6 +70,41 @@ final class UpdaterUserDriverDelegate: NSObject, SPUStandardUserDriverDelegate {
     }
 }
 
+// MARK: - Updater Delegate
+
+/// Delegate to track update check lifecycle
+@MainActor
+final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
+    weak var controller: UpdaterController?
+
+    nonisolated func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        let version = item.displayVersionString
+        Task { @MainActor in
+            controller?.handleCheckResult(.updateAvailable(version: version))
+        }
+    }
+
+    nonisolated func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        Task { @MainActor in
+            controller?.handleCheckResult(.upToDate)
+        }
+    }
+
+    nonisolated func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
+        let message = error.localizedDescription
+        Task { @MainActor in
+            controller?.handleCheckResult(.error(message: message))
+        }
+    }
+
+    nonisolated func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+        let message = error.localizedDescription
+        Task { @MainActor in
+            controller?.handleCheckResult(.error(message: message))
+        }
+    }
+}
+
 // MARK: - Updater Controller
 
 /// Wrapper around Sparkle's SPUStandardUpdaterController for SwiftUI integration.
@@ -48,6 +114,7 @@ final class UpdaterUserDriverDelegate: NSObject, SPUStandardUserDriverDelegate {
 final class UpdaterController: ObservableObject {
     private let updaterController: SPUStandardUpdaterController
     private let userDriverDelegate: UpdaterUserDriverDelegate
+    private let updaterDelegate: UpdaterDelegate
 
     /// Whether the updater can check for updates (enabled and not already checking)
     @Published var canCheckForUpdates = false
@@ -55,19 +122,36 @@ final class UpdaterController: ObservableObject {
     /// Whether an update is available and waiting for user attention
     @Published var updateAvailable = false
 
-    init() {
-        // Create delegate first
-        userDriverDelegate = UpdaterUserDriverDelegate()
+    /// Whether an update check is currently in progress
+    @Published var isChecking = false
 
-        // Create the updater controller with delegate
+    /// Result of the last update check (nil if no check performed yet)
+    @Published var lastCheckResult: UpdateCheckResult?
+
+    /// Whether automatic update checks are enabled
+    var automaticallyChecksForUpdates: Bool {
+        get { updaterController.updater.automaticallyChecksForUpdates }
+        set {
+            updaterController.updater.automaticallyChecksForUpdates = newValue
+            objectWillChange.send()
+        }
+    }
+
+    init() {
+        // Create delegates first
+        userDriverDelegate = UpdaterUserDriverDelegate()
+        updaterDelegate = UpdaterDelegate()
+
+        // Create the updater controller with delegates
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
-            updaterDelegate: nil,
+            updaterDelegate: updaterDelegate,
             userDriverDelegate: userDriverDelegate
         )
 
-        // Link delegate back to controller
+        // Link delegates back to controller
         userDriverDelegate.controller = self
+        updaterDelegate.controller = self
 
         // Observe canCheckForUpdates changes
         updaterController.updater.publisher(for: \.canCheckForUpdates)
@@ -76,7 +160,25 @@ final class UpdaterController: ObservableObject {
 
     /// Manually trigger an update check
     func checkForUpdates() {
+        isChecking = true
+        lastCheckResult = nil
         updaterController.checkForUpdates(nil)
+    }
+
+    /// Handle check result from delegate
+    func handleCheckResult(_ result: UpdateCheckResult) {
+        isChecking = false
+        lastCheckResult = result
+
+        // Auto-dismiss result after delay (except for errors)
+        if case .upToDate = result {
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                if lastCheckResult == .upToDate {
+                    lastCheckResult = nil
+                }
+            }
+        }
     }
 
     // MARK: - Delegate Handlers

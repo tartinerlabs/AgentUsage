@@ -75,11 +75,32 @@ private struct UpdatesTab: View {
 
     var body: some View {
         Form {
+            Toggle("Automatic Updates", isOn: Binding(
+                get: { updaterController.automaticallyChecksForUpdates },
+                set: { updaterController.automaticallyChecksForUpdates = $0 }
+            ))
+
+            Divider()
+                .padding(.vertical, 4)
+
             LabeledContent("Check for Updates") {
-                Button("Check Now") {
-                    updaterController.checkForUpdates()
+                if updaterController.isChecking {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if let result = updaterController.lastCheckResult {
+                    HStack(spacing: 4) {
+                        Image(systemName: result.systemImage)
+                            .foregroundStyle(resultColor(for: result))
+                        Text(result.message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Button("Check Now") {
+                        updaterController.checkForUpdates()
+                    }
+                    .disabled(!updaterController.canCheckForUpdates)
                 }
-                .disabled(!updaterController.canCheckForUpdates)
             }
 
             Divider()
@@ -88,6 +109,17 @@ private struct UpdatesTab: View {
             LabeledContent("Version", value: Bundle.main.appVersion)
         }
         .formStyle(.grouped)
+    }
+
+    private func resultColor(for result: UpdateCheckResult) -> Color {
+        switch result {
+        case .upToDate:
+            return .green
+        case .updateAvailable:
+            return .blue
+        case .error:
+            return .orange
+        }
     }
 }
 
