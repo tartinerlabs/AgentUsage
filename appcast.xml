@@ -6,26 +6,33 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.5.1</title>
-            <pubDate>Sat, 03 Jan 2026 16:26:05 +0000</pubDate>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <title>Version 0.5.2</title>
+            <pubDate>Sat, 03 Jan 2026 16:58:58 +0000</pubDate>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-<h3>Fixed</h3>
+<h3>Added</h3>
 <ul>
-<li>Restore Liquid Glass effect in release builds by updating CI runner to macOS 26</li>
+<li>Countdown timer in menu bar when usage reaches 100%</li>
+<li>Reset notifications when usage window resets after being near/at limit</li>
+<li>Keyboard shortcut tooltips on menu bar action buttons (Refresh, Settings, Quit)</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Menu bar now shows time remaining until reset when at capacity</li>
 </ul>
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.1/ClaudeMeter.zip"
-                length="1294718"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.2/ClaudeMeter.zip"
+                length="1299992"
                 type="application/octet-stream"
-                sparkle:edSignature="FNuS01ydakaNqWTs4U2244f9QhBVoJerNa8ulG+b6i6ncF2nrOTZklWV6AIWkN+DPXQuBp4mjqpnOqa3etJ5Cg==" />
+                sparkle:edSignature="kOkSBE/wuRxr7N9GXwXNy8TBdtmVXypS4l8UOv6pBmVudTUWWkxm8nodipNUcEgsc/kv1hAnbelBMGt6JcjJDg==" />
         </item>
     </channel>
 </rss>
