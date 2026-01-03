@@ -79,10 +79,10 @@ struct MenuBarView: View {
 
     private func contentSection(snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 16) {
-            UsageRowView(title: "Session", usage: snapshot.session)
-            UsageRowView(title: "Opus", usage: snapshot.opus)
+            UsageRowView(title: "Session", usage: snapshot.session, now: now)
+            UsageRowView(title: "Opus", usage: snapshot.opus, now: now)
             if let sonnet = snapshot.sonnet {
-                UsageRowView(title: "Sonnet", usage: sonnet)
+                UsageRowView(title: "Sonnet", usage: sonnet, now: now)
             }
 
             // Token usage and cost (shown when available, no loading indicator)

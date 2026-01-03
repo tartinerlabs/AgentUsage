@@ -11,6 +11,7 @@ import SwiftUI
 struct DashboardView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @StateObject private var liveActivityManager = LiveActivityManager.shared
+    @State private var now = Date()
 
     var body: some View {
         ScrollView {
@@ -47,6 +48,9 @@ struct DashboardView: View {
         }
         .task {
             await viewModel.initializeIfNeeded()
+        }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
+            now = date
         }
     }
 
@@ -145,10 +149,10 @@ struct DashboardView: View {
 
     @ViewBuilder
     private func usageCardsSection(snapshot: UsageSnapshot) -> some View {
-        UsageCardView(title: "Session", usage: snapshot.session)
-        UsageCardView(title: "Opus", usage: snapshot.opus)
+        UsageCardView(title: "Session", usage: snapshot.session, now: now)
+        UsageCardView(title: "Opus", usage: snapshot.opus, now: now)
         if let sonnet = snapshot.sonnet {
-            UsageCardView(title: "Sonnet", usage: sonnet)
+            UsageCardView(title: "Sonnet", usage: sonnet, now: now)
         }
     }
 
