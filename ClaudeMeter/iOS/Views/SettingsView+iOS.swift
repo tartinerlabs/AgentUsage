@@ -87,29 +87,6 @@ struct SettingsView: View {
                 Text("Paste the contents of ~/.claude/.credentials.json from your Mac. This is a workaround until iCloud Keychain sync is available.")
             }
 
-            Section("About") {
-                LabeledContent("Version", value: appVersion)
-
-                Link(destination: URL(string: "https://github.com/tartinerlabs/ClaudeMeter")!) {
-                    HStack {
-                        Label("GitHub", systemImage: "link")
-                        Spacer()
-                        Image(systemName: "arrow.up.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Link(destination: URL(string: "https://github.com/tartinerlabs/ClaudeMeter/issues")!) {
-                    HStack {
-                        Label("Report Issue", systemImage: "ladybug")
-                        Spacer()
-                        Image(systemName: "arrow.up.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -120,12 +97,6 @@ struct SettingsView: View {
         } message: {
             Text("This will remove your saved credentials. You'll need to enter them again.")
         }
-    }
-
-    private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
-        return "\(version) (\(build))"
     }
 
     private func saveCredentials() {

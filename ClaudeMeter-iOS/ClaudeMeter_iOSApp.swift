@@ -18,10 +18,8 @@ struct ClaudeMeter_iOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            NavigationStack {
-                DashboardView()
-                    .environment(viewModel)
-            }
+            MainTabView()
+                .environment(viewModel)
         }
     }
 }

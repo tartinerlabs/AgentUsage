@@ -37,16 +37,6 @@ struct DashboardView: View {
             await viewModel.refresh(force: true)
         }
         .navigationTitle("ClaudeMeter")
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink {
-                    SettingsView()
-                        .environment(viewModel)
-                } label: {
-                    Image(systemName: "gear")
-                }
-            }
-        }
         .task {
             await viewModel.initializeIfNeeded()
         }
