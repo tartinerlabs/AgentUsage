@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-01-03
+
+### Fixed
+- Fix token usage and cost calculation being ~2.8x higher than actual
+- Add deduplication of streaming response entries by message.id + requestId (matching ccusage behavior)
+
 ## [0.1.0] - 2026-01-02
 
 ### Added
@@ -28,5 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.1.0

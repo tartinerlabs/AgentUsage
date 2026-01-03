@@ -163,17 +163,38 @@ actor TokenUsageService {
         guard let content = String(data: data, encoding: .utf8) else { return [] }
 
         var entries: [UsageEntry] = []
+        var processedHashes = Set<String>()
+
         for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
             guard let lineData = line.data(using: .utf8),
-                  let entry = parseLogEntry(data: lineData, cutoff: cutoff) else {
+                  let result = parseLogEntry(data: lineData, cutoff: cutoff) else {
                 continue
             }
-            entries.append(entry)
+
+            // Deduplicate by message.id + requestId (same approach as ccusage)
+            // Streaming responses log multiple entries per API call with the same IDs
+            if let hash = result.uniqueHash {
+                if processedHashes.contains(hash) {
+                    continue // Skip duplicate message
+                }
+                processedHashes.insert(hash)
+            }
+
+            entries.append(result.entry)
         }
         return entries
     }
 
-    private func parseLogEntry(data: Data, cutoff: Date?) -> UsageEntry? {
+    /// Creates a unique hash from message.id and requestId for deduplication
+    /// Returns nil if either field is missing (matches ccusage behavior)
+    private func createUniqueHash(messageId: String?, requestId: String?) -> String? {
+        guard let messageId, let requestId else {
+            return nil
+        }
+        return "\(messageId):\(requestId)"
+    }
+
+    private func parseLogEntry(data: Data, cutoff: Date?) -> (entry: UsageEntry, uniqueHash: String?)? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String,
               type == "assistant",
@@ -194,7 +215,12 @@ actor TokenUsageService {
         let cacheCreationTokens = usage["cache_creation_input_tokens"] as? Int ?? 0
         let cacheReadTokens = usage["cache_read_input_tokens"] as? Int ?? 0
 
-        return UsageEntry(
+        // Extract message.id and requestId for deduplication (same as ccusage)
+        let messageId = message["id"] as? String
+        let requestId = json["requestId"] as? String
+        let uniqueHash = createUniqueHash(messageId: messageId, requestId: requestId)
+
+        let entry = UsageEntry(
             model: model,
             tokens: TokenCount(
                 inputTokens: inputTokens,
@@ -204,6 +230,8 @@ actor TokenUsageService {
             ),
             timestamp: timestamp
         )
+
+        return (entry, uniqueHash)
     }
 
     private func aggregateSummary(entries: [UsageEntry], period: TokenUsageSummary.UsagePeriod) -> TokenUsageSummary {
