@@ -5,6 +5,7 @@
 
 #if os(iOS)
 import ActivityKit
+import Combine
 import SwiftUI
 
 /// Main iOS dashboard showing Claude usage
