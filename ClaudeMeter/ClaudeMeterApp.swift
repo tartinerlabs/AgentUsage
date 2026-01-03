@@ -53,13 +53,13 @@ struct ClaudeMeterApp: App {
             MenuBarView()
                 .environment(viewModel)
                 .environmentObject(updaterController)
-                .task {
-                    await viewModel.initializeIfNeeded()
-                }
         } label: {
             MenuBarIconView()
                 .environment(viewModel)
                 .environmentObject(updaterController)
+                .task {
+                    await viewModel.initializeIfNeeded()
+                }
         }
         .menuBarExtraStyle(.window)
     }
