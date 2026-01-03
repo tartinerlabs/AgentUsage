@@ -214,7 +214,7 @@ struct MenuBarView: View {
     // MARK: - Actions
 
     private var actionsSection: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 0) {
             MenuItemButton(title: "Open ClaudeMeter", shortcut: "⌘O") {
                 selectedTab = .dashboard
                 openWindow(id: Constants.mainWindowID)
@@ -228,11 +228,14 @@ struct MenuBarView: View {
             }
 
             Divider()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
 
             MenuItemButton(title: "Quit", shortcut: "⌘Q") {
                 NSApplication.shared.terminate(nil)
             }
         }
+        .padding(.horizontal, -16)
     }
 
     private func relativeDescription(from past: Date, to current: Date) -> String {
