@@ -11,6 +11,8 @@ import SwiftUI
 struct ClaudeMeterApp: App {
     @State private var viewModel: UsageViewModel
     @StateObject private var updaterController = UpdaterController()
+    @AppStorage("selectedMainWindowTab") private var selectedTab: MainWindowTab = .dashboard
+    @Environment(\.openWindow) private var openWindow
 
     init() {
         let credentialService = MacOSCredentialService()
@@ -22,6 +24,29 @@ struct ClaudeMeterApp: App {
     }
 
     var body: some Scene {
+        // Main window (opened from menu bar)
+        Window("ClaudeMeter", id: Constants.mainWindowID) {
+            MainWindowView()
+                .environment(viewModel)
+                .environmentObject(updaterController)
+                .task {
+                    await viewModel.initializeIfNeeded()
+                }
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings...") {
+                    selectedTab = .settings
+                    openWindow(id: Constants.mainWindowID)
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
+
+        // Menu bar popover
         MenuBarExtra {
             MenuBarView()
                 .environment(viewModel)
@@ -35,11 +60,5 @@ struct ClaudeMeterApp: App {
                 .environmentObject(updaterController)
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            SettingsView()
-                .environment(viewModel)
-                .environmentObject(updaterController)
-        }
     }
 }

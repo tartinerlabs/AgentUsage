@@ -10,7 +10,8 @@ internal import Combine
 struct MenuBarView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @EnvironmentObject private var updaterController: UpdaterController
-    @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
+    @AppStorage("selectedMainWindowTab") private var selectedTab: MainWindowTab = .dashboard
     @State private var lastRefreshTap: Date?
     @State private var now = Date()
     private let uiThrottle: TimeInterval = 5
@@ -213,46 +214,25 @@ struct MenuBarView: View {
     // MARK: - Actions
 
     private var actionsSection: some View {
-        HStack {
-            Button {
-                let now = Date()
-                if let last = lastRefreshTap, now.timeIntervalSince(last) < uiThrottle {
-                    return
-                }
-                lastRefreshTap = now
-                Task { await viewModel.refresh(force: true) }
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
-            }
-            .disabled(viewModel.isLoading)
-            .keyboardShortcut("r", modifiers: .command)
-
-            Spacer()
-
-            Button {
+        VStack(spacing: 4) {
+            MenuItemButton(title: "Open ClaudeMeter", shortcut: "⌘O") {
+                selectedTab = .dashboard
+                openWindow(id: Constants.mainWindowID)
                 NSApp.activate(ignoringOtherApps: true)
-                openSettings()
-            } label: {
-                Label("Settings", systemImage: "gear")
             }
-            .keyboardShortcut(",", modifiers: .command)
 
-            Button {
+            MenuItemButton(title: "Settings", shortcut: "⌘,") {
+                selectedTab = .settings
+                openWindow(id: Constants.mainWindowID)
                 NSApp.activate(ignoringOtherApps: true)
-                openSettings()
-            } label: {
-                Label("About", systemImage: "info.circle")
             }
 
-            Button(role: .destructive) {
+            Divider()
+
+            MenuItemButton(title: "Quit", shortcut: "⌘Q") {
                 NSApplication.shared.terminate(nil)
-            } label: {
-                Label("Quit", systemImage: "power")
             }
-            .keyboardShortcut("q", modifiers: .command)
         }
-        .buttonStyle(.borderless)
-        .labelStyle(.iconOnly)
     }
 
     private func relativeDescription(from past: Date, to current: Date) -> String {

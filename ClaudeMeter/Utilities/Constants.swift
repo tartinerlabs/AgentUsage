@@ -7,6 +7,9 @@ import Foundation
 import SwiftUI
 
 enum Constants {
+    // MARK: - Window IDs
+    static let mainWindowID = "main-window"
+
     // MARK: - Brand Colors
     static let brandPrimary = Color(red: 193/255, green: 95/255, blue: 60/255)  // #C15F3C (Crail)
     static let brandSecondary = Color(red: 218/255, green: 119/255, blue: 86/255)  // #DA7756
