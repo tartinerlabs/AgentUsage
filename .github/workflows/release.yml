@@ -104,6 +104,7 @@ jobs:
               -e 's/^## \(.*\)/<h2>\1<\/h2>/' \
               -e 's/^### \(.*\)/<h3>\1<\/h3>/' \
               -e 's/^- \(.*\)/<li>\1<\/li>/' \
+              -e 's/\[\([^]]*\)\](\([^)]*\))/<a href="\2">\1<\/a>/g' \
               | awk 'BEGIN{in_list=0} /<li>/{if(!in_list){print "<ul>"; in_list=1}} !/<li>/&&in_list{print "</ul>"; in_list=0} {print} END{if(in_list)print "</ul>"}')
 
             {
