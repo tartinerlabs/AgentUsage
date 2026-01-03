@@ -55,7 +55,7 @@ CredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (ac
 | `TokenUsageSnapshot` | Contains `today`, `last7Days` summaries + `byModel` breakdown |
 | `TokenUsageSummary` | Aggregated tokens + cost USD for a period |
 | `TokenCount` | Input, output, cache creation, cache read token counts |
-| `ModelPricing` | Per-model pricing rates (MTok) from LiteLLM data |
+| `ModelPricing` | Per-model pricing rates (MTok) based on Anthropic pricing |
 
 ### API Response Mapping
 
@@ -88,7 +88,7 @@ Follow [Swift API Design Guidelines](https://www.swift.org/documentation/api-des
 Token usage and costs are calculated from Claude Code's local JSONL logs:
 - **Location**: `~/.claude/projects/` or `~/.config/claude/projects/`
 - **Format**: One JSON object per line with `message.model`, `message.usage`, `timestamp`
-- **Pricing**: Hardcoded rates from [LiteLLM pricing data](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)
+- **Pricing**: Hardcoded rates based on [Anthropic pricing](https://anthropic.com/pricing)
 
 ## App Configuration
 
