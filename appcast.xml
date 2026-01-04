@@ -6,32 +6,38 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.6.3</title>
-            <pubDate>Sat, 03 Jan 2026 18:31:54 +0000</pubDate>
-            <sparkle:version>15</sparkle:version>
-            <sparkle:shortVersionString>0.6.3</sparkle:shortVersionString>
+            <title>Version 0.7.0</title>
+            <pubDate>Sun, 04 Jan 2026 17:44:54 +0000</pubDate>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
+<h3>Added</h3>
+<ul>
+<li>Token usage persistence with SwiftData for faster startup and historical tracking (macOS)</li>
+<li>ClaudeMeterKit Swift Package for shared models across macOS, iOS, and widgets</li>
+</ul>
+
 <h3>Changed</h3>
 <ul>
-<li>Style subscription tier as brand badge for better visual distinction</li>
-<li>Update labels and fonts to follow Apple Human Interface Guidelines</li>
+<li>Bump iOS deployment target to iOS 18.0</li>
+<li>Refactor usage data models into shared ClaudeMeterKit package</li>
 </ul>
 
 <h3>Fixed</h3>
 <ul>
-<li>Fix Check for Updates button state not updating correctly</li>
+<li>Pin GitHub Action to commit hash for improved CI security</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.3/ClaudeMeter.zip"
-                length="1329184"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.7.0/ClaudeMeter.zip"
+                length="1423574"
                 type="application/octet-stream"
-                sparkle:edSignature="d0O7rcx0fFGIciUVDq7kfrlJnEDOQGZFSXPz5f6D0zM+54hWlGaUUqUqnaOzsDUWy1P1C9ylYCJvtcdkb2nTAw==" />
+                sparkle:edSignature="KCatevOk9yqt1Me/AI+ErmHKzkgbBURNzNTmIbuY+XTGPuhccHApUIldKOvzNBUAr3BAUOf+d5K9S2RwQNSkDw==" />
         </item>
     </channel>
 </rss>
