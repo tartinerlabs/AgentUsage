@@ -5,14 +5,30 @@
 
 import Foundation
 import SwiftUI
+#if os(macOS)
+import SwiftData
+#endif
 
 @MainActor @Observable
 final class UsageViewModel {
     var snapshot: UsageSnapshot?
     var tokenSnapshot: TokenUsageSnapshot?
+    var selectedPeriodSummary: TokenUsageSummary?
+    #if os(macOS)
+    var periodSummaries: [UsagePeriod: TokenUsageSummary] = [:]
+    var isFetchingPeriodSummaries: Bool = false
+    #endif
     var planType: String = "Free"
     var isLoading = false
     var errorMessage: String?
+    var selectedTokenPeriod: UsagePeriod = .last30Days {
+        didSet {
+            #if os(macOS)
+            // Instant update from cache (if available); defer fetch to view with .task(id:)
+            selectedPeriodSummary = periodSummaries[selectedTokenPeriod]
+            #endif
+        }
+    }
 
     var refreshInterval: RefreshFrequency {
         didSet {
@@ -40,6 +56,8 @@ final class UsageViewModel {
     private let apiService = ClaudeAPIService()
     #if os(macOS)
     private let tokenService: TokenUsageService?
+    private let tokenRepository: TokenUsageRepository?
+    private let tokenQuerier: TokenUsageQuerier?
     #endif
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
@@ -66,10 +84,13 @@ final class UsageViewModel {
     #if os(macOS)
     init(
         credentialProvider: any CredentialProvider,
-        tokenService: TokenUsageService? = nil
+        tokenService: TokenUsageService? = nil,
+        modelContext: ModelContext? = nil
     ) {
         self.credentialProvider = credentialProvider
         self.tokenService = tokenService
+        self.tokenRepository = modelContext.map { TokenUsageRepository(modelContext: $0) }
+        self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
         self.notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
@@ -130,17 +151,120 @@ final class UsageViewModel {
 
         // Fetch token usage in background (macOS only)
         #if os(macOS)
-        if let tokenService {
-            Task {
-                do {
-                    tokenSnapshot = try await tokenService.fetchUsage()
-                } catch {
-                    print("Token usage error: \(error)")
-                }
-            }
+        Task {
+            await refreshTokenUsage()
         }
         #endif
     }
+
+    #if os(macOS)
+    /// Refresh token usage from SwiftData repository (with incremental import)
+    private func refreshTokenUsage() async {
+        do {
+            // If repository available, import new entries and query from SwiftData
+            if let repository = tokenRepository, let service = tokenService {
+                // Get current file states for incremental reading
+                let fileStates = try repository.getAllFileStates()
+
+                // Get parsed entries from service (incremental - only new content)
+                let parsedResults = try await service.fetchParsedEntries(fileStates: fileStates)
+
+                // Import new entries and update file states
+                for (fileURL, result) in parsedResults {
+                    try await repository.importEntries(
+                        result.entries,
+                        forFile: fileURL,
+                        newByteOffset: result.newByteOffset,
+                        newFileSize: result.newFileSize,
+                        newModified: result.newModified
+                    )
+                }
+
+                // Query snapshot via background actor (prefer querier to avoid main-actor hops)
+                if let querier = tokenQuerier {
+                    tokenSnapshot = try await querier.fetchSnapshot()
+                } else {
+                    tokenSnapshot = try await repository.fetchSnapshot()
+                }
+
+                // Prefetch and cache summaries for all periods
+                await prefetchAllPeriodSummaries()
+                // Update the currently selected period summary from cache
+                selectedPeriodSummary = periodSummaries[selectedTokenPeriod]
+            } else if let service = tokenService {
+                // Fallback to direct service query (no persistence)
+                tokenSnapshot = try await service.fetchUsage()
+            }
+        } catch {
+            print("Token usage error: \(error)")
+        }
+    }
+
+    /// Refresh the summary for the currently selected period (async, non-blocking)
+    func refreshSelectedPeriodSummary() async {
+        if let querier = tokenQuerier {
+            do {
+                let summary = try await querier.fetchSummary(for: selectedTokenPeriod)
+                periodSummaries[selectedTokenPeriod] = summary
+                selectedPeriodSummary = summary
+            } catch {
+                print("Failed to fetch period summary: \(error)")
+            }
+        } else if let repository = tokenRepository {
+            do {
+                let summary = try await repository.fetchSummary(for: selectedTokenPeriod)
+                periodSummaries[selectedTokenPeriod] = summary
+                selectedPeriodSummary = summary
+            } catch {
+                print("Failed to fetch period summary: \(error)")
+            }
+        }
+    }
+
+    /// Prefetch and cache summaries for all periods to make Picker selection instant
+    private func prefetchAllPeriodSummaries() async {
+        let querier = tokenQuerier
+        let repository = tokenRepository
+        if querier == nil && repository == nil { return }
+        isFetchingPeriodSummaries = true
+        defer { isFetchingPeriodSummaries = false }
+
+        // Fetch all periods in parallel
+        let periods = UsagePeriod.allCases
+        // Build a dictionary by fetching each period concurrently
+        var results: [UsagePeriod: TokenUsageSummary] = [:]
+
+        await withTaskGroup(of: (UsagePeriod, TokenUsageSummary)?.self) { group in
+            for period in periods {
+                group.addTask {
+                    do {
+                        if let querier {
+                            let summary = try await querier.fetchSummary(for: period)
+                            return (period, summary)
+                        } else if let repository {
+                            let summary = try await repository.fetchSummary(for: period)
+                            return (period, summary)
+                        } else {
+                            return nil
+                        }
+                    } catch {
+                        print("Failed to prefetch summary for \(period): \(error)")
+                        return nil
+                    }
+                }
+            }
+
+            for await pair in group {
+                if let (period, summary) = pair {
+                    results[period] = summary
+                }
+            }
+        }
+
+        // Update cache on main actor (we're @MainActor already)
+        periodSummaries = results
+    }
+    #endif
 
     func initializeIfNeeded() async {
         guard !hasInitialized else { return }
@@ -203,3 +327,4 @@ enum RefreshFrequency: String, CaseIterable, Identifiable {
         }
     }
 }
+
