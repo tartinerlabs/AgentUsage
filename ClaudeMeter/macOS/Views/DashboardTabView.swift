@@ -90,10 +90,19 @@ struct DashboardTabView: View {
 
     private func usageSection(snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 16) {
-            UsageRowView(title: "Session", usage: snapshot.session, now: now)
-            UsageRowView(title: "Opus", usage: snapshot.opus, now: now)
-            if let sonnet = snapshot.sonnet {
-                UsageRowView(title: "Sonnet", usage: sonnet, now: now)
+            UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now)
+
+            // Weekly limits group
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Weekly")
+                    .font(.callout)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+
+                UsageRowView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now)
+                if let sonnet = snapshot.sonnet {
+                    UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now)
+                }
             }
         }
     }

@@ -140,10 +140,20 @@ struct DashboardView: View {
 
     @ViewBuilder
     private func usageCardsSection(snapshot: UsageSnapshot) -> some View {
-        UsageCardView(title: "Session", usage: snapshot.session, now: now)
-        UsageCardView(title: "Opus", usage: snapshot.opus, now: now)
-        if let sonnet = snapshot.sonnet {
-            UsageCardView(title: "Sonnet", usage: sonnet, now: now)
+        UsageCardView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now)
+
+        // Weekly limits group
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Weekly")
+                .font(.callout)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+
+            UsageCardView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now)
+            if let sonnet = snapshot.sonnet {
+                UsageCardView(title: sonnet.windowType.displayName, usage: sonnet, now: now)
+            }
         }
     }
 

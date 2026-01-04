@@ -49,20 +49,20 @@ actor NotificationService {
     ) async {
         // Check each usage window
         await checkWindow(
-            name: "Session",
+            name: newSnapshot.session.windowType.displayName,
             oldUsage: oldSnapshot?.session,
             newUsage: newSnapshot.session
         )
 
         await checkWindow(
-            name: "Opus",
+            name: newSnapshot.opus.windowType.displayName,
             oldUsage: oldSnapshot?.opus,
             newUsage: newSnapshot.opus
         )
 
         if let newSonnet = newSnapshot.sonnet {
             await checkWindow(
-                name: "Sonnet",
+                name: newSonnet.windowType.displayName,
                 oldUsage: oldSnapshot?.sonnet,
                 newUsage: newSonnet
             )

@@ -11,6 +11,9 @@
 		D835E8532F06D377001A996A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8522F06D377001A996A /* WidgetKit.framework */; };
 		D835E8552F06D377001A996A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8542F06D377001A996A /* SwiftUI.framework */; };
 		D835E8662F06D378001A996A /* ClaudeMeterWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D835E8502F06D377001A996A /* ClaudeMeterWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D8AB30E12F0AB1E800A4BD39 /* ClaudeMeterKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E02F0AB1E800A4BD39 /* ClaudeMeterKit */; };
+		D8AB30E32F0AB29700A4BD39 /* ClaudeMeterKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E22F0AB29700A4BD39 /* ClaudeMeterKit */; };
+		D8AB30E52F0AB2B800A4BD39 /* ClaudeMeterKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E42F0AB2B800A4BD39 /* ClaudeMeterKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -180,6 +183,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D8AB30E32F0AB29700A4BD39 /* ClaudeMeterKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,6 +207,7 @@
 			files = (
 				D835E8552F06D377001A996A /* SwiftUI.framework in Frameworks */,
 				D835E8532F06D377001A996A /* WidgetKit.framework in Frameworks */,
+				D8AB30E52F0AB2B800A4BD39 /* ClaudeMeterKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -211,6 +216,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D835E7BC2F06B812001A996A /* Sparkle in Frameworks */,
+				D8AB30E12F0AB1E800A4BD39 /* ClaudeMeterKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -291,6 +297,7 @@
 			);
 			name = "ClaudeMeter-iOS";
 			packageProductDependencies = (
+				D8AB30E22F0AB29700A4BD39 /* ClaudeMeterKit */,
 			);
 			productName = "ClaudeMeter-iOS";
 			productReference = D835E80A2F06B9AE001A996A /* ClaudeMeter-iOS.app */;
@@ -359,6 +366,7 @@
 			);
 			name = ClaudeMeterWidgetsExtension;
 			packageProductDependencies = (
+				D8AB30E42F0AB2B800A4BD39 /* ClaudeMeterKit */,
 			);
 			productName = ClaudeMeterWidgetsExtension;
 			productReference = D835E8502F06D377001A996A /* ClaudeMeterWidgetsExtension.appex */;
@@ -382,6 +390,7 @@
 			name = ClaudeMeter;
 			packageProductDependencies = (
 				D8EFFFC12F05CD75006A2183 /* Sparkle */,
+				D8AB30E02F0AB1E800A4BD39 /* ClaudeMeterKit */,
 			);
 			productName = ClaudeMeter;
 			productReference = D8EFFF722F05796A006A2183 /* ClaudeMeter.app */;
@@ -481,6 +490,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D8EFFFC02F05CD75006A2183 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "ClaudeMeterKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D8EFFF732F05796A006A2183 /* Products */;
@@ -837,6 +847,9 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
@@ -870,6 +883,9 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
@@ -1262,6 +1278,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "ClaudeMeterKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ClaudeMeterKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		D8EFFFC02F05CD75006A2183 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1274,6 +1297,20 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		D8AB30E02F0AB1E800A4BD39 /* ClaudeMeterKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ClaudeMeterKit;
+		};
+		D8AB30E22F0AB29700A4BD39 /* ClaudeMeterKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "ClaudeMeterKit" */;
+			productName = ClaudeMeterKit;
+		};
+		D8AB30E42F0AB2B800A4BD39 /* ClaudeMeterKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "ClaudeMeterKit" */;
+			productName = ClaudeMeterKit;
+		};
 		D8EFFFC12F05CD75006A2183 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D8EFFFC02F05CD75006A2183 /* XCRemoteSwiftPackageReference "Sparkle" */;

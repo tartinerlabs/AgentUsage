@@ -24,11 +24,11 @@ struct LargeWidgetView: View {
             Divider()
 
             // Usage rows
-            usageRow(title: "Session", usage: entry.snapshot.session)
-            usageRow(title: "Opus", usage: entry.snapshot.opus)
+            usageRow(title: entry.snapshot.session.windowType.displayName, usage: entry.snapshot.session)
+            usageRow(title: entry.snapshot.opus.windowType.displayName, usage: entry.snapshot.opus)
 
             if let sonnet = entry.snapshot.sonnet {
-                usageRow(title: "Sonnet", usage: sonnet)
+                usageRow(title: sonnet.windowType.displayName, usage: sonnet)
             }
 
             Spacer()

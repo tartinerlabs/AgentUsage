@@ -11,13 +11,13 @@ struct MediumWidgetView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            metricView(title: "Session", usage: entry.snapshot.session)
+            metricView(title: entry.snapshot.session.windowType.displayName, usage: entry.snapshot.session)
             Divider()
-            metricView(title: "Opus", usage: entry.snapshot.opus)
+            metricView(title: entry.snapshot.opus.windowType.displayName, usage: entry.snapshot.opus)
 
             if let sonnet = entry.snapshot.sonnet {
                 Divider()
-                metricView(title: "Sonnet", usage: sonnet)
+                metricView(title: sonnet.windowType.displayName, usage: sonnet)
             }
         }
         .padding(.horizontal, 8)

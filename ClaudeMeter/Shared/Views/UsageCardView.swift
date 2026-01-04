@@ -63,22 +63,25 @@ struct UsageCardView: View {
 }
 
 #Preview {
-    VStack(spacing: 16) {
+    let sessionUsage = UsageWindow(
+        utilization: 45,
+        resetsAt: Date().addingTimeInterval(3600),
+        windowType: .session
+    )
+    let opusUsage = UsageWindow(
+        utilization: 78,
+        resetsAt: Date().addingTimeInterval(86400 * 3),
+        windowType: .opus
+    )
+
+    return VStack(spacing: 16) {
         UsageCardView(
-            title: "Session",
-            usage: UsageWindow(
-                utilization: 45,
-                resetsAt: Date().addingTimeInterval(3600),
-                windowType: .session
-            )
+            title: sessionUsage.windowType.displayName,
+            usage: sessionUsage
         )
         UsageCardView(
-            title: "Opus",
-            usage: UsageWindow(
-                utilization: 78,
-                resetsAt: Date().addingTimeInterval(86400 * 3),
-                windowType: .opus
-            )
+            title: opusUsage.windowType.displayName,
+            usage: opusUsage
         )
     }
     .padding()

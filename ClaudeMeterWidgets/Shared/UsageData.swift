@@ -44,6 +44,14 @@ enum UsageWindowType: String, Sendable, Codable {
     case opus
     case sonnet
 
+    var displayName: String {
+        switch self {
+        case .session: "Current session"
+        case .opus: "All models"
+        case .sonnet: "Sonnet"
+        }
+    }
+
     var totalDuration: TimeInterval {
         switch self {
         case .session: 5 * 60 * 60
