@@ -5,6 +5,7 @@
 
 import WidgetKit
 import SwiftUI
+import ClaudeMeterKit
 
 // MARK: - Home Screen Widget
 

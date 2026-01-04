@@ -4,6 +4,7 @@
 //
 
 import WidgetKit
+import ClaudeMeterKit
 
 struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> WidgetEntry {
