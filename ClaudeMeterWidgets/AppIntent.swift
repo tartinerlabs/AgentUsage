@@ -14,15 +14,15 @@ enum MetricType: String, AppEnum {
     static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Metric")
 
     static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-        .session: DisplayRepresentation(title: "Session (5h)"),
-        .opus: DisplayRepresentation(title: "Opus (7d)"),
+        .session: DisplayRepresentation(title: "Current session (5h)"),
+        .opus: DisplayRepresentation(title: "All models (7d)"),
         .sonnet: DisplayRepresentation(title: "Sonnet (7d)")
     ]
 
     var displayName: String {
         switch self {
-        case .session: return "Session"
-        case .opus: return "Opus"
+        case .session: return "Current session"
+        case .opus: return "All models"
         case .sonnet: return "Sonnet"
         }
     }

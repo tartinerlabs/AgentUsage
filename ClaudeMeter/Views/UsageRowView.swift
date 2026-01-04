@@ -62,30 +62,34 @@ struct UsageRowView: View {
 }
 
 #Preview {
-    VStack(spacing: 20) {
+    let sessionUsage = UsageWindow(
+        utilization: 25,
+        resetsAt: Date().addingTimeInterval(3600),
+        windowType: .session
+    )
+    let opusUsage = UsageWindow(
+        utilization: 8,
+        resetsAt: Date().addingTimeInterval(86400 * 3),
+        windowType: .opus
+    )
+    let sonnetUsage = UsageWindow(
+        utilization: 3,
+        resetsAt: Date().addingTimeInterval(86400 * 3),
+        windowType: .sonnet
+    )
+
+    return VStack(spacing: 20) {
         UsageRowView(
-            title: "Session",
-            usage: UsageWindow(
-                utilization: 25,
-                resetsAt: Date().addingTimeInterval(3600),
-                windowType: .session
-            )
+            title: sessionUsage.windowType.displayName,
+            usage: sessionUsage
         )
         UsageRowView(
-            title: "Opus",
-            usage: UsageWindow(
-                utilization: 8,
-                resetsAt: Date().addingTimeInterval(86400 * 3),
-                windowType: .opus
-            )
+            title: opusUsage.windowType.displayName,
+            usage: opusUsage
         )
         UsageRowView(
-            title: "Sonnet",
-            usage: UsageWindow(
-                utilization: 3,
-                resetsAt: Date().addingTimeInterval(86400 * 3),
-                windowType: .sonnet
-            )
+            title: sonnetUsage.windowType.displayName,
+            usage: sonnetUsage
         )
     }
     .padding()

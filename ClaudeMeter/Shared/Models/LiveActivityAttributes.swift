@@ -21,8 +21,8 @@ enum MetricType: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .session: return "Session"
-        case .opus: return "Opus"
+        case .session: return "Current session"
+        case .opus: return "All models"
         case .sonnet: return "Sonnet"
         }
     }

@@ -85,7 +85,7 @@ struct MenuBarView: View {
 
     private func contentSection(snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 16) {
-            UsageRowView(title: "Current session", usage: snapshot.session, now: now)
+            UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now)
 
             // Weekly limits group
             VStack(alignment: .leading, spacing: 12) {
@@ -94,9 +94,9 @@ struct MenuBarView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
 
-                UsageRowView(title: "All models", usage: snapshot.opus, now: now)
+                UsageRowView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now)
                 if let sonnet = snapshot.sonnet {
-                    UsageRowView(title: "Sonnet", usage: sonnet, now: now)
+                    UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now)
                 }
             }
 
