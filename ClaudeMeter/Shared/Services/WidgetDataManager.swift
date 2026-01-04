@@ -5,6 +5,7 @@
 
 #if os(iOS)
 import Foundation
+import ClaudeMeterKit
 import WidgetKit
 
 /// Manages shared data between the main app and widget extension via App Groups

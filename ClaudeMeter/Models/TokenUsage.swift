@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import ClaudeMeterKit
 
 /// Pricing per million tokens (MTok) for Claude models
 enum ModelPricing: Sendable {

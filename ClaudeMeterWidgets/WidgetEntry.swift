@@ -4,6 +4,7 @@
 //
 
 import WidgetKit
+import ClaudeMeterKit
 
 struct WidgetEntry: TimelineEntry {
     let date: Date

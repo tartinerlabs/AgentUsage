@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import Foundation
+import ClaudeMeterKit
 import SwiftData
 
 /// Background actor for querying token usage data (non-blocking aggregations)

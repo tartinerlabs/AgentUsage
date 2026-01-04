@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import SwiftUI
+import ClaudeMeterKit
 internal import Combine
 
 struct MenuBarView: View {

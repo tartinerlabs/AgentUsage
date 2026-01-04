@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import SwiftUI
+import ClaudeMeterKit
 internal import Combine
 
 /// Dashboard view for the main window, displaying usage stats and token costs

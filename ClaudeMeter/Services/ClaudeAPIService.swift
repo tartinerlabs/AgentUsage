@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import ClaudeMeterKit
 
 actor ClaudeAPIService {
     enum APIError: LocalizedError {

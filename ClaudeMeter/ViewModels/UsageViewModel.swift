@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import ClaudeMeterKit
 import SwiftUI
 #if os(macOS)
 import SwiftData

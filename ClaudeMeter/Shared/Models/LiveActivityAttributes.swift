@@ -7,6 +7,7 @@
 
 #if os(iOS)
 import ActivityKit
+import ClaudeMeterKit
 import SwiftUI
 
 // MARK: - MetricType

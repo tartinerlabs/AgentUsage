@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import ClaudeMeterKit
 import AppKit
 internal import Combine
 
