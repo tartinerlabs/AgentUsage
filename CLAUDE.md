@@ -10,16 +10,23 @@ Multi-platform SwiftUI app (macOS + iOS) built with Xcode (no npm/yarn/package m
 - `ClaudeMeter` - macOS menu bar app
 - `ClaudeMeter-iOS` - iOS app with Dashboard
 - `ClaudeMeterWidgetsExtension` - iOS Widgets and Live Activities
+- `ClaudeMeterKit` - Shared Swift Package (data models)
 
 ```bash
 # Build macOS app
 xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Debug build
 
-# Build iOS app
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS -configuration Debug build
+# Build iOS app (iPhone 17 Pro)
+xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+
+# Build iPadOS app (iPad Air 11-inch M3)
+xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M3)' build
 
 # Build iOS widgets
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeterWidgetsExtension -configuration Debug build
+xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeterWidgetsExtension -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 
 # Build for release (macOS)
 xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Release build
@@ -27,11 +34,46 @@ xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Rel
 # Run tests (macOS)
 xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter test
 
-# Run tests (iOS)
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS test
+# Run tests (iOS - iPhone 17 Pro)
+xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+
+# Run tests (iPadOS - iPad Air 11-inch M3)
+xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M3)' test
 ```
 
 Or open `ClaudeMeter.xcodeproj` in Xcode: ⌘B to build, ⌘R to run.
+
+## ClaudeMeterKit (Shared Package)
+
+**Location:** `ClaudeMeterKit/` - Swift Package for cross-platform shared code
+
+**Purpose:** Provides shared data models and utilities used across macOS app, iOS app, and widget extensions. Eliminates code duplication and ensures consistency.
+
+**Platform Support:**
+- macOS 15.0+
+- iOS 18.0+
+
+**Package Structure:**
+```
+ClaudeMeterKit/
+├── Package.swift          # Swift Package manifest
+├── Sources/ClaudeMeterKit/
+│   └── Models/
+│       └── UsageData.swift  # Shared usage models (UsageSnapshot, UsageWindow, etc.)
+└── Tests/ClaudeMeterKitTests/
+```
+
+**Shared Models:**
+| Model | Description |
+|-------|-------------|
+| `UsageSnapshot` | Complete usage data snapshot with session, opus, and optional sonnet windows |
+| `UsageWindow` | Individual usage window with utilization %, reset time, and computed properties |
+| `UsageWindowType` | Enum for window types (`.session`, `.opus`, `.sonnet`) with display names and durations |
+| `UsageStatus` | Usage status enum (`.onTrack`, `.warning`, `.critical`) with colors and icons |
+
+**Integration:** Imported via `import ClaudeMeterKit` in app targets, widgets, and extensions. Xcode automatically links the package.
 
 ## Architecture
 
@@ -39,14 +81,17 @@ MVVM with Swift Actors for thread safety. Multi-platform architecture with share
 
 **macOS:**
 ```
-ClaudeMeterApp (@main)
+ClaudeMeterApp (@main) + SwiftData ModelContainer
     ↓
 MenuBarExtra + MainWindow (TabView: Dashboard, Settings, About)
     ↓ (.environment injection)
 UsageViewModel (@Observable, @MainActor)  +  UpdaterController (@ObservableObject, @MainActor)
     ↓
 MacOSCredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (actor)
-    +  NotificationService (actor)  +  LaunchAtLoginService  +  Sparkle
+    +  TokenUsageRepository (@ModelActor)  +  NotificationService (actor)
+    +  LaunchAtLoginService  +  Sparkle
+    ↓ (imports)
+ClaudeMeterKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
 
 **iOS:**
@@ -59,6 +104,8 @@ UsageViewModel (@Observable, @MainActor)
     ↓
 iOSCredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (actor)
     +  LiveActivityManager  +  WidgetDataManager
+    ↓ (imports)
+ClaudeMeterKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
 
 **Widgets:**
@@ -68,6 +115,8 @@ ClaudeMeterWidgetsBundle
 Home Screen Widgets (Small, Medium, Large) + Lock Screen Widget + Live Activity
     ↓
 TimelineProvider  +  Shared WidgetDataManager
+    ↓ (imports)
+ClaudeMeterKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
 
 ### Key Components
@@ -78,7 +127,8 @@ TimelineProvider  +  Shared WidgetDataManager
 | `MacOSCredentialService` | macOS/Services/ | Loads OAuth token from `~/.claude/.credentials.json`. Falls back to `NSOpenPanel` if sandboxed. |
 | `iOSCredentialService` | iOS/Services/ | Loads OAuth token from `~/.claude/.credentials.json` via CredentialProvider + KeychainHelper. |
 | `ClaudeAPIService` | Services/ | Fetches usage from Anthropic API. API constants in `Utilities/Constants.swift`. |
-| `TokenUsageService` | Services/ | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. |
+| `TokenUsageService` | Services/ | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. Persists to SwiftData (macOS only). |
+| `TokenUsageRepository` | Services/ | SwiftData `@ModelActor` for background queries of persisted token usage (macOS only). |
 | `NotificationService` | Services/ | Threshold-based usage alerts (25%, 50%, 75%, 100%) with reset notifications (macOS only). |
 | `UpdaterController` | Services/ | Sparkle updater integration for automatic updates. Observes `canCheckForUpdates` state (macOS only). |
 | `LaunchAtLoginService` | macOS/Services/ | Manages Login Items for launching app on macOS startup (macOS 13+). |
@@ -87,18 +137,32 @@ TimelineProvider  +  Shared WidgetDataManager
 
 ### Data Models
 
+**Shared Models (ClaudeMeterKit package):**
+
 | Model | Purpose |
 |-------|---------|
 | `UsageSnapshot` | Contains `session`, `opus`, and optional `sonnet` usage windows + fetch timestamp |
 | `UsageWindow` | Utilization %, reset time, window type. Computed: `normalized`, `status`, `timeUntilReset` |
-| `UsageWindowType` | Enum: `.session`, `.opus`, `.sonnet` |
-| `UsageStatus` | Enum: `.onTrack`, `.warning`, `.critical` - calculated from usage rate |
+| `UsageWindowType` | Enum: `.session`, `.opus`, `.sonnet` - with `displayName` and `totalDuration` |
+| `UsageStatus` | Enum: `.onTrack`, `.warning`, `.critical` - calculated from usage rate with colors and icons |
+
+**App-Specific Models:**
+
+| Model | Purpose |
+|-------|---------|
 | `ClaudeOAuthCredentials` | Token validation + `planDisplayName` for UI |
 | `TokenUsageSnapshot` | Contains `today`, `last30Days` summaries + `byModel` breakdown |
 | `TokenUsageSummary` | Aggregated tokens + cost USD for a period (`.today` or `.last30Days`) |
 | `TokenCount` | Input, output, cache creation, cache read token counts |
 | `ModelPricing` | Per-model pricing rates (MTok): Opus 4.5, Sonnet 4.5, Sonnet 4, Haiku 4.5, Haiku 3.5 |
 | `LiveActivityAttributes` | iOS Live Activity data model for Dynamic Island (iOS only) |
+
+**SwiftData Persistence Models (macOS only):**
+
+| Model | Purpose |
+|-------|---------|
+| `TokenLogEntry` | `@Model` - Persisted token usage entry from JSONL logs with unique composite ID |
+| `ImportedFile` | `@Model` - Tracks imported JSONL files to prevent duplicates |
 
 ### API Response Mapping
 
@@ -115,6 +179,19 @@ TimelineProvider  +  Shared WidgetDataManager
 - `@MainActor` on ViewModel for UI thread safety
 - `@Environment` for dependency injection from App to Views
 - `@Bindable` in SettingsView for two-way binding with @Observable
+- `@Model` for SwiftData persistence (token usage, imported files)
+- `@ModelActor` for background SwiftData queries without blocking main thread
+
+### Data Persistence (macOS only)
+
+**SwiftData Integration:**
+- `ModelContainer` configured in `ClaudeMeterApp` for token usage persistence
+- `@Model` classes: `TokenLogEntry` and `ImportedFile` for tracking parsed JSONL logs
+- `@ModelActor` (`TokenUsageQuerier`) for non-blocking background queries
+- Automatic deduplication via `@Attribute(.unique)` on composite ID
+- Efficient aggregation queries for today/30-day summaries and by-model breakdowns
+
+**Why macOS only:** Token usage data is read from `~/.claude/projects/` JSONL logs, which are only accessible on macOS where Claude Code runs. iOS app shows live API usage only.
 
 ### Coding Conventions
 
@@ -136,7 +213,7 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 ## Platform Requirements
 
 - **macOS**: 15.0 (Sequoia) or later
-- **iOS**: 17.0 or later
+- **iOS**: 18.0 or later
 
 ## App Configuration
 

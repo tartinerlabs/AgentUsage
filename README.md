@@ -8,7 +8,7 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 
 **Platforms:**
 - **macOS 15+**: Menu bar app with notifications and auto-updates
-- **iOS 17+**: Dashboard app with widgets and Live Activity
+- **iOS 18+**: Dashboard app with widgets and Live Activity
 
 ## Features
 
@@ -36,7 +36,7 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 ## Requirements
 
 - **macOS**: 15.0+ (Sequoia), Claude CLI authenticated
-- **iOS**: 17.0+, iPhone with Dynamic Island (for Live Activity)
+- **iOS**: 18.0+, iPhone with Dynamic Island (for Live Activity)
 - Active Claude Code subscription
 
 ## Installation
@@ -116,7 +116,7 @@ MVVM with Swift Actors for thread safety, @Observable for reactive UI, and async
 
 ## Development
 
-**Structure:** ClaudeMeter/ (macOS), ClaudeMeter-iOS/, ClaudeMeterWidgets/, with Models, Services, ViewModels, Views
+**Structure:** ClaudeMeter/ (macOS), ClaudeMeter-iOS/, ClaudeMeterWidgets/, ClaudeMeterKit/ (shared package), with Models, Services, ViewModels, Views
 
 **Build:**
 ```bash
@@ -130,7 +130,7 @@ No data collection or transmission. All processing is local. Reads credentials f
 
 ## Technical Details
 
-**Stack:** Swift/SwiftUI, macOS 15+, iOS 17+, MVVM + Actors
+**Stack:** Swift/SwiftUI, macOS 15+, iOS 18+, MVVM + Actors
 
 **Updates:** [Sparkle 2.8.1](https://sparkle-project.org/) (macOS)
 
