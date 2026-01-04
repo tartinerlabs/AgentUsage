@@ -101,24 +101,54 @@ struct DashboardTabView: View {
     // MARK: - Token Cost Section
 
     private func tokenCostSection(tokenSnapshot: TokenUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Token Usage & Cost")
-                .font(.headline)
+        @Bindable var viewModel = viewModel
+
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Token Usage & Cost")
+                    .font(.headline)
+
+                Spacer()
+
+                Picker("Period", selection: $viewModel.selectedTokenPeriod) {
+                    ForEach(UsagePeriod.allCases) { period in
+                        Text(period.rawValue).tag(period)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 100)
+
+                if viewModel.isFetchingPeriodSummaries {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                }
+            }
 
             HStack(spacing: 16) {
-                // Today's usage
+                // Today's usage (always shown)
                 tokenCard(
                     title: "Today",
                     cost: tokenSnapshot.today.formattedCost,
                     tokens: tokenSnapshot.today.formattedTokens
                 )
 
-                // 30-day usage
-                tokenCard(
-                    title: "30 Days",
-                    cost: tokenSnapshot.last30Days.formattedCost,
-                    tokens: tokenSnapshot.last30Days.formattedTokens
-                )
+                // Selected period usage (prefer cached summary)
+                let summary = viewModel.selectedPeriodSummary
+                let title = viewModel.selectedTokenPeriod.rawValue
+                if let summary {
+                    tokenCard(
+                        title: title,
+                        cost: summary.formattedCost,
+                        tokens: summary.formattedTokens
+                    )
+                } else {
+                    tokenCard(
+                        title: "30 Days",
+                        cost: tokenSnapshot.last30Days.formattedCost,
+                        tokens: tokenSnapshot.last30Days.formattedTokens
+                    )
+                }
             }
         }
     }
@@ -227,3 +257,4 @@ struct DashboardTabView: View {
         .frame(width: 500, height: 400)
 }
 #endif
+

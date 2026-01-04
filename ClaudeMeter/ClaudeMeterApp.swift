@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct ClaudeMeterApp: App {
@@ -15,12 +16,25 @@ struct ClaudeMeterApp: App {
     @AppStorage("selectedMainWindowTab") private var selectedTab: MainWindowTab = .dashboard
     @Environment(\.openWindow) private var openWindow
 
+    let modelContainer: ModelContainer
+
     init() {
+        // Initialize SwiftData container
+        let schema = Schema([TokenLogEntry.self, ImportedFile.self])
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        do {
+            modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
+        } catch {
+            fatalError("Could not initialize ModelContainer: \(error)")
+        }
+
         let credentialService = MacOSCredentialService()
         let tokenService = TokenUsageService()
         _viewModel = State(initialValue: UsageViewModel(
             credentialProvider: credentialService,
-            tokenService: tokenService
+            tokenService: tokenService,
+            modelContext: modelContainer.mainContext
         ))
     }
 

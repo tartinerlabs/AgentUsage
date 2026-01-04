@@ -99,16 +99,56 @@ struct UsageEntry: Sendable {
     let timestamp: Date
 }
 
+/// Time periods for usage aggregation
+enum UsagePeriod: String, Sendable, CaseIterable, Identifiable {
+    case today = "Today"
+    case last7Days = "7 Days"
+    case last30Days = "30 Days"
+    case last90Days = "90 Days"
+    case last180Days = "180 Days"
+    case lastYear = "Year"
+
+    var id: String { rawValue }
+
+    /// Start date for this period (from now)
+    var startDate: Date {
+        let calendar = Calendar.current
+        let now = Date()
+
+        switch self {
+        case .today:
+            return calendar.startOfDay(for: now)
+        case .last7Days:
+            return calendar.date(byAdding: .day, value: -7, to: now) ?? now
+        case .last30Days:
+            return calendar.date(byAdding: .day, value: -30, to: now) ?? now
+        case .last90Days:
+            return calendar.date(byAdding: .day, value: -90, to: now) ?? now
+        case .last180Days:
+            return calendar.date(byAdding: .day, value: -180, to: now) ?? now
+        case .lastYear:
+            return calendar.date(byAdding: .year, value: -1, to: now) ?? now
+        }
+    }
+
+    /// Number of days in this period (for rate calculations)
+    var days: Int {
+        switch self {
+        case .today: return 1
+        case .last7Days: return 7
+        case .last30Days: return 30
+        case .last90Days: return 90
+        case .last180Days: return 180
+        case .lastYear: return 365
+        }
+    }
+}
+
 /// Aggregated token usage with cost calculation
 struct TokenUsageSummary: Sendable {
     let tokens: TokenCount
     let costUSD: Double
     let period: UsagePeriod
-
-    enum UsagePeriod: Sendable {
-        case today
-        case last30Days
-    }
 
     var formattedCost: String {
         String(format: "$%.2f", costUSD)

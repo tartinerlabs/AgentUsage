@@ -39,6 +39,204 @@ actor TokenUsageService {
         return try await task.value
     }
 
+    /// Represents file state for incremental reading
+    struct FileState {
+        let byteOffset: Int64
+        let fileSize: Int64
+        let lastModified: Date
+
+        static let initial = FileState(byteOffset: 0, fileSize: 0, lastModified: .distantPast)
+    }
+
+    /// Result of incremental file parsing
+    struct IncrementalParseResult {
+        let entries: [(entry: UsageEntry, messageId: String, requestId: String)]
+        let newByteOffset: Int64
+        let newFileSize: Int64
+        let newModified: Date
+    }
+
+    /// Fetch parsed entries grouped by file for SwiftData import (incremental)
+    /// Returns entries with messageId and requestId for deduplication
+    /// Uses 13-month window to ensure full calendar year for "Wrapped" feature
+    func fetchParsedEntries(
+        fileStates: [String: FileState] = [:]
+    ) async throws -> [URL: IncrementalParseResult] {
+        let fileCutoff = Calendar.current.date(byAdding: .month, value: -13, to: Date()) ?? Date()
+        let jsonlFiles = try await self.loadAllJSONLFiles(modifiedAfter: fileCutoff)
+
+        var result: [URL: IncrementalParseResult] = [:]
+
+        for file in jsonlFiles {
+            let state = fileStates[file.path] ?? .initial
+            let parseResult = try parseJSONLFileIncremental(at: file, fromState: state)
+
+            // Only include files that had new entries
+            if !parseResult.entries.isEmpty {
+                result[file] = parseResult
+            } else if parseResult.newByteOffset != state.byteOffset {
+                // File was read but no new entries (e.g., non-assistant entries)
+                // Still update state to avoid re-reading
+                result[file] = parseResult
+            }
+        }
+
+        return result
+    }
+
+    /// Parse JSONL file incrementally from a given byte offset
+    private func parseJSONLFileIncremental(
+        at url: URL,
+        fromState state: FileState
+    ) throws -> IncrementalParseResult {
+        let attributes = try fileManager.attributesOfItem(atPath: url.path)
+        let currentSize = (attributes[.size] as? Int64) ?? 0
+        let currentModified = (attributes[.modificationDate] as? Date) ?? Date()
+
+        // Determine import action
+        let action: ImportAction
+        if currentSize < state.fileSize {
+            action = .resetAndImport
+        } else if currentSize > state.fileSize || currentModified > state.lastModified {
+            action = .incrementalImport
+        } else {
+            action = .skip
+        }
+
+        switch action {
+        case .skip:
+            return IncrementalParseResult(
+                entries: [],
+                newByteOffset: state.byteOffset,
+                newFileSize: state.fileSize,
+                newModified: state.lastModified
+            )
+
+        case .resetAndImport:
+            // File truncated - read from beginning
+            let entries = try parseJSONLFileWithIDs(at: url)
+            return IncrementalParseResult(
+                entries: entries,
+                newByteOffset: currentSize,
+                newFileSize: currentSize,
+                newModified: currentModified
+            )
+
+        case .incrementalImport:
+            // Read only new content from byte offset
+            let entries = try parseJSONLFileFromOffset(at: url, offset: state.byteOffset)
+            return IncrementalParseResult(
+                entries: entries,
+                newByteOffset: currentSize,
+                newFileSize: currentSize,
+                newModified: currentModified
+            )
+        }
+    }
+
+    private enum ImportAction {
+        case skip
+        case incrementalImport
+        case resetAndImport
+    }
+
+    /// Parse JSONL file starting from a specific byte offset
+    /// Skips the first incomplete line when offset > 0
+    private func parseJSONLFileFromOffset(
+        at url: URL,
+        offset: Int64
+    ) throws -> [(entry: UsageEntry, messageId: String, requestId: String)] {
+        guard let handle = try? FileHandle(forReadingFrom: url) else {
+            return []
+        }
+        defer { try? handle.close() }
+
+        // Seek to offset
+        if offset > 0 {
+            try handle.seek(toOffset: UInt64(offset))
+        }
+
+        // Read remaining data
+        guard let data = try handle.readToEnd(), !data.isEmpty else {
+            return []
+        }
+
+        guard let content = String(data: data, encoding: .utf8) else {
+            return []
+        }
+
+        var entries: [(entry: UsageEntry, messageId: String, requestId: String)] = []
+        var isFirstLine = offset > 0  // Skip first line only if we seeked
+
+        for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
+            // Skip first incomplete line after seeking
+            if isFirstLine {
+                isFirstLine = false
+                continue
+            }
+
+            guard let lineData = line.data(using: .utf8),
+                  let result = parseLogEntryWithIDs(data: lineData) else {
+                continue
+            }
+            entries.append(result)
+        }
+
+        return entries
+    }
+
+    /// Parse JSONL file and return entries with their IDs for deduplication
+    private func parseJSONLFileWithIDs(at url: URL) throws -> [(entry: UsageEntry, messageId: String, requestId: String)] {
+        let data = try Data(contentsOf: url)
+        guard let content = String(data: data, encoding: .utf8) else { return [] }
+
+        var entries: [(entry: UsageEntry, messageId: String, requestId: String)] = []
+
+        for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
+            guard let lineData = line.data(using: .utf8),
+                  let result = parseLogEntryWithIDs(data: lineData) else {
+                continue
+            }
+            entries.append(result)
+        }
+
+        return entries
+    }
+
+    /// Parse a single log entry and return with IDs
+    private func parseLogEntryWithIDs(data: Data) -> (entry: UsageEntry, messageId: String, requestId: String)? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = json["type"] as? String,
+              type == "assistant",
+              let message = json["message"] as? [String: Any],
+              let model = message["model"] as? String,
+              let usage = message["usage"] as? [String: Any],
+              let timestampString = json["timestamp"] as? String,
+              let timestamp = isoFormatter.date(from: timestampString),
+              let messageId = message["id"] as? String,
+              let requestId = json["requestId"] as? String else {
+            return nil
+        }
+
+        let inputTokens = usage["input_tokens"] as? Int ?? 0
+        let outputTokens = usage["output_tokens"] as? Int ?? 0
+        let cacheCreationTokens = usage["cache_creation_input_tokens"] as? Int ?? 0
+        let cacheReadTokens = usage["cache_read_input_tokens"] as? Int ?? 0
+
+        let entry = UsageEntry(
+            model: model,
+            tokens: TokenCount(
+                inputTokens: inputTokens,
+                outputTokens: outputTokens,
+                cacheCreationTokens: cacheCreationTokens,
+                cacheReadTokens: cacheReadTokens
+            ),
+            timestamp: timestamp
+        )
+
+        return (entry, messageId, requestId)
+    }
+
     private func computeSnapshot() async throws -> TokenUsageSnapshot {
         let now = Date()
         let todayStart = Calendar.current.startOfDay(for: now)
@@ -234,7 +432,7 @@ actor TokenUsageService {
         return (entry, uniqueHash)
     }
 
-    private func aggregateSummary(entries: [UsageEntry], period: TokenUsageSummary.UsagePeriod) -> TokenUsageSummary {
+    private func aggregateSummary(entries: [UsageEntry], period: UsagePeriod) -> TokenUsageSummary {
         var totalTokens = TokenCount.zero
         var totalCost = 0.0
 
