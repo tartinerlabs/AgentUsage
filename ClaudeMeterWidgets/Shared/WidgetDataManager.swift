@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ClaudeMeterKit
 
 /// Manages shared data between the main app and widget extension via App Groups
 enum WidgetDataManager {

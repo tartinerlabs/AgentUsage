@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import ClaudeMeterKit
 
 struct UsageRowView: View {
     let title: String

@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import Foundation
+import ClaudeMeterKit
 
 actor TokenUsageService {
     private let fileManager = FileManager.default

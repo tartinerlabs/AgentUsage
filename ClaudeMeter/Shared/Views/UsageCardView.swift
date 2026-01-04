@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import ClaudeMeterKit
 
 /// Card-based usage display with progress ring
 /// Used on iOS dashboard and can be used in widgets

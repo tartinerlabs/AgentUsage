@@ -4,6 +4,7 @@
 //
 
 import ActivityKit
+import ClaudeMeterKit
 import WidgetKit
 import SwiftUI
 

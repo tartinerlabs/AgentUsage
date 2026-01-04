@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import ClaudeMeterKit
 import WidgetKit
 
 struct LargeWidgetView: View {

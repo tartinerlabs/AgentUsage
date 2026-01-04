@@ -97,7 +97,6 @@
 				"iOS/Views/SettingsView+iOS.swift",
 				Models/ClaudeCredentials.swift,
 				Models/TokenUsage.swift,
-				Models/UsageData.swift,
 				Services/ClaudeAPIService.swift,
 				Services/TokenUsageService.swift,
 				Services/UpdaterController.swift,
