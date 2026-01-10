@@ -101,9 +101,62 @@ struct MenuBarView: View {
                 }
             }
 
-            // Token usage and cost (shown when available, no loading indicator)
-            if let tokenSnapshot = viewModel.tokenSnapshot {
-                tokenCostSection(tokenSnapshot: tokenSnapshot)
+            // Token usage section with error/loading states
+            tokenUsageSectionWithStates
+        }
+    }
+
+    // MARK: - Token Usage Section with States
+
+    @ViewBuilder
+    private var tokenUsageSectionWithStates: some View {
+        if let tokenSnapshot = viewModel.tokenSnapshot {
+            tokenCostSection(tokenSnapshot: tokenSnapshot)
+        } else if viewModel.isLoadingTokenUsage {
+            compactTokenLoadingSection
+        } else if let error = viewModel.tokenUsageError {
+            compactTokenErrorSection(error: error)
+        }
+        // If no snapshot, not loading, and no error - silently hide
+    }
+
+    private var compactTokenLoadingSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            HStack {
+                Text("Token Usage & Cost")
+                    .font(.callout)
+                    .fontWeight(.semibold)
+                Spacer()
+                ProgressView()
+                    .scaleEffect(0.6)
+            }
+        }
+    }
+
+    private func compactTokenErrorSection(error: TokenUsageError) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.footnote)
+
+                Text(error.shortDescription)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button {
+                    Task { await viewModel.refresh(force: true) }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.footnote)
+                }
+                .buttonStyle(.borderless)
+                .disabled(viewModel.isLoadingTokenUsage)
             }
         }
     }

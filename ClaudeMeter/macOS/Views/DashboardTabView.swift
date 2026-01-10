@@ -31,9 +31,8 @@ struct DashboardTabView: View {
                 if let snapshot = viewModel.snapshot {
                     usageSection(snapshot: snapshot)
 
-                    if let tokenSnapshot = viewModel.tokenSnapshot {
-                        tokenCostSection(tokenSnapshot: tokenSnapshot)
-                    }
+                    // Token usage section with error/loading states
+                    tokenUsageSectionWithStates
                 } else if let error = viewModel.errorMessage {
                     errorSection(error: error)
                 } else {
@@ -194,6 +193,101 @@ struct DashboardTabView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Constants.brandPrimary.opacity(0.08))
         )
+    }
+
+    // MARK: - Token Usage Section with States
+
+    @ViewBuilder
+    private var tokenUsageSectionWithStates: some View {
+        if let tokenSnapshot = viewModel.tokenSnapshot {
+            tokenCostSection(tokenSnapshot: tokenSnapshot)
+        } else if viewModel.isLoadingTokenUsage {
+            tokenLoadingSection
+        } else if let error = viewModel.tokenUsageError {
+            tokenErrorSection(error: error)
+        }
+        // If no snapshot, not loading, and no error - silently hide (first load case)
+    }
+
+    private var tokenLoadingSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Token Usage & Cost")
+                    .font(.headline)
+                Spacer()
+                ProgressView()
+                    .scaleEffect(0.8)
+            }
+
+            HStack(spacing: 16) {
+                tokenLoadingCard(title: "Today")
+                tokenLoadingCard(title: "30 Days")
+            }
+        }
+    }
+
+    private func tokenLoadingCard(title: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
+
+            HStack {
+                ProgressView()
+                    .scaleEffect(0.8)
+                Spacer()
+            }
+            .frame(height: 32)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Constants.brandPrimary.opacity(0.08))
+        )
+    }
+
+    private func tokenErrorSection(error: TokenUsageError) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Token Usage & Cost")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    Task { await viewModel.refresh(force: true) }
+                } label: {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.isLoadingTokenUsage)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.title3)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Unable to load token data")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text(error.errorDescription ?? "Unknown error")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.orange.opacity(0.1))
+            )
+        }
     }
 
     // MARK: - Update Banner
