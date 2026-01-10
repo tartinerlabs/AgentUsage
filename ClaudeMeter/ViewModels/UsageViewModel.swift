@@ -22,6 +22,10 @@ final class UsageViewModel {
     var planType: String = "Free"
     var isLoading = false
     var errorMessage: String?
+    #if os(macOS)
+    var tokenUsageError: TokenUsageError?
+    var isLoadingTokenUsage = false
+    #endif
     var selectedTokenPeriod: UsagePeriod = .last30Days {
         didSet {
             #if os(macOS)
@@ -161,64 +165,102 @@ final class UsageViewModel {
     #if os(macOS)
     /// Refresh token usage from SwiftData repository (with incremental import)
     private func refreshTokenUsage() async {
+        isLoadingTokenUsage = true
+        tokenUsageError = nil
+
+        defer { isLoadingTokenUsage = false }
+
         do {
             // If repository available, import new entries and query from SwiftData
             if let repository = tokenRepository, let service = tokenService {
                 // Get current file states for incremental reading
-                let fileStates = try repository.getAllFileStates()
+                let fileStates: [String: TokenUsageService.FileState]
+                do {
+                    fileStates = try repository.getAllFileStates()
+                } catch {
+                    throw TokenUsageError.swiftDataError(error)
+                }
 
                 // Get parsed entries from service (incremental - only new content)
-                let parsedResults = try await service.fetchParsedEntries(fileStates: fileStates)
+                let parsedResults: [URL: TokenUsageService.IncrementalParseResult]
+                do {
+                    parsedResults = try await service.fetchParsedEntries(fileStates: fileStates)
+                } catch {
+                    throw TokenUsageError.fileReadError(error)
+                }
 
                 // Import new entries and update file states
                 for (fileURL, result) in parsedResults {
-                    try await repository.importEntries(
-                        result.entries,
-                        forFile: fileURL,
-                        newByteOffset: result.newByteOffset,
-                        newFileSize: result.newFileSize,
-                        newModified: result.newModified
-                    )
+                    do {
+                        try await repository.importEntries(
+                            result.entries,
+                            forFile: fileURL,
+                            newByteOffset: result.newByteOffset,
+                            newFileSize: result.newFileSize,
+                            newModified: result.newModified
+                        )
+                    } catch {
+                        throw TokenUsageError.swiftDataError(error)
+                    }
                 }
 
                 // Query snapshot via background actor (prefer querier to avoid main-actor hops)
-                if let querier = tokenQuerier {
-                    tokenSnapshot = try await querier.fetchSnapshot()
-                } else {
-                    tokenSnapshot = try await repository.fetchSnapshot()
+                do {
+                    if let querier = tokenQuerier {
+                        tokenSnapshot = try await querier.fetchSnapshot()
+                    } else {
+                        tokenSnapshot = try await repository.fetchSnapshot()
+                    }
+                } catch {
+                    throw TokenUsageError.swiftDataError(error)
                 }
 
                 // Prefetch and cache summaries for all periods
                 await prefetchAllPeriodSummaries()
                 // Update the currently selected period summary from cache
                 selectedPeriodSummary = periodSummaries[selectedTokenPeriod]
+
             } else if let service = tokenService {
                 // Fallback to direct service query (no persistence)
-                tokenSnapshot = try await service.fetchUsage()
+                do {
+                    tokenSnapshot = try await service.fetchUsage()
+                } catch {
+                    throw TokenUsageError.fileReadError(error)
+                }
+            } else {
+                throw TokenUsageError.repositoryUnavailable
             }
+
+            // Success - clear any previous error
+            tokenUsageError = nil
+
+        } catch let error as TokenUsageError {
+            tokenUsageError = error
+            print("Token usage error: \(error.localizedDescription)")
         } catch {
+            tokenUsageError = .fileReadError(error)
             print("Token usage error: \(error)")
         }
     }
 
     /// Refresh the summary for the currently selected period (async, non-blocking)
     func refreshSelectedPeriodSummary() async {
-        if let querier = tokenQuerier {
-            do {
+        do {
+            if let querier = tokenQuerier {
                 let summary = try await querier.fetchSummary(for: selectedTokenPeriod)
                 periodSummaries[selectedTokenPeriod] = summary
                 selectedPeriodSummary = summary
-            } catch {
-                print("Failed to fetch period summary: \(error)")
-            }
-        } else if let repository = tokenRepository {
-            do {
+            } else if let repository = tokenRepository {
                 let summary = try await repository.fetchSummary(for: selectedTokenPeriod)
                 periodSummaries[selectedTokenPeriod] = summary
                 selectedPeriodSummary = summary
-            } catch {
-                print("Failed to fetch period summary: \(error)")
             }
+        } catch {
+            // Set error but don't override existing tokenSnapshot
+            if tokenUsageError == nil {
+                tokenUsageError = .swiftDataError(error)
+            }
+            print("Failed to fetch period summary: \(error)")
         }
     }
 

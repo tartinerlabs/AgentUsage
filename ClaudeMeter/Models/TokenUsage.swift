@@ -176,3 +176,40 @@ struct TokenUsageSnapshot: Sendable {
     let byModel: [String: TokenCount]
     let fetchedAt: Date
 }
+
+/// Errors related to token usage data loading
+enum TokenUsageError: LocalizedError {
+    case noLogsDirectory
+    case noLogFiles
+    case fileReadError(Error)
+    case parseError(Error)
+    case swiftDataError(Error)
+    case repositoryUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .noLogsDirectory:
+            return "Claude logs directory not found. Use Claude CLI to generate logs."
+        case .noLogFiles:
+            return "No log files found. Token usage will appear after using Claude CLI."
+        case .fileReadError(let error):
+            return "Failed to read log files: \(error.localizedDescription)"
+        case .parseError(let error):
+            return "Failed to parse log data: \(error.localizedDescription)"
+        case .swiftDataError(let error):
+            return "Database error: \(error.localizedDescription)"
+        case .repositoryUnavailable:
+            return "Token usage storage is not available."
+        }
+    }
+
+    var shortDescription: String {
+        switch self {
+        case .noLogsDirectory, .noLogFiles: return "No token data"
+        case .fileReadError: return "File read error"
+        case .parseError: return "Parse error"
+        case .swiftDataError: return "Database error"
+        case .repositoryUnavailable: return "Storage unavailable"
+        }
+    }
+}
