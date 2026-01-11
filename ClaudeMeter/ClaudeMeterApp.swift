@@ -70,7 +70,6 @@ struct ClaudeMeterApp: App {
         } label: {
             MenuBarIconView()
                 .environment(viewModel)
-                .environmentObject(updaterController)
                 .task {
                     await viewModel.initializeIfNeeded()
                 }
