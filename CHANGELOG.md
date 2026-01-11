@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-01-12
+
+### Fixed
+- Fix "Check Now" button disappearing after update check (now stays visible with result text)
+- Fix update check results not auto-dismissing for all result types
+- Fix initial canCheckForUpdates state not syncing on app launch
+
+### Changed
+- Increase automatic update check frequency from 24 hours to 4 hours
+
 ## [0.8.0] - 2026-01-12
 
 ### Changed
@@ -161,7 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.3...v0.7.0
