@@ -6,26 +6,28 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.7.1</title>
-            <pubDate>Sat, 10 Jan 2026 15:29:22 +0000</pubDate>
-            <sparkle:version>17</sparkle:version>
-            <sparkle:shortVersionString>0.7.1</sparkle:shortVersionString>
+            <title>Version 0.8.0</title>
+            <pubDate>Sun, 11 Jan 2026 16:34:29 +0000</pubDate>
+            <sparkle:version>18</sparkle:version>
+            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-<h3>Fixed</h3>
+<h3>Changed</h3>
 <ul>
-<li>Token usage errors now display to users instead of failing silently</li>
+<li>Redesign menu bar display with multi-line layout showing labels above percentages</li>
+<li>Add labels (CURR, ALL, SONNET) for better usage window identification</li>
+<li>Improve rendering with Retina display support via ImageRenderer</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.7.1/ClaudeMeter.zip"
-                length="1455674"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.0/ClaudeMeter.zip"
+                length="1465817"
                 type="application/octet-stream"
-                sparkle:edSignature="ZmO4egds3S3F/YibXw4TM2Kg9B4feIPSU6996osvaFWvVu3iYMizvNrP1GuHa9h3YDQ4txqiDBFRV0jSOYJgAw==" />
+                sparkle:edSignature="96WGm3YWZdl+8PsFVNnMhnkpZ4ARkdZeY/tlPABWsQHnYel+xw2sD4NDJnBLoziuHRwJCJ+oyIkRPPqNFqOrBA==" />
         </item>
     </channel>
 </rss>
