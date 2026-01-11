@@ -5,13 +5,35 @@
 
 import SwiftUI
 import ClaudeMeterKit
-import AppKit
 internal import Combine
 
 struct MenuBarIconView: View {
     @Environment(UsageViewModel.self) private var viewModel
-    @EnvironmentObject private var updaterController: UpdaterController
     @State private var now = Date()
+
+    /// Build the percentage display text based on enabled windows
+    private var percentageText: String {
+        guard let snapshot = viewModel.snapshot else { return "--%" }
+
+        var parts: [String] = []
+
+        if viewModel.menuBarShowSession {
+            parts.append("\(snapshot.session.utilization)%")
+        }
+        if viewModel.menuBarShowAllModels {
+            parts.append("\(snapshot.opus.utilization)%")
+        }
+        if viewModel.menuBarShowSonnet, let sonnet = snapshot.sonnet {
+            parts.append("\(sonnet.utilization)%")
+        }
+
+        // If nothing is enabled, show session by default
+        if parts.isEmpty {
+            parts.append("\(snapshot.session.utilization)%")
+        }
+
+        return parts.joined(separator: " ")
+    }
 
     /// Find the window at 100% with the soonest reset time (or any window if debug simulation is on)
     private var windowAtLimit: UsageWindow? {
@@ -33,11 +55,8 @@ struct MenuBarIconView: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            if let nsImage = createColoredIcon(showBadge: updaterController.updateAvailable) {
-                Image(nsImage: nsImage)
-            } else {
-                Image(systemName: "chart.bar.fill")
-            }
+            Text(percentageText)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
 
             if let window = windowAtLimit {
                 Text(window.timeUntilReset(from: now))
@@ -50,58 +69,5 @@ struct MenuBarIconView: View {
                 now = date
             }
         }
-    }
-
-    private func createColoredIcon(showBadge: Bool) -> NSImage? {
-        let config = NSImage.SymbolConfiguration(scale: .medium)
-        guard let baseImage = NSImage(systemSymbolName: "chart.bar.fill", accessibilityDescription: nil)?
-            .withSymbolConfiguration(config) else {
-            return nil
-        }
-
-        let tintColor = NSColor(viewModel.overallStatus.color)
-
-        // Add padding for badge if needed
-        let badgeSize: CGFloat = 6
-        let padding: CGFloat = showBadge ? badgeSize / 2 : 0
-        let finalSize = NSSize(
-            width: baseImage.size.width + padding,
-            height: baseImage.size.height + padding
-        )
-
-        let coloredImage = NSImage(size: finalSize)
-
-        coloredImage.lockFocus()
-
-        // Draw the base icon
-        tintColor.set()
-        let imageRect = NSRect(origin: .zero, size: baseImage.size)
-        imageRect.fill()
-
-        baseImage.draw(
-            in: imageRect,
-            from: .zero,
-            operation: .destinationIn,
-            fraction: 1.0
-        )
-
-        // Draw badge dot if update available
-        if showBadge {
-            let badgeColor = NSColor.systemOrange
-            badgeColor.setFill()
-
-            let badgeRect = NSRect(
-                x: baseImage.size.width - badgeSize / 2,
-                y: baseImage.size.height - badgeSize / 2,
-                width: badgeSize,
-                height: badgeSize
-            )
-            NSBezierPath(ovalIn: badgeRect).fill()
-        }
-
-        coloredImage.unlockFocus()
-
-        coloredImage.isTemplate = false  // Prevents system tinting
-        return coloredImage
     }
 }

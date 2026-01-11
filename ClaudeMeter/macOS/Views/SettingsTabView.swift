@@ -52,6 +52,24 @@ struct SettingsTabView: View {
                             .labelsHidden()
                             .frame(width: 120)
                         }
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Menu Bar Display")
+                                .font(.body)
+                            Text("Which usage windows to show in the menu bar")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                Toggle("Session (5h)", isOn: $viewModel.menuBarShowSession)
+                                Toggle("All Models (7d)", isOn: $viewModel.menuBarShowAllModels)
+                                Toggle("Sonnet (7d)", isOn: $viewModel.menuBarShowSonnet)
+                            }
+                            .toggleStyle(.checkbox)
+                            .padding(.top, 4)
+                        }
                     }
                 }
 
