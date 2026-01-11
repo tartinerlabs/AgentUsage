@@ -19,6 +19,13 @@ actor NotificationService {
 
     private init() {}
 
+    // MARK: - Helpers
+
+    /// Truncate date to second precision to avoid false positives from API timestamp variations
+    private func dateToSeconds(_ date: Date) -> TimeInterval {
+        return floor(date.timeIntervalSince1970)
+    }
+
     // MARK: - Permissions
 
     func requestPermission() async -> Bool {
@@ -78,13 +85,14 @@ actor NotificationService {
         let newPercent = newUsage.percentUsed
         let oldPercent = oldUsage?.percentUsed ?? 0
 
-        // Create unique key for this window's reset period
-        let windowKey = "\(name)-\(newUsage.resetsAt.timeIntervalSince1970)"
+        // Create unique key for this window's reset period (using second precision)
+        let windowKey = "\(name)-\(dateToSeconds(newUsage.resetsAt))"
 
         // Check if reset occurred (new reset time means new window)
-        if let oldUsage, oldUsage.resetsAt != newUsage.resetsAt {
+        // Compare at second precision to avoid false positives from API timestamp variations
+        if let oldUsage, dateToSeconds(oldUsage.resetsAt) != dateToSeconds(newUsage.resetsAt) {
             // Reset period changed, clear notified thresholds for old key
-            let oldKey = "\(name)-\(oldUsage.resetsAt.timeIntervalSince1970)"
+            let oldKey = "\(name)-\(dateToSeconds(oldUsage.resetsAt))"
             notifiedThresholds.removeValue(forKey: oldKey)
 
             // If user was near/at limit before reset, notify them it's reset
