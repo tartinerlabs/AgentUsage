@@ -3,37 +3,15 @@
 //  ClaudeMeter
 //
 
+#if os(macOS)
 import SwiftUI
+import AppKit
 import ClaudeMeterKit
 internal import Combine
 
 struct MenuBarIconView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @State private var now = Date()
-
-    /// Build the percentage display text based on enabled windows
-    private var percentageText: String {
-        guard let snapshot = viewModel.snapshot else { return "--%" }
-
-        var parts: [String] = []
-
-        if viewModel.menuBarShowSession {
-            parts.append("\(snapshot.session.utilization)%")
-        }
-        if viewModel.menuBarShowAllModels {
-            parts.append("\(snapshot.opus.utilization)%")
-        }
-        if viewModel.menuBarShowSonnet, let sonnet = snapshot.sonnet {
-            parts.append("\(sonnet.utilization)%")
-        }
-
-        // If nothing is enabled, show session by default
-        if parts.isEmpty {
-            parts.append("\(snapshot.session.utilization)%")
-        }
-
-        return parts.joined(separator: " ")
-    }
 
     /// Find the window at 100% with the soonest reset time (or any window if debug simulation is on)
     private var windowAtLimit: UsageWindow? {
@@ -54,20 +32,75 @@ struct MenuBarIconView: View {
     }
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text(percentageText)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+        Image(nsImage: renderMenuBarImage())
+            .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
+                if windowAtLimit != nil {
+                    now = date
+                }
+            }
+    }
+
+    private func renderMenuBarImage() -> NSImage {
+        let content = menuBarContent
+
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
+
+        guard let cgImage = renderer.cgImage else {
+            return NSImage(size: NSSize(width: 50, height: 22))
+        }
+
+        let image = NSImage(cgImage: cgImage, size: NSSize(
+            width: CGFloat(cgImage.width) / renderer.scale,
+            height: CGFloat(cgImage.height) / renderer.scale
+        ))
+        image.isTemplate = false
+
+        return image
+    }
+
+    private var menuBarContent: some View {
+        HStack(spacing: 6) {
+            if let snapshot = viewModel.snapshot {
+                if viewModel.menuBarShowSession {
+                    usageColumn(label: "CURR", value: snapshot.session.utilization)
+                }
+                if viewModel.menuBarShowAllModels {
+                    usageColumn(label: "ALL", value: snapshot.opus.utilization)
+                }
+                if viewModel.menuBarShowSonnet, let sonnet = snapshot.sonnet {
+                    usageColumn(label: "SONNET", value: sonnet.utilization)
+                }
+
+                // Fallback if nothing is enabled
+                if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet {
+                    usageColumn(label: "CURR", value: snapshot.session.utilization)
+                }
+            } else {
+                Text("--%")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white)
+            }
 
             if let window = windowAtLimit {
                 Text(window.timeUntilReset(from: now))
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
-            if windowAtLimit != nil {
-                now = date
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.gray)
             }
         }
     }
+
+    @ViewBuilder
+    private func usageColumn(label: String, value: Double) -> some View {
+        VStack(spacing: 0) {
+            Text(label)
+                .font(.system(size: 8 ))
+                .foregroundStyle(.white)
+            Text("\(Int(value.rounded()))%")
+                .font(.system(size: 10 ))
+                .foregroundStyle(.white)
+        }
+    }
 }
+#endif
+
