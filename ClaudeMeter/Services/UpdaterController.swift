@@ -156,6 +156,9 @@ final class UpdaterController: ObservableObject {
         // Observe canCheckForUpdates changes
         updaterController.updater.publisher(for: \.canCheckForUpdates)
             .assign(to: &$canCheckForUpdates)
+
+        // Sync initial value (KVO publisher doesn't emit initial value)
+        canCheckForUpdates = updaterController.updater.canCheckForUpdates
     }
 
     /// Manually trigger an update check
@@ -170,13 +173,17 @@ final class UpdaterController: ObservableObject {
         isChecking = false
         lastCheckResult = result
 
-        // Auto-dismiss result after delay (except for errors)
-        if case .upToDate = result {
-            Task {
-                try? await Task.sleep(for: .seconds(5))
-                if lastCheckResult == .upToDate {
-                    lastCheckResult = nil
-                }
+        // Auto-dismiss all results after delay
+        let delay: Duration = switch result {
+        case .upToDate: .seconds(5)
+        case .updateAvailable: .seconds(10)
+        case .error: .seconds(8)
+        }
+
+        Task {
+            try? await Task.sleep(for: delay)
+            if lastCheckResult == result {
+                lastCheckResult = nil
             }
         }
     }

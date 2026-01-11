@@ -241,10 +241,7 @@ struct SettingsTabView: View {
                             }
                             Spacer()
 
-                            if updaterController.isChecking {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else if let result = updaterController.lastCheckResult {
+                            if let result = updaterController.lastCheckResult {
                                 HStack(spacing: 4) {
                                     Image(systemName: result.systemImage)
                                         .foregroundStyle(resultColor(for: result))
@@ -253,6 +250,11 @@ struct SettingsTabView: View {
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
                                 }
+                            }
+
+                            if updaterController.isChecking {
+                                ProgressView()
+                                    .controlSize(.small)
                             } else {
                                 Button("Check Now") {
                                     updaterController.checkForUpdates()
