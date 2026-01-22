@@ -251,9 +251,14 @@ actor TokenUsageService {
         // Determine which files changed since last scan
         let (changed, unchanged) = self.filesNeedingUpdate(jsonlFiles)
 
-        // If no files changed and we have a cached snapshot, return it
+        // If no files changed and we have a cached snapshot, check if still valid
         if changed.isEmpty, let cached = self.lastSnapshot {
-            return cached
+            // Invalidate cache if day boundary crossed (today's data would be stale)
+            let cachedDayStart = Calendar.current.startOfDay(for: cached.fetchedAt)
+            if cachedDayStart == todayStart {
+                return cached  // Same day - cache is valid
+            }
+            // Day changed - need to recompute "today" aggregations
         }
 
         // Collect entries: reuse cached for unchanged files, parse changed files
