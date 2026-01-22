@@ -95,15 +95,25 @@ actor NotificationService {
             let oldKey = "\(name)-\(dateToSeconds(oldUsage.resetsAt))"
             notifiedThresholds.removeValue(forKey: oldKey)
 
-            // If user was near/at limit before reset, notify them it's reset
-            if oldUsage.percentUsed >= 90 {
+            // Enhanced guards for reset notification:
+            // 1. Was near limit (>= 90%)
+            // 2. Usage actually dropped (new < 50%) - prevents false notifications
+            // 3. New reset is in future (sanity check)
+            if oldUsage.percentUsed >= 90
+                && newPercent < 50
+                && newUsage.resetsAt > Date() {
                 await sendResetNotification(windowName: name)
             }
         }
 
         // Initialize set for this window if needed
+        // Pre-populate already-passed thresholds to prevent false "crossing" notifications on first launch
         if notifiedThresholds[windowKey] == nil {
             notifiedThresholds[windowKey] = []
+            // Mark thresholds already exceeded to avoid spurious notifications
+            for threshold in thresholds where newPercent >= threshold {
+                notifiedThresholds[windowKey]?.insert(threshold)
+            }
         }
 
         // Check each threshold

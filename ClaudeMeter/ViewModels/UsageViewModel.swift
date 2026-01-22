@@ -85,7 +85,7 @@ final class UsageViewModel {
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
-    private let minForceRefreshInterval: TimeInterval = 20
+    private let minForceRefreshInterval: TimeInterval = 5  // Reduced from 20s for better UX
     private var hasInitialized = false
 
     /// Overall status computed from the worst status across all usage windows
@@ -153,6 +153,7 @@ final class UsageViewModel {
             let credentials = try await credentialProvider.loadCredentials()
             planType = credentials.planDisplayName
             snapshot = try await apiService.fetchUsage(token: credentials.accessToken)
+            lastRefreshTime = Date()  // Only set on success - allows immediate retry on failure
 
             // Check for threshold crossings and send notifications (macOS only)
             #if os(macOS)
@@ -173,9 +174,9 @@ final class UsageViewModel {
             #endif
         } catch {
             errorMessage = error.localizedDescription
+            // Don't set lastRefreshTime on error - allow immediate retry
         }
 
-        lastRefreshTime = Date()
         isLoading = false
 
         // Fetch token usage in background (macOS only)
