@@ -190,6 +190,22 @@ struct SettingsTabView: View {
                                 }
                             }
                         }
+
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Force Background Check")
+                                    .font(.body)
+                                Text("Trigger a silent update check")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Check") {
+                                updaterController.checkForUpdatesInBackground()
+                            }
+                        }
                     }
                 }
                 #endif
@@ -261,6 +277,22 @@ struct SettingsTabView: View {
                                 }
                                 .disabled(!updaterController.canCheckForUpdates)
                             }
+                        }
+
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Last Checked")
+                                    .font(.body)
+                                Text("Most recent update check")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(updaterController.lastCheckDescription)
+                                .font(.body)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
