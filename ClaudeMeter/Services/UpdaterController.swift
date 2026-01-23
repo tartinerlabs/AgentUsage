@@ -6,8 +6,13 @@
 #if os(macOS)
 internal import Combine
 import Foundation
+import os.log
 import Sparkle
 import UserNotifications
+
+// MARK: - Logger
+
+private let logger = Logger(subsystem: "com.tartinerlabs.ClaudeMeter", category: "Updater")
 
 // MARK: - Update Check Result
 
@@ -79,12 +84,14 @@ final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
 
     nonisolated func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         let version = item.displayVersionString
+        logger.info("Found valid update: version \(version, privacy: .public)")
         Task { @MainActor in
             controller?.handleCheckResult(.updateAvailable(version: version))
         }
     }
 
     nonisolated func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        logger.info("No update found - app is up to date")
         Task { @MainActor in
             controller?.handleCheckResult(.upToDate)
         }
@@ -92,6 +99,7 @@ final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
 
     nonisolated func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
         let message = error.localizedDescription
+        logger.error("Update check failed: \(message, privacy: .public)")
         Task { @MainActor in
             controller?.handleCheckResult(.error(message: message))
         }
@@ -99,9 +107,26 @@ final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
 
     nonisolated func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
         let message = error.localizedDescription
+        logger.error("Update check aborted: \(message, privacy: .public)")
         Task { @MainActor in
             controller?.handleCheckResult(.error(message: message))
         }
+    }
+
+    nonisolated func updater(_ updater: SPUUpdater, willScheduleUpdateCheckAfterDelay delay: TimeInterval) {
+        let minutes = Int(delay / 60)
+        logger.info("Next scheduled update check in \(minutes) minutes")
+        Task { @MainActor in
+            controller?.handleScheduledCheckPlanned(delay: delay)
+        }
+    }
+
+    nonisolated func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+        logger.info("Application will relaunch for update installation")
+    }
+
+    nonisolated func updater(_ updater: SPUUpdater, userDidSkipThisVersion item: SUAppcastItem) {
+        logger.info("User skipped version \(item.displayVersionString, privacy: .public)")
     }
 }
 
@@ -127,6 +152,22 @@ final class UpdaterController: ObservableObject {
 
     /// Result of the last update check (nil if no check performed yet)
     @Published var lastCheckResult: UpdateCheckResult?
+
+    /// Date of the last update check (from Sparkle's UserDefaults)
+    @Published var lastCheckDate: Date?
+
+    /// Date when next scheduled check will occur
+    @Published var nextScheduledCheckDate: Date?
+
+    /// Formatted description of last check date for UI
+    var lastCheckDescription: String {
+        guard let date = lastCheckDate else {
+            return "Never"
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
 
     /// Whether automatic update checks are enabled
     var automaticallyChecksForUpdates: Bool {
@@ -159,19 +200,82 @@ final class UpdaterController: ObservableObject {
 
         // Sync initial value (KVO publisher doesn't emit initial value)
         canCheckForUpdates = updaterController.updater.canCheckForUpdates
+
+        // Read last check date from Sparkle's UserDefaults
+        updateLastCheckDate()
+
+        // Log configuration on startup
+        logConfiguration()
+
+        // Schedule initial background check for menu bar apps
+        // Per Sparkle GitHub Issue #1163: Menu bar apps need explicit background check
+        scheduleInitialBackgroundCheck()
     }
 
-    /// Manually trigger an update check
+    // MARK: - Configuration Logging
+
+    private func logConfiguration() {
+        let updater = updaterController.updater
+        logger.info("Sparkle configuration:")
+        logger.info("  Feed URL: \(updater.feedURL?.absoluteString ?? "nil", privacy: .public)")
+        logger.info("  Automatically checks: \(updater.automaticallyChecksForUpdates)")
+        logger.info("  Check interval: \(Int(updater.updateCheckInterval / 3600)) hours")
+        logger.info("  Can check now: \(updater.canCheckForUpdates)")
+        if let lastCheck = lastCheckDate {
+            logger.info("  Last check: \(lastCheck, privacy: .public)")
+        } else {
+            logger.info("  Last check: Never")
+        }
+    }
+
+    // MARK: - Initial Background Check
+
+    private func scheduleInitialBackgroundCheck() {
+        Task {
+            // Wait 30 seconds after app launch to avoid blocking startup
+            try? await Task.sleep(for: .seconds(30))
+
+            // Only proceed if automatic checks are enabled
+            guard updaterController.updater.automaticallyChecksForUpdates else {
+                logger.info("Automatic checks disabled, skipping initial background check")
+                return
+            }
+
+            // Skip if we've checked recently (within last hour)
+            if let lastCheck = lastCheckDate,
+               Date().timeIntervalSince(lastCheck) < 3600 {
+                logger.info("Recent check found (\(self.lastCheckDescription)), skipping initial background check")
+                return
+            }
+
+            logger.info("Performing initial background check for menu bar app")
+            checkForUpdatesInBackground()
+        }
+    }
+
+    /// Manually trigger an update check (user-initiated, shows UI)
     func checkForUpdates() {
+        logger.info("User-initiated update check started")
         isChecking = true
         lastCheckResult = nil
         updaterController.checkForUpdates(nil)
+    }
+
+    /// Perform a background (silent) update check
+    /// This won't show UI unless an update is found
+    /// Use this for automatic/scheduled checks in menu bar apps
+    func checkForUpdatesInBackground() {
+        logger.info("Background update check started")
+        updaterController.updater.checkForUpdatesInBackground()
     }
 
     /// Handle check result from delegate
     func handleCheckResult(_ result: UpdateCheckResult) {
         isChecking = false
         lastCheckResult = result
+
+        // Update last check date
+        updateLastCheckDate()
 
         // Auto-dismiss all results after delay
         let delay: Duration = switch result {
@@ -185,6 +289,19 @@ final class UpdaterController: ObservableObject {
             if lastCheckResult == result {
                 lastCheckResult = nil
             }
+        }
+    }
+
+    /// Handle scheduled check planned notification from delegate
+    func handleScheduledCheckPlanned(delay: TimeInterval) {
+        nextScheduledCheckDate = Date().addingTimeInterval(delay)
+    }
+
+    /// Read last check date from Sparkle's UserDefaults
+    private func updateLastCheckDate() {
+        // Sparkle stores this in UserDefaults with key "SULastCheckTime"
+        if let lastCheck = UserDefaults.standard.object(forKey: "SULastCheckTime") as? Date {
+            lastCheckDate = lastCheck
         }
     }
 
