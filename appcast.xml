@@ -6,26 +6,34 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.8.2</title>
-            <pubDate>Sun, 11 Jan 2026 19:23:20 +0000</pubDate>
-            <sparkle:version>20</sparkle:version>
-            <sparkle:shortVersionString>0.8.2</sparkle:shortVersionString>
+            <title>Version 0.8.3</title>
+            <pubDate>Fri, 23 Jan 2026 02:22:21 +0000</pubDate>
+            <sparkle:version>21</sparkle:version>
+            <sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <h3>Fixed</h3>
 <ul>
-<li>Fix false usage reset notifications when at 90%+ capacity (API timestamp precision issue)</li>
+<li>Fix Sparkle auto-update not triggering background checks for menu bar apps</li>
+<li>Add comprehensive logging for update check debugging (viewable in Console.app)</li>
+<li>Add "Last Checked" display in Settings to verify update checks are occurring</li>
+<li>Schedule automatic background check 30 seconds after app launch</li>
+</ul>
+
+<h3>Added</h3>
+<ul>
+<li>Debug tool to force background update check (DEBUG builds only)</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.2/ClaudeMeter.zip"
-                length="1465701"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.3/ClaudeMeter.zip"
+                length="1478415"
                 type="application/octet-stream"
-                sparkle:edSignature="ZhnyhvxIhlRe2TLqR9v4BbRmf2Vj8sjVqQ9XHIkjaNhR7awtwwhpvhwrrFCuT6Psrz7RigScKNrxBApdUlCqCQ==" />
+                sparkle:edSignature="WgSeLgpa7k5AV/NyO3JWwlqh5MgbfW7GuH4ujsKGeKbh39hJ6N1zGx8lp0ts18Nrv6+9RQIe3XQlAXhyQCBFCA==" />
         </item>
     </channel>
 </rss>
