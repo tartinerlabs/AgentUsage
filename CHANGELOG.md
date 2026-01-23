@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-01-23
+
+### Fixed
+- Fix Sparkle auto-update not triggering background checks for menu bar apps
+- Add comprehensive logging for update check debugging (viewable in Console.app)
+- Add "Last Checked" display in Settings to verify update checks are occurring
+- Schedule automatic background check 30 seconds after app launch
+
+### Added
+- Debug tool to force background update check (DEBUG builds only)
+
 ## [0.8.2] - 2026-01-12
 
 ### Fixed
@@ -176,7 +187,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.7.1...v0.8.0
