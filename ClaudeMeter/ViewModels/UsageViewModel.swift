@@ -90,18 +90,7 @@ final class UsageViewModel {
 
     /// Overall status computed from the worst status across all usage windows
     var overallStatus: UsageStatus {
-        guard let snapshot else { return .onTrack }
-
-        let statuses = [
-            snapshot.session.status,
-            snapshot.opus.status,
-            snapshot.sonnet?.status
-        ].compactMap { $0 }
-
-        // Return worst status: critical > warning > onTrack
-        if statuses.contains(.critical) { return .critical }
-        if statuses.contains(.warning) { return .warning }
-        return .onTrack
+        UsageCalculations.overallStatus(from: snapshot)
     }
 
     #if os(macOS)
@@ -366,51 +355,6 @@ final class UsageViewModel {
     }
 }
 
-enum RefreshFrequency: String, CaseIterable, Identifiable {
-    case manual = "manual"
-    case oneMinute = "1min"
-    case twoMinutes = "2min"
-    case fiveMinutes = "5min"
-    case fifteenMinutes = "15min"
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .manual: return "Manual"
-        case .oneMinute: return "1 minute"
-        case .twoMinutes: return "2 minutes"
-        case .fiveMinutes: return "5 minutes"
-        case .fifteenMinutes: return "15 minutes"
-        }
-    }
-
-    var timeInterval: TimeInterval? {
-        switch self {
-        case .manual: return nil
-        case .oneMinute: return 60
-        case .twoMinutes: return 120
-        case .fiveMinutes: return 300
-        case .fifteenMinutes: return 900
-        }
-    }
-}
-
-#if os(macOS)
-enum MenuBarDisplayWindow: String, CaseIterable, Identifiable {
-    case session = "session"
-    case allModels = "allModels"
-    case sonnet = "sonnet"
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .session: return "Session (5h)"
-        case .allModels: return "All Models (7d)"
-        case .sonnet: return "Sonnet (7d)"
-        }
-    }
-}
-#endif
+// Note: RefreshFrequency enum is now in Shared/ViewModels/RefreshScheduler.swift
+// Note: MenuBarDisplayWindow enum is now in macOS/ViewModels/MenuBarSettingsManager.swift
 

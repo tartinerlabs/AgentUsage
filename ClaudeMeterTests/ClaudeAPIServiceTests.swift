@@ -282,4 +282,94 @@ struct APIResponseParsingTests {
         #expect(snapshot.opus.utilization == 66.666666)
         #expect(snapshot.opus.percentUsed == 66)
     }
+
+    // MARK: - Edge Case Tests
+
+    @Test func handlesNegativeUtilization() throws {
+        // API shouldn't return negative, but test defensive handling
+        let json = """
+        {
+            "five_hour": {
+                "utilization": -5.0,
+                "resets_at": "2024-01-15T18:30:00.000Z"
+            },
+            "seven_day": {
+                "utilization": 0.0,
+                "resets_at": "2024-01-20T00:00:00.000Z"
+            }
+        }
+        """
+
+        let snapshot = try parseUsageResponse(json)
+
+        // Negative utilization is stored as-is (data model doesn't clamp)
+        #expect(snapshot.session.utilization == -5.0)
+        // normalized should clamp to 0
+        #expect(snapshot.session.normalized == 0.0)
+    }
+
+    @Test func handlesVeryLargeUtilization() throws {
+        let json = """
+        {
+            "five_hour": {
+                "utilization": 9999.99,
+                "resets_at": "2024-01-15T18:30:00.000Z"
+            },
+            "seven_day": {
+                "utilization": 100.0,
+                "resets_at": "2024-01-20T00:00:00.000Z"
+            }
+        }
+        """
+
+        let snapshot = try parseUsageResponse(json)
+
+        #expect(snapshot.session.utilization == 9999.99)
+        #expect(snapshot.session.isAtLimit == true)
+        #expect(snapshot.session.normalized == 1.0) // Clamped
+    }
+
+    @Test func handlesExactBoundaryValues() throws {
+        // Test exactly 75% (warning threshold) and 90% (critical threshold)
+        let json = """
+        {
+            "five_hour": {
+                "utilization": 75.0,
+                "resets_at": "2024-01-15T18:30:00.000Z"
+            },
+            "seven_day": {
+                "utilization": 90.0,
+                "resets_at": "2024-01-20T00:00:00.000Z"
+            }
+        }
+        """
+
+        let snapshot = try parseUsageResponse(json)
+
+        #expect(snapshot.session.utilization == 75.0)
+        #expect(snapshot.opus.utilization == 90.0)
+    }
+
+    @Test func snapshotFetchedAtIsReasonable() throws {
+        let json = """
+        {
+            "five_hour": {
+                "utilization": 50.0,
+                "resets_at": "2024-01-15T18:30:00.000Z"
+            },
+            "seven_day": {
+                "utilization": 40.0,
+                "resets_at": "2024-01-20T00:00:00.000Z"
+            }
+        }
+        """
+
+        let beforeParse = Date()
+        let snapshot = try parseUsageResponse(json)
+        let afterParse = Date()
+
+        // fetchedAt should be between beforeParse and afterParse
+        #expect(snapshot.fetchedAt >= beforeParse)
+        #expect(snapshot.fetchedAt <= afterParse)
+    }
 }

@@ -8,7 +8,7 @@ import Foundation
 import ClaudeMeterKit
 import UserNotifications
 
-actor NotificationService {
+actor NotificationService: NotificationServiceProtocol {
     static let shared = NotificationService()
 
     private let thresholds: [Int] = [25, 50, 75, 100]
