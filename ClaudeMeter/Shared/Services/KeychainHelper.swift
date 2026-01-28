@@ -12,6 +12,51 @@ enum KeychainHelper {
     static let service = "com.tartinerlabs.ClaudeMeter"
     static let account = "claude-oauth-credentials"
 
+    /// Get human-readable description for an OSStatus code
+    static func describeStatus(_ status: OSStatus) -> String {
+        switch status {
+        case errSecSuccess:
+            return "Success"
+        case errSecItemNotFound:
+            return "Item not found in keychain"
+        case errSecDuplicateItem:
+            return "Item already exists in keychain"
+        case errSecAuthFailed:
+            return "Authentication failed - check keychain access"
+        case errSecInteractionNotAllowed:
+            return "User interaction required - unlock device"
+        case errSecDecode:
+            return "Unable to decode keychain data"
+        case errSecParam:
+            return "Invalid parameter"
+        case errSecAllocate:
+            return "Memory allocation failed"
+        case errSecNotAvailable:
+            return "Keychain not available"
+        case errSecReadOnly:
+            return "Keychain is read-only"
+        case errSecNoSuchKeychain:
+            return "Keychain does not exist"
+        case errSecDataTooLarge:
+            return "Data too large for keychain"
+        case errSecNoDefaultKeychain:
+            return "No default keychain"
+        case errSecInteractionRequired:
+            return "User interaction required"
+        case errSecDataNotAvailable:
+            return "Data not available"
+        case errSecMissingEntitlement:
+            return "Missing entitlement"
+        case -34018: // errSecMissingEntitlement on some systems
+            return "Missing entitlement - check app signing"
+        default:
+            if let message = SecCopyErrorMessageString(status, nil) as? String {
+                return message
+            }
+            return "Unknown keychain error (code: \(status))"
+        }
+    }
+
     /// Save credentials to Keychain
     static func saveCredentials(_ credentials: ClaudeOAuthCredentials) throws {
         let encoder = JSONEncoder()

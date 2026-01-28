@@ -12,12 +12,12 @@ struct Provider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> WidgetEntry {
-        let snapshot = WidgetDataManager.shared.load() ?? .placeholder
+        let snapshot = WidgetDataManager.load() ?? .placeholder
         return WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<WidgetEntry> {
-        let snapshot = WidgetDataManager.shared.load() ?? .placeholder
+        let snapshot = WidgetDataManager.load() ?? .placeholder
         let entry = WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
 
         // Request refresh every 15 minutes
@@ -32,12 +32,12 @@ struct LockScreenProvider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> WidgetEntry {
-        let snapshot = WidgetDataManager.shared.load() ?? .placeholder
+        let snapshot = WidgetDataManager.load() ?? .placeholder
         return WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<WidgetEntry> {
-        let snapshot = WidgetDataManager.shared.load() ?? .placeholder
+        let snapshot = WidgetDataManager.load() ?? .placeholder
         let entry = WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
 
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: .now)!

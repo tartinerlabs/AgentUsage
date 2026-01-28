@@ -91,6 +91,7 @@
 		D835E8382F06C197001A996A /* Exceptions for "ClaudeMeter" folder in "ClaudeMeter-iOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				DependencyContainer.swift,
 				iOS/Services/iOSCredentialService.swift,
 				iOS/Services/LiveActivityManager.swift,
 				iOS/Views/DashboardView.swift,
@@ -101,9 +102,15 @@
 				Services/TokenUsageService.swift,
 				Services/UpdaterController.swift,
 				Shared/Models/LiveActivityAttributes.swift,
+				Shared/Protocols/APIServiceProtocol.swift,
+				Shared/Protocols/NotificationServiceProtocol.swift,
+				Shared/Protocols/TokenUsageServiceProtocol.swift,
+				Shared/Protocols/WidgetDataServiceProtocol.swift,
 				Shared/Services/CredentialProvider.swift,
 				Shared/Services/KeychainHelper.swift,
+				Shared/Services/TokenRefreshService.swift,
 				Shared/Services/WidgetDataManager.swift,
+				Shared/ViewModels/RefreshScheduler.swift,
 				Shared/Views/UsageCardView.swift,
 				Utilities/Constants.swift,
 				ViewModels/UsageViewModel.swift,

@@ -29,11 +29,8 @@ struct ClaudeMeterApp: App {
             fatalError("Could not initialize ModelContainer: \(error)")
         }
 
-        let credentialService = MacOSCredentialService()
-        let tokenService = TokenUsageService()
-        _viewModel = State(initialValue: UsageViewModel(
-            credentialProvider: credentialService,
-            tokenService: tokenService,
+        // Use DependencyContainer for view model creation
+        _viewModel = State(initialValue: DependencyContainer.createUsageViewModel(
             modelContext: modelContainer.mainContext
         ))
     }

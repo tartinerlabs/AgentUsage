@@ -10,10 +10,8 @@ struct ClaudeMeter_iOSApp: App {
     @State private var viewModel: UsageViewModel
 
     init() {
-        let credentialService = iOSCredentialService()
-        _viewModel = State(initialValue: UsageViewModel(
-            credentialProvider: credentialService
-        ))
+        // Use DependencyContainer for view model creation
+        _viewModel = State(initialValue: DependencyContainer.createUsageViewModel())
     }
 
     var body: some Scene {

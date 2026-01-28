@@ -6,7 +6,7 @@
 import Foundation
 import ClaudeMeterKit
 
-actor ClaudeAPIService {
+actor ClaudeAPIService: APIServiceProtocol {
     enum APIError: LocalizedError {
         case unauthorized
         case networkError(Error)

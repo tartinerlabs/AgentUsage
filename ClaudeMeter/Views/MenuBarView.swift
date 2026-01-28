@@ -75,7 +75,7 @@ struct MenuBarView: View {
                 }
             }
             if let snapshot = viewModel.snapshot {
-                Text("Updated \(relativeDescription(from: snapshot.fetchedAt, to: now))")
+                Text("Updated \(DateFormatters.relativeDescription(from: snapshot.fetchedAt, to: now))")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -332,13 +332,6 @@ struct MenuBarView: View {
         .labelStyle(.iconOnly)
     }
 
-    private func relativeDescription(from past: Date, to current: Date) -> String {
-        let delta = current.timeIntervalSince(past)
-        if delta < 1.5 { return "just now" }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: past, relativeTo: current)
-    }
 }
 
 #Preview {

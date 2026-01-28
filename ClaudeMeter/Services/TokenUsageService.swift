@@ -7,7 +7,7 @@
 import Foundation
 import ClaudeMeterKit
 
-actor TokenUsageService {
+actor TokenUsageService: TokenUsageServiceProtocol {
     private let fileManager = FileManager.default
 
     // Reentrancy guard: reuse in-flight fetch instead of starting a new one
@@ -272,10 +272,28 @@ actor TokenUsageService {
         }
 
         // Parse changed files and cache results
+        // Use partial success - continue processing even if individual files fail
+        var parseErrors: [URL: Error] = [:]
         for file in changed {
-            let entries = try parseJSONLFile(at: file, cutoff: last30DaysStart)
-            cachedEntriesByFile[file] = entries
-            allEntries.append(contentsOf: entries)
+            do {
+                let entries = try parseJSONLFile(at: file, cutoff: last30DaysStart)
+                cachedEntriesByFile[file] = entries
+                allEntries.append(contentsOf: entries)
+            } catch {
+                // Log error but continue with other files
+                parseErrors[file] = error
+                print("[TokenUsageService] Failed to parse \(file.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+
+        // If ALL files failed, throw an error
+        if !changed.isEmpty && parseErrors.count == changed.count && allEntries.isEmpty {
+            throw TokenUsageError.fileReadError(parseErrors.values.first!)
+        }
+
+        // Log partial success if some files failed
+        if !parseErrors.isEmpty {
+            print("[TokenUsageService] Partial success: \(changed.count - parseErrors.count)/\(changed.count) files parsed")
         }
 
         // Remove stale files from cache
