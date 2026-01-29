@@ -6,18 +6,30 @@
 #if os(macOS)
 import Foundation
 import ClaudeMeterKit
+import OSLog
 import UserNotifications
 
 actor NotificationService: NotificationServiceProtocol {
     static let shared = NotificationService()
 
-    private let thresholds: [Int] = [25, 50, 75, 100]
     private let notificationCenter = UNUserNotificationCenter.current()
 
     // Track notified thresholds per window type and reset time to avoid duplicates
     private var notifiedThresholds: [String: Set<Int>] = [:]
 
     private init() {}
+
+    // MARK: - Settings
+
+    /// Get current notification settings
+    nonisolated var settings: NotificationSettings {
+        NotificationSettings.load()
+    }
+
+    /// Update notification settings
+    func updateSettings(_ newSettings: NotificationSettings) {
+        newSettings.save()
+    }
 
     // MARK: - Helpers
 
@@ -35,7 +47,7 @@ actor NotificationService: NotificationServiceProtocol {
             )
             return granted
         } catch {
-            print("Notification permission error: \(error)")
+            Logger.notifications.error("Notification permission error: \(error.localizedDescription)")
             return false
         }
     }
@@ -55,24 +67,33 @@ actor NotificationService: NotificationServiceProtocol {
         oldSnapshot: UsageSnapshot?,
         newSnapshot: UsageSnapshot
     ) async {
-        // Check each usage window
-        await checkWindow(
-            name: newSnapshot.session.windowType.displayName,
-            oldUsage: oldSnapshot?.session,
-            newUsage: newSnapshot.session
-        )
+        let currentSettings = settings
 
-        await checkWindow(
-            name: newSnapshot.opus.windowType.displayName,
-            oldUsage: oldSnapshot?.opus,
-            newUsage: newSnapshot.opus
-        )
+        // Check each usage window based on settings
+        if currentSettings.notifySession {
+            await checkWindow(
+                name: newSnapshot.session.windowType.displayName,
+                oldUsage: oldSnapshot?.session,
+                newUsage: newSnapshot.session,
+                settings: currentSettings
+            )
+        }
 
-        if let newSonnet = newSnapshot.sonnet {
+        if currentSettings.notifyOpus {
+            await checkWindow(
+                name: newSnapshot.opus.windowType.displayName,
+                oldUsage: oldSnapshot?.opus,
+                newUsage: newSnapshot.opus,
+                settings: currentSettings
+            )
+        }
+
+        if let newSonnet = newSnapshot.sonnet, currentSettings.notifySonnet {
             await checkWindow(
                 name: newSonnet.windowType.displayName,
                 oldUsage: oldSnapshot?.sonnet,
-                newUsage: newSonnet
+                newUsage: newSonnet,
+                settings: currentSettings
             )
         }
     }
@@ -80,7 +101,8 @@ actor NotificationService: NotificationServiceProtocol {
     private func checkWindow(
         name: String,
         oldUsage: UsageWindow?,
-        newUsage: UsageWindow
+        newUsage: UsageWindow,
+        settings: NotificationSettings
     ) async {
         let newPercent = newUsage.percentUsed
         let oldPercent = oldUsage?.percentUsed ?? 0
@@ -99,7 +121,9 @@ actor NotificationService: NotificationServiceProtocol {
             // 1. Was near limit (>= 90%)
             // 2. Usage actually dropped (new < 50%) - prevents false notifications
             // 3. New reset is in future (sanity check)
-            if oldUsage.percentUsed >= 90
+            // 4. Reset notifications are enabled
+            if settings.notifyOnReset
+                && oldUsage.percentUsed >= 90
                 && newPercent < 50
                 && newUsage.resetsAt > Date() {
                 await sendResetNotification(windowName: name)
@@ -111,13 +135,13 @@ actor NotificationService: NotificationServiceProtocol {
         if notifiedThresholds[windowKey] == nil {
             notifiedThresholds[windowKey] = []
             // Mark thresholds already exceeded to avoid spurious notifications
-            for threshold in thresholds where newPercent >= threshold {
+            for threshold in settings.thresholds where newPercent >= threshold {
                 notifiedThresholds[windowKey]?.insert(threshold)
             }
         }
 
-        // Check each threshold
-        for threshold in thresholds {
+        // Check each configured threshold
+        for threshold in settings.thresholds {
             // Only notify if:
             // 1. We crossed this threshold (old < threshold, new >= threshold)
             // 2. We haven't already notified for this threshold in this window
@@ -162,7 +186,7 @@ actor NotificationService: NotificationServiceProtocol {
         do {
             try await notificationCenter.add(request)
         } catch {
-            print("Failed to send test notification: \(error)")
+            Logger.notifications.error("Failed to send test notification: \(error.localizedDescription)")
         }
     }
 
@@ -210,7 +234,7 @@ actor NotificationService: NotificationServiceProtocol {
         do {
             try await notificationCenter.add(request)
         } catch {
-            print("Failed to send notification: \(error)")
+            Logger.notifications.error("Failed to send notification: \(error.localizedDescription)")
         }
     }
 
@@ -229,7 +253,7 @@ actor NotificationService: NotificationServiceProtocol {
         do {
             try await notificationCenter.add(request)
         } catch {
-            print("Failed to send reset notification: \(error)")
+            Logger.notifications.error("Failed to send reset notification: \(error.localizedDescription)")
         }
     }
 }

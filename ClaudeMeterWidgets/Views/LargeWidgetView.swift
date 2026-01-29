@@ -21,6 +21,9 @@ struct LargeWidgetView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Claude Usage")
+            .accessibilityValue("Updated \(entry.snapshot.lastUpdatedDescription)")
 
             Divider()
 
@@ -41,11 +44,17 @@ struct LargeWidgetView: View {
         HStack(spacing: 12) {
             progressRing(for: usage)
                 .frame(width: 40, height: 40)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                HStack(spacing: 4) {
+                    Text(title)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Image(systemName: usage.trend.icon)
+                        .font(.caption2)
+                        .foregroundStyle(trendColor(for: usage.trend))
+                }
                 Text("Resets in \(usage.timeUntilReset)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -64,6 +73,18 @@ struct LargeWidgetView: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title) usage")
+        .accessibilityValue("\(usage.percentUsed) percent used, \(usage.status.label), \(usage.trend.accessibilityLabel)")
+        .accessibilityHint("Resets in \(usage.timeUntilReset)")
+    }
+
+    private func trendColor(for trend: UsageWindow.Trend) -> Color {
+        switch trend {
+        case .increasing: return .orange
+        case .stable: return .secondary
+        case .decreasing: return .green
+        }
     }
 
     private func progressRing(for usage: UsageWindow) -> some View {

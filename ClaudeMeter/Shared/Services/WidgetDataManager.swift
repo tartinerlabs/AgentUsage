@@ -9,6 +9,7 @@
 #if os(iOS)
 import Foundation
 import ClaudeMeterKit
+import OSLog
 import WidgetKit
 
 /// Manages shared data between the main app and widget extension via App Groups
@@ -21,10 +22,10 @@ actor WidgetDataManager: WidgetDataServiceProtocol {
     /// Save snapshot to shared storage and reload widget timelines
     func save(_ snapshot: UsageSnapshot) {
         if WidgetDataStorage.shared.save(snapshot) {
-            print("[WidgetDataManager] Saved snapshot to App Groups")
+            Logger.widget.debug("Saved snapshot to App Groups")
             WidgetCenter.shared.reloadAllTimelines()
         } else {
-            print("[WidgetDataManager] Failed to save snapshot")
+            Logger.widget.error("Failed to save snapshot")
         }
     }
 

@@ -5,6 +5,7 @@
 
 import Foundation
 import ClaudeMeterKit
+import OSLog
 
 actor ClaudeAPIService: APIServiceProtocol {
     enum APIError: LocalizedError {
@@ -12,6 +13,9 @@ actor ClaudeAPIService: APIServiceProtocol {
         case networkError(Error)
         case invalidResponse
         case serverError(Int)
+        case rateLimited(retryAfter: TimeInterval?)
+        case serviceUnavailable
+        case maxRetriesExceeded
 
         var errorDescription: String? {
             switch self {
@@ -23,11 +27,63 @@ actor ClaudeAPIService: APIServiceProtocol {
                 return "Invalid response from server."
             case .serverError(let code):
                 return "Server error: \(code)"
+            case .rateLimited(let retryAfter):
+                if let seconds = retryAfter {
+                    return "Rate limited. Try again in \(Int(seconds)) seconds."
+                }
+                return "Rate limited. Please try again later."
+            case .serviceUnavailable:
+                return "Service temporarily unavailable."
+            case .maxRetriesExceeded:
+                return "Failed after multiple retry attempts."
+            }
+        }
+
+        /// Whether this error should trigger a retry
+        var isRetryable: Bool {
+            switch self {
+            case .networkError, .rateLimited, .serviceUnavailable:
+                return true
+            case .serverError(let code):
+                // Retry on 5xx server errors (except 501 Not Implemented)
+                return code >= 500 && code != 501
+            case .unauthorized, .invalidResponse, .maxRetriesExceeded:
+                return false
             }
         }
     }
 
     func fetchUsage(token: String) async throws -> UsageSnapshot {
+        var lastError: APIError?
+
+        for attempt in 0..<Constants.maxRetryAttempts {
+            do {
+                return try await performRequest(token: token)
+            } catch let error as APIError {
+                lastError = error
+
+                // Don't retry non-retryable errors
+                guard error.isRetryable else {
+                    throw error
+                }
+
+                // Calculate delay for next retry
+                let delay = calculateRetryDelay(attempt: attempt, error: error)
+
+                // Don't wait after the last attempt
+                if attempt < Constants.maxRetryAttempts - 1 {
+                    Logger.api.info("Request failed (attempt \(attempt + 1)/\(Constants.maxRetryAttempts)): \(error.localizedDescription). Retrying in \(String(format: "%.1f", delay))s...")
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
+            }
+        }
+
+        Logger.api.error("Request failed after \(Constants.maxRetryAttempts) attempts")
+        throw lastError ?? APIError.maxRetriesExceeded
+    }
+
+    /// Perform a single API request without retry logic
+    private func performRequest(token: String) async throws -> UsageSnapshot {
         var request = URLRequest(url: Constants.usageURL)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -35,7 +91,7 @@ actor ClaudeAPIService: APIServiceProtocol {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("ClaudeMeter/1.0", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 30
+        request.timeoutInterval = Constants.requestTimeout
 
         let (data, response): (Data, URLResponse)
         do {
@@ -53,9 +109,29 @@ actor ClaudeAPIService: APIServiceProtocol {
             return try parseUsageResponse(data)
         case 401, 403:
             throw APIError.unauthorized
+        case 429:
+            // Extract Retry-After header if present
+            let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
+                .flatMap { Double($0) }
+            throw APIError.rateLimited(retryAfter: retryAfter)
+        case 503:
+            throw APIError.serviceUnavailable
         default:
             throw APIError.serverError(httpResponse.statusCode)
         }
+    }
+
+    /// Calculate retry delay with exponential backoff
+    private func calculateRetryDelay(attempt: Int, error: APIError) -> TimeInterval {
+        // For rate limiting, use Retry-After header if available
+        if case .rateLimited(let retryAfter) = error, let seconds = retryAfter {
+            return seconds
+        }
+
+        // Exponential backoff: 1s, 2s, 4s, etc.
+        let baseDelay = Constants.initialRetryDelay
+        let multiplier = pow(Constants.retryBackoffMultiplier, Double(attempt))
+        return baseDelay * multiplier
     }
 
     private func parseUsageResponse(_ data: Data) throws -> UsageSnapshot {
@@ -64,7 +140,7 @@ actor ClaudeAPIService: APIServiceProtocol {
         if let json = try? JSONSerialization.jsonObject(with: data),
            let prettyData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted),
            let prettyString = String(data: prettyData, encoding: .utf8) {
-            print("📊 Claude API Response:\n\(prettyString)")
+            Logger.api.debug("Claude API Response:\n\(prettyString)")
         }
         #endif
 

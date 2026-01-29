@@ -16,13 +16,20 @@ struct SmallWidgetView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(entry.metric.displayName)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Text(entry.metric.displayName)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+
+                Image(systemName: usage.trend.icon)
+                    .font(.caption2)
+                    .foregroundStyle(trendColor)
+            }
 
             progressRing
                 .frame(width: 70, height: 70)
+                .accessibilityHidden(true)
 
             Text("\(usage.percentUsed)%")
                 .font(.title2)
@@ -34,6 +41,18 @@ struct SmallWidgetView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(entry.metric.displayName) usage")
+        .accessibilityValue("\(usage.percentUsed) percent used, \(usage.status.label), \(usage.trend.accessibilityLabel)")
+        .accessibilityHint("Resets \(usage.timeUntilReset)")
+    }
+
+    private var trendColor: Color {
+        switch usage.trend {
+        case .increasing: return .orange
+        case .stable: return .secondary
+        case .decreasing: return .green
+        }
     }
 
     private var progressRing: some View {

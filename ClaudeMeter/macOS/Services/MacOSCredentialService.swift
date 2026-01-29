@@ -6,6 +6,7 @@
 #if os(macOS)
 import Foundation
 import AppKit
+import OSLog
 internal import UniformTypeIdentifiers
 
 /// macOS credential service that reads from ~/.claude/.credentials.json
@@ -13,7 +14,7 @@ internal import UniformTypeIdentifiers
 actor MacOSCredentialService: CredentialProvider {
     func loadCredentials() async throws -> ClaudeOAuthCredentials {
         let fileURL = Constants.credentialsFileURL
-        print("[MacOSCredentialService] Looking for credentials at: \(fileURL.path)")
+        Logger.credentials.debug("Looking for credentials at: \(fileURL.path)")
 
         // Try to access the file directly first
         var data: Data?
@@ -29,7 +30,7 @@ actor MacOSCredentialService: CredentialProvider {
             data = try Data(contentsOf: fileURL)
         } catch {
             accessError = error
-            print("[MacOSCredentialService] Direct access failed: \(error)")
+            Logger.credentials.warning("Direct access failed: \(error.localizedDescription)")
 
             // If sandboxed and access fails, prompt user to select the file
             if let selectedData = await requestFileAccess() {
@@ -67,9 +68,9 @@ actor MacOSCredentialService: CredentialProvider {
     private func syncToKeychain(_ credentials: ClaudeOAuthCredentials) {
         do {
             try KeychainHelper.saveCredentials(credentials)
-            print("[MacOSCredentialService] Synced credentials to iCloud Keychain")
+            Logger.credentials.info("Synced credentials to iCloud Keychain")
         } catch {
-            print("[MacOSCredentialService] Failed to sync to Keychain: \(error)")
+            Logger.credentials.error("Failed to sync to Keychain: \(error.localizedDescription)")
         }
     }
 
@@ -96,7 +97,7 @@ actor MacOSCredentialService: CredentialProvider {
                         let data = try Data(contentsOf: url)
                         continuation.resume(returning: data)
                     } catch {
-                        print("[MacOSCredentialService] Failed to read selected file: \(error)")
+                        Logger.credentials.error("Failed to read selected file: \(error.localizedDescription)")
                         continuation.resume(returning: nil)
                     }
                 } else {

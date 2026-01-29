@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import OSLog
 import Security
 
 /// Helper for Keychain credential storage
@@ -71,7 +72,7 @@ enum KeychainHelper {
             // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
         let deleteStatus = SecItemDelete(deleteQuery as CFDictionary)
-        print("[KeychainHelper] Delete existing: \(deleteStatus)")
+        Logger.keychain.debug("Delete existing: \(deleteStatus)")
 
         // Add new item to Keychain
         let addQuery: [String: Any] = [
@@ -85,13 +86,17 @@ enum KeychainHelper {
         ]
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
-        print("[KeychainHelper] Save credentials: \(status) (\(status == errSecSuccess ? "success" : "error: \(status)"))")
+        if status == errSecSuccess {
+            Logger.keychain.debug("Save credentials: success")
+        } else {
+            Logger.keychain.error("Save credentials failed: \(status)")
+        }
 
         guard status == errSecSuccess else {
             throw CredentialError.keychainError(status)
         }
 
-        print("[KeychainHelper] Credentials saved to Keychain successfully")
+        Logger.keychain.info("Credentials saved to Keychain successfully")
     }
 
     /// Load credentials from Keychain
@@ -109,7 +114,13 @@ enum KeychainHelper {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-        print("[KeychainHelper] Load credentials: \(status) (\(status == errSecSuccess ? "success" : status == errSecItemNotFound ? "not found" : "error: \(status)"))")
+        if status == errSecSuccess {
+            Logger.keychain.debug("Load credentials: success")
+        } else if status == errSecItemNotFound {
+            Logger.keychain.debug("Load credentials: not found")
+        } else {
+            Logger.keychain.error("Load credentials failed: \(status)")
+        }
 
         guard status == errSecSuccess else {
             if status == errSecItemNotFound {
@@ -124,7 +135,7 @@ enum KeychainHelper {
 
         let decoder = JSONDecoder()
         let credentials = try decoder.decode(ClaudeOAuthCredentials.self, from: data)
-        print("[KeychainHelper] Credentials loaded successfully")
+        Logger.keychain.info("Credentials loaded successfully")
         return credentials
     }
 

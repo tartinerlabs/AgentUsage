@@ -5,12 +5,13 @@
 
 #if os(iOS)
 import Foundation
+import OSLog
 
 /// iOS credential service that reads from Keychain
 /// Credentials can be synced from macOS (when iCloud Keychain enabled) or entered manually
 actor iOSCredentialService: CredentialProvider {
     func loadCredentials() async throws -> ClaudeOAuthCredentials {
-        print("[iOSCredentialService] Loading credentials from Keychain")
+        Logger.credentials.debug("Loading credentials from Keychain")
 
         let credentials = try KeychainHelper.loadCredentials()
 
@@ -27,7 +28,7 @@ actor iOSCredentialService: CredentialProvider {
 
     /// Save manually entered credentials to Keychain
     func saveCredentials(_ credentials: ClaudeOAuthCredentials) throws {
-        print("[iOSCredentialService] Saving manually entered credentials")
+        Logger.credentials.info("Saving manually entered credentials")
         try KeychainHelper.saveCredentials(credentials)
     }
 
@@ -58,7 +59,7 @@ actor iOSCredentialService: CredentialProvider {
 
     /// Clear stored credentials
     func clearCredentials() {
-        print("[iOSCredentialService] Clearing credentials")
+        Logger.credentials.info("Clearing credentials")
         KeychainHelper.deleteCredentials()
     }
 }

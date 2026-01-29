@@ -63,18 +63,18 @@ struct MenuBarIconView: View {
         HStack(spacing: 6) {
             if let snapshot = viewModel.snapshot {
                 if viewModel.menuBarShowSession {
-                    usageColumn(label: "CURR", value: snapshot.session.utilization)
+                    usageColumn(label: "CURR", usage: snapshot.session)
                 }
                 if viewModel.menuBarShowAllModels {
-                    usageColumn(label: "ALL", value: snapshot.opus.utilization)
+                    usageColumn(label: "ALL", usage: snapshot.opus)
                 }
                 if viewModel.menuBarShowSonnet, let sonnet = snapshot.sonnet {
-                    usageColumn(label: "SONNET", value: sonnet.utilization)
+                    usageColumn(label: "SONNET", usage: sonnet)
                 }
 
                 // Fallback if nothing is enabled
                 if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet {
-                    usageColumn(label: "CURR", value: snapshot.session.utilization)
+                    usageColumn(label: "CURR", usage: snapshot.session)
                 }
             } else {
                 Text("--%")
@@ -91,14 +91,35 @@ struct MenuBarIconView: View {
     }
 
     @ViewBuilder
-    private func usageColumn(label: String, value: Double) -> some View {
+    private func usageColumn(label: String, usage: UsageWindow) -> some View {
         VStack(spacing: 0) {
-            Text(label)
-                .font(.system(size: 8 ))
+            HStack(spacing: 1) {
+                Text(label)
+                    .font(.system(size: 8))
+                    .foregroundStyle(.white)
+                Image(systemName: trendIcon(for: usage.trend))
+                    .font(.system(size: 6))
+                    .foregroundStyle(trendColor(for: usage.trend))
+            }
+            Text("\(Int(usage.utilization.rounded()))%")
+                .font(.system(size: 10))
                 .foregroundStyle(.white)
-            Text("\(Int(value.rounded()))%")
-                .font(.system(size: 10 ))
-                .foregroundStyle(.white)
+        }
+    }
+
+    private func trendIcon(for trend: UsageWindow.Trend) -> String {
+        switch trend {
+        case .increasing: return "arrow.up.right"
+        case .stable: return "arrow.right"
+        case .decreasing: return "arrow.down.right"
+        }
+    }
+
+    private func trendColor(for trend: UsageWindow.Trend) -> Color {
+        switch trend {
+        case .increasing: return .orange
+        case .stable: return .white.opacity(0.6)
+        case .decreasing: return .green
         }
     }
 }

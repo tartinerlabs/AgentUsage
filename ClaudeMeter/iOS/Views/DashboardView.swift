@@ -21,6 +21,10 @@ struct DashboardView: View {
                 headerCard
 
                 if let snapshot = viewModel.snapshot {
+                    // Offline indicator
+                    if viewModel.isUsingCachedData {
+                        offlineIndicator
+                    }
                     liveActivityCard(snapshot: snapshot)
                     usageCardsSection(snapshot: snapshot)
                 } else if let error = viewModel.errorMessage {
@@ -44,6 +48,34 @@ struct DashboardView: View {
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
             now = date
         }
+    }
+
+    // MARK: - Offline Indicator
+
+    private var offlineIndicator: some View {
+        HStack(spacing: 8) {
+            Image(systemName: viewModel.isOffline ? "wifi.slash" : "clock.arrow.circlepath")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(viewModel.isOffline ? "Offline Mode" : "Using Cached Data")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                if let lastUpdate = viewModel.timeSinceLastUpdate {
+                    Text("Last updated \(lastUpdate)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.orange.opacity(0.1))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(viewModel.isOffline ? "Offline mode" : "Using cached data")
+        .accessibilityValue(viewModel.timeSinceLastUpdate.map { "Last updated \($0)" } ?? "")
     }
 
     // MARK: - Live Activity Card
@@ -76,6 +108,8 @@ struct DashboardView: View {
                         }
                         .buttonStyle(.bordered)
                         .tint(.red)
+                        .accessibilityLabel("Stop live activity")
+                        .accessibilityHint("Stops tracking usage in Dynamic Island")
                     }
                 } else {
                     Text("Show usage in Dynamic Island")
@@ -92,6 +126,8 @@ struct DashboardView: View {
                             }
                             .buttonStyle(.bordered)
                             .tint(Constants.brandPrimary)
+                            .accessibilityLabel("Start \(metric.displayName) live activity")
+                            .accessibilityHint("Shows \(metric.displayName) usage in Dynamic Island")
                         }
                     }
                 }
@@ -101,6 +137,8 @@ struct DashboardView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(.regularMaterial)
             )
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Live Activity controls")
         }
     }
 
@@ -121,6 +159,7 @@ struct DashboardView: View {
                 Spacer()
                 if viewModel.isLoading {
                     ProgressView()
+                        .accessibilityLabel("Loading")
                 }
             }
             if let snapshot = viewModel.snapshot {
@@ -135,6 +174,9 @@ struct DashboardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.regularMaterial)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Claude \(viewModel.planType) plan")
+        .accessibilityValue(viewModel.snapshot.map { "Updated \($0.lastUpdatedDescription)" } ?? "")
     }
 
     // MARK: - Usage Cards
@@ -150,6 +192,7 @@ struct DashboardView: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
+                .accessibilityAddTraits(.isHeader)
 
             UsageCardView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now)
             if let sonnet = snapshot.sonnet {
@@ -165,6 +208,7 @@ struct DashboardView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.largeTitle)
                 .foregroundStyle(.orange)
+                .accessibilityHidden(true)
             Text("Unable to Load Usage")
                 .font(.headline)
             Text(error)
@@ -178,6 +222,7 @@ struct DashboardView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(Constants.brandPrimary)
+            .accessibilityHint("Attempts to reload usage data")
         }
         .padding()
         .frame(maxWidth: .infinity)
@@ -185,6 +230,8 @@ struct DashboardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.regularMaterial)
         )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Error loading usage")
     }
 
     private var loadingView: some View {
@@ -201,6 +248,8 @@ struct DashboardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.regularMaterial)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Loading usage data")
     }
 
     private var emptyStateView: some View {
@@ -208,6 +257,7 @@ struct DashboardView: View {
             Image(systemName: "chart.bar.xaxis")
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text("No Data")
                 .font(.headline)
             Text("Pull down to refresh")
@@ -220,6 +270,9 @@ struct DashboardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.regularMaterial)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No data available")
+        .accessibilityHint("Pull down to refresh")
     }
 }
 

@@ -6,6 +6,7 @@
 #if os(macOS)
 import Foundation
 import ClaudeMeterKit
+import OSLog
 
 actor TokenUsageService: TokenUsageServiceProtocol {
     private let fileManager = FileManager.default
@@ -282,7 +283,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             } catch {
                 // Log error but continue with other files
                 parseErrors[file] = error
-                print("[TokenUsageService] Failed to parse \(file.lastPathComponent): \(error.localizedDescription)")
+                Logger.tokenUsage.warning("Failed to parse \(file.lastPathComponent): \(error.localizedDescription)")
             }
         }
 
@@ -293,7 +294,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
 
         // Log partial success if some files failed
         if !parseErrors.isEmpty {
-            print("[TokenUsageService] Partial success: \(changed.count - parseErrors.count)/\(changed.count) files parsed")
+            Logger.tokenUsage.info("Partial success: \(changed.count - parseErrors.count)/\(changed.count) files parsed")
         }
 
         // Remove stale files from cache
