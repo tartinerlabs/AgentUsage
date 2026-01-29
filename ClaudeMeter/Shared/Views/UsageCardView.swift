@@ -26,6 +26,7 @@ struct UsageCardView: View {
 
             HStack(spacing: 20) {
                 progressRing
+                    .accessibilityHidden(true) // Ring is decorative; info is in text
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(usage.percentUsed)%")
@@ -44,6 +45,11 @@ struct UsageCardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.regularMaterial)
         )
+        // MARK: - Accessibility
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Resets \(usage.timeUntilReset(from: now))")
     }
 
     private var progressRing: some View {
@@ -60,6 +66,16 @@ struct UsageCardView: View {
                 .animation(.easeInOut(duration: 0.3), value: usage.normalized)
         }
         .frame(width: 60, height: 60)
+    }
+
+    // MARK: - Accessibility Helpers
+
+    private var accessibilityLabel: String {
+        "\(title) usage"
+    }
+
+    private var accessibilityValue: String {
+        "\(usage.percentUsed) percent used, \(usage.status.label)"
     }
 }
 

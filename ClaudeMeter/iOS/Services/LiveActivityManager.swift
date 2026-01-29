@@ -9,6 +9,7 @@
 import ActivityKit
 import ClaudeMeterKit
 import Combine
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -30,7 +31,7 @@ final class LiveActivityManager: ObservableObject {
     /// Start a new Live Activity with the given snapshot
     func start(snapshot: UsageSnapshot, metric: MetricType) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            print("[LiveActivityManager] Live Activities not enabled")
+            Logger.liveActivity.warning("Live Activities not enabled")
             return
         }
 
@@ -56,9 +57,9 @@ final class LiveActivityManager: ObservableObject {
             )
             currentActivity = activity
             isRunning = true
-            print("[LiveActivityManager] Started Live Activity: \(activity.id)")
+            Logger.liveActivity.info("Started Live Activity: \(activity.id)")
         } catch {
-            print("[LiveActivityManager] Failed to start: \(error)")
+            Logger.liveActivity.error("Failed to start: \(error.localizedDescription)")
         }
     }
 
@@ -73,7 +74,7 @@ final class LiveActivityManager: ObservableObject {
             await activity.update(
                 ActivityContent(state: contentState, staleDate: nil)
             )
-            print("[LiveActivityManager] Updated Live Activity")
+            Logger.liveActivity.debug("Updated Live Activity")
         }
     }
 
@@ -83,7 +84,7 @@ final class LiveActivityManager: ObservableObject {
 
         Task {
             await activity.end(nil, dismissalPolicy: .immediate)
-            print("[LiveActivityManager] Stopped Live Activity")
+            Logger.liveActivity.info("Stopped Live Activity")
         }
 
         currentActivity = nil
@@ -97,7 +98,7 @@ final class LiveActivityManager: ObservableObject {
         for activity in Activity<ClaudeMeterLiveActivityAttributes>.activities {
             currentActivity = activity
             isRunning = true
-            print("[LiveActivityManager] Found existing activity: \(activity.id)")
+            Logger.liveActivity.debug("Found existing activity: \(activity.id)")
             break
         }
     }

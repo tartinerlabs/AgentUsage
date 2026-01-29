@@ -24,6 +24,12 @@ enum Constants {
         URL(string: apiBaseURL + apiUsagePath)!
     }
 
+    // MARK: - Network Configuration
+    static let requestTimeout: TimeInterval = 30
+    static let maxRetryAttempts = 3
+    static let initialRetryDelay: TimeInterval = 1.0
+    static let retryBackoffMultiplier: Double = 2.0
+
     // MARK: - macOS Only (file system access)
     #if os(macOS)
     static var credentialsFileURL: URL {

@@ -142,6 +142,51 @@ public struct UsageWindow: Sendable, Codable {
             return .critical
         }
     }
+
+    /// Trend indicator based on current pace vs expected pace
+    public enum Trend: String, Sendable {
+        case increasing  // Using faster than expected
+        case stable      // On pace
+        case decreasing  // Using slower than expected
+
+        public var icon: String {
+            switch self {
+            case .increasing: return "arrow.up.right"
+            case .stable: return "arrow.right"
+            case .decreasing: return "arrow.down.right"
+            }
+        }
+
+        public var accessibilityLabel: String {
+            switch self {
+            case .increasing: return "increasing"
+            case .stable: return "stable"
+            case .decreasing: return "decreasing"
+            }
+        }
+    }
+
+    /// Calculate trend based on current usage pace
+    public var trend: Trend {
+        let timeRemaining = resetsAt.timeIntervalSinceNow
+        guard timeRemaining > 0 else { return .stable }
+
+        let totalDuration = windowType.totalDuration
+        let timeElapsed = totalDuration - timeRemaining
+        guard timeElapsed > 0 else { return .stable }
+
+        let timeElapsedRatio = timeElapsed / totalDuration
+        let expectedUsage = timeElapsedRatio * 100
+        let difference = utilization - expectedUsage
+
+        if difference > 10 {
+            return .increasing
+        } else if difference < -10 {
+            return .decreasing
+        } else {
+            return .stable
+        }
+    }
 }
 
 // MARK: - Usage Snapshot

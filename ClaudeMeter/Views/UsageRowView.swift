@@ -47,6 +47,7 @@ struct UsageRowView: View {
                 }
             }
             .frame(height: 8)
+            .accessibilityHidden(true) // Progress bar is decorative; info is in text
 
             // Stats row
             HStack {
@@ -59,6 +60,21 @@ struct UsageRowView: View {
                     .foregroundStyle(usage.status.color)
             }
         }
+        // MARK: - Accessibility
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Resets \(usage.timeUntilReset(from: now))")
+    }
+
+    // MARK: - Accessibility Helpers
+
+    private var accessibilityLabel: String {
+        "\(title) usage"
+    }
+
+    private var accessibilityValue: String {
+        "\(usage.percentUsed) percent used, \(usage.status.label)"
     }
 }
 

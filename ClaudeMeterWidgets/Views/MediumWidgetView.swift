@@ -22,17 +22,26 @@ struct MediumWidgetView: View {
             }
         }
         .padding(.horizontal, 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Claude usage summary")
     }
 
     private func metricView(title: String, usage: UsageWindow) -> some View {
         VStack(spacing: 6) {
-            Text(title)
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 2) {
+                Text(title)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+
+                Image(systemName: usage.trend.icon)
+                    .font(.system(size: 8))
+                    .foregroundStyle(trendColor(for: usage.trend))
+            }
 
             progressRing(for: usage)
                 .frame(width: 44, height: 44)
+                .accessibilityHidden(true)
 
             Text("\(usage.percentUsed)%")
                 .font(.subheadline)
@@ -44,6 +53,18 @@ struct MediumWidgetView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title) usage")
+        .accessibilityValue("\(usage.percentUsed) percent, \(usage.status.label), \(usage.trend.accessibilityLabel)")
+        .accessibilityHint("Resets \(usage.timeUntilReset)")
+    }
+
+    private func trendColor(for trend: UsageWindow.Trend) -> Color {
+        switch trend {
+        case .increasing: return .orange
+        case .stable: return .secondary
+        case .decreasing: return .green
+        }
     }
 
     private func progressRing(for usage: UsageWindow) -> some View {

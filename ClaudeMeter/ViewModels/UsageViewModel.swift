@@ -6,6 +6,7 @@
 import Foundation
 import ClaudeMeterKit
 import SwiftUI
+import OSLog
 #if os(macOS)
 import SwiftData
 #endif
@@ -34,6 +35,53 @@ final class UsageViewModel {
             #endif
         }
     }
+
+    // MARK: - Offline Support
+
+    /// Whether we're using cached data (offline or stale)
+    var isUsingCachedData: Bool = false
+
+    /// Time since last successful fetch (for "Last updated X ago" display)
+    var timeSinceLastUpdate: String? {
+        guard let lastUpdate = lastSuccessfulFetchTime else { return nil }
+        let interval = Date().timeIntervalSince(lastUpdate)
+
+        if interval < 60 {
+            return "just now"
+        } else if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "\(minutes) minute\(minutes == 1 ? "" : "s") ago"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "\(hours) hour\(hours == 1 ? "" : "s") ago"
+        } else {
+            let days = Int(interval / 86400)
+            return "\(days) day\(days == 1 ? "" : "s") ago"
+        }
+    }
+
+    /// Whether the device is currently offline
+    var isOffline: Bool {
+        !NetworkMonitor.shared.isConnected
+    }
+
+    private var lastSuccessfulFetchTime: Date? {
+        get {
+            let timestamp = UserDefaults.standard.double(forKey: cacheTimeKey)
+            return timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil
+        }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue.timeIntervalSince1970, forKey: cacheTimeKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: cacheTimeKey)
+            }
+        }
+    }
+
+    private let cacheKey = "cachedUsageSnapshot"
+    private let cacheTimeKey = "cachedUsageSnapshotTime"
+    private let cachePlanKey = "cachedPlanType"
 
     var refreshInterval: RefreshFrequency {
         didSet {
@@ -112,14 +160,41 @@ final class UsageViewModel {
         self.menuBarShowSession = defaults.object(forKey: "menuBarShowSession") as? Bool ?? true
         self.menuBarShowAllModels = defaults.object(forKey: "menuBarShowAllModels") as? Bool ?? false
         self.menuBarShowSonnet = defaults.object(forKey: "menuBarShowSonnet") as? Bool ?? false
+
+        // Load cached data on init
+        loadCachedSnapshot()
     }
     #else
     init(credentialProvider: any CredentialProvider) {
         self.credentialProvider = credentialProvider
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
+
+        // Load cached data on init
+        loadCachedSnapshot()
     }
     #endif
+
+    // MARK: - Cache Management
+
+    private func loadCachedSnapshot() {
+        guard let data = UserDefaults.standard.data(forKey: cacheKey),
+              let cached = try? JSONDecoder().decode(UsageSnapshot.self, from: data) else {
+            return
+        }
+        snapshot = cached
+        planType = UserDefaults.standard.string(forKey: cachePlanKey) ?? "Free"
+        isUsingCachedData = true
+        Logger.viewModel.debug("Loaded cached snapshot from \(self.timeSinceLastUpdate ?? "unknown time")")
+    }
+
+    private func cacheSnapshot(_ snapshot: UsageSnapshot, planType: String) {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: cacheKey)
+        UserDefaults.standard.set(planType, forKey: cachePlanKey)
+        lastSuccessfulFetchTime = Date()
+        Logger.viewModel.debug("Cached snapshot successfully")
+    }
 
     func refresh(force: Bool = false) async {
         let minInterval = force ? minForceRefreshInterval : minRefreshInterval
@@ -127,6 +202,18 @@ final class UsageViewModel {
         // Rate limit: skip if refreshed recently (first load always proceeds)
         if let lastRefresh = lastRefreshTime,
            Date().timeIntervalSince(lastRefresh) < minInterval {
+            return
+        }
+
+        // Check network status - use cached data if offline
+        if isOffline {
+            if snapshot != nil {
+                Logger.viewModel.info("Offline - using cached data")
+                isUsingCachedData = true
+                errorMessage = nil  // Clear error since we have cached data
+            } else {
+                errorMessage = "No internet connection and no cached data available."
+            }
             return
         }
 
@@ -141,8 +228,16 @@ final class UsageViewModel {
         do {
             let credentials = try await credentialProvider.loadCredentials()
             planType = credentials.planDisplayName
-            snapshot = try await apiService.fetchUsage(token: credentials.accessToken)
+            let newSnapshot = try await apiService.fetchUsage(token: credentials.accessToken)
+            snapshot = newSnapshot
             lastRefreshTime = Date()  // Only set on success - allows immediate retry on failure
+            isUsingCachedData = false
+
+            // Cache the successful response
+            cacheSnapshot(newSnapshot, planType: planType)
+
+            // Record to usage history for trend tracking
+            await UsageHistoryService.shared.record(snapshot: newSnapshot)
 
             // Check for threshold crossings and send notifications (macOS only)
             #if os(macOS)
@@ -163,6 +258,11 @@ final class UsageViewModel {
             #endif
         } catch {
             errorMessage = error.localizedDescription
+            // If we have cached data, use it and show a softer error
+            if snapshot != nil {
+                isUsingCachedData = true
+                Logger.viewModel.warning("API fetch failed, using cached data: \(error.localizedDescription)")
+            }
             // Don't set lastRefreshTime on error - allow immediate retry
         }
 
@@ -250,10 +350,10 @@ final class UsageViewModel {
 
         } catch let error as TokenUsageError {
             tokenUsageError = error
-            print("Token usage error: \(error.localizedDescription)")
+            Logger.tokenUsage.error("Token usage error: \(error.localizedDescription)")
         } catch {
             tokenUsageError = .fileReadError(error)
-            print("Token usage error: \(error)")
+            Logger.tokenUsage.error("Token usage error: \(error)")
         }
     }
 
@@ -274,7 +374,7 @@ final class UsageViewModel {
             if tokenUsageError == nil {
                 tokenUsageError = .swiftDataError(error)
             }
-            print("Failed to fetch period summary: \(error)")
+            Logger.tokenUsage.error("Failed to fetch period summary: \(error)")
         }
     }
 
@@ -305,7 +405,7 @@ final class UsageViewModel {
                             return nil
                         }
                     } catch {
-                        print("Failed to prefetch summary for \(period): \(error)")
+                        Logger.tokenUsage.error("Failed to prefetch summary for \(period.rawValue): \(error)")
                         return nil
                     }
                 }
@@ -357,4 +457,3 @@ final class UsageViewModel {
 
 // Note: RefreshFrequency enum is now in Shared/ViewModels/RefreshScheduler.swift
 // Note: MenuBarDisplayWindow enum is now in macOS/ViewModels/MenuBarSettingsManager.swift
-

@@ -18,6 +18,12 @@ struct SettingsView: View {
                     Label("General", systemImage: "gear")
                 }
 
+            NotificationsTab()
+                .environment(viewModel)
+                .tabItem {
+                    Label("Notifications", systemImage: "bell")
+                }
+
             UpdatesTab()
                 .environmentObject(updaterController)
                 .tabItem {
@@ -29,7 +35,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 400, height: 280)
+        .frame(width: 450, height: 340)
     }
 }
 
@@ -65,6 +71,72 @@ private struct GeneralTab: View {
         } else {
             return "Not found"
         }
+    }
+}
+
+// MARK: - Notifications Tab
+
+private struct NotificationsTab: View {
+    @Environment(UsageViewModel.self) private var viewModel
+    @State private var settings = NotificationSettings.load()
+
+    var body: some View {
+        @Bindable var viewModel = viewModel
+
+        Form {
+            Section {
+                Toggle("Enable Notifications", isOn: $viewModel.notificationsEnabled)
+                    .onChange(of: viewModel.notificationsEnabled) { _, enabled in
+                        if enabled {
+                            Task { await NotificationService.shared.requestPermission() }
+                        }
+                    }
+            }
+
+            if viewModel.notificationsEnabled {
+                Section("Alert Thresholds") {
+                    ForEach(NotificationSettings.availableThresholds, id: \.self) { threshold in
+                        Toggle("\(threshold)%", isOn: Binding(
+                            get: { settings.isThresholdEnabled(threshold) },
+                            set: { _ in
+                                settings.toggleThreshold(threshold)
+                                settings.save()
+                            }
+                        ))
+                    }
+                }
+
+                Section("Usage Types") {
+                    Toggle("Session (5-hour)", isOn: Binding(
+                        get: { settings.notifySession },
+                        set: { settings.notifySession = $0; settings.save() }
+                    ))
+                    Toggle("All Models (weekly)", isOn: Binding(
+                        get: { settings.notifyOpus },
+                        set: { settings.notifyOpus = $0; settings.save() }
+                    ))
+                    Toggle("Sonnet (weekly)", isOn: Binding(
+                        get: { settings.notifySonnet },
+                        set: { settings.notifySonnet = $0; settings.save() }
+                    ))
+                }
+
+                Section {
+                    Toggle("Notify on Reset", isOn: Binding(
+                        get: { settings.notifyOnReset },
+                        set: { settings.notifyOnReset = $0; settings.save() }
+                    ))
+                    .help("Get notified when your usage limit resets after being near capacity")
+                }
+
+                Section {
+                    Button("Send Test Notification") {
+                        Task { await NotificationService.shared.sendTestNotification() }
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

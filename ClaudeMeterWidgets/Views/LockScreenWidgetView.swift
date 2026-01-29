@@ -40,6 +40,8 @@ struct LockScreenWidgetView: View {
                 .font(.system(.body, design: .rounded, weight: .bold))
         }
         .gaugeStyle(.accessoryCircular)
+        .accessibilityLabel("\(entry.metric.displayName) usage")
+        .accessibilityValue("\(usage.percentUsed) percent")
     }
 
     // MARK: - Rectangular (Bar with text)
@@ -64,12 +66,16 @@ struct LockScreenWidgetView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(entry.metric.displayName) usage")
+        .accessibilityValue("\(usage.percentUsed) percent, resets in \(usage.timeUntilReset)")
     }
 
     // MARK: - Inline (Single line text)
 
     private var inlineView: some View {
         Text("\(entry.metric.displayName): \(usage.percentUsed)%")
+            .accessibilityLabel("\(entry.metric.displayName) usage \(usage.percentUsed) percent")
     }
 }
 
