@@ -9,6 +9,14 @@ on:
       release_notes:
         description: 'Release notes (markdown)'
         required: true
+      prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -17,27 +25,26 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate version
         env:
           VERSION: ${{ inputs.version }}
         run: |
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version format"; exit 1; }
-          git fetch --tags
-          git tag -l "v$VERSION" | grep -q . && { echo "Tag v$VERSION already exists"; exit 1; } || true
+          if git tag -l "v$VERSION" | grep -q .; then
+            echo "Tag v$VERSION already exists"
+            exit 1
+          fi
 
       - name: Bump version
         env:
           VERSION: ${{ inputs.version }}
         run: |
           BUILD=$(($(grep CURRENT_PROJECT_VERSION Config/Version.xcconfig | cut -d= -f2 | tr -d ' ') + 1))
-          cat > Config/Version.xcconfig << EOF
-          // Version.xcconfig
-          // Single source of truth for app versioning
-
-          MARKETING_VERSION = $VERSION
-          CURRENT_PROJECT_VERSION = $BUILD
-          EOF
+          sed -i '' "s/^MARKETING_VERSION = .*/MARKETING_VERSION = $VERSION/" Config/Version.xcconfig
+          sed -i '' "s/^CURRENT_PROJECT_VERSION = .*/CURRENT_PROJECT_VERSION = $BUILD/" Config/Version.xcconfig
 
       - name: Commit and tag
         env:
@@ -55,7 +62,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           NOTES: ${{ inputs.release_notes }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: |
-          echo "$NOTES" > /tmp/notes.md
+          NOTES_FILE=$(mktemp)
+          echo "$NOTES" > "$NOTES_FILE"
+          FLAGS=""
+          [[ "$PRERELEASE" == "true" ]] && FLAGS="--prerelease"
           gh release create "v$VERSION" --title "ClaudeMeter $VERSION" \
-            --notes-file /tmp/notes.md --prerelease
+            --notes-file "$NOTES_FILE" $FLAGS
