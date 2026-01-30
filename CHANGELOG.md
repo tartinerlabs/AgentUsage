@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-01-30
+
+### Fixed
+- Fix background refresh not starting on app launch (broke in 0.9.0 refactor)
+
 ## [0.9.0] - 2026-01-29
 
 ### Added
