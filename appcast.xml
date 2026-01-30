@@ -6,48 +6,28 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.9.0</title>
-            <pubDate>Wed, 28 Jan 2026 17:16:10 +0000</pubDate>
-            <sparkle:version>22</sparkle:version>
-            <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
+            <title>Version 0.9.1</title>
+            <pubDate>Fri, 30 Jan 2026 08:14:28 +0000</pubDate>
+            <sparkle:version>23</sparkle:version>
+            <sparkle:shortVersionString>0.9.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-This release focuses on improving code architecture, testability, and error handling.
-
-<h3>Added</h3>
-<ul>
-<li>Service protocols for dependency injection and improved testability</li>
-<li>DependencyContainer for centralized service creation</li>
-<li>TokenRefreshService for automatic OAuth token refresh</li>
-<li>Shared utilities in ClaudeMeterKit (DateFormatters, UsageCalculations, WidgetDataStorage)</li>
-<li>Mock implementations for unit testing</li>
-<li>Comprehensive unit tests for utilities and edge cases (16+ new tests)</li>
-<li>Human-readable keychain error messages for better debugging</li>
-</ul>
-
-<h3>Changed</h3>
-<ul>
-<li>Refactor architecture with protocol-based services</li>
-<li>Consolidate duplicated code into ClaudeMeterKit package</li>
-<li>Extract RefreshScheduler and MenuBarSettingsManager from UsageViewModel</li>
-<li>Unified WidgetDataManager between app and widget extension</li>
-</ul>
-
 <h3>Fixed</h3>
 <ul>
-<li>TokenUsageService now continues processing when individual JSONL files fail (partial success)</li>
-<li>Improved error handling with descriptive keychain status messages</li>
+<li>Fix background refresh not starting on app launch (broke in 0.9.0 refactor)</li>
 </ul>
 
-See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
+---
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full release history.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.0/ClaudeMeter.zip"
-                length="1505159"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.1/ClaudeMeter.zip"
+                length="1580435"
                 type="application/octet-stream"
-                sparkle:edSignature="FHqCXxuhAhP/lN71fzULWujWr7gAqBuo185KECqVpAq9mYLsnpgBUbHnX2znBvwh6T67TpUkKGcPM3i1XQWtCQ==" />
+                sparkle:edSignature="5p+THWoaOZmkunClrAlDFK7LeP2MXij0jEufQFPHpkFsyJ/m9tDMJVyG6c3Jjt4fgiPsefF9y6DeMv4ftVfxAA==" />
         </item>
     </channel>
 </rss>
