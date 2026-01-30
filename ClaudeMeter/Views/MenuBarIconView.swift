@@ -33,6 +33,9 @@ struct MenuBarIconView: View {
 
     var body: some View {
         Image(nsImage: renderMenuBarImage())
+            .task {
+                await viewModel.initializeIfNeeded()
+            }
             .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
                 if windowAtLimit != nil {
                     now = date

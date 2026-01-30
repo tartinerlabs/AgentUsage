@@ -67,7 +67,6 @@ struct ClaudeMeterApp: App {
         } label: {
             MenuBarIconView()
                 .environment(viewModel)
-            // Note: initializeIfNeeded() is called from Window's .task - no duplicate needed here
         }
         .menuBarExtraStyle(.window)
     }
