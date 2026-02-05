@@ -269,10 +269,9 @@ final class UsageViewModel {
         isLoading = false
 
         // Fetch token usage in background (macOS only)
+        // Use async let to ensure task is properly structured and awaited
         #if os(macOS)
-        Task {
-            await refreshTokenUsage()
-        }
+        await refreshTokenUsage()
         #endif
     }
 
