@@ -205,7 +205,7 @@ final class UsageViewModel {
             return
         }
 
-        // Check network status - use cached data if offline
+        // API usage fetch (requires network)
         if isOffline {
             if snapshot != nil {
                 Logger.viewModel.info("Offline - using cached data")
@@ -214,62 +214,60 @@ final class UsageViewModel {
             } else {
                 errorMessage = "No internet connection and no cached data available."
             }
-            return
-        }
+        } else {
+            isLoading = true
+            errorMessage = nil
 
-        isLoading = true
-        errorMessage = nil
-
-        // Store old snapshot for threshold comparison (macOS only)
-        #if os(macOS)
-        let oldSnapshot = snapshot
-        #endif
-
-        do {
-            let credentials = try await credentialProvider.loadCredentials()
-            planType = credentials.planDisplayName
-            let newSnapshot = try await apiService.fetchUsage(token: credentials.accessToken)
-            snapshot = newSnapshot
-            lastRefreshTime = Date()  // Only set on success - allows immediate retry on failure
-            isUsingCachedData = false
-
-            // Cache the successful response
-            cacheSnapshot(newSnapshot, planType: planType)
-
-            // Record to usage history for trend tracking
-            await UsageHistoryService.shared.record(snapshot: newSnapshot)
-
-            // Check for threshold crossings and send notifications (macOS only)
+            // Store old snapshot for threshold comparison (macOS only)
             #if os(macOS)
-            if notificationsEnabled, let newSnapshot = snapshot {
-                await NotificationService.shared.checkThresholdCrossings(
-                    oldSnapshot: oldSnapshot,
-                    newSnapshot: newSnapshot
-                )
-            }
+            let oldSnapshot = snapshot
             #endif
 
-            // Cache snapshot for widgets and update Live Activity (iOS only)
-            #if os(iOS)
-            if let snapshot {
-                await WidgetDataManager.shared.save(snapshot)
-                await LiveActivityManager.shared.update(snapshot: snapshot)
+            do {
+                let credentials = try await credentialProvider.loadCredentials()
+                planType = credentials.planDisplayName
+                let newSnapshot = try await apiService.fetchUsage(token: credentials.accessToken)
+                snapshot = newSnapshot
+                lastRefreshTime = Date()  // Only set on success - allows immediate retry on failure
+                isUsingCachedData = false
+
+                // Cache the successful response
+                cacheSnapshot(newSnapshot, planType: planType)
+
+                // Record to usage history for trend tracking
+                await UsageHistoryService.shared.record(snapshot: newSnapshot)
+
+                // Check for threshold crossings and send notifications (macOS only)
+                #if os(macOS)
+                if notificationsEnabled, let newSnapshot = snapshot {
+                    await NotificationService.shared.checkThresholdCrossings(
+                        oldSnapshot: oldSnapshot,
+                        newSnapshot: newSnapshot
+                    )
+                }
+                #endif
+
+                // Cache snapshot for widgets and update Live Activity (iOS only)
+                #if os(iOS)
+                if let snapshot {
+                    await WidgetDataManager.shared.save(snapshot)
+                    await LiveActivityManager.shared.update(snapshot: snapshot)
+                }
+                #endif
+            } catch {
+                errorMessage = error.localizedDescription
+                // If we have cached data, use it and show a softer error
+                if snapshot != nil {
+                    isUsingCachedData = true
+                    Logger.viewModel.warning("API fetch failed, using cached data: \(error.localizedDescription)")
+                }
+                // Don't set lastRefreshTime on error - allow immediate retry
             }
-            #endif
-        } catch {
-            errorMessage = error.localizedDescription
-            // If we have cached data, use it and show a softer error
-            if snapshot != nil {
-                isUsingCachedData = true
-                Logger.viewModel.warning("API fetch failed, using cached data: \(error.localizedDescription)")
-            }
-            // Don't set lastRefreshTime on error - allow immediate retry
+
+            isLoading = false
         }
 
-        isLoading = false
-
-        // Fetch token usage in background (macOS only)
-        // Use async let to ensure task is properly structured and awaited
+        // Token usage refresh (local file reads, no network needed)
         #if os(macOS)
         await refreshTokenUsage()
         #endif
