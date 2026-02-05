@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-02-06
+
+### Fixed
+- Fix token usage and costs not updating in background when offline or between API refreshes
+
 ## [0.9.1] - 2026-01-30
 
 ### Fixed
@@ -213,7 +218,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.1...v0.8.2
