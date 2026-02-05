@@ -321,12 +321,12 @@ struct MenuBarView: View {
             .help("Settings (⌘,)")
 
             Button(role: .destructive) {
+                (NSApp.delegate as? AppDelegate)?.forceQuit = true
                 NSApplication.shared.terminate(nil)
             } label: {
                 Label("Quit", systemImage: "power")
             }
-            .keyboardShortcut("q", modifiers: .command)
-            .help("Quit (⌘Q)")
+            .help("Quit")
         }
         .buttonStyle(.borderless)
         .labelStyle(.iconOnly)

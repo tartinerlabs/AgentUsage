@@ -9,6 +9,9 @@ import AppKit
 import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    /// Set to `true` before calling `terminate(_:)` to allow the app to actually quit.
+    /// When `false`, CMD+Q will close visible windows instead of terminating.
+    var forceQuit = false
     private var windowObservers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -76,6 +79,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                className.contains("StatusBar") ||
                window.level == .statusBar ||
                window.styleMask.contains(.borderless) && window.frame.height < 50
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if forceQuit {
+            return .terminateNow
+        }
+
+        // Close all visible non-menu-bar windows instead of quitting
+        for window in NSApp.windows where window.isVisible && !isMenuBarExtraWindow(window) {
+            window.close()
+        }
+
+        return .terminateCancel
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ application: NSApplication) -> Bool {
