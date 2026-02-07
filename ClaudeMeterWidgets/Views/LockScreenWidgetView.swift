@@ -55,6 +55,11 @@ struct LockScreenWidgetView: View {
                 Text("\(usage.percentUsed)%")
                     .font(.headline)
                     .fontWeight(.bold)
+                if usage.isUsingExtraUsage {
+                    Text("Extra")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                }
             }
 
             Gauge(value: usage.normalized) {

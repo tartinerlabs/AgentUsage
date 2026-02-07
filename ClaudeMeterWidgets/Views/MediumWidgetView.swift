@@ -48,6 +48,12 @@ struct MediumWidgetView: View {
                 .fontWeight(.bold)
                 .foregroundStyle(usage.status.color)
 
+            if usage.isUsingExtraUsage {
+                Text("Extra")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.purple)
+            }
+
             Text(usage.timeUntilReset)
                 .font(.caption2)
                 .foregroundStyle(.secondary)

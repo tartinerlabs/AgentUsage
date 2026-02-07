@@ -240,7 +240,7 @@ struct APIResponseParsingTests {
     }
 
     @Test func handlesUtilizationAbove100() throws {
-        // API might return values > 100 in edge cases
+        // API might return values > 100 in edge cases (extra usage)
         let json = """
         {
             "five_hour": {
@@ -259,6 +259,11 @@ struct APIResponseParsingTests {
         #expect(snapshot.session.utilization == 105.5)
         #expect(snapshot.session.isAtLimit == true)
         #expect(snapshot.session.normalized == 1.0) // Clamped to 1.0
+        #expect(snapshot.session.isUsingExtraUsage == true)
+        #expect(snapshot.session.extraUsagePercent == 5)
+        #expect(snapshot.opus.isUsingExtraUsage == true)
+        #expect(snapshot.opus.extraUsagePercent == 10)
+        #expect(snapshot.isExtraUsageActive == true)
     }
 
     @Test func handlesDecimalUtilization() throws {

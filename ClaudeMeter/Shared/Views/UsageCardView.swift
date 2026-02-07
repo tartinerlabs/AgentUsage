@@ -33,6 +33,11 @@ struct UsageCardView: View {
                         .font(.title)
                         .fontWeight(.bold)
                         .foregroundStyle(usage.status.color)
+                    if usage.isUsingExtraUsage {
+                        Text("+\(usage.extraUsagePercent)% extra")
+                            .font(.caption)
+                            .foregroundStyle(.purple)
+                    }
                     Text("Resets in \(usage.timeUntilReset(from: now))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
