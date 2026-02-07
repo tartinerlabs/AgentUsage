@@ -88,7 +88,7 @@ struct MenuBarIconView: View {
             if let extraUsage = viewModel.snapshot?.extraUsage, extraUsage.used > 0 {
                 Text(extraUsage.formattedUsed)
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(Constants.extraUsageAccent)
             } else if let window = windowAtLimit {
                 Text(window.timeUntilReset(from: now))
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
@@ -115,7 +115,7 @@ struct MenuBarIconView: View {
                 if usage.isUsingExtraUsage {
                     Text("$")
                         .font(.system(size: 7, weight: .bold))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(Constants.extraUsageAccent)
                 }
             }
         }

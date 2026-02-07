@@ -58,7 +58,7 @@ struct UsageRowView: View {
                     if usage.isUsingExtraUsage {
                         Text("+\(usage.extraUsagePercent)% extra")
                             .font(.footnote)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(Constants.extraUsageAccent)
                     }
                 }
                 Spacer()

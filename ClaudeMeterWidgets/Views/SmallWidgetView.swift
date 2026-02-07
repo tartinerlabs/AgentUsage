@@ -39,7 +39,7 @@ struct SmallWidgetView: View {
             if usage.isUsingExtraUsage {
                 Text("Extra")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(extraUsageAccentColor)
             }
 
             Text("Resets \(usage.timeUntilReset)")

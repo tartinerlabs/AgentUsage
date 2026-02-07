@@ -72,7 +72,7 @@ struct MenuBarView: View {
                 if viewModel.snapshot?.hasExtraUsageEnabled == true {
                     Label("Extra Usage", systemImage: "plus.circle.fill")
                         .font(.caption2)
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(Constants.extraUsageAccent)
                 }
                 if viewModel.isLoading {
                     ProgressView()
@@ -301,7 +301,7 @@ struct MenuBarView: View {
     private var extraUsageActiveBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "dollarsign.circle.fill")
-                .foregroundStyle(.purple)
+                .foregroundStyle(Constants.extraUsageAccent)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Extra Usage Active")
                     .font(.footnote)
@@ -313,7 +313,7 @@ struct MenuBarView: View {
             Spacer()
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(0.1)))
+        .background(RoundedRectangle(cornerRadius: 8).fill(Constants.extraUsageAccent.opacity(0.1)))
     }
 
     private func extraUsageCostSection(_ extraUsage: ExtraUsageCost) -> some View {
@@ -331,7 +331,7 @@ struct MenuBarView: View {
                         .fill(Color.secondary.opacity(0.2))
                         .frame(height: 8)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.purple)
+                        .fill(Constants.extraUsageAccent)
                         .frame(width: geometry.size.width * extraUsage.normalized, height: 8)
                 }
             }
