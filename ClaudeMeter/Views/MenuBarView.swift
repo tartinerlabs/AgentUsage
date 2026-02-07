@@ -69,7 +69,7 @@ struct MenuBarView: View {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(Constants.brandPrimary.opacity(0.12))
                     )
-                if viewModel.snapshot?.hasExtraUsageEnabled == true {
+                if viewModel.showExtraUsageIndicators, viewModel.snapshot?.hasExtraUsageEnabled == true {
                     Label("Extra Usage", systemImage: "plus.circle.fill")
                         .font(.caption2)
                         .foregroundStyle(Constants.extraUsageAccent)
@@ -92,11 +92,11 @@ struct MenuBarView: View {
     private func contentSection(snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 16) {
             // Active banner when utilization > 100%
-            if snapshot.isExtraUsageActive {
+            if viewModel.showExtraUsageIndicators, snapshot.isExtraUsageActive {
                 extraUsageActiveBanner
             }
 
-            UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now)
+            UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
 
             // Weekly limits group
             VStack(alignment: .leading, spacing: 12) {
@@ -105,14 +105,14 @@ struct MenuBarView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
 
-                UsageRowView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now)
+                UsageRowView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
                 if let sonnet = snapshot.sonnet {
-                    UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now)
+                    UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
                 }
             }
 
             // Extra usage cost section
-            if let extraUsage = snapshot.extraUsage {
+            if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
                 extraUsageCostSection(extraUsage)
             }
 

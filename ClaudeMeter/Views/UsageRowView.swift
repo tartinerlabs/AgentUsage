@@ -10,6 +10,7 @@ struct UsageRowView: View {
     let title: String
     let usage: UsageWindow
     var now: Date = Date()
+    var showExtraUsage: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -55,7 +56,7 @@ struct UsageRowView: View {
                     Text("\(usage.percentUsed)% used")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    if usage.isUsingExtraUsage {
+                    if showExtraUsage, usage.isUsingExtraUsage {
                         Text("+\(usage.extraUsagePercent)% extra")
                             .font(.footnote)
                             .foregroundStyle(Constants.extraUsageAccent)

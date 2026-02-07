@@ -34,6 +34,14 @@ struct SettingsView: View {
                 Text("How often to automatically fetch usage data.")
             }
 
+            Section {
+                Toggle("Extra Usage Indicators", isOn: $viewModel.showExtraUsageIndicators)
+            } header: {
+                Text("Display")
+            } footer: {
+                Text("Show extra usage badges, banners, and cost sections throughout the app.")
+            }
+
             Section("Credential Status") {
                 LabeledContent("Status") {
                     if viewModel.errorMessage == nil && viewModel.snapshot != nil {

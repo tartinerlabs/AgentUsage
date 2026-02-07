@@ -26,7 +26,7 @@ struct DashboardView: View {
                         offlineIndicator
                     }
                     // Extra usage banner
-                    if snapshot.isExtraUsageActive {
+                    if viewModel.showExtraUsageIndicators, snapshot.isExtraUsageActive {
                         extraUsageBanner
                     }
                     liveActivityCard(snapshot: snapshot)
@@ -160,7 +160,7 @@ struct DashboardView: View {
                     .background(Constants.brandPrimary.opacity(0.2))
                     .foregroundStyle(Constants.brandPrimary)
                     .clipShape(Capsule())
-                if viewModel.snapshot?.hasExtraUsageEnabled == true {
+                if viewModel.showExtraUsageIndicators, viewModel.snapshot?.hasExtraUsageEnabled == true {
                     Label("Extra Usage", systemImage: "plus.circle.fill")
                         .font(.caption2)
                         .foregroundStyle(Constants.extraUsageAccent)
@@ -192,7 +192,7 @@ struct DashboardView: View {
 
     @ViewBuilder
     private func usageCardsSection(snapshot: UsageSnapshot) -> some View {
-        UsageCardView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now)
+        UsageCardView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
 
         // Weekly limits group
         VStack(alignment: .leading, spacing: 12) {
@@ -203,14 +203,14 @@ struct DashboardView: View {
                 .padding(.top, 4)
                 .accessibilityAddTraits(.isHeader)
 
-            UsageCardView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now)
+            UsageCardView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             if let sonnet = snapshot.sonnet {
-                UsageCardView(title: sonnet.windowType.displayName, usage: sonnet, now: now)
+                UsageCardView(title: sonnet.windowType.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             }
         }
 
         // Extra usage cost card
-        if let extraUsage = snapshot.extraUsage {
+        if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
             extraUsageCostCard(extraUsage)
         }
     }

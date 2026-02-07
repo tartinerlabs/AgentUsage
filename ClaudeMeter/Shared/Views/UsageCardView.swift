@@ -12,6 +12,7 @@ struct UsageCardView: View {
     let title: String
     let usage: UsageWindow
     var now: Date = Date()
+    var showExtraUsage: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -33,7 +34,7 @@ struct UsageCardView: View {
                         .font(.title)
                         .fontWeight(.bold)
                         .foregroundStyle(usage.status.color)
-                    if usage.isUsingExtraUsage {
+                    if showExtraUsage, usage.isUsingExtraUsage {
                         Text("+\(usage.extraUsagePercent)% extra")
                             .font(.caption)
                             .foregroundStyle(Constants.extraUsageAccent)

@@ -90,6 +90,12 @@ final class UsageViewModel {
         }
     }
 
+    var showExtraUsageIndicators: Bool {
+        didSet {
+            UserDefaults.standard.set(showExtraUsageIndicators, forKey: "showExtraUsageIndicators")
+        }
+    }
+
     #if os(macOS)
     var notificationsEnabled: Bool {
         didSet {
@@ -115,6 +121,12 @@ final class UsageViewModel {
     var menuBarShowSonnet: Bool {
         didSet {
             UserDefaults.standard.set(menuBarShowSonnet, forKey: "menuBarShowSonnet")
+        }
+    }
+
+    var menuBarShowExtraUsage: Bool {
+        didSet {
+            UserDefaults.standard.set(menuBarShowExtraUsage, forKey: "menuBarShowExtraUsage")
         }
     }
 
@@ -153,6 +165,7 @@ final class UsageViewModel {
         self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
+        self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
         self.notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
 
         // Menu bar display settings - default to showing session only
@@ -160,6 +173,7 @@ final class UsageViewModel {
         self.menuBarShowSession = defaults.object(forKey: "menuBarShowSession") as? Bool ?? true
         self.menuBarShowAllModels = defaults.object(forKey: "menuBarShowAllModels") as? Bool ?? false
         self.menuBarShowSonnet = defaults.object(forKey: "menuBarShowSonnet") as? Bool ?? false
+        self.menuBarShowExtraUsage = defaults.object(forKey: "menuBarShowExtraUsage") as? Bool ?? true
 
         // Load cached data on init
         loadCachedSnapshot()
@@ -169,6 +183,7 @@ final class UsageViewModel {
         self.credentialProvider = credentialProvider
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
+        self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
 
         // Load cached data on init
         loadCachedSnapshot()

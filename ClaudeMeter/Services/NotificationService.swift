@@ -17,6 +17,9 @@ actor NotificationService: NotificationServiceProtocol {
     // Track notified thresholds per window type and reset time to avoid duplicates
     private var notifiedThresholds: [String: Set<Int>] = [:]
 
+    // Track whether we've already notified about extra usage activation
+    private var notifiedExtraUsage: Bool = false
+
     private init() {}
 
     // MARK: - Settings
@@ -95,6 +98,18 @@ actor NotificationService: NotificationServiceProtocol {
                 newUsage: newSonnet,
                 settings: currentSettings
             )
+        }
+
+        // Check for extra usage activation
+        if currentSettings.notifyExtraUsage {
+            let wasActive = oldSnapshot?.isExtraUsageActive ?? false
+            let isActive = newSnapshot.isExtraUsageActive
+            if !wasActive && isActive && !notifiedExtraUsage {
+                await sendExtraUsageNotification()
+                notifiedExtraUsage = true
+            } else if !isActive {
+                notifiedExtraUsage = false
+            }
         }
     }
 
@@ -235,6 +250,25 @@ actor NotificationService: NotificationServiceProtocol {
             try await notificationCenter.add(request)
         } catch {
             Logger.notifications.error("Failed to send notification: \(error.localizedDescription)")
+        }
+    }
+
+    private func sendExtraUsageNotification() async {
+        let content = UNMutableNotificationContent()
+        content.title = "Extra Usage Started"
+        content.body = "You've exceeded your plan limit. Usage is now billed at API rates."
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await notificationCenter.add(request)
+        } catch {
+            Logger.notifications.error("Failed to send extra usage notification: \(error.localizedDescription)")
         }
     }
 
