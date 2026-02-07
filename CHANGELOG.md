@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-02-07
+
+### Added
+- Extra usage tracking for paid accounts (cache creation and extra input tokens)
+- New settings to control extra usage indicators and notifications
+- Account requirement hint for extra usage feature (requires paid plan with OAuth)
+
+### Changed
+- Extra usage cost display now uses dusty plum color for better visual distinction
+- CMD+Q now quits the app completely (restored standard macOS behavior)
+
 ## [0.9.3] - 2026-02-06
 
 ### Fixed
@@ -223,7 +234,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.3...v0.10.0
 [0.9.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.0...v0.9.1
