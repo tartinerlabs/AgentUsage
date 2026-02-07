@@ -6,26 +6,31 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.10.1</title>
-            <pubDate>Sat, 07 Feb 2026 09:06:10 +0000</pubDate>
-            <sparkle:version>27</sparkle:version>
-            <sparkle:shortVersionString>0.10.1</sparkle:shortVersionString>
+            <title>Version 0.10.2</title>
+            <pubDate>Sat, 07 Feb 2026 09:14:28 +0000</pubDate>
+            <sparkle:version>28</sparkle:version>
+            <sparkle:shortVersionString>0.10.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-<h3>Fixed</h3>
+<h3>Added</h3>
 <ul>
-<li>Prevent multiple app instances from running simultaneously (activates existing instance)</li>
+<li>Display app version in menu bar popover footer</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Allow multiple app instances to run simultaneously (reverted single-instance enforcement)</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.1/ClaudeMeter.zip"
-                length="1630155"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.2/ClaudeMeter.zip"
+                length="1629675"
                 type="application/octet-stream"
-                sparkle:edSignature="9R/oHZKAM+/NTJNlx4W8n8dDL54XVYQuH6Nh1Y0aJfj/mSPRtI8EVSCBTwAHx3rpoZBGSdXQkj69OlURwZAYCQ==" />
+                sparkle:edSignature="Gek5nx3cY7MMrCQ8RkXAlRJ3tLYdm4zy82bQKT3xuMK5TI6/0pKqD2CEiUaPg7WWhgN2vEA/Bla0ZBa8eGLdBw==" />
         </item>
     </channel>
 </rss>
