@@ -12,11 +12,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var windowObservers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Ensure only one instance is running
+        if isAnotherInstanceRunning() {
+            activateExistingInstanceAndQuit()
+            return
+        }
+
         setupWindowObservers()
         updateActivationPolicy()
 
         // Set notification delegate to show banners even when app is in foreground
         UNUserNotificationCenter.current().delegate = self
+    }
+
+    // MARK: - Single Instance Management
+
+    private func isAnotherInstanceRunning() -> Bool {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
+            return false
+        }
+
+        let runningApps = NSWorkspace.shared.runningApplications
+        let instances = runningApps.filter { $0.bundleIdentifier == bundleIdentifier }
+
+        // More than one instance means another is already running
+        return instances.count > 1
+    }
+
+    private func activateExistingInstanceAndQuit() {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
+            NSApp.terminate(nil)
+            return
+        }
+
+        // Find and activate the existing instance
+        let runningApps = NSWorkspace.shared.runningApplications
+        if let existingInstance = runningApps.first(where: {
+            $0.bundleIdentifier == bundleIdentifier && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier
+        }) {
+            existingInstance.activate()
+        }
+
+        // Terminate this instance
+        NSApp.terminate(nil)
     }
 
     // MARK: - UNUserNotificationCenterDelegate
