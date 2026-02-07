@@ -54,7 +54,9 @@ enum ModelPricing: Sendable {
     nonisolated static func rates(for model: String) -> Rates? {
         let lowercased = model.lowercased()
 
-        if lowercased.contains("opus-4-5") || lowercased.contains("opus-4.5") {
+        if lowercased.contains("opus-4-6") || lowercased.contains("opus-4.6") {
+            return opus45
+        } else if lowercased.contains("opus-4-5") || lowercased.contains("opus-4.5") {
             return opus45
         } else if lowercased.contains("sonnet-4-5") || lowercased.contains("sonnet-4.5") {
             return sonnet45

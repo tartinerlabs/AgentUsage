@@ -121,6 +121,33 @@ actor TokenUsageImporter {
         let cacheReadCost = Double(tokens.cacheReadTokens) * rates.cacheReadPerMTok / 1_000_000
         return inputCost + outputCost + cacheWriteCost + cacheReadCost
     }
+
+    /// Recalculate costs for entries that were imported with $0 cost due to unrecognized models
+    func recalculateZeroCostEntries() throws -> Int {
+        let descriptor = FetchDescriptor<TokenLogEntry>(
+            predicate: #Predicate { $0.costUSD == 0 }
+        )
+
+        let entries = try modelContext.fetch(descriptor)
+        var updatedCount = 0
+
+        for entry in entries {
+            let cost = calculateCost(
+                tokens: entry.tokenCount,
+                model: entry.modelName
+            )
+            if cost > 0 {
+                entry.costUSD = cost
+                updatedCount += 1
+            }
+        }
+
+        if updatedCount > 0 {
+            try modelContext.save()
+        }
+
+        return updatedCount
+    }
 }
 
 /// Repository for querying token usage data via SwiftData (main actor for UI)
@@ -155,6 +182,11 @@ final class TokenUsageRepository {
             fileSize: newFileSize,
             lastModified: newModified
         )
+    }
+
+    /// Recalculate costs for entries that were imported with $0 cost (e.g., new model pricing added)
+    func recalculateZeroCostEntries() async throws -> Int {
+        try await importer.recalculateZeroCostEntries()
     }
 
     // MARK: - File State Operations

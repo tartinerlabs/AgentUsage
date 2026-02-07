@@ -330,6 +330,9 @@ final class UsageViewModel {
                     }
                 }
 
+                // Recalculate costs for entries imported before new model pricing was added
+                _ = try? await repository.recalculateZeroCostEntries()
+
                 // Query snapshot via background actor (prefer querier to avoid main-actor hops)
                 do {
                     if let querier = tokenQuerier {
