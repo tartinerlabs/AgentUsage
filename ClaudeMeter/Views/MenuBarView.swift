@@ -44,6 +44,9 @@ struct MenuBarView: View {
 
             // Actions
             actionsSection
+
+            // Version footer
+            versionFooter
         }
         .padding(16)
         .frame(width: 300)
@@ -347,6 +350,21 @@ struct MenuBarView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    // MARK: - Version
+
+    private var versionFooter: some View {
+        HStack {
+            Spacer()
+            if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                Text("v\(version)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer()
+        }
+        .padding(.top, 4)
     }
 
     // MARK: - Actions
