@@ -85,6 +85,16 @@ public struct UsageWindow: Sendable, Codable {
         utilization >= 100
     }
 
+    /// Whether this window is in extra usage territory (billed at API rates)
+    public var isUsingExtraUsage: Bool {
+        utilization > 100
+    }
+
+    /// Percentage of usage beyond the plan limit (e.g., 115% → 15%)
+    public var extraUsagePercent: Int {
+        max(0, Int(utilization) - 100)
+    }
+
     public var normalized: Double {
         min(max(utilization / 100.0, 0), 1)  // Clamped 0-1 for Gauge/ProgressView
     }
@@ -189,19 +199,88 @@ public struct UsageWindow: Sendable, Codable {
     }
 }
 
+// MARK: - Extra Usage Cost
+
+/// Monthly extra usage spending data (billed at API rates beyond plan limits)
+public struct ExtraUsageCost: Sendable, Codable {
+    /// Amount spent in major currency units (e.g., dollars)
+    public let used: Double
+    /// Monthly spending limit in major currency units
+    public let limit: Double
+    /// Currency code (e.g., "USD")
+    public let currencyCode: String
+
+    public init(used: Double, limit: Double, currencyCode: String) {
+        self.used = used
+        self.limit = limit
+        self.currencyCode = currencyCode
+    }
+
+    /// Percentage of spending limit used (0-100+)
+    public var percentUsed: Double {
+        guard limit > 0 else { return 0 }
+        return (used / limit) * 100
+    }
+
+    /// Normalized value clamped 0-1 for progress bars
+    public var normalized: Double {
+        min(max(percentUsed / 100.0, 0), 1)
+    }
+
+    /// Formatted used amount (e.g., "$1.23")
+    public var formattedUsed: String {
+        Self.formatCurrency(used, code: currencyCode)
+    }
+
+    /// Formatted limit amount (e.g., "$50.00")
+    public var formattedLimit: String {
+        Self.formatCurrency(limit, code: currencyCode)
+    }
+
+    private static func formatCurrency(_ amount: Double, code: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = code
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: amount)) ?? String(format: "$%.2f", amount)
+    }
+}
+
 // MARK: - Usage Snapshot
 
 public struct UsageSnapshot: Sendable, Codable {
     public let session: UsageWindow
     public let opus: UsageWindow      // Weekly default limit (was "seven_day")
     public let sonnet: UsageWindow?   // Separate Sonnet limit (if available)
+    public let extraUsage: ExtraUsageCost?  // Monthly extra usage spending
     public let fetchedAt: Date
 
-    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, fetchedAt: Date) {
+    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, extraUsage: ExtraUsageCost? = nil, fetchedAt: Date) {
         self.session = session
         self.opus = opus
         self.sonnet = sonnet
+        self.extraUsage = extraUsage
         self.fetchedAt = fetchedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        session = try container.decode(UsageWindow.self, forKey: .session)
+        opus = try container.decode(UsageWindow.self, forKey: .opus)
+        sonnet = try container.decodeIfPresent(UsageWindow.self, forKey: .sonnet)
+        extraUsage = try container.decodeIfPresent(ExtraUsageCost.self, forKey: .extraUsage)
+        fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
+    }
+
+    /// Whether any window is currently in extra usage territory
+    public var isExtraUsageActive: Bool {
+        session.isUsingExtraUsage || opus.isUsingExtraUsage || (sonnet?.isUsingExtraUsage ?? false)
+    }
+
+    /// Whether extra usage is enabled (has cost data from the API)
+    public var hasExtraUsageEnabled: Bool {
+        extraUsage != nil
     }
 
     public var lastUpdatedDescription: String {

@@ -148,11 +148,13 @@ actor ClaudeAPIService: APIServiceProtocol {
             let fiveHour: UsageWindowResponse?
             let sevenDay: UsageWindowResponse?       // Default weekly = Opus limit
             let sevenDaySonnet: UsageWindowResponse? // Separate Sonnet limit
+            let extraUsage: ExtraUsageResponse?
 
             enum CodingKeys: String, CodingKey {
                 case fiveHour = "five_hour"
                 case sevenDay = "seven_day"
                 case sevenDaySonnet = "seven_day_sonnet"
+                case extraUsage = "extra_usage"
             }
         }
 
@@ -163,6 +165,20 @@ actor ClaudeAPIService: APIServiceProtocol {
             enum CodingKeys: String, CodingKey {
                 case utilization
                 case resetsAt = "resets_at"
+            }
+        }
+
+        struct ExtraUsageResponse: Decodable {
+            let isEnabled: Bool?
+            let monthlyLimit: Double?
+            let usedCredits: Double?
+            let currency: String?
+
+            enum CodingKeys: String, CodingKey {
+                case isEnabled = "is_enabled"
+                case monthlyLimit = "monthly_limit"
+                case usedCredits = "used_credits"
+                case currency
             }
         }
 
@@ -198,10 +214,24 @@ actor ClaudeAPIService: APIServiceProtocol {
             )
         }
 
+        // Extra usage cost (API returns amounts in cents)
+        let extraUsage: ExtraUsageCost? = {
+            guard let extra = response.extraUsage,
+                  extra.isEnabled == true,
+                  let used = extra.usedCredits,
+                  let limit = extra.monthlyLimit else {
+                return nil
+            }
+            let currency = extra.currency?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let code = (currency?.isEmpty ?? true) ? "USD" : currency!
+            return ExtraUsageCost(used: used / 100.0, limit: limit / 100.0, currencyCode: code)
+        }()
+
         return UsageSnapshot(
             session: session,
             opus: opus,
             sonnet: sonnet,
+            extraUsage: extraUsage,
             fetchedAt: Date()
         )
     }

@@ -69,6 +69,11 @@ struct MenuBarView: View {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(Constants.brandPrimary.opacity(0.12))
                     )
+                if viewModel.snapshot?.hasExtraUsageEnabled == true {
+                    Label("Extra Usage", systemImage: "plus.circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.purple)
+                }
                 if viewModel.isLoading {
                     ProgressView()
                         .scaleEffect(0.6)
@@ -86,6 +91,11 @@ struct MenuBarView: View {
 
     private func contentSection(snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 16) {
+            // Active banner when utilization > 100%
+            if snapshot.isExtraUsageActive {
+                extraUsageActiveBanner
+            }
+
             UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now)
 
             // Weekly limits group
@@ -99,6 +109,11 @@ struct MenuBarView: View {
                 if let sonnet = snapshot.sonnet {
                     UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now)
                 }
+            }
+
+            // Extra usage cost section
+            if let extraUsage = snapshot.extraUsage {
+                extraUsageCostSection(extraUsage)
             }
 
             // Token usage section with error/loading states
@@ -279,6 +294,59 @@ struct MenuBarView: View {
                 .fill(Color.orange)
         )
         .padding(.bottom, 8)
+    }
+
+    // MARK: - Extra Usage
+
+    private var extraUsageActiveBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "dollarsign.circle.fill")
+                .foregroundStyle(.purple)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Extra Usage Active")
+                    .font(.footnote)
+                    .fontWeight(.medium)
+                Text("You've exceeded your plan limit. API rates apply.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(0.1)))
+    }
+
+    private func extraUsageCostSection(_ extraUsage: ExtraUsageCost) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+
+            Text("Extra Usage")
+                .font(.callout)
+                .fontWeight(.semibold)
+
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(height: 8)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.purple)
+                        .frame(width: geometry.size.width * extraUsage.normalized, height: 8)
+                }
+            }
+            .frame(height: 8)
+
+            HStack {
+                Text("Monthly: \(extraUsage.formattedUsed) / \(extraUsage.formattedLimit)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(Int(min(100, max(0, extraUsage.percentUsed))))% used")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     // MARK: - Actions

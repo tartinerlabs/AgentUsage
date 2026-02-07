@@ -85,7 +85,11 @@ struct MenuBarIconView: View {
                     .foregroundStyle(.white)
             }
 
-            if let window = windowAtLimit {
+            if let extraUsage = viewModel.snapshot?.extraUsage, extraUsage.used > 0 {
+                Text(extraUsage.formattedUsed)
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.purple)
+            } else if let window = windowAtLimit {
                 Text(window.timeUntilReset(from: now))
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .foregroundStyle(.gray)
@@ -104,9 +108,16 @@ struct MenuBarIconView: View {
                     .font(.system(size: 6))
                     .foregroundStyle(trendColor(for: usage.trend))
             }
-            Text("\(Int(usage.utilization.rounded()))%")
-                .font(.system(size: 10))
-                .foregroundStyle(.white)
+            HStack(spacing: 1) {
+                Text("\(Int(usage.utilization.rounded()))%")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white)
+                if usage.isUsingExtraUsage {
+                    Text("$")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.purple)
+                }
+            }
         }
     }
 

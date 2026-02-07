@@ -25,6 +25,10 @@ struct DashboardView: View {
                     if viewModel.isUsingCachedData {
                         offlineIndicator
                     }
+                    // Extra usage banner
+                    if snapshot.isExtraUsageActive {
+                        extraUsageBanner
+                    }
                     liveActivityCard(snapshot: snapshot)
                     usageCardsSection(snapshot: snapshot)
                 } else if let error = viewModel.errorMessage {
@@ -156,6 +160,11 @@ struct DashboardView: View {
                     .background(Constants.brandPrimary.opacity(0.2))
                     .foregroundStyle(Constants.brandPrimary)
                     .clipShape(Capsule())
+                if viewModel.snapshot?.hasExtraUsageEnabled == true {
+                    Label("Extra Usage", systemImage: "plus.circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.purple)
+                }
                 Spacer()
                 if viewModel.isLoading {
                     ProgressView()
@@ -199,6 +208,80 @@ struct DashboardView: View {
                 UsageCardView(title: sonnet.windowType.displayName, usage: sonnet, now: now)
             }
         }
+
+        // Extra usage cost card
+        if let extraUsage = snapshot.extraUsage {
+            extraUsageCostCard(extraUsage)
+        }
+    }
+
+    // MARK: - Extra Usage Cost Card
+
+    private func extraUsageCostCard(_ extraUsage: ExtraUsageCost) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Extra Usage")
+                    .font(.headline)
+                Spacer()
+                Text("\(Int(min(100, max(0, extraUsage.percentUsed))))%")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.purple)
+            }
+
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(height: 8)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.purple)
+                        .frame(width: geometry.size.width * extraUsage.normalized, height: 8)
+                }
+            }
+            .frame(height: 8)
+
+            HStack {
+                Text("Monthly: \(extraUsage.formattedUsed) / \(extraUsage.formattedLimit)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Extra usage spending")
+        .accessibilityValue("\(extraUsage.formattedUsed) of \(extraUsage.formattedLimit) monthly limit")
+    }
+
+    // MARK: - Extra Usage Banner
+
+    private var extraUsageBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "dollarsign.circle.fill")
+                .foregroundStyle(.purple)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Extra Usage Active")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text("You've exceeded your plan limit. API rates apply.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.purple.opacity(0.1))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Extra usage active, API rates apply")
     }
 
     // MARK: - States

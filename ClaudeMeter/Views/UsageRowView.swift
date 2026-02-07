@@ -51,9 +51,16 @@ struct UsageRowView: View {
 
             // Stats row
             HStack {
-                Text("\(usage.percentUsed)% used")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text("\(usage.percentUsed)% used")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if usage.isUsingExtraUsage {
+                        Text("+\(usage.extraUsagePercent)% extra")
+                            .font(.footnote)
+                            .foregroundStyle(.purple)
+                    }
+                }
                 Spacer()
                 Label(usage.status.label, systemImage: usage.status.icon)
                     .font(.footnote)
