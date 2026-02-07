@@ -6,26 +6,34 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.9.3</title>
-            <pubDate>Thu, 05 Feb 2026 18:47:16 +0000</pubDate>
-            <sparkle:version>25</sparkle:version>
-            <sparkle:shortVersionString>0.9.3</sparkle:shortVersionString>
+            <title>Version 0.10.0</title>
+            <pubDate>Sat, 07 Feb 2026 08:53:11 +0000</pubDate>
+            <sparkle:version>26</sparkle:version>
+            <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-<h3>Fixed</h3>
+<h3>Added</h3>
 <ul>
-<li>CMD+Q now closes main window instead of quitting app, keeping menu bar alive</li>
+<li>**Extra usage tracking** for paid accounts - Track cache creation and extra input tokens with cost calculations</li>
+<li>New settings to control extra usage indicators and notifications</li>
+<li>Account requirement hint for extra usage feature (requires paid plan with OAuth)</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Extra usage cost display now uses dusty plum color for better visual distinction</li>
+<li>CMD+Q now quits the app completely (restored standard macOS behavior)</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.3/ClaudeMeter.zip"
-                length="1581259"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.0/ClaudeMeter.zip"
+                length="1627617"
                 type="application/octet-stream"
-                sparkle:edSignature="cGGcgzqA+hbUseMg9N6dOKDYXiS4EoFm5eDe+h5pgjOB7ZHhyyaQ8Ag5rlqxs1sjarIPOWMRieAvaG3iaM7LBg==" />
+                sparkle:edSignature="cGo87m+DZwVCeyTUfFthl/2uqZjHYEbMVjbv63Xu+hTsXU4uiKEXWjgmRWYfinbPJ66UA44strEo4dGK+ikUAw==" />
         </item>
     </channel>
 </rss>
