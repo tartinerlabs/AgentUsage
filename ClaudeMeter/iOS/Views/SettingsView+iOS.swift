@@ -39,7 +39,7 @@ struct SettingsView: View {
             } header: {
                 Text("Display")
             } footer: {
-                Text("Show extra usage badges, banners, and cost sections throughout the app.")
+                Text("Show extra usage badges, banners, and cost sections throughout the app. Requires extra usage to be enabled in your Claude account.")
             }
 
             Section("Credential Status") {

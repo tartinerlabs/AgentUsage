@@ -78,7 +78,7 @@ struct SettingsTabView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Extra Usage Indicators")
                                     .font(.body)
-                                Text("Show extra usage badges, banners, and cost sections")
+                                Text("Show extra usage badges, banners, and cost sections. Requires extra usage to be enabled in your Claude account.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -112,7 +112,7 @@ struct SettingsTabView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Extra Usage Alert")
                                         .font(.body)
-                                    Text("Notify when extra usage starts (plan limit exceeded)")
+                                    Text("Notify when extra usage starts (plan limit exceeded). Requires extra usage to be enabled in your Claude account.")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
