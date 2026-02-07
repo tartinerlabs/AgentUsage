@@ -70,7 +70,7 @@ struct LargeWidgetView: View {
                 if usage.isUsingExtraUsage {
                     Text("+\(usage.extraUsagePercent)% extra")
                         .font(.caption2)
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(extraUsageAccentColor)
                 }
                 Label(usage.status.label, systemImage: usage.status.icon)
                     .font(.caption2)

@@ -163,7 +163,7 @@ struct DashboardView: View {
                 if viewModel.snapshot?.hasExtraUsageEnabled == true {
                     Label("Extra Usage", systemImage: "plus.circle.fill")
                         .font(.caption2)
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(Constants.extraUsageAccent)
                 }
                 Spacer()
                 if viewModel.isLoading {
@@ -226,7 +226,7 @@ struct DashboardView: View {
                 Text("\(Int(min(100, max(0, extraUsage.percentUsed))))%")
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(Constants.extraUsageAccent)
             }
 
             // Progress bar
@@ -236,7 +236,7 @@ struct DashboardView: View {
                         .fill(Color.secondary.opacity(0.2))
                         .frame(height: 8)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.purple)
+                        .fill(Constants.extraUsageAccent)
                         .frame(width: geometry.size.width * extraUsage.normalized, height: 8)
                 }
             }
@@ -264,7 +264,7 @@ struct DashboardView: View {
     private var extraUsageBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "dollarsign.circle.fill")
-                .foregroundStyle(.purple)
+                .foregroundStyle(Constants.extraUsageAccent)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Extra Usage Active")
                     .font(.subheadline)
@@ -278,7 +278,7 @@ struct DashboardView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.purple.opacity(0.1))
+                .fill(Constants.extraUsageAccent.opacity(0.1))
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Extra usage active, API rates apply")
