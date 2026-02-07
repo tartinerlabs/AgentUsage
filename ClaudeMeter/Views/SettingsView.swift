@@ -132,7 +132,7 @@ private struct NotificationsTab: View {
                         get: { settings.notifyExtraUsage },
                         set: { settings.notifyExtraUsage = $0; settings.save() }
                     ))
-                    .help("Get notified when extra usage starts (plan limit exceeded)")
+                    .help("Get notified when extra usage starts. Requires extra usage to be enabled in your Claude account.")
                 }
 
                 Section {
