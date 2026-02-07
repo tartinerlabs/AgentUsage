@@ -66,9 +66,25 @@ struct SettingsTabView: View {
                                 Toggle("Session (5h)", isOn: $viewModel.menuBarShowSession)
                                 Toggle("All Models (7d)", isOn: $viewModel.menuBarShowAllModels)
                                 Toggle("Sonnet (7d)", isOn: $viewModel.menuBarShowSonnet)
+                                Toggle("Extra Usage Cost", isOn: $viewModel.menuBarShowExtraUsage)
                             }
                             .toggleStyle(.checkbox)
                             .padding(.top, 4)
+                        }
+
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Extra Usage Indicators")
+                                    .font(.body)
+                                Text("Show extra usage badges, banners, and cost sections")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $viewModel.showExtraUsageIndicators)
+                                .labelsHidden()
                         }
                     }
                 }
@@ -90,6 +106,28 @@ struct SettingsTabView: View {
                         }
 
                         if viewModel.notificationsEnabled {
+                            Divider()
+
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Extra Usage Alert")
+                                        .font(.body)
+                                    Text("Notify when extra usage starts (plan limit exceeded)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { NotificationSettings.load().notifyExtraUsage },
+                                    set: {
+                                        var settings = NotificationSettings.load()
+                                        settings.notifyExtraUsage = $0
+                                        settings.save()
+                                    }
+                                ))
+                                .labelsHidden()
+                            }
+
                             Divider()
 
                             HStack {

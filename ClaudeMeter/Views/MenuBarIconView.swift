@@ -85,7 +85,9 @@ struct MenuBarIconView: View {
                     .foregroundStyle(.white)
             }
 
-            if let extraUsage = viewModel.snapshot?.extraUsage, extraUsage.used > 0 {
+            if viewModel.showExtraUsageIndicators,
+               viewModel.menuBarShowExtraUsage,
+               let extraUsage = viewModel.snapshot?.extraUsage, extraUsage.used > 0 {
                 Text(extraUsage.formattedUsed)
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .foregroundStyle(Constants.extraUsageAccent)
@@ -112,7 +114,7 @@ struct MenuBarIconView: View {
                 Text("\(Int(usage.utilization.rounded()))%")
                     .font(.system(size: 10))
                     .foregroundStyle(.white)
-                if usage.isUsingExtraUsage {
+                if viewModel.showExtraUsageIndicators, usage.isUsingExtraUsage {
                     Text("$")
                         .font(.system(size: 7, weight: .bold))
                         .foregroundStyle(Constants.extraUsageAccent)

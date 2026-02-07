@@ -28,7 +28,7 @@ struct DashboardTabView: View {
                 Divider()
 
                 // Extra usage banner
-                if viewModel.snapshot?.isExtraUsageActive == true {
+                if viewModel.showExtraUsageIndicators, viewModel.snapshot?.isExtraUsageActive == true {
                     extraUsageBanner
                 }
 
@@ -37,7 +37,7 @@ struct DashboardTabView: View {
                     usageSection(snapshot: snapshot)
 
                     // Extra usage cost section
-                    if let extraUsage = snapshot.extraUsage {
+                    if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
                         extraUsageCostSection(extraUsage)
                     }
 
@@ -83,7 +83,7 @@ struct DashboardTabView: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundStyle(.secondary)
-                if viewModel.snapshot?.hasExtraUsageEnabled == true {
+                if viewModel.showExtraUsageIndicators, viewModel.snapshot?.hasExtraUsageEnabled == true {
                     Label("Extra Usage", systemImage: "plus.circle.fill")
                         .font(.caption)
                         .foregroundStyle(Constants.extraUsageAccent)
@@ -105,7 +105,7 @@ struct DashboardTabView: View {
 
     private func usageSection(snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 16) {
-            UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now)
+            UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
 
             // Weekly limits group
             VStack(alignment: .leading, spacing: 12) {
@@ -114,9 +114,9 @@ struct DashboardTabView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
 
-                UsageRowView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now)
+                UsageRowView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
                 if let sonnet = snapshot.sonnet {
-                    UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now)
+                    UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
                 }
             }
         }

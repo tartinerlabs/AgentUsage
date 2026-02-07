@@ -127,6 +127,12 @@ private struct NotificationsTab: View {
                         set: { settings.notifyOnReset = $0; settings.save() }
                     ))
                     .help("Get notified when your usage limit resets after being near capacity")
+
+                    Toggle("Extra Usage Alert", isOn: Binding(
+                        get: { settings.notifyExtraUsage },
+                        set: { settings.notifyExtraUsage = $0; settings.save() }
+                    ))
+                    .help("Get notified when extra usage starts (plan limit exceeded)")
                 }
 
                 Section {
