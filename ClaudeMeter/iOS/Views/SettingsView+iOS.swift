@@ -92,7 +92,7 @@ struct SettingsView: View {
             } header: {
                 Text("Manual Entry")
             } footer: {
-                Text("Paste the contents of ~/.claude/.credentials.json from your Mac. This is a workaround until iCloud Keychain sync is available.")
+                Text("Paste your Claude credentials JSON from your Mac. This is a workaround until iCloud Keychain sync is available.")
             }
 
         }

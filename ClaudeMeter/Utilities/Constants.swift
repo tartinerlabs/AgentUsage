@@ -31,6 +31,12 @@ enum Constants {
     static let initialRetryDelay: TimeInterval = 1.0
     static let retryBackoffMultiplier: Double = 2.0
 
+    // MARK: - Claude Code Keychain
+    static let claudeCodeKeychainService = "Claude Code-credentials"
+    static var claudeCodeKeychainAccount: String {
+        NSUserName()
+    }
+
     // MARK: - macOS Only (file system access)
     #if os(macOS)
     static var credentialsFileURL: URL {
