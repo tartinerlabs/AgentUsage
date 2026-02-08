@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-02-08
+
+### Fixed
+- Fix repeating credential file dialog appearing on every auto-refresh cycle when credentials are missing
+
 ## [0.10.4] - 2026-02-08
 
 ### Fixed
