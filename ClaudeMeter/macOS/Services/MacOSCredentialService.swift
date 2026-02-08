@@ -67,23 +67,21 @@ actor MacOSCredentialService: CredentialProvider {
         let fileURL = Constants.credentialsFileURL
         Logger.credentials.debug("Looking for credentials at: \(fileURL.path)")
 
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            throw CredentialError.fileNotFound
+        }
+
         var data: Data?
-        var accessError: Error?
 
         do {
-            guard FileManager.default.fileExists(atPath: fileURL.path) else {
-                throw CredentialError.fileNotFound
-            }
-
             data = try Data(contentsOf: fileURL)
         } catch {
-            accessError = error
             Logger.credentials.warning("Direct access failed: \(error.localizedDescription)")
 
             if let selectedData = await requestFileAccess() {
                 data = selectedData
             } else {
-                throw accessError ?? CredentialError.fileNotFound
+                throw error
             }
         }
 
