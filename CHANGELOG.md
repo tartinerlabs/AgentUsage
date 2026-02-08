@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-02-08
+
+### Fixed
+- Fix credential loading after Claude Code moved from file to macOS Keychain
+
 ## [0.10.3] - 2026-02-08
 
 ### Fixed
@@ -252,7 +257,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.0...v0.10.1
