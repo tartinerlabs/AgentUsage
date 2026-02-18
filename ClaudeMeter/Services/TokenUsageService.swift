@@ -7,6 +7,7 @@
 import Foundation
 import ClaudeMeterKit
 import OSLog
+import CryptoKit
 
 actor TokenUsageService: TokenUsageServiceProtocol {
     private let fileManager = FileManager.default
@@ -23,6 +24,11 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     private let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private let isoFormatterNoFraction: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
         return f
     }()
 
@@ -214,9 +220,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
               let model = message["model"] as? String,
               let usage = message["usage"] as? [String: Any],
               let timestampString = json["timestamp"] as? String,
-              let timestamp = isoFormatter.date(from: timestampString),
-              let messageId = message["id"] as? String,
-              let requestId = json["requestId"] as? String else {
+              let timestamp = isoFormatter.date(from: timestampString) ?? isoFormatterNoFraction.date(from: timestampString) else {
             return nil
         }
 
@@ -224,6 +228,10 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let outputTokens = usage["output_tokens"] as? Int ?? 0
         let cacheCreationTokens = usage["cache_creation_input_tokens"] as? Int ?? 0
         let cacheReadTokens = usage["cache_read_input_tokens"] as? Int ?? 0
+
+        let fallbackId = fallbackIdentifier(for: data)
+        let messageId = (message["id"] as? String) ?? fallbackId
+        let requestId = (json["requestId"] as? String) ?? (json["request_id"] as? String) ?? fallbackId
 
         let entry = UsageEntry(
             model: model,
@@ -425,7 +433,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
               let model = message["model"] as? String,
               let usage = message["usage"] as? [String: Any],
               let timestampString = json["timestamp"] as? String,
-              let timestamp = isoFormatter.date(from: timestampString) else {
+              let timestamp = isoFormatter.date(from: timestampString) ?? isoFormatterNoFraction.date(from: timestampString) else {
             return nil
         }
 
@@ -440,7 +448,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
 
         // Extract message.id and requestId for deduplication (same as ccusage)
         let messageId = message["id"] as? String
-        let requestId = json["requestId"] as? String
+        let requestId = (json["requestId"] as? String) ?? (json["request_id"] as? String)
         let uniqueHash = createUniqueHash(messageId: messageId, requestId: requestId)
 
         let entry = UsageEntry(
@@ -455,6 +463,12 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         )
 
         return (entry, uniqueHash)
+    }
+
+    private func fallbackIdentifier(for data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        return "log-\(hex)"
     }
 
     private func aggregateSummary(entries: [UsageEntry], period: UsagePeriod) -> TokenUsageSummary {
