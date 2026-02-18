@@ -118,6 +118,24 @@ MVVM with Swift Actors for thread safety, @Observable for reactive UI, and async
 
 **Structure:** ClaudeMeter/ (macOS), ClaudeMeter-iOS/, ClaudeMeterWidgets/, ClaudeMeterKit/ (shared package), with Models, Services, ViewModels, Views
 
+**Usage parity diff (ClaudeMeter vs ccusage):**
+```bash
+# Rolling last 30 days in system timezone
+swift scripts/compare_usage.swift --last-30d --output ./usage-comparison
+
+# Custom absolute range
+swift scripts/compare_usage.swift \
+  --start 2026-01-19T00:00:00-08:00 \
+  --end 2026-02-18T23:59:59-08:00 \
+  --tz America/Los_Angeles \
+  --output ./usage-comparison
+```
+
+Artifacts:
+- `usage-comparison/comparison-summary.json`: metadata, totals, per-model deltas, mismatch flag
+- `usage-comparison/comparison-diagnostics.json`: dedup/boundary/model-mapping diagnostics
+- `usage-comparison/comparison-table.md`: readable totals + per-model table
+
 **Build:**
 ```bash
 xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Release build
