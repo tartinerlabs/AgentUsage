@@ -7,6 +7,7 @@
 import SwiftUI
 import AppKit
 import ClaudeMeterKit
+import OSLog
 internal import Combine
 
 struct MenuBarIconView: View {
@@ -37,9 +38,7 @@ struct MenuBarIconView: View {
                 await viewModel.initializeIfNeeded()
             }
             .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
-                if windowAtLimit != nil {
-                    now = date
-                }
+                now = date
             }
     }
 
@@ -50,6 +49,7 @@ struct MenuBarIconView: View {
         renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
 
         guard let cgImage = renderer.cgImage else {
+            Logger.viewModel.warning("Failed to render menu bar icon")
             return NSImage(size: NSSize(width: 50, height: 22))
         }
 
