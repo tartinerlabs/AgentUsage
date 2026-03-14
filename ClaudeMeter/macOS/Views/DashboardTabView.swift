@@ -66,7 +66,7 @@ struct DashboardTabView: View {
         .task {
             await viewModel.initializeIfNeeded()
         }
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) {
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) {
             now = $0
         }
     }
@@ -168,7 +168,7 @@ struct DashboardTabView: View {
                     )
                 } else {
                     tokenCard(
-                        title: "30 Days",
+                        title: title,
                         cost: tokenSnapshot.last30Days.formattedCost,
                         tokens: tokenSnapshot.last30Days.formattedTokens
                     )
@@ -216,6 +216,9 @@ struct DashboardTabView: View {
     private var tokenUsageSectionWithStates: some View {
         if let tokenSnapshot = viewModel.tokenSnapshot {
             tokenCostSection(tokenSnapshot: tokenSnapshot)
+                .task(id: viewModel.selectedTokenPeriod) {
+                    await viewModel.refreshSelectedPeriodSummary()
+                }
         } else if viewModel.isLoadingTokenUsage {
             tokenLoadingSection
         } else if let error = viewModel.tokenUsageError {

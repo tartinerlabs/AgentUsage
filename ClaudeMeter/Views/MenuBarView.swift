@@ -50,7 +50,7 @@ struct MenuBarView: View {
         }
         .padding(16)
         .frame(width: 300)
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
             now = date
         }
     }
@@ -386,15 +386,6 @@ struct MenuBarView: View {
             .help("Refresh (⌘R)")
 
             Spacer()
-
-//            Button {
-//                selectedTab = .dashboard
-//                openWindow(id: Constants.mainWindowID)
-//                NSApp.activate(ignoringOtherApps: true)
-//            } label: {
-//                Label("Open", systemImage: "macwindow")
-//            }
-//            .keyboardShortcut("o", modifiers: .command)
 
             Button {
                 selectedTab = .settings

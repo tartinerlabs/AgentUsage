@@ -11,6 +11,7 @@ struct SettingsTabView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @EnvironmentObject private var updaterController: UpdaterController
     @StateObject private var launchAtLogin = LaunchAtLoginService.shared
+    @State private var notificationSettings = NotificationSettings.load()
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -118,11 +119,10 @@ struct SettingsTabView: View {
                                 }
                                 Spacer()
                                 Toggle("", isOn: Binding(
-                                    get: { NotificationSettings.load().notifyExtraUsage },
+                                    get: { notificationSettings.notifyExtraUsage },
                                     set: {
-                                        var settings = NotificationSettings.load()
-                                        settings.notifyExtraUsage = $0
-                                        settings.save()
+                                        notificationSettings.notifyExtraUsage = $0
+                                        notificationSettings.save()
                                     }
                                 ))
                                 .labelsHidden()

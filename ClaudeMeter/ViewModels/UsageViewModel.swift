@@ -136,7 +136,7 @@ final class UsageViewModel {
     #endif
 
     private let credentialProvider: any CredentialProvider
-    private let apiService = ClaudeAPIService()
+    private let apiService: any APIServiceProtocol
     #if os(macOS)
     private let tokenService: TokenUsageService?
     private let tokenRepository: TokenUsageRepository?
@@ -156,10 +156,12 @@ final class UsageViewModel {
     #if os(macOS)
     init(
         credentialProvider: any CredentialProvider,
+        apiService: (any APIServiceProtocol)? = nil,
         tokenService: TokenUsageService? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.credentialProvider = credentialProvider
+        self.apiService = apiService ?? ClaudeAPIService()
         self.tokenService = tokenService
         self.tokenRepository = modelContext.map { TokenUsageRepository(modelContext: $0) }
         self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
@@ -179,8 +181,9 @@ final class UsageViewModel {
         loadCachedSnapshot()
     }
     #else
-    init(credentialProvider: any CredentialProvider) {
+    init(credentialProvider: any CredentialProvider, apiService: (any APIServiceProtocol)? = nil) {
         self.credentialProvider = credentialProvider
+        self.apiService = apiService ?? ClaudeAPIService()
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
         self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
