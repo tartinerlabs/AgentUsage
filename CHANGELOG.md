@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-03-14
+
+### Fixed
+- Fix 1-second timers running continuously in MenuBarView, DashboardTabView, and MenuBarIconView (reduced to 60s)
+- Fix stale countdown in menu bar icon when usage drops below 100%
+- Fix period selector not fetching data when selection changes in Dashboard
+- Fix fallback period label showing hardcoded "30 Days" regardless of selected period
+- Fix NotificationSettings loading from UserDefaults on every toggle interaction
+- Fix menu bar icon render failure producing silent empty image
+
+### Changed
+- Make API service injectable in UsageViewModel for improved testability
+
 ## [0.10.5] - 2026-02-08
 
 ### Fixed
@@ -262,7 +275,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.6...HEAD
+[0.10.6]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.5...v0.10.6
+[0.10.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.1...v0.10.2
