@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-03-18
+
+### Fixed
+- Fix repeated keychain access prompts on every launch by using security CLI instead of SecItemCopyMatching
+- Remove obsolete file-based credential fallback (credentials file no longer exists in newer Claude Code)
+
+### Changed
+- Use update-or-add pattern in KeychainHelper to avoid unnecessary delete-then-add churn
+
 ## [0.10.6] - 2026-03-14
 
 ### Fixed
@@ -275,7 +284,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.6...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.7...HEAD
+[0.10.7]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.3...v0.10.4
