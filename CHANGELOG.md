@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.8] - 2026-03-18
+## [0.10.9] - 2026-03-18
 
 ### Fixed
 - Fix release workflow failing on asset upload by replacing softprops/action-gh-release with gh CLI
+- Add missing GITHUB_TOKEN for gh CLI in release workflow
 
 ## [0.10.7] - 2026-03-18
 
@@ -289,8 +290,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.8...HEAD
-[0.10.8]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.7...v0.10.8
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.9...HEAD
+[0.10.9]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.7...v0.10.9
 [0.10.7]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.4...v0.10.5
