@@ -141,6 +141,8 @@ jobs:
           fi
 
       - name: Upload release asset
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload "${{ github.ref_name }}" "build/${{ env.APP_NAME }}.zip" --clobber
 
       - name: Commit updated appcast
