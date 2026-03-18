@@ -58,41 +58,38 @@ enum KeychainHelper {
         }
     }
 
-    /// Save credentials to Keychain
+    /// Save credentials to Keychain using update-or-add pattern
     static func saveCredentials(_ credentials: ClaudeOAuthCredentials) throws {
         let encoder = JSONEncoder()
         let data = try encoder.encode(credentials)
 
-        // Delete any existing item first
-        let deleteQuery: [String: Any] = [
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
             // TODO: Uncomment for iCloud sync (requires paid developer account)
             // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
-        let deleteStatus = SecItemDelete(deleteQuery as CFDictionary)
-        Logger.keychain.debug("Delete existing: \(deleteStatus)")
 
-        // Add new item to Keychain
-        let addQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
+        let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-            // TODO: Uncomment for iCloud sync (requires paid developer account)
-            // kSecAttrSynchronizable as String: kCFBooleanTrue!
         ]
 
-        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        // Try updating existing item first
+        var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+
+        if status == errSecItemNotFound {
+            // Item doesn't exist yet — add it
+            var addQuery = query
+            addQuery.merge(attributes) { _, new in new }
+            status = SecItemAdd(addQuery as CFDictionary, nil)
+        }
+
         if status == errSecSuccess {
             Logger.keychain.debug("Save credentials: success")
         } else {
             Logger.keychain.error("Save credentials failed: \(status)")
-        }
-
-        guard status == errSecSuccess else {
             throw CredentialError.keychainError(status)
         }
 
