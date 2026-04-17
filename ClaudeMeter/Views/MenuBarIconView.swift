@@ -21,12 +21,12 @@ struct MenuBarIconView: View {
         #if DEBUG
         // In debug mode, show countdown for any window if simulation is enabled
         if viewModel.debugSimulate100Percent {
-            let windows = [snapshot.session, snapshot.opus, snapshot.sonnet].compactMap { $0 }
+            let windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design].compactMap { $0 }
             return windows.min(by: { $0.resetsAt < $1.resetsAt })
         }
         #endif
 
-        let windows = [snapshot.session, snapshot.opus, snapshot.sonnet]
+        let windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design]
             .compactMap { $0 }
             .filter { $0.isAtLimit }
         return windows.min(by: { $0.resetsAt < $1.resetsAt })
@@ -74,9 +74,12 @@ struct MenuBarIconView: View {
                 if viewModel.menuBarShowSonnet, let sonnet = snapshot.sonnet {
                     usageColumn(label: "SONNET", usage: sonnet)
                 }
+                if viewModel.menuBarShowDesign, let design = snapshot.design {
+                    usageColumn(label: "DESIGN", usage: design)
+                }
 
                 // Fallback if nothing is enabled
-                if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet {
+                if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet && !viewModel.menuBarShowDesign {
                     usageColumn(label: "CURR", usage: snapshot.session)
                 }
             } else {

@@ -35,6 +35,10 @@ struct LargeWidgetView: View {
                 usageRow(title: sonnet.windowType.displayName, usage: sonnet)
             }
 
+            if let design = entry.snapshot.design {
+                usageRow(title: design.windowType.displayName, usage: design)
+            }
+
             Spacer()
         }
         .padding(4)

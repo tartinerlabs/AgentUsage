@@ -100,6 +100,15 @@ actor NotificationService: NotificationServiceProtocol {
             )
         }
 
+        if let newDesign = newSnapshot.design, currentSettings.notifyDesign {
+            await checkWindow(
+                name: newDesign.windowType.displayName,
+                oldUsage: oldSnapshot?.design,
+                newUsage: newDesign,
+                settings: currentSettings
+            )
+        }
+
         // Check for extra usage activation
         if currentSettings.notifyExtraUsage {
             let wasActive = oldSnapshot?.isExtraUsageActive ?? false
@@ -228,7 +237,7 @@ actor NotificationService: NotificationServiceProtocol {
         switch usage.windowType {
         case .session:
             windowDescription = "5-hour session"
-        case .opus, .sonnet:
+        case .opus, .sonnet, .design:
             windowDescription = "weekly"
         }
 

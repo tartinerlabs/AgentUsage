@@ -26,6 +26,6 @@ public enum UsageCalculations {
     /// - Returns: The worst status across all windows
     public static func overallStatus(from snapshot: UsageSnapshot?) -> UsageStatus {
         guard let snapshot else { return .onTrack }
-        return overallStatus(from: [snapshot.session, snapshot.opus, snapshot.sonnet])
+        return overallStatus(from: [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design])
     }
 }

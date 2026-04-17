@@ -112,6 +112,9 @@ struct MenuBarView: View {
                 if let sonnet = snapshot.sonnet {
                     UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
                 }
+                if let design = snapshot.design {
+                    UsageRowView(title: design.windowType.displayName, usage: design, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+                }
             }
 
             // Extra usage cost section

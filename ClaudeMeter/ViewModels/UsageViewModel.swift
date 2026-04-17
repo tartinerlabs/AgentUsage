@@ -124,6 +124,12 @@ final class UsageViewModel {
         }
     }
 
+    var menuBarShowDesign: Bool {
+        didSet {
+            UserDefaults.standard.set(menuBarShowDesign, forKey: "menuBarShowDesign")
+        }
+    }
+
     var menuBarShowExtraUsage: Bool {
         didSet {
             UserDefaults.standard.set(menuBarShowExtraUsage, forKey: "menuBarShowExtraUsage")
@@ -175,6 +181,7 @@ final class UsageViewModel {
         self.menuBarShowSession = defaults.object(forKey: "menuBarShowSession") as? Bool ?? true
         self.menuBarShowAllModels = defaults.object(forKey: "menuBarShowAllModels") as? Bool ?? false
         self.menuBarShowSonnet = defaults.object(forKey: "menuBarShowSonnet") as? Bool ?? false
+        self.menuBarShowDesign = defaults.object(forKey: "menuBarShowDesign") as? Bool ?? false
         self.menuBarShowExtraUsage = defaults.object(forKey: "menuBarShowExtraUsage") as? Bool ?? true
 
         // Load cached data on init

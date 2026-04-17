@@ -67,6 +67,7 @@ struct SettingsTabView: View {
                                 Toggle("Session (5h)", isOn: $viewModel.menuBarShowSession)
                                 Toggle("All Models (7d)", isOn: $viewModel.menuBarShowAllModels)
                                 Toggle("Sonnet (7d)", isOn: $viewModel.menuBarShowSonnet)
+                                Toggle("Claude Design (7d)", isOn: $viewModel.menuBarShowDesign)
                                 Toggle("Extra Usage Cost", isOn: $viewModel.menuBarShowExtraUsage)
                             }
                             .toggleStyle(.checkbox)

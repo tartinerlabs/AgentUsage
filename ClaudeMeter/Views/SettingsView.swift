@@ -119,6 +119,10 @@ private struct NotificationsTab: View {
                         get: { settings.notifySonnet },
                         set: { settings.notifySonnet = $0; settings.save() }
                     ))
+                    Toggle("Claude Design (weekly)", isOn: Binding(
+                        get: { settings.notifyDesign },
+                        set: { settings.notifyDesign = $0; settings.save() }
+                    ))
                 }
 
                 Section {

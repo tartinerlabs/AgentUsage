@@ -32,11 +32,19 @@ final class MenuBarSettingsManager {
         }
     }
 
+    /// Show Claude Design (7d) usage in menu bar
+    var menuBarShowDesign: Bool {
+        didSet {
+            UserDefaults.standard.set(menuBarShowDesign, forKey: "menuBarShowDesign")
+        }
+    }
+
     init() {
         let defaults = UserDefaults.standard
         self.menuBarShowSession = defaults.object(forKey: "menuBarShowSession") as? Bool ?? true
         self.menuBarShowAllModels = defaults.object(forKey: "menuBarShowAllModels") as? Bool ?? false
         self.menuBarShowSonnet = defaults.object(forKey: "menuBarShowSonnet") as? Bool ?? false
+        self.menuBarShowDesign = defaults.object(forKey: "menuBarShowDesign") as? Bool ?? false
     }
 }
 
@@ -45,6 +53,7 @@ enum MenuBarDisplayWindow: String, CaseIterable, Identifiable {
     case session = "session"
     case allModels = "allModels"
     case sonnet = "sonnet"
+    case design = "design"
 
     var id: String { rawValue }
 
@@ -53,6 +62,7 @@ enum MenuBarDisplayWindow: String, CaseIterable, Identifiable {
         case .session: return "Session (5h)"
         case .allModels: return "All Models (7d)"
         case .sonnet: return "Sonnet (7d)"
+        case .design: return "Claude Design (7d)"
         }
     }
 }
