@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-04-18
+
+### Added
+- Track Claude Design usage as a third weekly window (alongside All models and Sonnet)
+- Show Claude Design in macOS menu bar icon, popover, and Dashboard; iOS Dashboard; and Medium/Large widgets
+- Add `menuBarShowDesign` toggle in macOS Settings (Menu Bar Display)
+- Add `notifyDesign` threshold notifications in macOS Settings (Notifications)
+- Add Claude Design as a Live Activity metric on iOS
+
 ## [0.10.9] - 2026-03-18
 
 ### Fixed
