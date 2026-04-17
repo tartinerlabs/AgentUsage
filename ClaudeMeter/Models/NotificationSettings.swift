@@ -22,6 +22,9 @@ struct NotificationSettings: Codable {
     /// Whether to send notifications for sonnet usage
     var notifySonnet: Bool
 
+    /// Whether to send notifications for Claude Design usage
+    var notifyDesign: Bool
+
     /// Whether to send reset notifications when limit resets
     var notifyOnReset: Bool
 
@@ -34,6 +37,7 @@ struct NotificationSettings: Codable {
         notifySession: true,
         notifyOpus: true,
         notifySonnet: true,
+        notifyDesign: true,
         notifyOnReset: true,
         notifyExtraUsage: true
     )
@@ -44,6 +48,7 @@ struct NotificationSettings: Codable {
         notifySession: true,
         notifyOpus: true,
         notifySonnet: false,
+        notifyDesign: false,
         notifyOnReset: false,
         notifyExtraUsage: true
     )
@@ -53,6 +58,7 @@ struct NotificationSettings: Codable {
         notifySession: Bool,
         notifyOpus: Bool,
         notifySonnet: Bool,
+        notifyDesign: Bool = true,
         notifyOnReset: Bool,
         notifyExtraUsage: Bool = true
     ) {
@@ -60,6 +66,7 @@ struct NotificationSettings: Codable {
         self.notifySession = notifySession
         self.notifyOpus = notifyOpus
         self.notifySonnet = notifySonnet
+        self.notifyDesign = notifyDesign
         self.notifyOnReset = notifyOnReset
         self.notifyExtraUsage = notifyExtraUsage
     }
@@ -72,6 +79,7 @@ struct NotificationSettings: Codable {
         notifySession = try container.decode(Bool.self, forKey: .notifySession)
         notifyOpus = try container.decode(Bool.self, forKey: .notifyOpus)
         notifySonnet = try container.decode(Bool.self, forKey: .notifySonnet)
+        notifyDesign = try container.decodeIfPresent(Bool.self, forKey: .notifyDesign) ?? true
         notifyOnReset = try container.decode(Bool.self, forKey: .notifyOnReset)
         notifyExtraUsage = try container.decodeIfPresent(Bool.self, forKey: .notifyExtraUsage) ?? true
     }

@@ -17,6 +17,7 @@ enum MetricType: String, CaseIterable, Identifiable {
     case session
     case opus
     case sonnet
+    case design
 
     var id: String { rawValue }
 
@@ -25,6 +26,7 @@ enum MetricType: String, CaseIterable, Identifiable {
         case .session: return "Current session"
         case .opus: return "All models"
         case .sonnet: return "Sonnet"
+        case .design: return "Claude Design"
         }
     }
 }

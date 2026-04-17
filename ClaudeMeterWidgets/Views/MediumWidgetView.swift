@@ -20,6 +20,11 @@ struct MediumWidgetView: View {
                 Divider()
                 metricView(title: sonnet.windowType.displayName, usage: sonnet)
             }
+
+            if let design = entry.snapshot.design {
+                Divider()
+                metricView(title: design.windowType.displayName, usage: design)
+            }
         }
         .padding(.horizontal, 8)
         .accessibilityElement(children: .contain)

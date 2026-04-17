@@ -51,12 +51,14 @@ public enum UsageWindowType: String, Sendable, Codable {
     case session  // 5 hours (five_hour)
     case opus     // 7 days - default weekly limit (seven_day)
     case sonnet   // 7 days - separate Sonnet limit (seven_day_sonnet)
+    case design   // 7 days - Claude Design limit (seven_day_omelette)
 
     public var displayName: String {
         switch self {
         case .session: "Current session"
         case .opus: "All models"
         case .sonnet: "Sonnet"
+        case .design: "Claude Design"
         }
     }
 
@@ -65,6 +67,7 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .session: 5 * 60 * 60      // 5 hours in seconds
         case .opus: 7 * 24 * 60 * 60    // 7 days in seconds
         case .sonnet: 7 * 24 * 60 * 60  // 7 days in seconds
+        case .design: 7 * 24 * 60 * 60  // 7 days in seconds
         }
     }
 }
@@ -258,13 +261,15 @@ public struct UsageSnapshot: Sendable, Codable {
     public let session: UsageWindow
     public let opus: UsageWindow      // Weekly default limit (was "seven_day")
     public let sonnet: UsageWindow?   // Separate Sonnet limit (if available)
+    public let design: UsageWindow?   // Claude Design limit (if available)
     public let extraUsage: ExtraUsageCost?  // Monthly extra usage spending
     public let fetchedAt: Date
 
-    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, extraUsage: ExtraUsageCost? = nil, fetchedAt: Date) {
+    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, design: UsageWindow? = nil, extraUsage: ExtraUsageCost? = nil, fetchedAt: Date) {
         self.session = session
         self.opus = opus
         self.sonnet = sonnet
+        self.design = design
         self.extraUsage = extraUsage
         self.fetchedAt = fetchedAt
     }
@@ -274,13 +279,14 @@ public struct UsageSnapshot: Sendable, Codable {
         session = try container.decode(UsageWindow.self, forKey: .session)
         opus = try container.decode(UsageWindow.self, forKey: .opus)
         sonnet = try container.decodeIfPresent(UsageWindow.self, forKey: .sonnet)
+        design = try container.decodeIfPresent(UsageWindow.self, forKey: .design)
         extraUsage = try container.decodeIfPresent(ExtraUsageCost.self, forKey: .extraUsage)
         fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
     }
 
     /// Whether any window is currently in extra usage territory
     public var isExtraUsageActive: Bool {
-        session.isUsingExtraUsage || opus.isUsingExtraUsage || (sonnet?.isUsingExtraUsage ?? false)
+        session.isUsingExtraUsage || opus.isUsingExtraUsage || (sonnet?.isUsingExtraUsage ?? false) || (design?.isUsingExtraUsage ?? false)
     }
 
     /// Whether extra usage is enabled (has cost data from the API)
@@ -310,6 +316,11 @@ public struct UsageSnapshot: Sendable, Codable {
             utilization: 28,
             resetsAt: Date().addingTimeInterval(5 * 24 * 60 * 60),
             windowType: .sonnet
+        ),
+        design: UsageWindow(
+            utilization: 12,
+            resetsAt: Date().addingTimeInterval(5 * 24 * 60 * 60),
+            windowType: .design
         ),
         fetchedAt: Date()
     )

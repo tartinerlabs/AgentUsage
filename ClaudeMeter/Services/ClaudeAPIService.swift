@@ -146,14 +146,16 @@ actor ClaudeAPIService: APIServiceProtocol {
 
         struct APIResponse: Decodable {
             let fiveHour: UsageWindowResponse?
-            let sevenDay: UsageWindowResponse?       // Default weekly = Opus limit
-            let sevenDaySonnet: UsageWindowResponse? // Separate Sonnet limit
+            let sevenDay: UsageWindowResponse?        // Default weekly = Opus limit
+            let sevenDaySonnet: UsageWindowResponse?  // Separate Sonnet limit
+            let sevenDayOmelette: UsageWindowResponse?  // Claude Design ("omelette" is Anthropic's internal codename)
             let extraUsage: ExtraUsageResponse?
 
             enum CodingKeys: String, CodingKey {
                 case fiveHour = "five_hour"
                 case sevenDay = "seven_day"
                 case sevenDaySonnet = "seven_day_sonnet"
+                case sevenDayOmelette = "seven_day_omelette"
                 case extraUsage = "extra_usage"
             }
         }
@@ -214,6 +216,15 @@ actor ClaudeAPIService: APIServiceProtocol {
             )
         }
 
+        // Claude Design limit (if available)
+        let design = response.sevenDayOmelette.map {
+            UsageWindow(
+                utilization: $0.utilization,
+                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
+                windowType: .design
+            )
+        }
+
         // Extra usage cost (API returns amounts in cents)
         let extraUsage: ExtraUsageCost? = {
             guard let extra = response.extraUsage,
@@ -231,6 +242,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             session: session,
             opus: opus,
             sonnet: sonnet,
+            design: design,
             extraUsage: extraUsage,
             fetchedAt: Date()
         )

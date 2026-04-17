@@ -120,8 +120,14 @@ struct DashboardView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    HStack(spacing: 8) {
-                        ForEach([MetricType.session, .opus, .sonnet], id: \.self) { metric in
+                    let metrics: [MetricType] = {
+                        var arr: [MetricType] = [.session, .opus]
+                        if snapshot.sonnet != nil { arr.append(.sonnet) }
+                        if snapshot.design != nil { arr.append(.design) }
+                        return arr
+                    }()
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        ForEach(metrics, id: \.self) { metric in
                             Button {
                                 liveActivityManager.start(snapshot: snapshot, metric: metric)
                             } label: {
@@ -206,6 +212,9 @@ struct DashboardView: View {
             UsageCardView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             if let sonnet = snapshot.sonnet {
                 UsageCardView(title: sonnet.windowType.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+            }
+            if let design = snapshot.design {
+                UsageCardView(title: design.windowType.displayName, usage: design, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             }
         }
 
