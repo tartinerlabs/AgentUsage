@@ -2,6 +2,8 @@
 
 A multi-platform app (macOS + iOS) that monitors your Claude Code API usage in real-time.
 
+> **Archived:** This project was archived on 2026-05-01 and is no longer maintained. Releases and source code remain available as-is, but no further feature work, fixes, support, or releases are planned.
+
 ## Overview
 
 Multi-platform app that monitors Claude Code API usage in real-time. Tracks session (5-hour) and weekly (7-day) rate limits for Opus and Sonnet models, plus token usage and cost from local logs.
@@ -158,6 +160,6 @@ No data collection or transmission. All processing is local. Reads credentials f
 
 ## Support
 
-Issues or questions? Check [existing issues](https://github.com/tartinerlabs/ClaudeMeter/issues) or troubleshooting above, then create a new issue.
+This project is archived and no longer accepts support requests. Existing issues and releases remain available for reference.
 
 **Releases:** https://github.com/tartinerlabs/ClaudeMeter/releases
