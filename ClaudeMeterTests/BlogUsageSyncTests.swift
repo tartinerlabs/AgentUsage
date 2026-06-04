@@ -9,10 +9,10 @@ import SQLite3
 import Testing
 @testable import ClaudeMeter
 
-@Suite("Blog Usage Sync")
+@Suite("Blog Usage Sync", .serialized)
 struct BlogUsageSyncTests {
     @Test func claudeParserDedupesRepeatedMessages() throws {
-        let home = try temporaryDirectory()
+        let home = try Self.temporaryDirectory()
         let logDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
         try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
         let log = logDirectory.appendingPathComponent("usage.jsonl")
@@ -35,7 +35,7 @@ struct BlogUsageSyncTests {
     }
 
     @Test func codexParserSplitsCachedAndReasoningTokens() throws {
-        let home = try temporaryDirectory()
+        let home = try Self.temporaryDirectory()
         let logDirectory = home.appendingPathComponent(".codex/sessions/2026/06", isDirectory: true)
         try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
         let log = logDirectory.appendingPathComponent("session.jsonl")
@@ -59,12 +59,12 @@ struct BlogUsageSyncTests {
     }
 
     @Test func openCodeParserMapsProviderModelAndTokens() throws {
-        let root = try temporaryDirectory()
+        let root = try Self.temporaryDirectory()
         let dataHome = root.appendingPathComponent("xdg", isDirectory: true)
         let databaseDirectory = dataHome.appendingPathComponent("opencode", isDirectory: true)
         try FileManager.default.createDirectory(at: databaseDirectory, withIntermediateDirectories: true)
         let database = databaseDirectory.appendingPathComponent("opencode.db")
-        try createOpenCodeDatabase(at: database)
+        try Self.createOpenCodeDatabase(at: database)
 
         let parser = BlogUsageSourceParser(
             homeDirectory: root,
@@ -156,7 +156,12 @@ struct BlogUsageSyncTests {
         BlogUsageURLProtocol.handler = { request in
             #expect(request.value(forHTTPHeaderField: "authorization") == "Bearer test-token")
             #expect(request.value(forHTTPHeaderField: "content-type") == "application/json")
-            let body = try #require(request.httpBody)
+            let body = try Self.requestBodyData(request)
+            let rawPayload = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            let rawRows = try #require(rawPayload["rows"] as? [[String: Any]])
+            let rawRow = try #require(rawRows.first)
+            #expect(rawRow["costUsd"] is NSNull)
+
             let payload = try JSONDecoder().decode(BlogUsageIngestPayload.self, from: body)
             #expect(payload.rows == [row])
             return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, Data())
@@ -174,12 +179,21 @@ struct BlogUsageSyncTests {
         }
 
         await #expect(throws: BlogUsageSyncError.self) {
-            try await client.post(rows: [minimalRow()], endpoint: URL(string: "https://example.com")!, token: "bad-token")
+            try await client.post(rows: [Self.minimalRow()], endpoint: URL(string: "https://example.com")!, token: "bad-token")
         }
     }
 
-    @Test func serviceSoftFailsAndManualBypassesThrottle() async throws {
-        let home = try temporaryDirectory()
+    @Test func serverValidationErrorsAreCompacted() {
+        let detail = """
+        {"error":"Validation failed","errors":[{"field":"rows.0.costUsd","message":"Invalid input"},{"field":"rows.1.costUsd","message":"Invalid input"},{"field":"rows.2.costUsd","message":"Invalid input"}]}
+        """
+        let error = BlogUsageSyncError.serverError(400, detail)
+
+        #expect(error.localizedDescription == "Blog usage sync failed: invalid costUsd in 3 rows.")
+    }
+
+    @Test func serviceThrottlesPassiveSyncForFiveMinutesAndManualBypassesThrottle() async throws {
+        let home = try Self.temporaryDirectory()
         let logDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
         try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
         let log = logDirectory.appendingPathComponent("usage.jsonl")
@@ -189,30 +203,58 @@ struct BlogUsageSyncTests {
 
         let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
         let posting = CountingPosting()
+        let clock = MutableTestClock(date: Date(timeIntervalSince1970: 1_780_000_000))
+        let keychainAccount = "BlogUsageSyncTests-\(UUID().uuidString)"
         let service = BlogUsageSyncService(
             parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
             client: posting,
             defaults: defaults,
-            now: { Date(timeIntervalSince1970: 1_780_000_000) }
+            keychainAccount: keychainAccount,
+            now: { clock.now() }
         )
+        defer { KeychainHelper.deleteString(account: keychainAccount) }
         await service.setEnabled(true)
         await service.setEndpointURLString("https://example.com/api/usage/ingest")
         await service.setToken("test-token")
         await posting.setError(BlogUsageSyncError.unauthorized)
 
         let failed = await service.syncIfNeeded()
-        #expect(failed.state == .failed)
+        #expect(failed.state == BlogUsageSyncState.failed)
         #expect(await posting.callCount == 1)
 
         let skipped = await service.syncIfNeeded()
-        #expect(skipped.state == .skipped)
+        #expect(skipped.state == BlogUsageSyncState.skipped)
         #expect(await posting.callCount == 1)
 
-        let manual = await service.syncNow()
-        #expect(manual.state == .failed)
+        clock.advance(by: 5 * 60)
+        let retried = await service.syncIfNeeded()
+        #expect(retried.state == BlogUsageSyncState.failed)
         #expect(await posting.callCount == 2)
 
-        await service.setToken("")
+        let manual = await service.syncNow()
+        #expect(manual.state == BlogUsageSyncState.failed)
+        #expect(await posting.callCount == 3)
+    }
+
+    private static func requestBodyData(_ request: URLRequest) throws -> Data {
+        if let body = request.httpBody {
+            return body
+        }
+
+        let stream = try #require(request.httpBodyStream)
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 1024)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            guard count >= 0 else {
+                throw BlogUsageTestError.requestBodyReadFailed
+            }
+            data.append(buffer, count: count)
+        }
+        return data
     }
 
     private static func temporaryDirectory() throws -> URL {
@@ -262,6 +304,23 @@ struct BlogUsageSyncTests {
 private enum BlogUsageTestError: Error {
     case sqliteOpenFailed
     case sqliteExecFailed
+    case requestBodyReadFailed
+}
+
+private final class MutableTestClock: @unchecked Sendable {
+    private var date: Date
+
+    init(date: Date) {
+        self.date = date
+    }
+
+    func now() -> Date {
+        date
+    }
+
+    func advance(by interval: TimeInterval) {
+        date = date.addingTimeInterval(interval)
+    }
 }
 
 private final class BlogUsageURLProtocol: URLProtocol {
