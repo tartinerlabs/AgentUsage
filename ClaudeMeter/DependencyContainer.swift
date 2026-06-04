@@ -38,6 +38,11 @@ enum DependencyContainer {
     static func createTokenUsageService() -> TokenUsageService {
         TokenUsageService()
     }
+
+    /// Create the blog usage sync service for passive local usage ingestion
+    static func createBlogUsageSyncService() -> BlogUsageSyncService {
+        BlogUsageSyncService.shared
+    }
     #endif
 
     // MARK: - ViewModel Factory
@@ -49,9 +54,11 @@ enum DependencyContainer {
     static func createUsageViewModel(modelContext: ModelContext) -> UsageViewModel {
         let credentialProvider = createCredentialProvider()
         let tokenService = createTokenUsageService()
+        let blogUsageSyncService = createBlogUsageSyncService()
         return UsageViewModel(
             credentialProvider: credentialProvider,
             tokenService: tokenService,
+            blogUsageSyncService: blogUsageSyncService,
             modelContext: modelContext
         )
     }

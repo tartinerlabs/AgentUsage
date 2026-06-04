@@ -26,6 +26,27 @@ final class UsageViewModel {
     #if os(macOS)
     var tokenUsageError: TokenUsageError?
     var isLoadingTokenUsage = false
+    var blogUsageSyncEnabled: Bool {
+        didSet {
+            guard blogUsageSyncEnabled != oldValue else { return }
+            Task {
+                await blogUsageSyncService?.setEnabled(blogUsageSyncEnabled)
+                await loadBlogUsageSyncSettings()
+            }
+        }
+    }
+    var blogUsageSyncEndpointURLString: String {
+        didSet {
+            guard blogUsageSyncEndpointURLString != oldValue else { return }
+            Task {
+                await blogUsageSyncService?.setEndpointURLString(blogUsageSyncEndpointURLString)
+                await loadBlogUsageSyncSettings()
+            }
+        }
+    }
+    var blogUsageSyncToken: String = ""
+    var blogUsageSyncStatus: BlogUsageSyncStatus = .never
+    var isBlogUsageSyncing = false
     #endif
     var selectedTokenPeriod: UsagePeriod = .last30Days {
         didSet {
@@ -147,6 +168,7 @@ final class UsageViewModel {
     private let tokenService: TokenUsageService?
     private let tokenRepository: TokenUsageRepository?
     private let tokenQuerier: TokenUsageQuerier?
+    private let blogUsageSyncService: BlogUsageSyncService?
     #endif
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
@@ -164,6 +186,7 @@ final class UsageViewModel {
         credentialProvider: any CredentialProvider,
         apiService: (any APIServiceProtocol)? = nil,
         tokenService: TokenUsageService? = nil,
+        blogUsageSyncService: BlogUsageSyncService? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.credentialProvider = credentialProvider
@@ -171,10 +194,13 @@ final class UsageViewModel {
         self.tokenService = tokenService
         self.tokenRepository = modelContext.map { TokenUsageRepository(modelContext: $0) }
         self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
+        self.blogUsageSyncService = blogUsageSyncService
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
         self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
         self.notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+        self.blogUsageSyncEnabled = UserDefaults.standard.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
+        self.blogUsageSyncEndpointURLString = UserDefaults.standard.string(forKey: "blogUsageSyncEndpointURL") ?? BlogUsageSyncService.defaultEndpointURLString
 
         // Menu bar display settings - default to showing session only
         let defaults = UserDefaults.standard
@@ -295,10 +321,46 @@ final class UsageViewModel {
         // Token usage refresh (local file reads, no network needed)
         #if os(macOS)
         await refreshTokenUsage()
+        Task { await runPassiveBlogUsageSync() }
         #endif
     }
 
     #if os(macOS)
+    func loadBlogUsageSyncSettings() async {
+        guard let blogUsageSyncService else { return }
+        let settings = await blogUsageSyncService.settings()
+        blogUsageSyncEnabled = settings.isEnabled
+        blogUsageSyncEndpointURLString = settings.endpointURLString
+        blogUsageSyncToken = settings.token
+        blogUsageSyncStatus = settings.status
+    }
+
+    func saveBlogUsageSyncToken(_ token: String) async {
+        guard let blogUsageSyncService else { return }
+        await blogUsageSyncService.setToken(token)
+        await loadBlogUsageSyncSettings()
+    }
+
+    func syncBlogUsageNow() async {
+        guard let blogUsageSyncService else { return }
+        isBlogUsageSyncing = true
+        blogUsageSyncStatus = BlogUsageSyncStatus(
+            state: .syncing,
+            lastAttemptAt: blogUsageSyncStatus.lastAttemptAt,
+            lastSuccessAt: blogUsageSyncStatus.lastSuccessAt,
+            message: "Syncing blog usage"
+        )
+        let status = await blogUsageSyncService.syncNow()
+        blogUsageSyncStatus = status
+        isBlogUsageSyncing = false
+    }
+
+    private func runPassiveBlogUsageSync() async {
+        guard let blogUsageSyncService else { return }
+        let status = await blogUsageSyncService.syncIfNeeded()
+        blogUsageSyncStatus = status
+    }
+
     /// Refresh token usage from SwiftData repository (with incremental import)
     private func refreshTokenUsage() async {
         isLoadingTokenUsage = true
@@ -451,6 +513,9 @@ final class UsageViewModel {
     func initializeIfNeeded() async {
         guard !hasInitialized else { return }
         hasInitialized = true
+        #if os(macOS)
+        await loadBlogUsageSyncSettings()
+        #endif
         await refresh()
         startAutoRefresh()
     }

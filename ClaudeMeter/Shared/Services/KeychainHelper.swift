@@ -10,7 +10,7 @@ import Security
 /// Helper for Keychain credential storage
 /// TODO: Enable iCloud Keychain sync when paid developer account is available
 enum KeychainHelper {
-    static let service = "com.tartinerlabs.ClaudeMeter"
+    nonisolated static let service = "com.tartinerlabs.ClaudeMeter"
     static let account = "claude-oauth-credentials"
 
     /// Get human-readable description for an OSStatus code
@@ -144,6 +144,66 @@ enum KeychainHelper {
             kSecAttrAccount as String: account
             // TODO: Uncomment for iCloud sync (requires paid developer account)
             // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
+    /// Save a generic UTF-8 secret string to Keychain.
+    nonisolated static func saveString(_ value: String, account: String) throws {
+        let data = Data(value.utf8)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+
+        var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            var addQuery = query
+            addQuery.merge(attributes) { _, new in new }
+            status = SecItemAdd(addQuery as CFDictionary, nil)
+        }
+
+        guard status == errSecSuccess else {
+            throw CredentialError.keychainError(status)
+        }
+    }
+
+    /// Load a generic UTF-8 secret string from Keychain.
+    nonisolated static func loadString(account: String) throws -> String {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: kCFBooleanTrue!,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess else {
+            if status == errSecItemNotFound {
+                throw CredentialError.keychainNotFound
+            }
+            throw CredentialError.keychainError(status)
+        }
+
+        guard let data = result as? Data, let value = String(data: data, encoding: .utf8) else {
+            throw CredentialError.invalidFormat
+        }
+        return value
+    }
+
+    /// Delete a generic Keychain string.
+    nonisolated static func deleteString(account: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
         ]
         SecItemDelete(query as CFDictionary)
     }
