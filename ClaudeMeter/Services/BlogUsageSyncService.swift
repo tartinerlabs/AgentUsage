@@ -35,6 +35,42 @@ nonisolated struct BlogUsageIngestRow: Codable, Sendable, Equatable {
     let totalTokens: Int
     let costUsd: String?
     let messages: Int
+
+    enum CodingKeys: String, CodingKey {
+        case date
+        case agent
+        case provider
+        case model
+        case inputTokens
+        case outputTokens
+        case cacheReadTokens
+        case cacheWriteTokens
+        case reasoningTokens
+        case totalTokens
+        case costUsd
+        case messages
+    }
+
+    nonisolated func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(date, forKey: .date)
+        try container.encode(agent, forKey: .agent)
+        try container.encode(provider, forKey: .provider)
+        try container.encode(model, forKey: .model)
+        try container.encode(inputTokens, forKey: .inputTokens)
+        try container.encode(outputTokens, forKey: .outputTokens)
+        try container.encode(cacheReadTokens, forKey: .cacheReadTokens)
+        try container.encode(cacheWriteTokens, forKey: .cacheWriteTokens)
+        try container.encode(reasoningTokens, forKey: .reasoningTokens)
+        try container.encode(totalTokens, forKey: .totalTokens)
+        try container.encode(messages, forKey: .messages)
+
+        if let costUsd {
+            try container.encode(costUsd, forKey: .costUsd)
+        } else {
+            try container.encodeNil(forKey: .costUsd)
+        }
+    }
 }
 
 nonisolated struct BlogUsageIngestPayload: Codable, Sendable, Equatable {
@@ -86,10 +122,60 @@ nonisolated enum BlogUsageSyncError: LocalizedError, Sendable {
         case .unauthorized:
             return "Blog usage sync is unauthorized."
         case .serverError(let status, let detail):
-            return detail.isEmpty ? "Blog usage sync failed with HTTP \(status)." : "Blog usage sync failed with HTTP \(status): \(detail)"
+            return Self.serverErrorDescription(status: status, detail: detail)
         case .invalidResponse:
             return "Blog usage sync received an invalid response."
         }
+    }
+
+    private nonisolated static func serverErrorDescription(status: Int, detail: String) -> String {
+        guard !detail.isEmpty else {
+            return "Blog usage sync failed with HTTP \(status)."
+        }
+
+        if let compact = compactValidationDescription(from: detail) {
+            return compact
+        }
+
+        let maxDetailLength = 240
+        let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeDetail = trimmed.count > maxDetailLength
+            ? "\(trimmed.prefix(maxDetailLength))..."
+            : trimmed
+        return "Blog usage sync failed with HTTP \(status): \(safeDetail)"
+    }
+
+    private nonisolated static func compactValidationDescription(from detail: String) -> String? {
+        guard let data = detail.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let errors = json["errors"] as? [[String: Any]],
+              !errors.isEmpty else {
+            return nil
+        }
+
+        let rowFields = errors.compactMap { error -> (row: Int, field: String)? in
+            guard let field = error["field"] as? String else { return nil }
+            let parts = field.split(separator: ".").map(String.init)
+            guard parts.count >= 3,
+                  parts[0] == "rows",
+                  let row = Int(parts[1]) else {
+                return nil
+            }
+            return (row, parts[2])
+        }
+
+        guard !rowFields.isEmpty else {
+            return "Blog usage sync failed: validation failed for \(errors.count) field\(errors.count == 1 ? "" : "s")."
+        }
+
+        let fields = Set(rowFields.map(\.field))
+        let rows = Set(rowFields.map(\.row))
+
+        if fields.count == 1, let field = fields.first {
+            return "Blog usage sync failed: invalid \(field) in \(rows.count) row\(rows.count == 1 ? "" : "s")."
+        }
+
+        return "Blog usage sync failed: invalid input in \(rows.count) row\(rows.count == 1 ? "" : "s")."
     }
 }
 
@@ -582,13 +668,14 @@ actor BlogUsageSyncService {
     private static let enabledKey = "blogUsageSyncEnabled"
     private static let endpointKey = "blogUsageSyncEndpointURL"
     private static let statusKey = "blogUsageSyncStatus"
-    private static let keychainAccount = "blog-usage-sync-token"
-    private static let throttleInterval: TimeInterval = 3600
+    private static let defaultKeychainAccount = "blog-usage-sync-token"
+    private static let throttleInterval: TimeInterval = 5 * 60
 
     private let parser: BlogUsageSourceParser
     private let aggregator: BlogUsageAggregator
     private let client: any BlogUsageSyncPosting
     private let defaults: UserDefaults
+    private let keychainAccount: String
     private let now: @Sendable () -> Date
     private var inFlightTask: Task<BlogUsageSyncStatus, Never>?
 
@@ -597,12 +684,14 @@ actor BlogUsageSyncService {
         aggregator: BlogUsageAggregator = BlogUsageAggregator(),
         client: any BlogUsageSyncPosting = BlogUsageSyncClient(),
         defaults: UserDefaults = .standard,
+        keychainAccount: String = BlogUsageSyncService.defaultKeychainAccount,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.parser = parser
         self.aggregator = aggregator
         self.client = client
         self.defaults = defaults
+        self.keychainAccount = keychainAccount
         self.now = now
     }
 
@@ -610,7 +699,7 @@ actor BlogUsageSyncService {
         BlogUsageSyncSettings(
             isEnabled: isEnabled,
             endpointURLString: endpointURLString,
-            token: (try? KeychainHelper.loadString(account: Self.keychainAccount)) ?? "",
+            token: (try? KeychainHelper.loadString(account: keychainAccount)) ?? "",
             status: status
         )
     }
@@ -629,10 +718,10 @@ actor BlogUsageSyncService {
     func setToken(_ token: String) {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            KeychainHelper.deleteString(account: Self.keychainAccount)
+            KeychainHelper.deleteString(account: keychainAccount)
         } else {
             do {
-                try KeychainHelper.saveString(trimmed, account: Self.keychainAccount)
+                try KeychainHelper.saveString(trimmed, account: keychainAccount)
             } catch {
                 updateStatus(.failed, message: "Failed to save BLOG_MCP_AUTH_TOKEN: \(error.localizedDescription)")
             }
@@ -666,7 +755,7 @@ actor BlogUsageSyncService {
             return updateStatus(.skipped, message: "Blog usage sync is disabled")
         }
 
-        let token = (try? KeychainHelper.loadString(account: Self.keychainAccount)) ?? ""
+        let token = (try? KeychainHelper.loadString(account: keychainAccount)) ?? ""
         guard !token.isEmpty else {
             return updateStatus(.skipped, message: "BLOG_MCP_AUTH_TOKEN is missing")
         }
@@ -678,7 +767,7 @@ actor BlogUsageSyncService {
         if !manual,
            let lastAttempt = status.lastAttemptAt,
            now().timeIntervalSince(lastAttempt) < Self.throttleInterval {
-            return updateStatus(.skipped, message: "Blog usage sync skipped; last attempt was less than one hour ago")
+            return updateStatus(.skipped, message: "Blog usage sync skipped; last attempt was less than five minutes ago")
         }
 
         updateStatus(.syncing, message: "Syncing blog usage")
