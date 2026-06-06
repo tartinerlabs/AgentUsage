@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-06-07
+
+### Added
+- Multi-provider usage monitoring (macOS): track **OpenAI Codex CLI** and **OpenCode** alongside Claude.
+- Codex rate-limit windows (5-hour + weekly) and plan, read from local Codex rollout logs — no login required.
+- Token usage & cost for Codex and OpenCode, computed from local logs (OpenCode via its SQLite database) using built-in pricing.
+- OpenUsage-style menu-bar popover: a provider sidebar that switches between an overview and per-provider detail pages, each with Status/Console links, window status dots, Today/Yesterday/30-day cost, a usage-trend sparkline, and a per-model breakdown.
+- Shared per-provider cards across the menu bar and Dashboard.
+- "Codex (5h)" menu-bar display toggle in Settings.
+
 ## [0.12.2] - 2026-06-06
 
 ### Fixed
@@ -323,7 +333,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.11.0...v0.12.0
