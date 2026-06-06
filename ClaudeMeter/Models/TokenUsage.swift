@@ -171,12 +171,103 @@ struct TokenUsageSummary: Sendable {
     }
 }
 
+/// Coding agent/provider detected by local usage tooling.
+struct UsageProvider: Sendable, Identifiable, Hashable {
+    let id: String
+    let displayName: String
+
+    init(id: String, displayName: String? = nil) {
+        self.id = id
+        self.displayName = displayName ?? Self.defaultDisplayName(for: id)
+    }
+
+    private static func defaultDisplayName(for id: String) -> String {
+        switch id.lowercased() {
+        case "claude": return "Claude Code"
+        case "codex": return "Codex"
+        case "opencode": return "OpenCode"
+        case "amp": return "Amp"
+        case "droid": return "Droid"
+        case "codebuff": return "Codebuff"
+        case "hermes": return "Hermes"
+        case "pi": return "pi-agent"
+        case "goose": return "Goose"
+        case "kilo": return "Kilo"
+        case "kimi": return "Kimi"
+        case "qwen": return "Qwen"
+        case "copilot": return "GitHub Copilot"
+        case "gemini": return "Gemini"
+        case "openclaw": return "OpenClaw"
+        case "all": return "All Agents"
+        default:
+            return id
+                .split(separator: "-")
+                .map { part in
+                    part.prefix(1).uppercased() + part.dropFirst()
+                }
+                .joined(separator: " ")
+        }
+    }
+}
+
+/// Provider-specific usage when the underlying source exposes it.
+struct ProviderUsageSummary: Sendable, Identifiable {
+    let provider: UsageProvider
+    let tokens: TokenCount
+    let costUSD: Double
+    let byModel: [String: TokenCount]
+
+    var id: String { provider.id }
+}
+
+enum TokenUsageDataSource: Sendable, Equatable {
+    case ccusage(runner: String)
+    case nativeClaudeParser
+
+    var displayName: String {
+        switch self {
+        case .ccusage(let runner):
+            return "ccusage via \(runner)"
+        case .nativeClaudeParser:
+            return "Claude JSONL parser"
+        }
+    }
+
+    var isClaudeOnly: Bool {
+        if case .nativeClaudeParser = self {
+            return true
+        }
+        return false
+    }
+}
+
 /// Complete token usage snapshot
 struct TokenUsageSnapshot: Sendable {
     let today: TokenUsageSummary
     let last30Days: TokenUsageSummary
     let byModel: [String: TokenCount]
     let fetchedAt: Date
+    let detectedProviders: [UsageProvider]
+    let providerBreakdown: [ProviderUsageSummary]
+    let dataSource: TokenUsageDataSource
+
+    init(
+        today: TokenUsageSummary,
+        last30Days: TokenUsageSummary,
+        byModel: [String: TokenCount],
+        fetchedAt: Date,
+        detectedProviders: [UsageProvider] = [UsageProvider(id: "claude")],
+        providerBreakdown: [ProviderUsageSummary] = [],
+        dataSource: TokenUsageDataSource = .nativeClaudeParser
+    ) {
+        self.today = today
+        self.last30Days = last30Days
+        self.byModel = byModel
+        self.fetchedAt = fetchedAt
+        self.detectedProviders = detectedProviders
+        self.providerBreakdown = providerBreakdown
+        self.dataSource = dataSource
+    }
 }
 
 /// Errors related to token usage data loading

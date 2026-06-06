@@ -39,6 +39,11 @@ enum DependencyContainer {
         TokenUsageService()
     }
 
+    /// Create the ccusage runner service for multi-agent local usage.
+    static func createCCUsageRunnerService() -> CCUsageRunnerService {
+        CCUsageRunnerService()
+    }
+
     /// Create the blog usage sync service for passive local usage ingestion
     static func createBlogUsageSyncService() -> BlogUsageSyncService {
         BlogUsageSyncService.shared
@@ -54,10 +59,12 @@ enum DependencyContainer {
     static func createUsageViewModel(modelContext: ModelContext) -> UsageViewModel {
         let credentialProvider = createCredentialProvider()
         let tokenService = createTokenUsageService()
+        let ccUsageRunnerService = createCCUsageRunnerService()
         let blogUsageSyncService = createBlogUsageSyncService()
         return UsageViewModel(
             credentialProvider: credentialProvider,
             tokenService: tokenService,
+            ccUsageRunnerService: ccUsageRunnerService,
             blogUsageSyncService: blogUsageSyncService,
             modelContext: modelContext
         )
