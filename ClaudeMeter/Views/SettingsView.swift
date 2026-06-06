@@ -56,21 +56,8 @@ private struct GeneralTab: View {
                     Text(frequency.displayName).tag(frequency)
                 }
             }
-
-            Divider()
-                .padding(.vertical, 4)
-
-            LabeledContent("Credentials", value: credentialsStatus)
         }
         .formStyle(.grouped)
-    }
-
-    private var credentialsStatus: String {
-        if FileManager.default.fileExists(atPath: Constants.credentialsFileURL.path) {
-            return "Found"
-        } else {
-            return "Not found"
-        }
     }
 }
 

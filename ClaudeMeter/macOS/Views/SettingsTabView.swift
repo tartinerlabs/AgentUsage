@@ -150,53 +150,6 @@ struct SettingsTabView: View {
                     }
                 }
 
-                // Credentials Section
-                settingsCard(title: "Credentials") {
-                    VStack(spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Status")
-                                    .font(.body)
-                                Text("Claude CLI credentials file")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            HStack(spacing: 6) {
-                                Image(systemName: credentialsFound ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                    .foregroundStyle(credentialsFound ? Color.green : Color.red)
-                                Text(credentialsFound ? "Found" : "Not found")
-                                    .foregroundStyle(credentialsFound ? Color.primary : Color.red)
-                            }
-                        }
-
-                        Divider()
-
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Location")
-                                    .font(.body)
-                                Text(Constants.credentialsFileURL.path)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            Spacer()
-                            Button {
-                                NSWorkspace.shared.selectFile(
-                                    Constants.credentialsFileURL.path,
-                                    inFileViewerRootedAtPath: Constants.credentialsFileURL.deletingLastPathComponent().path
-                                )
-                            } label: {
-                                Image(systemName: "folder")
-                            }
-                            .buttonStyle(.borderless)
-                            .disabled(!credentialsFound)
-                        }
-                    }
-                }
-
                 // Blog Usage Sync Section
                 settingsCard(title: "Blog Usage Sync") {
                     VStack(spacing: 12) {
@@ -415,9 +368,6 @@ struct SettingsTabView: View {
         }
     }
 
-    private var credentialsFound: Bool {
-        FileManager.default.fileExists(atPath: Constants.credentialsFileURL.path)
-    }
 
     private var blogUsageSyncStatusText: String {
         let status = viewModel.blogUsageSyncStatus

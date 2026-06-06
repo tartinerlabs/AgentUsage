@@ -45,11 +45,6 @@ enum Constants {
 
     // MARK: - macOS Only (file system access)
     #if os(macOS)
-    static var credentialsFileURL: URL {
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude")
-            .appendingPathComponent(".credentials.json")
-    }
 
     nonisolated static var claudeProjectsDirectories: [URL] {
         let home = FileManager.default.homeDirectoryForCurrentUser
