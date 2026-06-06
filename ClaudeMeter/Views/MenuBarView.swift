@@ -31,10 +31,7 @@ struct MenuBarView: View {
                 .padding(.vertical, 8)
 
             // Provider cards (weather station)
-            ScrollView {
-                providerCards
-            }
-            .frame(maxHeight: 520)
+            providerCards
 
             Divider()
                 .padding(.vertical, 8)
