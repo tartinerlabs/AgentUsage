@@ -370,6 +370,7 @@ nonisolated struct BlogUsageSourceParser {
               let timestamp = parseTimestamp(from: json) else {
             return nil
         }
+        guard model != "<synthetic>" else { return nil }
 
         let dedupeID = stringValue(message["id"])
             ?? stringValue(json["requestId"])
