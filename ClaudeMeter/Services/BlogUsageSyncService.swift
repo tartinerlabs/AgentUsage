@@ -472,6 +472,11 @@ nonisolated struct BlogUsageSourceParser {
     }
 
     private nonisolated func parseTimestamp(from json: [String: Any]) -> Date? {
+        if let time = json["time"] as? [String: Any],
+           let created = dateValue(time["created"]) {
+            return created
+        }
+
         let candidates = [
             json["timestamp"],
             json["createdAt"],

@@ -203,7 +203,7 @@ struct SettingsTabView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Enable Sync")
                                     .font(.body)
-                                Text("Passively sync daily local agent usage to the blog backend")
+                                Text("Passively sync daily Claude, Codex, and OpenCode Go usage to the blog backend")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

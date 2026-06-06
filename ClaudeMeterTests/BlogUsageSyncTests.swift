@@ -58,7 +58,7 @@ struct BlogUsageSyncTests {
         #expect(events.first?.cacheWriteTokens == 0)
     }
 
-    @Test func openCodeParserMapsProviderModelAndTokens() throws {
+    @Test func openCodeParserMapsOpenCodeGoProviderModelTimestampAndTokens() throws {
         let root = try Self.temporaryDirectory()
         let dataHome = root.appendingPathComponent("xdg", isDirectory: true)
         let databaseDirectory = dataHome.appendingPathComponent("opencode", isDirectory: true)
@@ -75,13 +75,47 @@ struct BlogUsageSyncTests {
 
         #expect(events.count == 1)
         #expect(events.first?.agent == "opencode")
-        #expect(events.first?.provider == "anthropic")
-        #expect(events.first?.model == "claude-sonnet-4-5")
+        #expect(events.first?.provider == "opencode-go")
+        #expect(events.first?.model == "gpt-5.5")
+        #expect(events.first?.timestamp == Date(timeIntervalSince1970: 1_771_952_413.521))
         #expect(events.first?.inputTokens == 100)
         #expect(events.first?.cacheReadTokens == 30)
         #expect(events.first?.cacheWriteTokens == 20)
         #expect(events.first?.outputTokens == 40)
         #expect(events.first?.reasoningTokens == 10)
+    }
+
+    @Test func parseAllSourcesCoversClaudeCodexAndOpenCodeGo() throws {
+        let home = try Self.temporaryDirectory()
+
+        let claudeDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: claudeDirectory, withIntermediateDirectories: true)
+        try """
+        {"type":"assistant","timestamp":"2026-06-02T10:00:00Z","requestId":"req-1","message":{"id":"msg-1","model":"claude-sonnet-4-5","usage":{"input_tokens":10,"output_tokens":20,"cache_read_input_tokens":30,"cache_creation_input_tokens":40}}}
+        """.write(to: claudeDirectory.appendingPathComponent("usage.jsonl"), atomically: true, encoding: .utf8)
+
+        let codexDirectory = home.appendingPathComponent(".codex/sessions/2026/06", isDirectory: true)
+        try FileManager.default.createDirectory(at: codexDirectory, withIntermediateDirectories: true)
+        try """
+        {"timestamp":"2026-06-02T10:00:00Z","payload":{"model":"gpt-5"}}
+        {"timestamp":"2026-06-02T10:01:00Z","payload":{"type":"token_count","id":"usage-1","info":{"last_token_usage":{"input_tokens":100,"cached_input_tokens":25,"output_tokens":70,"reasoning_output_tokens":20}}}}
+        """.write(to: codexDirectory.appendingPathComponent("session.jsonl"), atomically: true, encoding: .utf8)
+
+        let dataHome = home.appendingPathComponent("xdg", isDirectory: true)
+        let databaseDirectory = dataHome.appendingPathComponent("opencode", isDirectory: true)
+        try FileManager.default.createDirectory(at: databaseDirectory, withIntermediateDirectories: true)
+        try Self.createOpenCodeDatabase(at: databaseDirectory.appendingPathComponent("opencode.db"))
+
+        let parser = BlogUsageSourceParser(
+            homeDirectory: home,
+            environment: ["XDG_DATA_HOME": dataHome.path]
+        )
+
+        let agentProviders = try parser.parseAllSources().map { event in
+            "\(event.agent)/\(event.provider)"
+        }
+
+        #expect(Set(agentProviders) == ["claude/anthropic", "codex/openai", "opencode/opencode-go"])
     }
 
     @Test func aggregatorProducesExactPayloadShape() {
@@ -358,7 +392,7 @@ struct BlogUsageSyncTests {
             throw BlogUsageTestError.sqliteExecFailed
         }
         let data = """
-        {"role":"assistant","providerID":"anthropic","modelID":"claude-sonnet-4-5","tokens":{"input":100,"output":50,"reasoning":10,"cache":{"read":30,"write":20}}}
+        {"role":"assistant","time":{"created":1771952413521},"providerID":"opencode-go","modelID":"gpt-5.5","tokens":{"input":100,"output":50,"reasoning":10,"cache":{"read":30,"write":20}}}
         """
         let escaped = data.replacingOccurrences(of: "'", with: "''")
         guard sqlite3_exec(database, "INSERT INTO message (id, createdAt, data) VALUES ('msg-1', '2026-06-02T10:00:00Z', '\(escaped)')", nil, nil, nil) == SQLITE_OK else {
