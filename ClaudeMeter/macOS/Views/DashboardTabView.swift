@@ -48,6 +48,17 @@ struct DashboardTabView: View {
                 } else {
                     loadingSection
                 }
+
+                // Other providers (Codex windows, Codex/OpenCode cost) — shown
+                // independently of Claude so they appear even without Claude data.
+                if let codex = viewModel.codexUsage {
+                    Divider()
+                    codexSection(codex)
+                }
+                if !viewModel.extraProviderSummaries.isEmpty {
+                    Divider()
+                    providerCostSection
+                }
             }
             .padding(24)
         }
@@ -120,6 +131,83 @@ struct DashboardTabView: View {
                 }
                 if let design = snapshot.design {
                     UsageRowView(title: design.windowType.displayName, usage: design, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+                }
+            }
+        }
+    }
+
+    // MARK: - Other Providers (Codex / OpenCode)
+
+    /// Codex rate-limit windows (5-hour + weekly), CodexBar-style.
+    private func codexSection(_ codex: ProviderUsageSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: Provider.codex.iconName)
+                    .foregroundStyle(Provider.codex.accentColor)
+                Text(Provider.codex.displayName)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                if let plan = codex.planName, !plan.isEmpty {
+                    Text(plan.capitalized)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(spacing: 16) {
+                ForEach(Array(codex.windows.enumerated()), id: \.offset) { _, window in
+                    UsageRowView(
+                        title: window.windowType.displayName,
+                        usage: window,
+                        now: now,
+                        showExtraUsage: false
+                    )
+                }
+            }
+        }
+    }
+
+    /// Display order for non-Claude providers.
+    private var orderedExtraProviders: [Provider] {
+        [.codex, .openCode].filter { viewModel.extraProviderSummaries[$0] != nil }
+    }
+
+    /// 30-day token/cost rows for non-Claude providers (surfaces OpenCode, which has no windows).
+    private var providerCostSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Other Providers — 30 Days")
+                .font(.headline)
+
+            ForEach(orderedExtraProviders, id: \.self) { provider in
+                if let summary = viewModel.extraProviderSummaries[provider] {
+                    HStack(spacing: 10) {
+                        Image(systemName: provider.iconName)
+                            .foregroundStyle(provider.accentColor)
+                            .frame(width: 20)
+                        Text(provider.displayName)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.stack.3d.up")
+                                .font(.caption)
+                            Text(summary.formattedTokens)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundStyle(.secondary)
+                        Text(summary.formattedCost)
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundStyle(provider.accentColor)
+                            .frame(minWidth: 64, alignment: .trailing)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(provider.accentColor.opacity(0.08))
+                    )
                 }
             }
         }

@@ -55,6 +55,19 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         return try await task.value
     }
 
+    /// Per-provider token/cost summaries for the extra (non-Claude) sources only.
+    ///
+    /// Claude's summary already comes from the SwiftData path; this avoids
+    /// re-parsing Claude logs just to surface Codex/OpenCode totals.
+    func fetchExtraProviderSummaries(since: Date) async -> [Provider: TokenUsageSummary] {
+        var result: [Provider: TokenUsageSummary] = [:]
+        for source in extraSources {
+            guard let entries = try? await source.fetchEntries(since: since) else { continue }
+            result[source.provider] = aggregateSummary(entries: entries, period: .last30Days)
+        }
+        return result
+    }
+
     /// Represents file state for incremental reading
     struct FileState {
         let byteOffset: Int64
