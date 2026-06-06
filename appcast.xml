@@ -12,7 +12,16 @@
             <sparkle:shortVersionString>0.11.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
--
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Track Claude Design usage as a third weekly window (alongside All models and Sonnet)</li>
+<li>Show Claude Design in macOS menu bar icon, popover, and Dashboard; iOS Dashboard; and Medium/Large widgets</li>
+<li>Add <code>menuBarShowDesign</code> toggle in macOS Settings (Menu Bar Display)</li>
+<li>Add <code>notifyDesign</code> threshold notifications in macOS Settings (Notifications)</li>
+<li>Add Claude Design as a Live Activity metric on iOS</li>
+</ul>
             ]]></description>
             <enclosure
                 url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.11.0/ClaudeMeter.zip"
