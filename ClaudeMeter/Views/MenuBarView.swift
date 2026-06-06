@@ -24,20 +24,17 @@ struct MenuBarView: View {
                 updateBanner
             }
 
-            // Header
-            headerSection
+            // Slim status line
+            statusLine
 
             Divider()
                 .padding(.vertical, 8)
 
-            // Content
-            if let snapshot = viewModel.snapshot {
-                contentSection(snapshot: snapshot)
-            } else if let error = viewModel.errorMessage {
-                errorSection(error: error)
-            } else {
-                loadingSection
+            // Provider cards (weather station)
+            ScrollView {
+                providerCards
             }
+            .frame(maxHeight: 520)
 
             Divider()
                 .padding(.vertical, 8)
@@ -49,210 +46,111 @@ struct MenuBarView: View {
             versionFooter
         }
         .padding(16)
-        .frame(width: 300)
+        .frame(width: 320)
+        .task {
+            // Opening the popover triggers a refresh (rate-limited) so the
+            // menu-bar-first experience stays current without the main window.
+            await viewModel.refresh()
+        }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
             now = date
         }
     }
 
-    // MARK: - Header
+    // MARK: - Status line
 
-    private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 8) {
-                Text("Claude")
-                    .font(.headline)
-                Text(viewModel.planType)
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                    .foregroundStyle(Constants.brandPrimary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Constants.brandPrimary.opacity(0.12))
-                    )
-                if viewModel.showExtraUsageIndicators, viewModel.snapshot?.hasExtraUsageEnabled == true {
-                    Label("Extra Usage", systemImage: "plus.circle.fill")
-                        .font(.caption2)
-                        .foregroundStyle(Constants.extraUsageAccent)
-                }
-                if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                }
-            }
+    private var statusLine: some View {
+        HStack(spacing: 8) {
             if let snapshot = viewModel.snapshot {
                 Text("Updated \(DateFormatters.relativeDescription(from: snapshot.fetchedAt, to: now))")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - Content
-
-    private func contentSection(snapshot: UsageSnapshot) -> some View {
-        VStack(spacing: 16) {
-            // Active banner when utilization > 100%
-            if viewModel.showExtraUsageIndicators, snapshot.isExtraUsageActive {
-                extraUsageActiveBanner
-            }
-
-            UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
-
-            // Weekly limits group
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Weekly")
-                    .font(.callout)
-                    .fontWeight(.semibold)
+            } else {
+                Text("ClaudeMeter")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
-
-                UsageRowView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
-                if let sonnet = snapshot.sonnet {
-                    UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
-                }
-                if let design = snapshot.design {
-                    UsageRowView(title: design.windowType.displayName, usage: design, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
-                }
             }
-
-            // Extra usage cost section
-            if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
-                extraUsageCostSection(extraUsage)
-            }
-
-            // Token usage section with error/loading states
-            tokenUsageSectionWithStates
-        }
-    }
-
-    // MARK: - Token Usage Section with States
-
-    @ViewBuilder
-    private var tokenUsageSectionWithStates: some View {
-        if let tokenSnapshot = viewModel.tokenSnapshot {
-            tokenCostSection(tokenSnapshot: tokenSnapshot)
-        } else if viewModel.isLoadingTokenUsage {
-            compactTokenLoadingSection
-        } else if let error = viewModel.tokenUsageError {
-            compactTokenErrorSection(error: error)
-        }
-        // If no snapshot, not loading, and no error - silently hide
-    }
-
-    private var compactTokenLoadingSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Divider()
-            HStack {
-                Text("Token Usage & Cost")
-                    .font(.callout)
-                    .fontWeight(.semibold)
-                Spacer()
+            if viewModel.isLoading || viewModel.isLoadingTokenUsage {
                 ProgressView()
                     .scaleEffect(0.6)
             }
+            Spacer()
         }
     }
 
-    private func compactTokenErrorSection(error: TokenUsageError) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Divider()
+    // MARK: - Provider cards
 
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.footnote)
+    @ViewBuilder
+    private var providerCards: some View {
+        VStack(spacing: 12) {
+            // Claude
+            if let snapshot = viewModel.snapshot {
+                claudeCard(snapshot)
+            } else if let error = viewModel.errorMessage {
+                errorSection(error: error)
+            } else {
+                loadingSection
+            }
 
-                Text(error.shortDescription)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            // Codex (rate-limit windows + cost)
+            if let codex = viewModel.codexUsage {
+                codexCard(codex)
+            }
 
-                Spacer()
-
-                Button {
-                    Task { await viewModel.refresh(force: true) }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.footnote)
-                }
-                .buttonStyle(.borderless)
-                .disabled(viewModel.isLoadingTokenUsage)
+            // OpenCode (cost only)
+            if let openCode = viewModel.extraProviderSummaries[.openCode] {
+                ProviderCardView(
+                    provider: .openCode,
+                    costLines: costLines(openCode),
+                    now: now,
+                    showExtraUsage: false,
+                    compact: true
+                )
             }
         }
     }
 
-    private func tokenCostSection(tokenSnapshot: TokenUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Divider()
+    private func claudeCard(_ snapshot: UsageSnapshot) -> some View {
+        let lines: [ProviderCostLine] = viewModel.tokenSnapshot.map {
+            [
+                ProviderCostLine(label: "Today", cost: $0.today.formattedCost, tokens: $0.today.formattedTokens),
+                ProviderCostLine(label: "30 Days", cost: $0.last30Days.formattedCost, tokens: $0.last30Days.formattedTokens)
+            ]
+        } ?? []
 
-            Text("Token Usage & Cost")
-                .font(.callout)
-                .fontWeight(.semibold)
-
-            // Today's usage - prominent display
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Today")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-
-                HStack(alignment: .firstTextBaseline) {
-                    Text(tokenSnapshot.today.formattedCost)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundStyle(Constants.brandPrimary)
-
-                    Spacer()
-
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.stack.3d.up")
-                            .font(.footnote)
-                        Text(tokenSnapshot.today.formattedTokens)
-                            .font(.callout)
-                            .fontWeight(.medium)
-                    }
-                    .foregroundStyle(.secondary)
-                }
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Constants.brandPrimary.opacity(0.08))
-            )
-
-            // 30-day usage - prominent display
-            VStack(alignment: .leading, spacing: 8) {
-                Text("30 Days")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-
-                HStack(alignment: .firstTextBaseline) {
-                    Text(tokenSnapshot.last30Days.formattedCost)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundStyle(Constants.brandPrimary)
-
-                    Spacer()
-
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.stack.3d.up")
-                            .font(.footnote)
-                        Text(tokenSnapshot.last30Days.formattedTokens)
-                            .font(.callout)
-                            .fontWeight(.medium)
-                    }
-                    .foregroundStyle(.secondary)
-                }
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Constants.brandPrimary.opacity(0.08))
-            )
-        }
+        return ProviderCardView(
+            provider: .claude,
+            planName: viewModel.planType,
+            windows: ProviderUsageSnapshot(claude: snapshot).windows,
+            extraUsage: viewModel.showExtraUsageIndicators ? snapshot.extraUsage : nil,
+            costLines: lines,
+            now: now,
+            showExtraUsage: viewModel.showExtraUsageIndicators,
+            compact: true
+        )
     }
+
+    private func codexCard(_ codex: ProviderUsageSnapshot) -> some View {
+        let lines = viewModel.extraProviderSummaries[.codex].map(costLines) ?? []
+        return ProviderCardView(
+            provider: .codex,
+            planName: codex.planName,
+            windows: codex.windows,
+            costLines: lines,
+            now: now,
+            showExtraUsage: false,
+            compact: true
+        )
+    }
+
+    private func costLines(_ breakdown: ProviderTokenBreakdown) -> [ProviderCostLine] {
+        [
+            ProviderCostLine(label: "Today", cost: breakdown.today.formattedCost, tokens: breakdown.today.formattedTokens),
+            ProviderCostLine(label: "30 Days", cost: breakdown.last30Days.formattedCost, tokens: breakdown.last30Days.formattedTokens)
+        ]
+    }
+
+    // MARK: - States
 
     private func errorSection(error: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -263,6 +161,7 @@ struct MenuBarView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var loadingSection: some View {
@@ -300,59 +199,6 @@ struct MenuBarView: View {
                 .fill(Color.orange)
         )
         .padding(.bottom, 8)
-    }
-
-    // MARK: - Extra Usage
-
-    private var extraUsageActiveBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "dollarsign.circle.fill")
-                .foregroundStyle(Constants.extraUsageAccent)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Extra Usage Active")
-                    .font(.footnote)
-                    .fontWeight(.medium)
-                Text("You've exceeded your plan limit. API rates apply.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Constants.extraUsageAccent.opacity(0.1)))
-    }
-
-    private func extraUsageCostSection(_ extraUsage: ExtraUsageCost) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Divider()
-
-            Text("Extra Usage")
-                .font(.callout)
-                .fontWeight(.semibold)
-
-            // Progress bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 8)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Constants.extraUsageAccent)
-                        .frame(width: geometry.size.width * extraUsage.normalized, height: 8)
-                }
-            }
-            .frame(height: 8)
-
-            HStack {
-                Text("Monthly: \(extraUsage.formattedUsed) / \(extraUsage.formattedLimit)")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(Int(min(100, max(0, extraUsage.percentUsed))))% used")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 
     // MARK: - Version
@@ -411,7 +257,6 @@ struct MenuBarView: View {
         .buttonStyle(.borderless)
         .labelStyle(.iconOnly)
     }
-
 }
 
 #Preview {
@@ -420,4 +265,3 @@ struct MenuBarView: View {
         .environmentObject(UpdaterController())
 }
 #endif
-
