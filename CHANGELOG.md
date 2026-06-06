@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Archive the project and mark it as no longer maintained.
+## [0.12.0] - 2026-06-06
+
+### Added
+- Add passive blog usage sync for local agent usage.
+- Add blog sync settings for endpoint URL, bearer token, manual sync, and sync status.
+
+### Fixed
+- Fix release metadata and Sparkle appcast release notes so updater notes render correctly.
 
 ## [0.11.0] - 2026-04-18
 
@@ -306,7 +312,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.9...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.9...v0.11.0
 [0.10.9]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.8...v0.10.9
 [0.10.8]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.7...v0.10.8
 [0.10.7]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.6...v0.10.7
