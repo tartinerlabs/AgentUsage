@@ -73,10 +73,12 @@ enum DependencyContainer {
         let credentialProvider = createCredentialProvider()
         let tokenService = createTokenUsageService()
         let blogUsageSyncService = createBlogUsageSyncService()
+        let codexUsageService = createCodexUsageService()
         return UsageViewModel(
             credentialProvider: credentialProvider,
             tokenService: tokenService,
             blogUsageSyncService: blogUsageSyncService,
+            codexUsageService: codexUsageService,
             modelContext: modelContext
         )
     }

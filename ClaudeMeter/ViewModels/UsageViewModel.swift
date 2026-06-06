@@ -19,6 +19,10 @@ final class UsageViewModel {
     #if os(macOS)
     var periodSummaries: [UsagePeriod: TokenUsageSummary] = [:]
     var isFetchingPeriodSummaries: Bool = false
+    /// Codex rate-limit windows (5h / weekly) read from Codex CLI logs.
+    var codexUsage: ProviderUsageSnapshot?
+    /// 30-day token/cost summaries for non-Claude providers (Codex, OpenCode).
+    var extraProviderSummaries: [Provider: TokenUsageSummary] = [:]
     #endif
     var planType: String = "Free"
     var isLoading = false
@@ -169,6 +173,7 @@ final class UsageViewModel {
     private let tokenRepository: TokenUsageRepository?
     private let tokenQuerier: TokenUsageQuerier?
     private let blogUsageSyncService: BlogUsageSyncService?
+    private let codexUsageService: CodexUsageService?
     #endif
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
@@ -187,6 +192,7 @@ final class UsageViewModel {
         apiService: (any APIServiceProtocol)? = nil,
         tokenService: TokenUsageService? = nil,
         blogUsageSyncService: BlogUsageSyncService? = nil,
+        codexUsageService: CodexUsageService? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.credentialProvider = credentialProvider
@@ -195,6 +201,7 @@ final class UsageViewModel {
         self.tokenRepository = modelContext.map { TokenUsageRepository(modelContext: $0) }
         self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
         self.blogUsageSyncService = blogUsageSyncService
+        self.codexUsageService = codexUsageService
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
         self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
@@ -321,9 +328,23 @@ final class UsageViewModel {
         // Token usage refresh (local file reads, no network needed)
         #if os(macOS)
         await refreshTokenUsage()
+        await refreshProviderUsage()
         Task { await runPassiveBlogUsageSync() }
         #endif
     }
+
+    #if os(macOS)
+    /// Refresh usage for providers other than Claude (Codex windows + Codex/OpenCode cost).
+    private func refreshProviderUsage() async {
+        if let codexUsageService {
+            codexUsage = try? await codexUsageService.fetchSnapshot()
+        }
+        if let tokenService {
+            let since = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+            extraProviderSummaries = await tokenService.fetchExtraProviderSummaries(since: since)
+        }
+    }
+    #endif
 
     #if os(macOS)
     func loadBlogUsageSyncSettings() async {
