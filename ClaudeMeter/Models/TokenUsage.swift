@@ -165,9 +165,25 @@ struct TokenCount: Sendable {
     let outputTokens: Int
     let cacheCreationTokens: Int
     let cacheReadTokens: Int
+    /// Reasoning tokens (Codex/OpenCode report these; Claude leaves it 0).
+    let reasoningTokens: Int
+
+    init(
+        inputTokens: Int,
+        outputTokens: Int,
+        cacheCreationTokens: Int,
+        cacheReadTokens: Int,
+        reasoningTokens: Int = 0
+    ) {
+        self.inputTokens = inputTokens
+        self.outputTokens = outputTokens
+        self.cacheCreationTokens = cacheCreationTokens
+        self.cacheReadTokens = cacheReadTokens
+        self.reasoningTokens = reasoningTokens
+    }
 
     var totalTokens: Int {
-        inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens
+        inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens + reasoningTokens
     }
 
     nonisolated static let zero = TokenCount(inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0)
@@ -178,7 +194,8 @@ nonisolated func + (lhs: TokenCount, rhs: TokenCount) -> TokenCount {
         inputTokens: lhs.inputTokens + rhs.inputTokens,
         outputTokens: lhs.outputTokens + rhs.outputTokens,
         cacheCreationTokens: lhs.cacheCreationTokens + rhs.cacheCreationTokens,
-        cacheReadTokens: lhs.cacheReadTokens + rhs.cacheReadTokens
+        cacheReadTokens: lhs.cacheReadTokens + rhs.cacheReadTokens,
+        reasoningTokens: lhs.reasoningTokens + rhs.reasoningTokens
     )
 }
 
@@ -263,17 +280,21 @@ struct TokenUsageSnapshot: Sendable {
     let today: TokenUsageSummary
     let last30Days: TokenUsageSummary
     let byModel: [String: TokenCount]
+    /// Per-provider 30-day breakdown (Claude / Codex / OpenCode).
+    let byProvider: [Provider: TokenUsageSummary]
     let fetchedAt: Date
 
     init(
         today: TokenUsageSummary,
         last30Days: TokenUsageSummary,
         byModel: [String: TokenCount],
+        byProvider: [Provider: TokenUsageSummary] = [:],
         fetchedAt: Date
     ) {
         self.today = today
         self.last30Days = last30Days
         self.byModel = byModel
+        self.byProvider = byProvider
         self.fetchedAt = fetchedAt
     }
 }

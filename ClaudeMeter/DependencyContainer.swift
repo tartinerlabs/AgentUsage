@@ -34,14 +34,32 @@ enum DependencyContainer {
     // MARK: - Token Usage Services (macOS only)
 
     #if os(macOS)
-    /// Create the token usage service for local JSONL log parsing
+    /// Create the token usage service for local JSONL log parsing.
+    /// Auto-detects additional providers (Codex, OpenCode) by probing their data paths.
     static func createTokenUsageService() -> TokenUsageService {
-        TokenUsageService()
+        let fm = FileManager.default
+        var sources: [any UsageLogSource] = []
+        if Constants.codexSessionsDirectories.contains(where: { fm.fileExists(atPath: $0.path) }) {
+            sources.append(CodexLogSource())
+        }
+        if Constants.openCodeDatabaseURLs.contains(where: { fm.fileExists(atPath: $0.path) }) {
+            sources.append(OpenCodeLogSource())
+        }
+        return TokenUsageService(extraSources: sources)
     }
 
     /// Create the blog usage sync service for passive local usage ingestion
     static func createBlogUsageSyncService() -> BlogUsageSyncService {
         BlogUsageSyncService.shared
+    }
+
+    /// Create the Codex rate-limit window service, if Codex logs are present.
+    static func createCodexUsageService() -> CodexUsageService? {
+        let fm = FileManager.default
+        guard Constants.codexSessionsDirectories.contains(where: { fm.fileExists(atPath: $0.path) }) else {
+            return nil
+        }
+        return CodexUsageService()
     }
     #endif
 
