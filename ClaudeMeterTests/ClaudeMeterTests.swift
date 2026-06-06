@@ -59,6 +59,9 @@ struct ModelPricingTests {
     // MARK: - Model Name Matching
 
     @Test func matchesOpus45Variants() {
+        #expect(ModelPricing.rates(for: "claude-opus-4-8") != nil)
+        #expect(ModelPricing.rates(for: "claude-opus-4-7") != nil)
+        #expect(ModelPricing.rates(for: "claude-opus-4-6") != nil)
         #expect(ModelPricing.rates(for: "claude-opus-4-5") != nil)
         #expect(ModelPricing.rates(for: "claude-opus-4.5") != nil)
         #expect(ModelPricing.rates(for: "CLAUDE-OPUS-4-5") != nil)
@@ -69,6 +72,7 @@ struct ModelPricingTests {
     }
 
     @Test func matchesSonnet45Variants() {
+        #expect(ModelPricing.rates(for: "claude-sonnet-4-6") != nil)
         #expect(ModelPricing.rates(for: "claude-sonnet-4-5") != nil)
         #expect(ModelPricing.rates(for: "claude-sonnet-4.5") != nil)
         #expect(ModelPricing.rates(for: "claude-3-5-sonnet-4-5") != nil)
@@ -118,6 +122,29 @@ struct ModelPricingTests {
         #expect(ModelPricing.rates(for: "CLAUDE-OPUS-4-5") != nil)
         #expect(ModelPricing.rates(for: "Claude-Opus-4-5") != nil)
         #expect(ModelPricing.rates(for: "claude-opus-4-5") != nil)
+    }
+
+    @Test func matchesOpenAIProviderModels() {
+        #expect(ModelPricing.rates(forProvider: "openai", model: "gpt-5.5")?.inputPerMTok == 5.0)
+        #expect(ModelPricing.rates(forProvider: "openai", model: "gpt-5.5-fast")?.inputPerMTok == 12.50)
+        #expect(ModelPricing.rates(forProvider: "openai", model: "gpt-5.4")?.inputPerMTok == 2.50)
+        #expect(ModelPricing.rates(forProvider: "openai", model: "gpt-5.4-mini")?.inputPerMTok == 0.75)
+        #expect(ModelPricing.rates(forProvider: "openai", model: "codex-auto-review")?.inputPerMTok == 1.75)
+        #expect(ModelPricing.rates(forProvider: "openai", model: "gpt-5.3-codex")?.inputPerMTok == 1.75)
+    }
+
+    @Test func openAIReasoningTokensAreBilledAsOutput() {
+        let cost = ModelPricing.costUSD(
+            provider: "openai",
+            model: "codex-auto-review",
+            inputTokens: 0,
+            outputTokens: 1_000_000,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            reasoningTokens: 1_000_000
+        )
+
+        #expect(cost == 28.0)
     }
 }
 

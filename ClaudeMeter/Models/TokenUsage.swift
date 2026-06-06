@@ -50,14 +50,55 @@ enum ModelPricing: Sendable {
         cacheReadPerMTok: 0.08
     )
 
+    nonisolated static let gpt55 = Rates(
+        inputPerMTok: 5.0,
+        outputPerMTok: 30.0,
+        cacheWritePerMTok: 0,
+        cacheReadPerMTok: 0.50
+    )
+
+    nonisolated static let gpt55Priority = Rates(
+        inputPerMTok: 12.50,
+        outputPerMTok: 75.0,
+        cacheWritePerMTok: 0,
+        cacheReadPerMTok: 1.25
+    )
+
+    nonisolated static let gpt54 = Rates(
+        inputPerMTok: 2.50,
+        outputPerMTok: 15.0,
+        cacheWritePerMTok: 0,
+        cacheReadPerMTok: 0.25
+    )
+
+    nonisolated static let gpt54Mini = Rates(
+        inputPerMTok: 0.75,
+        outputPerMTok: 4.50,
+        cacheWritePerMTok: 0,
+        cacheReadPerMTok: 0.075
+    )
+
+    nonisolated static let gpt53Codex = Rates(
+        inputPerMTok: 1.75,
+        outputPerMTok: 14.0,
+        cacheWritePerMTok: 0,
+        cacheReadPerMTok: 0.175
+    )
+
     /// Get pricing rates for a model name
     nonisolated static func rates(for model: String) -> Rates? {
         let lowercased = model.lowercased()
 
-        if lowercased.contains("opus-4-6") || lowercased.contains("opus-4.6") {
+        if lowercased.contains("opus-4-8") || lowercased.contains("opus-4.8") {
+            return opus45
+        } else if lowercased.contains("opus-4-7") || lowercased.contains("opus-4.7") {
+            return opus45
+        } else if lowercased.contains("opus-4-6") || lowercased.contains("opus-4.6") {
             return opus45
         } else if lowercased.contains("opus-4-5") || lowercased.contains("opus-4.5") {
             return opus45
+        } else if lowercased.contains("sonnet-4-6") || lowercased.contains("sonnet-4.6") {
+            return sonnet45
         } else if lowercased.contains("sonnet-4-5") || lowercased.contains("sonnet-4.5") {
             return sonnet45
         } else if lowercased.contains("sonnet-4") {
@@ -69,6 +110,52 @@ enum ModelPricing: Sendable {
         }
 
         return nil
+    }
+
+    nonisolated static func rates(forProvider provider: String, model: String) -> Rates? {
+        let lowercasedProvider = provider.lowercased()
+        let lowercasedModel = model.lowercased()
+
+        if lowercasedProvider == "anthropic" {
+            return rates(for: model)
+        }
+
+        if lowercasedProvider == "openai" {
+            if lowercasedModel == "codex-auto-review" || lowercasedModel.contains("gpt-5.3-codex") {
+                return gpt53Codex
+            } else if lowercasedModel.contains("gpt-5.5-fast") {
+                return gpt55Priority
+            } else if lowercasedModel.contains("gpt-5.5") {
+                return gpt55
+            } else if lowercasedModel.contains("gpt-5.4-mini") {
+                return gpt54Mini
+            } else if lowercasedModel.contains("gpt-5.4") {
+                return gpt54
+            }
+        }
+
+        return nil
+    }
+
+    nonisolated static func costUSD(
+        provider: String,
+        model: String,
+        inputTokens: Int,
+        outputTokens: Int,
+        cacheReadTokens: Int,
+        cacheWriteTokens: Int,
+        reasoningTokens: Int
+    ) -> Double? {
+        guard let rates = rates(forProvider: provider, model: model) else { return nil }
+        let billsReasoningAsOutput = provider.lowercased() == "openai"
+        let billableOutputTokens = outputTokens + (billsReasoningAsOutput ? reasoningTokens : 0)
+
+        return (
+            Double(inputTokens) * rates.inputPerMTok
+            + Double(billableOutputTokens) * rates.outputPerMTok
+            + Double(cacheWriteTokens) * rates.cacheWritePerMTok
+            + Double(cacheReadTokens) * rates.cacheReadPerMTok
+        ) / 1_000_000
     }
 }
 

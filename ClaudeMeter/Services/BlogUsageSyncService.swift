@@ -216,6 +216,15 @@ nonisolated struct BlogUsageAggregator {
             let cacheWriteTokens = events.reduce(0) { $0 + $1.cacheWriteTokens }
             let reasoningTokens = events.reduce(0) { $0 + $1.reasoningTokens }
             let totalTokens = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens + reasoningTokens
+            let costUsd = ModelPricing.costUSD(
+                provider: key.provider,
+                model: key.model,
+                inputTokens: inputTokens,
+                outputTokens: outputTokens,
+                cacheReadTokens: cacheReadTokens,
+                cacheWriteTokens: cacheWriteTokens,
+                reasoningTokens: reasoningTokens
+            ).map { String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), $0) }
 
             return BlogUsageIngestRow(
                 date: key.date,
@@ -228,7 +237,7 @@ nonisolated struct BlogUsageAggregator {
                 cacheWriteTokens: cacheWriteTokens,
                 reasoningTokens: reasoningTokens,
                 totalTokens: totalTokens,
-                costUsd: nil,
+                costUsd: costUsd,
                 messages: events.count
             )
         }
