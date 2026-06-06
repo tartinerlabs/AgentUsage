@@ -34,6 +34,23 @@ struct BlogUsageSyncTests {
         #expect(events.first?.reasoningTokens == 0)
     }
 
+    @Test func claudeParserSkipsSyntheticModelRows() throws {
+        let home = try Self.temporaryDirectory()
+        let logDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+        let log = logDirectory.appendingPathComponent("usage.jsonl")
+        try """
+        {"type":"assistant","timestamp":"2026-06-02T10:00:00Z","requestId":"req-synthetic","message":{"id":"msg-synthetic","model":"<synthetic>","usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+        {"type":"assistant","timestamp":"2026-06-02T10:00:01Z","requestId":"req-real","message":{"id":"msg-real","model":"claude-sonnet-4-5","usage":{"input_tokens":1,"output_tokens":2,"cache_read_input_tokens":3,"cache_creation_input_tokens":4}}}
+        """.write(to: log, atomically: true, encoding: .utf8)
+
+        let parser = BlogUsageSourceParser(homeDirectory: home, environment: [:])
+        let events = try parser.parseClaudeEvents()
+
+        #expect(events.count == 1)
+        #expect(events.first?.model == "claude-sonnet-4-5")
+    }
+
     @Test func codexParserSplitsCachedAndReasoningTokens() throws {
         let home = try Self.temporaryDirectory()
         let logDirectory = home.appendingPathComponent(".codex/sessions/2026/06", isDirectory: true)
