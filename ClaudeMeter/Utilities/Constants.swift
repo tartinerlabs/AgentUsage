@@ -52,5 +52,24 @@ enum Constants {
             home.appendingPathComponent(".config/claude/projects")
         ]
     }
+
+    /// Codex CLI session rollout logs (`rollout-*.jsonl`), nested by year/month/day.
+    nonisolated static var codexSessionsDirectories: [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return [
+            home.appendingPathComponent(".codex/sessions")
+        ]
+    }
+
+    /// OpenCode SQLite database (XDG data home, with fallback).
+    nonisolated static var openCodeDatabaseURLs: [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        var urls: [URL] = []
+        if let xdgData = ProcessInfo.processInfo.environment["XDG_DATA_HOME"], !xdgData.isEmpty {
+            urls.append(URL(fileURLWithPath: xdgData).appendingPathComponent("opencode/opencode.db"))
+        }
+        urls.append(home.appendingPathComponent(".local/share/opencode/opencode.db"))
+        return urls
+    }
     #endif
 }
