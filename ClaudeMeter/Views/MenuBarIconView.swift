@@ -77,11 +77,17 @@ struct MenuBarIconView: View {
                 if viewModel.menuBarShowDesign, let design = snapshot.design {
                     usageColumn(label: "DESIGN", usage: design)
                 }
+                if viewModel.menuBarShowCodex, let codexWindow = viewModel.codexUsage?.worstWindow {
+                    usageColumn(label: "CODEX", usage: codexWindow)
+                }
 
                 // Fallback if nothing is enabled
-                if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet && !viewModel.menuBarShowDesign {
+                if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet && !viewModel.menuBarShowDesign && !viewModel.menuBarShowCodex {
                     usageColumn(label: "CURR", usage: snapshot.session)
                 }
+            } else if viewModel.menuBarShowCodex, let codexWindow = viewModel.codexUsage?.worstWindow {
+                // No Claude data but Codex is available
+                usageColumn(label: "CODEX", usage: codexWindow)
             } else {
                 Text("--%")
                     .font(.system(size: 11, weight: .medium, design: .monospaced))

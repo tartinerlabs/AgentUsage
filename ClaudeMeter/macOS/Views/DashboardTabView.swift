@@ -32,32 +32,31 @@ struct DashboardTabView: View {
                     extraUsageBanner
                 }
 
-                // Content
+                // Provider cards (weather station): Claude / Codex / OpenCode
                 if let snapshot = viewModel.snapshot {
-                    usageSection(snapshot: snapshot)
-
-                    // Extra usage cost section
-                    if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
-                        extraUsageCostSection(extraUsage)
-                    }
-
-                    // Token usage section with error/loading states
-                    tokenUsageSectionWithStates
+                    claudeCard(snapshot)
                 } else if let error = viewModel.errorMessage {
                     errorSection(error: error)
                 } else {
                     loadingSection
                 }
 
-                // Other providers (Codex windows, Codex/OpenCode cost) — shown
-                // independently of Claude so they appear even without Claude data.
                 if let codex = viewModel.codexUsage {
-                    Divider()
-                    codexSection(codex)
+                    codexCard(codex)
                 }
-                if !viewModel.extraProviderSummaries.isEmpty {
-                    Divider()
-                    providerCostSection
+
+                if let openCode = viewModel.extraProviderSummaries[.openCode] {
+                    ProviderCardView(
+                        provider: .openCode,
+                        costLines: costLines(openCode),
+                        now: now,
+                        showExtraUsage: false
+                    )
+                }
+
+                // Claude token-cost drill-down (multi-period history)
+                if viewModel.snapshot != nil {
+                    tokenUsageSectionWithStates
                 }
             }
             .padding(24)
@@ -87,19 +86,10 @@ struct DashboardTabView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                Text("Claude")
+                Text("Usage")
                     .font(.title2)
                     .fontWeight(.bold)
-                Text(viewModel.planType)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
-                if viewModel.showExtraUsageIndicators, viewModel.snapshot?.hasExtraUsageEnabled == true {
-                    Label("Extra Usage", systemImage: "plus.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(Constants.extraUsageAccent)
-                }
-                if viewModel.isLoading {
+                if viewModel.isLoading || viewModel.isLoadingTokenUsage {
                     ProgressView()
                         .scaleEffect(0.7)
                 }
@@ -112,105 +102,37 @@ struct DashboardTabView: View {
         }
     }
 
-    // MARK: - Usage Section
+    // MARK: - Provider Cards
 
-    private func usageSection(snapshot: UsageSnapshot) -> some View {
-        VStack(spacing: 16) {
-            UsageRowView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
-
-            // Weekly limits group
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Weekly")
-                    .font(.callout)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-
-                UsageRowView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
-                if let sonnet = snapshot.sonnet {
-                    UsageRowView(title: sonnet.windowType.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
-                }
-                if let design = snapshot.design {
-                    UsageRowView(title: design.windowType.displayName, usage: design, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
-                }
-            }
-        }
+    // Claude card shows windows + extra usage; the detailed Today/30-day cost
+    // (with period picker) lives in `tokenUsageSectionWithStates` below.
+    private func claudeCard(_ snapshot: UsageSnapshot) -> some View {
+        ProviderCardView(
+            provider: .claude,
+            planName: viewModel.planType,
+            windows: ProviderUsageSnapshot(claude: snapshot).windows,
+            extraUsage: viewModel.showExtraUsageIndicators ? snapshot.extraUsage : nil,
+            now: now,
+            showExtraUsage: viewModel.showExtraUsageIndicators
+        )
     }
 
-    // MARK: - Other Providers (Codex / OpenCode)
-
-    /// Codex rate-limit windows (5-hour + weekly), CodexBar-style.
-    private func codexSection(_ codex: ProviderUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: Provider.codex.iconName)
-                    .foregroundStyle(Provider.codex.accentColor)
-                Text(Provider.codex.displayName)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                if let plan = codex.planName, !plan.isEmpty {
-                    Text(plan.capitalized)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            VStack(spacing: 16) {
-                ForEach(Array(codex.windows.enumerated()), id: \.offset) { _, window in
-                    UsageRowView(
-                        title: window.windowType.displayName,
-                        usage: window,
-                        now: now,
-                        showExtraUsage: false
-                    )
-                }
-            }
-        }
+    private func codexCard(_ codex: ProviderUsageSnapshot) -> some View {
+        ProviderCardView(
+            provider: .codex,
+            planName: codex.planName,
+            windows: codex.windows,
+            costLines: viewModel.extraProviderSummaries[.codex].map(costLines) ?? [],
+            now: now,
+            showExtraUsage: false
+        )
     }
 
-    /// Display order for non-Claude providers.
-    private var orderedExtraProviders: [Provider] {
-        [.codex, .openCode].filter { viewModel.extraProviderSummaries[$0] != nil }
-    }
-
-    /// 30-day token/cost rows for non-Claude providers (surfaces OpenCode, which has no windows).
-    private var providerCostSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Other Providers — 30 Days")
-                .font(.headline)
-
-            ForEach(orderedExtraProviders, id: \.self) { provider in
-                if let summary = viewModel.extraProviderSummaries[provider] {
-                    HStack(spacing: 10) {
-                        Image(systemName: provider.iconName)
-                            .foregroundStyle(provider.accentColor)
-                            .frame(width: 20)
-                        Text(provider.displayName)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Image(systemName: "square.stack.3d.up")
-                                .font(.caption)
-                            Text(summary.formattedTokens)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-                        .foregroundStyle(.secondary)
-                        Text(summary.formattedCost)
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundStyle(provider.accentColor)
-                            .frame(minWidth: 64, alignment: .trailing)
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(provider.accentColor.opacity(0.08))
-                    )
-                }
-            }
-        }
+    private func costLines(_ breakdown: ProviderTokenBreakdown) -> [ProviderCostLine] {
+        [
+            ProviderCostLine(label: "Today", cost: breakdown.today.formattedCost, tokens: breakdown.today.formattedTokens),
+            ProviderCostLine(label: "30 Days", cost: breakdown.last30Days.formattedCost, tokens: breakdown.last30Days.formattedTokens)
+        ]
     }
 
     // MARK: - Token Cost Section

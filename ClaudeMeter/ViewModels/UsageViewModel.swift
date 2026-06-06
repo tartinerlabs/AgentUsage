@@ -21,8 +21,8 @@ final class UsageViewModel {
     var isFetchingPeriodSummaries: Bool = false
     /// Codex rate-limit windows (5h / weekly) read from Codex CLI logs.
     var codexUsage: ProviderUsageSnapshot?
-    /// 30-day token/cost summaries for non-Claude providers (Codex, OpenCode).
-    var extraProviderSummaries: [Provider: TokenUsageSummary] = [:]
+    /// Today + 30-day token/cost breakdowns for non-Claude providers (Codex, OpenCode).
+    var extraProviderSummaries: [Provider: ProviderTokenBreakdown] = [:]
     #endif
     var planType: String = "Free"
     var isLoading = false
@@ -155,6 +155,12 @@ final class UsageViewModel {
         }
     }
 
+    var menuBarShowCodex: Bool {
+        didSet {
+            UserDefaults.standard.set(menuBarShowCodex, forKey: "menuBarShowCodex")
+        }
+    }
+
     var menuBarShowExtraUsage: Bool {
         didSet {
             UserDefaults.standard.set(menuBarShowExtraUsage, forKey: "menuBarShowExtraUsage")
@@ -215,6 +221,7 @@ final class UsageViewModel {
         self.menuBarShowAllModels = defaults.object(forKey: "menuBarShowAllModels") as? Bool ?? false
         self.menuBarShowSonnet = defaults.object(forKey: "menuBarShowSonnet") as? Bool ?? false
         self.menuBarShowDesign = defaults.object(forKey: "menuBarShowDesign") as? Bool ?? false
+        self.menuBarShowCodex = defaults.object(forKey: "menuBarShowCodex") as? Bool ?? false
         self.menuBarShowExtraUsage = defaults.object(forKey: "menuBarShowExtraUsage") as? Bool ?? true
 
         // Load cached data on init

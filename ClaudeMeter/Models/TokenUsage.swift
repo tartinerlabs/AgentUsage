@@ -275,6 +275,12 @@ struct TokenUsageSummary: Sendable {
     }
 }
 
+/// Today + 30-day token/cost summaries for a single provider (Codex, OpenCode).
+struct ProviderTokenBreakdown: Sendable {
+    let today: TokenUsageSummary
+    let last30Days: TokenUsageSummary
+}
+
 /// Complete token usage snapshot
 struct TokenUsageSnapshot: Sendable {
     let today: TokenUsageSummary
