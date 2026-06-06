@@ -53,12 +53,18 @@ public enum UsageWindowType: String, Sendable, Codable {
     case sonnet   // 7 days - separate Sonnet limit (seven_day_sonnet)
     case design   // 7 days - Claude Design limit (seven_day_omelette)
 
+    // Generic windows for providers other than Claude.
+    case codexFiveHour  // Codex primary limit (rate_limits.primary, window_minutes 300)
+    case codexWeekly    // Codex secondary limit (rate_limits.secondary, window_minutes 10080)
+
     public var displayName: String {
         switch self {
         case .session: "Current session"
         case .opus: "All models"
         case .sonnet: "Sonnet"
         case .design: "Claude Design"
+        case .codexFiveHour: "5-hour limit"
+        case .codexWeekly: "Weekly limit"
         }
     }
 
@@ -68,6 +74,8 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .opus: 7 * 24 * 60 * 60    // 7 days in seconds
         case .sonnet: 7 * 24 * 60 * 60  // 7 days in seconds
         case .design: 7 * 24 * 60 * 60  // 7 days in seconds
+        case .codexFiveHour: 5 * 60 * 60      // 5 hours in seconds
+        case .codexWeekly: 7 * 24 * 60 * 60   // 7 days in seconds
         }
     }
 }
@@ -324,4 +332,50 @@ public struct UsageSnapshot: Sendable, Codable {
         ),
         fetchedAt: Date()
     )
+}
+
+// MARK: - Provider Usage Snapshot
+
+/// Provider-agnostic rate-window snapshot.
+///
+/// Unlike `UsageSnapshot` (which has fixed Claude-shaped fields), this holds an
+/// ordered list of windows so providers with a different number/kind of windows
+/// (e.g. Codex's 5-hour + weekly) can be represented uniformly.
+public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
+    public let provider: Provider
+    public let windows: [UsageWindow]
+    public let extraUsage: ExtraUsageCost?
+    /// Plan / tier name reported by the provider, if any (e.g. Codex `plan_type`).
+    public let planName: String?
+    public let fetchedAt: Date
+
+    public var id: String { provider.id }
+
+    public init(
+        provider: Provider,
+        windows: [UsageWindow],
+        extraUsage: ExtraUsageCost? = nil,
+        planName: String? = nil,
+        fetchedAt: Date
+    ) {
+        self.provider = provider
+        self.windows = windows
+        self.extraUsage = extraUsage
+        self.planName = planName
+        self.fetchedAt = fetchedAt
+    }
+
+    /// Bridge an existing Claude `UsageSnapshot` into the provider-agnostic shape.
+    public init(claude snapshot: UsageSnapshot, planName: String? = nil) {
+        self.provider = .claude
+        self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design].compactMap { $0 }
+        self.extraUsage = snapshot.extraUsage
+        self.planName = planName
+        self.fetchedAt = snapshot.fetchedAt
+    }
+
+    /// Worst (highest-utilization) window, useful for compact status indicators.
+    public var worstWindow: UsageWindow? {
+        windows.max { $0.utilization < $1.utilization }
+    }
 }

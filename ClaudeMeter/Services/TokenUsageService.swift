@@ -12,6 +12,14 @@ import CryptoKit
 actor TokenUsageService: TokenUsageServiceProtocol {
     private let fileManager = FileManager.default
 
+    /// Additional providers (Codex, OpenCode, …) merged into the snapshot.
+    /// Claude is read directly by this service.
+    private let extraSources: [any UsageLogSource]
+
+    init(extraSources: [any UsageLogSource] = []) {
+        self.extraSources = extraSources
+    }
+
     // Reentrancy guard: reuse in-flight fetch instead of starting a new one
     private var inFlightTask: Task<TokenUsageSnapshot, Error>?
 
@@ -310,19 +318,51 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             cachedEntriesByFile.removeValue(forKey: file)
         }
 
+        // Unify Claude entries with any additional providers (Codex, OpenCode, …)
+        var unified: [ProviderUsageEntry] = allEntries.enumerated().map { index, entry in
+            ProviderUsageEntry(
+                provider: .claude,
+                model: entry.model,
+                pricingProviderKey: "anthropic",
+                tokens: entry.tokens,
+                timestamp: entry.timestamp,
+                dedupKey: "claude:\(index)"  // Claude entries are already deduped during parse
+            )
+        }
+
+        for source in extraSources {
+            do {
+                let entries = try await source.fetchEntries(since: last30DaysStart)
+                unified.append(contentsOf: entries)
+            } catch {
+                Logger.tokenUsage.warning("Source \(source.provider.rawValue) failed: \(error.localizedDescription)")
+            }
+        }
+
+        // Deduplicate across sources by provider-scoped key
+        var seen = Set<String>()
+        unified = unified.filter { seen.insert($0.dedupKey).inserted }
+
         // Aggregate summaries
-        let todayEntries = allEntries.filter { $0.timestamp >= todayStart }
+        let todayEntries = unified.filter { $0.timestamp >= todayStart }
 
         var byModel: [String: TokenCount] = [:]
-        for entry in allEntries {
+        for entry in unified {
             let existing = byModel[entry.model] ?? .zero
             byModel[entry.model] = existing + entry.tokens
         }
 
+        var byProvider: [Provider: TokenUsageSummary] = [:]
+        for provider in Set(unified.map(\.provider)) {
+            let entries = unified.filter { $0.provider == provider }
+            byProvider[provider] = self.aggregateSummary(entries: entries, period: .last30Days)
+        }
+
         let snapshot = TokenUsageSnapshot(
             today: self.aggregateSummary(entries: todayEntries, period: .today),
-            last30Days: self.aggregateSummary(entries: allEntries, period: .last30Days),
+            last30Days: self.aggregateSummary(entries: unified, period: .last30Days),
             byModel: byModel,
+            byProvider: byProvider,
             fetchedAt: now
         )
 
@@ -471,16 +511,13 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         return "log-\(hex)"
     }
 
-    private func aggregateSummary(entries: [UsageEntry], period: UsagePeriod) -> TokenUsageSummary {
+    private func aggregateSummary(entries: [ProviderUsageEntry], period: UsagePeriod) -> TokenUsageSummary {
         var totalTokens = TokenCount.zero
         var totalCost = 0.0
 
         for entry in entries {
             totalTokens = totalTokens + entry.tokens
-            if let rates = ModelPricing.rates(for: entry.model) {
-                let cost = calculateCost(tokens: entry.tokens, rates: rates)
-                totalCost += cost
-            }
+            totalCost += cost(for: entry)
         }
 
         return TokenUsageSummary(
@@ -490,13 +527,18 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         )
     }
 
-    private func calculateCost(tokens: TokenCount, rates: ModelPricing.Rates) -> Double {
-        let inputCost = Double(tokens.inputTokens) * rates.inputPerMTok / 1_000_000
-        let outputCost = Double(tokens.outputTokens) * rates.outputPerMTok / 1_000_000
-        let cacheWriteCost = Double(tokens.cacheCreationTokens) * rates.cacheWritePerMTok / 1_000_000
-        let cacheReadCost = Double(tokens.cacheReadTokens) * rates.cacheReadPerMTok / 1_000_000
-
-        return inputCost + outputCost + cacheWriteCost + cacheReadCost
+    /// Cost for an entry: trust a provider-precomputed value, else compute via `ModelPricing`.
+    private func cost(for entry: ProviderUsageEntry) -> Double {
+        if let precomputed = entry.precomputedCostUSD { return precomputed }
+        return ModelPricing.costUSD(
+            provider: entry.pricingProviderKey,
+            model: entry.model,
+            inputTokens: entry.tokens.inputTokens,
+            outputTokens: entry.tokens.outputTokens,
+            cacheReadTokens: entry.tokens.cacheReadTokens,
+            cacheWriteTokens: entry.tokens.cacheCreationTokens,
+            reasoningTokens: entry.tokens.reasoningTokens
+        ) ?? 0
     }
 }
 #endif
