@@ -1,10 +1,21 @@
 {
   "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
           {
-            "command": "bd prime --hook-json",
+            "command": "bd prime",
             "type": "command"
           }
         ],
