@@ -55,23 +55,50 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         return try await task.value
     }
 
-    /// Per-provider token/cost breakdowns (today + 30 days) for the extra
-    /// (non-Claude) sources only.
+    /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
+    /// for the extra (non-Claude) sources.
     ///
-    /// Claude's summary already comes from the SwiftData path; this avoids
+    /// Claude's detail is assembled from the SwiftData path; this avoids
     /// re-parsing Claude logs just to surface Codex/OpenCode totals.
-    func fetchExtraProviderSummaries(since: Date) async -> [Provider: ProviderTokenBreakdown] {
-        let todayStart = Calendar.current.startOfDay(for: Date())
-        var result: [Provider: ProviderTokenBreakdown] = [:]
+    func fetchExtraProviderDetails(since: Date) async -> [Provider: ProviderDetail] {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let yesterdayStart = calendar.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
+
+        var result: [Provider: ProviderDetail] = [:]
         for source in extraSources {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
+
             let todayEntries = entries.filter { $0.timestamp >= todayStart }
-            result[source.provider] = ProviderTokenBreakdown(
+            let yesterdayEntries = entries.filter { $0.timestamp >= yesterdayStart && $0.timestamp < todayStart }
+
+            var byModel: [String: TokenCount] = [:]
+            for entry in entries {
+                byModel[entry.model] = (byModel[entry.model] ?? .zero) + entry.tokens
+            }
+
+            result[source.provider] = ProviderDetail(
                 today: aggregateSummary(entries: todayEntries, period: .today),
-                last30Days: aggregateSummary(entries: entries, period: .last30Days)
+                yesterday: aggregateSummary(entries: yesterdayEntries, period: .today),
+                last30Days: aggregateSummary(entries: entries, period: .last30Days),
+                byModel: byModel,
+                dailyCosts: dailyCosts(from: entries, days: 30, todayStart: todayStart, calendar: calendar)
             )
         }
         return result
+    }
+
+    /// Bucket entries into a `days`-length daily cost series (oldest → newest).
+    private func dailyCosts(from entries: [ProviderUsageEntry], days: Int, todayStart: Date, calendar: Calendar) -> [Double] {
+        var byDay: [Date: Double] = [:]
+        for entry in entries {
+            let day = calendar.startOfDay(for: entry.timestamp)
+            byDay[day, default: 0] += cost(for: entry)
+        }
+        return (0..<days).reversed().map { offset in
+            let day = calendar.date(byAdding: .day, value: -offset, to: todayStart) ?? todayStart
+            return byDay[day] ?? 0
+        }
     }
 
     /// Represents file state for incremental reading

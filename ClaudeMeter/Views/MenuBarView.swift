@@ -13,40 +13,25 @@ struct MenuBarView: View {
     @EnvironmentObject private var updaterController: UpdaterController
     @Environment(\.openWindow) private var openWindow
     @AppStorage("selectedMainWindowTab") private var selectedTab: MainWindowTab = .dashboard
+
+    @State private var selectedPage: SidebarPage = .overview
     @State private var lastRefreshTap: Date?
     @State private var now = Date()
     private let uiThrottle: TimeInterval = 5
 
+    private enum SidebarPage: Hashable {
+        case overview
+        case provider(Provider)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Update banner (if available)
-            if updaterController.updateAvailable {
-                updateBanner
-            }
-
-            // Slim status line
-            statusLine
-
+        HStack(spacing: 0) {
+            rail
             Divider()
-                .padding(.vertical, 8)
-
-            // Provider cards (weather station)
-            providerCards
-
-            Divider()
-                .padding(.vertical, 8)
-
-            // Actions
-            actionsSection
-
-            // Version footer
-            versionFooter
+            content
         }
-        .padding(16)
-        .frame(width: 320)
+        .frame(width: 372, height: 560)
         .task {
-            // Opening the popover triggers a refresh (rate-limited) so the
-            // menu-bar-first experience stays current without the main window.
             await viewModel.refresh()
         }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
@@ -54,96 +39,172 @@ struct MenuBarView: View {
         }
     }
 
-    // MARK: - Status line
+    // MARK: - Available providers
 
-    private var statusLine: some View {
-        HStack(spacing: 8) {
-            if let snapshot = viewModel.snapshot {
-                Text("Updated \(DateFormatters.relativeDescription(from: snapshot.fetchedAt, to: now))")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("ClaudeMeter")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+    private var availableProviders: [Provider] {
+        var list: [Provider] = []
+        if viewModel.snapshot != nil { list.append(.claude) }
+        if viewModel.codexUsage != nil { list.append(.codex) }
+        if viewModel.providerDetails[.openCode] != nil { list.append(.openCode) }
+        return list
+    }
+
+    // MARK: - Rail
+
+    private var rail: some View {
+        VStack(spacing: 8) {
+            railTab(.overview, systemImage: "gauge.with.dots.needle.bottom.50percent", tint: .primary)
+            ForEach(availableProviders, id: \.self) { provider in
+                railTab(.provider(provider), systemImage: provider.iconName, tint: provider.accentColor)
             }
-            if viewModel.isLoading || viewModel.isLoadingTokenUsage {
-                ProgressView()
-                    .scaleEffect(0.6)
-            }
+
             Spacer()
+
+            railAction("arrow.clockwise", help: "Refresh (⌘R)") {
+                let tapped = Date()
+                if let last = lastRefreshTap, tapped.timeIntervalSince(last) < uiThrottle { return }
+                lastRefreshTap = tapped
+                Task { await viewModel.refresh(force: true) }
+            }
+            railAction("gear", help: "Settings (⌘,)") {
+                selectedTab = .settings
+                openWindow(id: Constants.mainWindowID)
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            railAction("power", help: "Quit (⌘Q)") {
+                NSApplication.shared.terminate(nil)
+            }
+        }
+        .padding(.vertical, 12)
+        .frame(width: 56)
+        .frame(maxHeight: .infinity)
+        .background(Color.black.opacity(0.18))
+    }
+
+    private func railTab(_ page: SidebarPage, systemImage: String, tint: Color) -> some View {
+        let isSelected = selectedPage == page
+        return Button {
+            selectedPage = page
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 16))
+                .foregroundStyle(isSelected ? tint : .secondary)
+                .frame(width: 34, height: 30)
+                .background(
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(isSelected ? tint.opacity(0.15) : .clear)
+                )
+                .overlay(alignment: .leading) {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(tint)
+                            .frame(width: 3, height: 18)
+                            .offset(x: -8)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func railAction(_ systemImage: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .frame(width: 34, height: 28)
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    // MARK: - Content
+
+    private var content: some View {
+        VStack(spacing: 0) {
+            if updaterController.updateAvailable {
+                updateBanner.padding([.horizontal, .top], 16)
+            }
+
+            ScrollView {
+                pageContent
+                    .padding(16)
+            }
+
+            Divider()
+            footer
         }
     }
 
-    // MARK: - Provider cards
+    @ViewBuilder
+    private var pageContent: some View {
+        switch selectedPage {
+        case .overview:
+            overviewPage
+        case .provider(let provider):
+            ProviderDetailView(
+                provider: provider,
+                planName: planName(for: provider),
+                windows: windows(for: provider),
+                detail: viewModel.providerDetails[provider],
+                now: now
+            )
+        }
+    }
 
     @ViewBuilder
-    private var providerCards: some View {
-        VStack(spacing: 12) {
-            // Claude
-            if let snapshot = viewModel.snapshot {
-                claudeCard(snapshot)
-            } else if let error = viewModel.errorMessage {
+    private var overviewPage: some View {
+        let providers = availableProviders
+        if providers.isEmpty {
+            if let error = viewModel.errorMessage {
                 errorSection(error: error)
             } else {
                 loadingSection
             }
-
-            // Codex (rate-limit windows + cost)
-            if let codex = viewModel.codexUsage {
-                codexCard(codex)
-            }
-
-            // OpenCode (cost only)
-            if let openCode = viewModel.extraProviderSummaries[.openCode] {
-                ProviderCardView(
-                    provider: .openCode,
-                    costLines: costLines(openCode),
-                    now: now,
-                    showExtraUsage: false,
-                    compact: true
-                )
+        } else {
+            VStack(spacing: 12) {
+                ForEach(providers, id: \.self) { provider in
+                    overviewCard(provider)
+                }
             }
         }
     }
 
-    private func claudeCard(_ snapshot: UsageSnapshot) -> some View {
-        let lines: [ProviderCostLine] = viewModel.tokenSnapshot.map {
-            [
-                ProviderCostLine(label: "Today", cost: $0.today.formattedCost, tokens: $0.today.formattedTokens),
-                ProviderCostLine(label: "30 Days", cost: $0.last30Days.formattedCost, tokens: $0.last30Days.formattedTokens)
-            ]
-        } ?? []
-
-        return ProviderCardView(
-            provider: .claude,
-            planName: viewModel.planType,
-            windows: ProviderUsageSnapshot(claude: snapshot).windows,
-            extraUsage: viewModel.showExtraUsageIndicators ? snapshot.extraUsage : nil,
-            costLines: lines,
+    private func overviewCard(_ provider: Provider) -> some View {
+        ProviderCardView(
+            provider: provider,
+            planName: planName(for: provider),
+            windows: windows(for: provider),
+            extraUsage: provider == .claude && viewModel.showExtraUsageIndicators ? viewModel.snapshot?.extraUsage : nil,
+            costLines: costLines(for: provider),
             now: now,
-            showExtraUsage: viewModel.showExtraUsageIndicators,
+            showExtraUsage: provider == .claude && viewModel.showExtraUsageIndicators,
             compact: true
         )
     }
 
-    private func codexCard(_ codex: ProviderUsageSnapshot) -> some View {
-        let lines = viewModel.extraProviderSummaries[.codex].map(costLines) ?? []
-        return ProviderCardView(
-            provider: .codex,
-            planName: codex.planName,
-            windows: codex.windows,
-            costLines: lines,
-            now: now,
-            showExtraUsage: false,
-            compact: true
-        )
+    // MARK: - Per-provider data
+
+    private func windows(for provider: Provider) -> [UsageWindow] {
+        switch provider {
+        case .claude: return viewModel.snapshot.map { ProviderUsageSnapshot(claude: $0).windows } ?? []
+        case .codex: return viewModel.codexUsage?.windows ?? []
+        case .openCode: return []
+        }
     }
 
-    private func costLines(_ breakdown: ProviderTokenBreakdown) -> [ProviderCostLine] {
-        [
-            ProviderCostLine(label: "Today", cost: breakdown.today.formattedCost, tokens: breakdown.today.formattedTokens),
-            ProviderCostLine(label: "30 Days", cost: breakdown.last30Days.formattedCost, tokens: breakdown.last30Days.formattedTokens)
+    private func planName(for provider: Provider) -> String? {
+        switch provider {
+        case .claude: return viewModel.planType
+        case .codex: return viewModel.codexUsage?.planName
+        case .openCode: return nil
+        }
+    }
+
+    private func costLines(for provider: Provider) -> [ProviderCostLine] {
+        guard let detail = viewModel.providerDetails[provider] else { return [] }
+        return [
+            ProviderCostLine(label: "Today", cost: detail.today.formattedCost, tokens: detail.today.formattedTokens),
+            ProviderCostLine(label: "30 Days", cost: detail.last30Days.formattedCost, tokens: detail.last30Days.formattedTokens)
         ]
     }
 
@@ -170,10 +231,8 @@ struct MenuBarView: View {
                 .foregroundStyle(.secondary)
             Spacer()
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, 40)
     }
-
-    // MARK: - Update Banner
 
     private var updateBanner: some View {
         HStack {
@@ -191,68 +250,28 @@ struct MenuBarView: View {
             .controlSize(.small)
         }
         .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.orange)
-        )
-        .padding(.bottom, 8)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange))
     }
 
-    // MARK: - Version
-
-    private var versionFooter: some View {
+    private var footer: some View {
         HStack {
-            Spacer()
             if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-                Text("v\(version)")
+                Text("ClaudeMeter v\(version)")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
             Spacer()
+            if let snapshot = viewModel.snapshot {
+                Text("Updated \(DateFormatters.relativeDescription(from: snapshot.fetchedAt, to: now))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            if viewModel.isLoading || viewModel.isLoadingTokenUsage {
+                ProgressView().scaleEffect(0.5)
+            }
         }
-        .padding(.top, 4)
-    }
-
-    // MARK: - Actions
-
-    private var actionsSection: some View {
-        HStack {
-            Button {
-                let now = Date()
-                if let last = lastRefreshTap, now.timeIntervalSince(last) < uiThrottle {
-                    return
-                }
-                lastRefreshTap = now
-                Task { await viewModel.refresh(force: true) }
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
-            }
-            .disabled(viewModel.isLoading)
-            .keyboardShortcut("r", modifiers: .command)
-            .help("Refresh (⌘R)")
-
-            Spacer()
-
-            Button {
-                selectedTab = .settings
-                openWindow(id: Constants.mainWindowID)
-                NSApp.activate(ignoringOtherApps: true)
-            } label: {
-                Label("Settings", systemImage: "gear")
-            }
-            .keyboardShortcut(",", modifiers: .command)
-            .help("Settings (⌘,)")
-
-            Button(role: .destructive) {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                Label("Quit", systemImage: "power")
-            }
-            .keyboardShortcut("q", modifiers: .command)
-            .help("Quit (⌘Q)")
-        }
-        .buttonStyle(.borderless)
-        .labelStyle(.iconOnly)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 }
 

@@ -32,9 +32,18 @@ struct DashboardTabView: View {
                     extraUsageBanner
                 }
 
-                // Provider cards (weather station): Claude / Codex / OpenCode
+                // Provider detail pages (weather station): Claude / Codex / OpenCode
                 if let snapshot = viewModel.snapshot {
-                    claudeCard(snapshot)
+                    ProviderDetailView(
+                        provider: .claude,
+                        planName: viewModel.planType,
+                        windows: ProviderUsageSnapshot(claude: snapshot).windows,
+                        detail: viewModel.providerDetails[.claude],
+                        now: now
+                    )
+                    if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
+                        extraUsageCostSection(extraUsage)
+                    }
                 } else if let error = viewModel.errorMessage {
                     errorSection(error: error)
                 } else {
@@ -42,20 +51,28 @@ struct DashboardTabView: View {
                 }
 
                 if let codex = viewModel.codexUsage {
-                    codexCard(codex)
-                }
-
-                if let openCode = viewModel.extraProviderSummaries[.openCode] {
-                    ProviderCardView(
-                        provider: .openCode,
-                        costLines: costLines(openCode),
-                        now: now,
-                        showExtraUsage: false
+                    Divider()
+                    ProviderDetailView(
+                        provider: .codex,
+                        planName: codex.planName,
+                        windows: codex.windows,
+                        detail: viewModel.providerDetails[.codex],
+                        now: now
                     )
                 }
 
-                // Claude token-cost drill-down (multi-period history)
+                if viewModel.providerDetails[.openCode] != nil {
+                    Divider()
+                    ProviderDetailView(
+                        provider: .openCode,
+                        detail: viewModel.providerDetails[.openCode],
+                        now: now
+                    )
+                }
+
+                // Claude token-cost drill-down (more periods: 7/90/180/year)
                 if viewModel.snapshot != nil {
+                    Divider()
                     tokenUsageSectionWithStates
                 }
             }
@@ -100,39 +117,6 @@ struct DashboardTabView: View {
                     .foregroundStyle(.secondary)
             }
         }
-    }
-
-    // MARK: - Provider Cards
-
-    // Claude card shows windows + extra usage; the detailed Today/30-day cost
-    // (with period picker) lives in `tokenUsageSectionWithStates` below.
-    private func claudeCard(_ snapshot: UsageSnapshot) -> some View {
-        ProviderCardView(
-            provider: .claude,
-            planName: viewModel.planType,
-            windows: ProviderUsageSnapshot(claude: snapshot).windows,
-            extraUsage: viewModel.showExtraUsageIndicators ? snapshot.extraUsage : nil,
-            now: now,
-            showExtraUsage: viewModel.showExtraUsageIndicators
-        )
-    }
-
-    private func codexCard(_ codex: ProviderUsageSnapshot) -> some View {
-        ProviderCardView(
-            provider: .codex,
-            planName: codex.planName,
-            windows: codex.windows,
-            costLines: viewModel.extraProviderSummaries[.codex].map(costLines) ?? [],
-            now: now,
-            showExtraUsage: false
-        )
-    }
-
-    private func costLines(_ breakdown: ProviderTokenBreakdown) -> [ProviderCostLine] {
-        [
-            ProviderCostLine(label: "Today", cost: breakdown.today.formattedCost, tokens: breakdown.today.formattedTokens),
-            ProviderCostLine(label: "30 Days", cost: breakdown.last30Days.formattedCost, tokens: breakdown.last30Days.formattedTokens)
-        ]
     }
 
     // MARK: - Token Cost Section

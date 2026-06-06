@@ -11,54 +11,73 @@ import ClaudeMeterKit
 
 /// A compact sparkline view for displaying usage trends
 struct SparklineView: View {
+    enum Style {
+        case line
+        case bars
+    }
+
     let values: [Double]
     let color: Color
     let height: CGFloat
     let width: CGFloat
+    let style: Style
+    /// When true, scale to the data's own max (for costs); when false, cap at 100 (for utilization %).
+    let autoScale: Bool
 
     init(
         values: [Double],
         color: Color = .white,
         height: CGFloat = 10,
-        width: CGFloat = 30
+        width: CGFloat = 30,
+        style: Style = .line,
+        autoScale: Bool = false
     ) {
         self.values = values
         self.color = color
         self.height = height
         self.width = width
+        self.style = style
+        self.autoScale = autoScale
     }
 
     var body: some View {
         Canvas { context, size in
-            guard values.count >= 2 else { return }
+            guard !values.isEmpty else { return }
 
-            let maxValue = max(values.max() ?? 100, 100) // Cap at 100% for usage
-            let minValue = min(values.min() ?? 0, 0)
+            let maxValue = autoScale ? max(values.max() ?? 0, 0.0001) : max(values.max() ?? 100, 100)
+            let minValue = autoScale ? 0 : min(values.min() ?? 0, 0)
             let range = maxValue - minValue
-
             guard range > 0 else { return }
 
-            let stepX = size.width / CGFloat(values.count - 1)
+            switch style {
+            case .line:
+                guard values.count >= 2 else { return }
+                let stepX = size.width / CGFloat(values.count - 1)
+                var path = Path()
+                for (index, value) in values.enumerated() {
+                    let x = CGFloat(index) * stepX
+                    let y = size.height - ((value - minValue) / range * size.height)
+                    if index == 0 { path.move(to: CGPoint(x: x, y: y)) }
+                    else { path.addLine(to: CGPoint(x: x, y: y)) }
+                }
+                context.stroke(path, with: .color(color),
+                               style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
 
-            var path = Path()
-
-            for (index, value) in values.enumerated() {
-                let x = CGFloat(index) * stepX
-                let normalizedValue = (value - minValue) / range
-                let y = size.height - (normalizedValue * size.height)
-
-                if index == 0 {
-                    path.move(to: CGPoint(x: x, y: y))
-                } else {
-                    path.addLine(to: CGPoint(x: x, y: y))
+            case .bars:
+                let gap: CGFloat = values.count > 40 ? 0.5 : 1.5
+                let slot = size.width / CGFloat(values.count)
+                let barWidth = max(slot - gap, 0.5)
+                for (index, value) in values.enumerated() {
+                    let normalized = (value - minValue) / range
+                    let barHeight = max(normalized * size.height, value > 0 ? 1 : 0)
+                    let x = CGFloat(index) * slot
+                    let rect = CGRect(x: x, y: size.height - barHeight, width: barWidth, height: barHeight)
+                    context.fill(
+                        Path(roundedRect: rect, cornerRadius: min(barWidth / 2, 1.5)),
+                        with: .color(value > 0 ? color : color.opacity(0.25))
+                    )
                 }
             }
-
-            context.stroke(
-                path,
-                with: .color(color),
-                style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
-            )
         }
         .frame(width: width, height: height)
     }
