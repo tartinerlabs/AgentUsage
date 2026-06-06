@@ -6,31 +6,26 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.13.0</title>
-            <pubDate>Sat, 06 Jun 2026 18:03:51 +0000</pubDate>
-            <sparkle:version>41</sparkle:version>
-            <sparkle:shortVersionString>0.13.0</sparkle:shortVersionString>
+            <title>Version 0.13.1</title>
+            <pubDate>Sat, 06 Jun 2026 18:41:19 +0000</pubDate>
+            <sparkle:version>42</sparkle:version>
+            <sparkle:shortVersionString>0.13.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-<h3>Added</h3>
+<h3>Removed</h3>
 <ul>
-<li>**Multi-provider usage monitoring (macOS):** track **OpenAI Codex CLI** and **OpenCode** alongside Claude.</li>
-<li>Codex rate-limit windows (5-hour + weekly) and plan, read from local Codex rollout logs — no login required.</li>
-<li>Token usage & cost for Codex and OpenCode, computed from local logs (OpenCode via its SQLite database) using built-in pricing.</li>
-<li>**OpenUsage-style menu-bar popover:** a provider sidebar that switches between an overview and per-provider detail pages — each with Status/Console links, window status dots, Today/Yesterday/30-day cost, a usage-trend sparkline, and a per-model breakdown.</li>
-<li>Shared per-provider cards across the menu bar and Dashboard.</li>
-<li>"Codex (5h)" menu-bar display toggle in Settings.</li>
+<li>Credentials status section from Settings (no longer needed).</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.0/ClaudeMeter.zip"
-                length="1959609"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.1/ClaudeMeter.zip"
+                length="1947736"
                 type="application/octet-stream"
-                sparkle:edSignature="uhP6HFvnAzf/nePHXPeQIsKnX4w1baz6CcYfrAAcksmlpL8i295B9eyVvhFGADAEnfarExujIjGc6f/kixiFCA==" />
+                sparkle:edSignature="dGFLS/PjMIrYVhgwmXED3Y7Q4rNk5mEP0WuLMZf+rC58NDM7eaYLglvfZmQEjNZSyWbtVKa79HI7YNpevK2bCg==" />
         </item>
     </channel>
 </rss>
