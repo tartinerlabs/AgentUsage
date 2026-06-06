@@ -1,5 +1,5 @@
 // Version.xcconfig
 // Single source of truth for app versioning
 
-MARKETING_VERSION = 0.13.1
-CURRENT_PROJECT_VERSION = 42
+MARKETING_VERSION = 0.13.2
+CURRENT_PROJECT_VERSION = 43
