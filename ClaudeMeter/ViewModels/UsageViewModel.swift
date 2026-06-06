@@ -166,7 +166,6 @@ final class UsageViewModel {
     private let apiService: any APIServiceProtocol
     #if os(macOS)
     private let tokenService: TokenUsageService?
-    private let ccUsageRunnerService: CCUsageRunnerService?
     private let tokenRepository: TokenUsageRepository?
     private let tokenQuerier: TokenUsageQuerier?
     private let blogUsageSyncService: BlogUsageSyncService?
@@ -187,14 +186,12 @@ final class UsageViewModel {
         credentialProvider: any CredentialProvider,
         apiService: (any APIServiceProtocol)? = nil,
         tokenService: TokenUsageService? = nil,
-        ccUsageRunnerService: CCUsageRunnerService? = nil,
         blogUsageSyncService: BlogUsageSyncService? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.credentialProvider = credentialProvider
         self.apiService = apiService ?? ClaudeAPIService()
         self.tokenService = tokenService
-        self.ccUsageRunnerService = ccUsageRunnerService
         self.tokenRepository = modelContext.map { TokenUsageRepository(modelContext: $0) }
         self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
         self.blogUsageSyncService = blogUsageSyncService
@@ -372,19 +369,6 @@ final class UsageViewModel {
         defer { isLoadingTokenUsage = false }
 
         do {
-            if let ccUsageRunnerService {
-                do {
-                    let result = try await ccUsageRunnerService.fetchUsage()
-                    tokenSnapshot = result.snapshot
-                    periodSummaries = result.periodSummaries
-                    selectedPeriodSummary = periodSummaries[selectedTokenPeriod]
-                    tokenUsageError = nil
-                    return
-                } catch {
-                    Logger.tokenUsage.warning("ccusage backend unavailable, falling back to native Claude parser: \(error.localizedDescription)")
-                }
-            }
-
             // If repository available, import new entries and query from SwiftData
             if let repository = tokenRepository, let service = tokenService {
                 // Get current file states for incremental reading
