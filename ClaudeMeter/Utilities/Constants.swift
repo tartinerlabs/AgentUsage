@@ -25,6 +25,12 @@ enum Constants {
         URL(string: apiBaseURL + apiUsagePath)!
     }
 
+    // MARK: - Provider Links (status / console dashboards)
+    static let anthropicStatusURL = "https://status.anthropic.com"
+    static let anthropicConsoleURL = "https://claude.ai/settings/usage"
+    static let openaiStatusURL = "https://status.openai.com"
+    static let openaiPlatformURL = "https://platform.openai.com/usage"
+
     // MARK: - Network Configuration
     static let requestTimeout: TimeInterval = 30
     static let maxRetryAttempts = 3

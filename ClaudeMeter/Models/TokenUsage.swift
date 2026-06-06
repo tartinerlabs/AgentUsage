@@ -275,10 +275,32 @@ struct TokenUsageSummary: Sendable {
     }
 }
 
-/// Today + 30-day token/cost summaries for a single provider (Codex, OpenCode).
-struct ProviderTokenBreakdown: Sendable {
+/// A single day's token/cost aggregate (for daily trend sparklines).
+struct DailyTokenPoint: Sendable {
+    let date: Date
+    let costUSD: Double
+    let tokens: Int
+}
+
+/// Full per-provider detail for the OpenUsage-style detail page.
+struct ProviderDetail: Sendable {
     let today: TokenUsageSummary
+    let yesterday: TokenUsageSummary
     let last30Days: TokenUsageSummary
+    /// 30-day token totals per model.
+    let byModel: [String: TokenCount]
+    /// Daily cost for the last 30 days, oldest → newest (sparkline).
+    let dailyCosts: [Double]
+
+    /// Models sorted by total tokens, descending, with share of the 30-day total.
+    var modelShares: [(model: String, tokens: Int, percent: Double)] {
+        let totals = byModel.mapValues { $0.totalTokens }
+        let grand = totals.values.reduce(0, +)
+        guard grand > 0 else { return [] }
+        return totals
+            .map { (model: $0.key, tokens: $0.value, percent: Double($0.value) / Double(grand) * 100) }
+            .sorted { $0.tokens > $1.tokens }
+    }
 }
 
 /// Complete token usage snapshot

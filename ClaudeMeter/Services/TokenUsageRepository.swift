@@ -53,6 +53,30 @@ actor TokenUsageQuerier {
         return byModel
     }
 
+    /// Fetch per-day token/cost points for the last `days` days (oldest → newest).
+    func fetchDailyTokenPoints(days: Int = 30) throws -> [DailyTokenPoint] {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let startDate = calendar.date(byAdding: .day, value: -(days - 1), to: todayStart) ?? todayStart
+        let descriptor = FetchDescriptor<TokenLogEntry>(
+            predicate: #Predicate { $0.timestamp >= startDate }
+        )
+        let entries = try modelContext.fetch(descriptor)
+
+        var costByDay: [Date: Double] = [:]
+        var tokensByDay: [Date: Int] = [:]
+        for entry in entries {
+            let day = calendar.startOfDay(for: entry.timestamp)
+            costByDay[day, default: 0] += entry.costUSD
+            tokensByDay[day, default: 0] += entry.tokenCount.totalTokens
+        }
+
+        return (0..<days).reversed().map { offset in
+            let day = calendar.date(byAdding: .day, value: -offset, to: todayStart) ?? todayStart
+            return DailyTokenPoint(date: day, costUSD: costByDay[day] ?? 0, tokens: tokensByDay[day] ?? 0)
+        }
+    }
+
     /// Fetch complete snapshot for display
     func fetchSnapshot() throws -> TokenUsageSnapshot {
         let today = try fetchSummary(for: .today)
@@ -258,6 +282,11 @@ final class TokenUsageRepository {
     /// Fetch complete snapshot for display (non-blocking)
     func fetchSnapshot() async throws -> TokenUsageSnapshot {
         try await querier.fetchSnapshot()
+    }
+
+    /// Fetch per-day token/cost points (non-blocking)
+    func fetchDailyTokenPoints(days: Int = 30) async throws -> [DailyTokenPoint] {
+        try await querier.fetchDailyTokenPoints(days: days)
     }
 
     /// Get total entry count (for debugging/stats)

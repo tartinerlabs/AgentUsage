@@ -11,6 +11,8 @@ struct UsageRowView: View {
     let usage: UsageWindow
     var now: Date = Date()
     var showExtraUsage: Bool = true
+    /// Show a small colored status dot before the title (OpenUsage style).
+    var showStatusDot: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -19,6 +21,11 @@ struct UsageRowView: View {
                 Text(title)
                     .font(.callout)
                     .fontWeight(.semibold)
+                if showStatusDot {
+                    Circle()
+                        .fill(usage.status.color)
+                        .frame(width: 7, height: 7)
+                }
                 Spacer()
                 Text("Resets in \(usage.timeUntilReset(from: now))")
                     .font(.footnote)

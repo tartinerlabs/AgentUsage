@@ -21,8 +21,9 @@ final class UsageViewModel {
     var isFetchingPeriodSummaries: Bool = false
     /// Codex rate-limit windows (5h / weekly) read from Codex CLI logs.
     var codexUsage: ProviderUsageSnapshot?
-    /// Today + 30-day token/cost breakdowns for non-Claude providers (Codex, OpenCode).
-    var extraProviderSummaries: [Provider: ProviderTokenBreakdown] = [:]
+    /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
+    /// for all providers (Claude, Codex, OpenCode).
+    var providerDetails: [Provider: ProviderDetail] = [:]
     #endif
     var planType: String = "Free"
     var isLoading = false
@@ -341,15 +342,42 @@ final class UsageViewModel {
     }
 
     #if os(macOS)
-    /// Refresh usage for providers other than Claude (Codex windows + Codex/OpenCode cost).
+    /// Refresh per-provider detail: Codex rate-limit windows + Claude/Codex/OpenCode
+    /// token detail (today/yesterday/30-day, per-model, daily trend).
     private func refreshProviderUsage() async {
         if let codexUsageService {
             codexUsage = try? await codexUsageService.fetchSnapshot()
         }
+
+        var details: [Provider: ProviderDetail] = [:]
+
+        // Codex + OpenCode from local-log sources
         if let tokenService {
             let since = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-            extraProviderSummaries = await tokenService.fetchExtraProviderSummaries(since: since)
+            details = await tokenService.fetchExtraProviderDetails(since: since)
         }
+
+        // Claude from the SwiftData path + live snapshot
+        if let snapshot = tokenSnapshot {
+            var points: [DailyTokenPoint] = []
+            if let querier = tokenQuerier {
+                points = (try? await querier.fetchDailyTokenPoints(days: 30)) ?? []
+            }
+            let yesterdayPoint = points.count >= 2 ? points[points.count - 2] : nil
+            details[.claude] = ProviderDetail(
+                today: snapshot.today,
+                yesterday: TokenUsageSummary(
+                    tokens: TokenCount(inputTokens: yesterdayPoint?.tokens ?? 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0),
+                    costUSD: yesterdayPoint?.costUSD ?? 0,
+                    period: .today
+                ),
+                last30Days: snapshot.last30Days,
+                byModel: snapshot.byModel,
+                dailyCosts: points.map(\.costUSD)
+            )
+        }
+
+        providerDetails = details
     }
     #endif
 
