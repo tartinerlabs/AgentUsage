@@ -127,10 +127,76 @@ struct BlogUsageSyncTests {
                 cacheWriteTokens: 44,
                 reasoningTokens: 5,
                 totalTokens: 115,
-                costUsd: nil,
+                costUsd: "0.000538",
                 messages: 2
             )
         ])
+    }
+
+    @Test func aggregatorPricesCodexAutoReviewUsingOpenAICodexRates() {
+        let timestamp = ISO8601DateFormatter().date(from: "2026-06-02T10:00:00Z")!
+        let events = [
+            BlogUsageEvent(
+                id: "codex-review",
+                timestamp: timestamp,
+                agent: "codex",
+                provider: "openai",
+                model: "codex-auto-review",
+                inputTokens: 1_000_000,
+                outputTokens: 1_000_000,
+                cacheReadTokens: 1_000_000,
+                cacheWriteTokens: 0,
+                reasoningTokens: 500_000
+            )
+        ]
+
+        let rows = BlogUsageAggregator(calendar: Calendar(identifier: .gregorian)).aggregate(events)
+
+        #expect(rows.first?.costUsd == "22.925000")
+    }
+
+    @Test func aggregatorPricesGPT55FastUsingPriorityRates() {
+        let timestamp = ISO8601DateFormatter().date(from: "2026-06-02T10:00:00Z")!
+        let events = [
+            BlogUsageEvent(
+                id: "fast",
+                timestamp: timestamp,
+                agent: "codex",
+                provider: "openai",
+                model: "gpt-5.5-fast",
+                inputTokens: 1_000_000,
+                outputTokens: 1_000_000,
+                cacheReadTokens: 1_000_000,
+                cacheWriteTokens: 0,
+                reasoningTokens: 0
+            )
+        ]
+
+        let rows = BlogUsageAggregator(calendar: Calendar(identifier: .gregorian)).aggregate(events)
+
+        #expect(rows.first?.costUsd == "88.750000")
+    }
+
+    @Test func aggregatorLeavesUnknownModelsUnpriced() {
+        let timestamp = ISO8601DateFormatter().date(from: "2026-06-02T10:00:00Z")!
+        let events = [
+            BlogUsageEvent(
+                id: "unknown",
+                timestamp: timestamp,
+                agent: "opencode",
+                provider: "unknown",
+                model: "<synthetic>",
+                inputTokens: 1,
+                outputTokens: 1,
+                cacheReadTokens: 1,
+                cacheWriteTokens: 1,
+                reasoningTokens: 1
+            )
+        ]
+
+        let rows = BlogUsageAggregator(calendar: Calendar(identifier: .gregorian)).aggregate(events)
+
+        #expect(rows.first?.costUsd == nil)
     }
 
     @Test func syncClientSendsBearerAuthAndWrappedRows() async throws {
