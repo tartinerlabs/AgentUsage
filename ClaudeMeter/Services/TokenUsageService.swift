@@ -55,15 +55,21 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         return try await task.value
     }
 
-    /// Per-provider token/cost summaries for the extra (non-Claude) sources only.
+    /// Per-provider token/cost breakdowns (today + 30 days) for the extra
+    /// (non-Claude) sources only.
     ///
     /// Claude's summary already comes from the SwiftData path; this avoids
     /// re-parsing Claude logs just to surface Codex/OpenCode totals.
-    func fetchExtraProviderSummaries(since: Date) async -> [Provider: TokenUsageSummary] {
-        var result: [Provider: TokenUsageSummary] = [:]
+    func fetchExtraProviderSummaries(since: Date) async -> [Provider: ProviderTokenBreakdown] {
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        var result: [Provider: ProviderTokenBreakdown] = [:]
         for source in extraSources {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
-            result[source.provider] = aggregateSummary(entries: entries, period: .last30Days)
+            let todayEntries = entries.filter { $0.timestamp >= todayStart }
+            result[source.provider] = ProviderTokenBreakdown(
+                today: aggregateSummary(entries: todayEntries, period: .today),
+                last30Days: aggregateSummary(entries: entries, period: .last30Days)
+            )
         }
         return result
     }
