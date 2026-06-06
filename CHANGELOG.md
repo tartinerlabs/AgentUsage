@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-06-06
+
+### Changed
+- Removed the ccusage backend; the native Claude JSONL parser is now the sole source of token usage and cost. Displayed totals are Claude-only and priced at Anthropic rates, fixing discrepancies caused by ccusage running unscoped across all coding agents with LiteLLM pricing.
+
 ## [0.12.0] - 2026-06-06
 
 ### Added
@@ -312,7 +317,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.9...v0.11.0
 [0.10.9]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.8...v0.10.9
