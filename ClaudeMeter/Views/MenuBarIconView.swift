@@ -77,7 +77,7 @@ struct MenuBarIconView: View {
                 if viewModel.menuBarShowDesign, let design = snapshot.design {
                     usageColumn(label: "DESIGN", usage: design)
                 }
-                if viewModel.menuBarShowCodex, let codexWindow = viewModel.codexUsage?.worstWindow {
+                if viewModel.menuBarShowCodex, let codexWindow = codexMenuBarWindow {
                     usageColumn(label: "CODEX", usage: codexWindow)
                 }
 
@@ -85,7 +85,7 @@ struct MenuBarIconView: View {
                 if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet && !viewModel.menuBarShowDesign && !viewModel.menuBarShowCodex {
                     usageColumn(label: "CURR", usage: snapshot.session)
                 }
-            } else if viewModel.menuBarShowCodex, let codexWindow = viewModel.codexUsage?.worstWindow {
+            } else if viewModel.menuBarShowCodex, let codexWindow = codexMenuBarWindow {
                 // No Claude data but Codex is available
                 usageColumn(label: "CODEX", usage: codexWindow)
             } else {
@@ -106,6 +106,11 @@ struct MenuBarIconView: View {
                     .foregroundStyle(.gray)
             }
         }
+    }
+
+    private var codexMenuBarWindow: UsageWindow? {
+        guard let windows = viewModel.codexUsage?.windows else { return nil }
+        return windows.first { $0.windowType == .codexFiveHour } ?? windows.first
     }
 
     @ViewBuilder
@@ -149,4 +154,3 @@ struct MenuBarIconView: View {
     }
 }
 #endif
-
