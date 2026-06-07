@@ -61,10 +61,12 @@ struct DashboardTabView: View {
                     )
                 }
 
-                if viewModel.providerDetails[.openCode] != nil {
+                if viewModel.providerDetails[.openCode] != nil || viewModel.openCodeGoUsage != nil {
                     Divider()
                     ProviderDetailView(
                         provider: .openCode,
+                        planName: viewModel.openCodeGoUsage?.planName,
+                        windows: viewModel.openCodeGoUsage?.windows ?? [],
                         detail: viewModel.providerDetails[.openCode],
                         now: now
                     )
@@ -431,4 +433,3 @@ struct DashboardTabView: View {
         .frame(width: 500, height: 400)
 }
 #endif
-

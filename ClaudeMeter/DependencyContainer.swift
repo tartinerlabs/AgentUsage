@@ -61,6 +61,12 @@ enum DependencyContainer {
         }
         return CodexUsageService()
     }
+
+    /// Create the OpenCode Go dashboard quota service when dashboard auth is configured.
+    static func createOpenCodeGoUsageService() -> OpenCodeGoUsageService? {
+        guard OpenCodeGoUsageService.DashboardConfig.load() != nil else { return nil }
+        return OpenCodeGoUsageService()
+    }
     #endif
 
     // MARK: - ViewModel Factory
@@ -74,11 +80,13 @@ enum DependencyContainer {
         let tokenService = createTokenUsageService()
         let blogUsageSyncService = createBlogUsageSyncService()
         let codexUsageService = createCodexUsageService()
+        let openCodeGoUsageService = createOpenCodeGoUsageService()
         return UsageViewModel(
             credentialProvider: credentialProvider,
             tokenService: tokenService,
             blogUsageSyncService: blogUsageSyncService,
             codexUsageService: codexUsageService,
+            openCodeGoUsageService: openCodeGoUsageService,
             modelContext: modelContext
         )
     }

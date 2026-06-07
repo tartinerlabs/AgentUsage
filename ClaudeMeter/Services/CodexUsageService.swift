@@ -20,9 +20,11 @@ actor CodexUsageService {
 
     private let fileManager = FileManager.default
     private let directories: [URL]
+    private let now: @Sendable () -> Date
 
-    init(directories: [URL] = Constants.codexSessionsDirectories) {
+    init(directories: [URL] = Constants.codexSessionsDirectories, now: @escaping @Sendable () -> Date = Date.init) {
         self.directories = directories
+        self.now = now
     }
 
     /// Returns the current Codex windows, or nil if no rate-limit data is available.
@@ -78,10 +80,11 @@ actor CodexUsageService {
         guard let rateLimits = lastRateLimits else { return nil }
 
         var windows: [UsageWindow] = []
-        if let primary = window(from: rateLimits["primary"], type: .codexFiveHour) {
+        let currentDate = now()
+        if let primary = window(from: rateLimits["primary"], fallbackType: .codexFiveHour, now: currentDate) {
             windows.append(primary)
         }
-        if let secondary = window(from: rateLimits["secondary"], type: .codexWeekly) {
+        if let secondary = window(from: rateLimits["secondary"], fallbackType: .codexWeekly, now: currentDate) {
             windows.append(secondary)
         }
         guard !windows.isEmpty else { return nil }
@@ -90,22 +93,65 @@ actor CodexUsageService {
             provider: .codex,
             windows: windows,
             planName: planType,
-            fetchedAt: Date()
+            fetchedAt: currentDate
         )
     }
 
-    private func window(from raw: Any?, type: UsageWindowType) -> UsageWindow? {
+    private func window(from raw: Any?, fallbackType: UsageWindowType, now: Date) -> UsageWindow? {
         guard let dict = raw as? [String: Any],
-              let usedPercent = dict["used_percent"] as? Double else { return nil }
-        let resetsAt: Date
-        if let epoch = dict["resets_at"] as? Double {
+              let usedPercent = number(from: dict["used_percent"]) else { return nil }
+        let windowMinutes = integer(from: dict["window_minutes"])
+        let type = windowType(from: windowMinutes) ?? fallbackType
+        let windowDuration = windowMinutes.map { TimeInterval($0) * 60 } ?? type.totalDuration
+
+        var resetsAt: Date
+        if let epoch = number(from: dict["resets_at"]) ?? number(from: dict["reset_at"]) {
             resetsAt = Date(timeIntervalSince1970: epoch)
-        } else if let epoch = dict["resets_at"] as? Int {
-            resetsAt = Date(timeIntervalSince1970: Double(epoch))
+        } else if let seconds = number(from: dict["reset_after_seconds"]) {
+            resetsAt = now.addingTimeInterval(seconds)
         } else {
-            resetsAt = Date().addingTimeInterval(type.totalDuration)
+            resetsAt = now.addingTimeInterval(windowDuration)
         }
+
+        guard resetsAt > now else {
+            repeat {
+                resetsAt = resetsAt.addingTimeInterval(windowDuration)
+            } while resetsAt <= now
+            return UsageWindow(utilization: 0, resetsAt: resetsAt, windowType: type)
+        }
+
         return UsageWindow(utilization: usedPercent, resetsAt: resetsAt, windowType: type)
+    }
+
+    private func windowType(from windowMinutes: Int?) -> UsageWindowType? {
+        guard let windowMinutes else { return nil }
+        return windowMinutes <= 300 ? .codexFiveHour : .codexWeekly
+    }
+
+    private func number(from raw: Any?) -> Double? {
+        switch raw {
+        case let value as Double:
+            return value
+        case let value as Int:
+            return Double(value)
+        case let value as String:
+            return Double(value)
+        default:
+            return nil
+        }
+    }
+
+    private func integer(from raw: Any?) -> Int? {
+        switch raw {
+        case let value as Int:
+            return value
+        case let value as Double:
+            return Int(value)
+        case let value as String:
+            return Int(value)
+        default:
+            return nil
+        }
     }
 }
 #endif
