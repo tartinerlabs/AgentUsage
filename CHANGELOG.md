@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-06-07
+
+### Fixed
+- Codex 5-hour and weekly windows now read live usage from the ChatGPT backend (`/wham/usage`) using the `~/.codex/auth.json` token, instead of stale local rollout logs. Usage consumed via OpenCode/ChatGPT is now reflected, fixing the menu bar showing 0% when the local Codex CLI logs were stale. Falls back to hiding the Codex column on any error rather than showing a fabricated 0%.
+
 ## [0.13.2] - 2026-06-07
 
 ### Fixed
@@ -343,7 +348,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.3...HEAD
+[0.13.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.2...v0.13.0
