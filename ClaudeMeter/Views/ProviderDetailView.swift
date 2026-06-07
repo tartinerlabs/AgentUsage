@@ -18,10 +18,15 @@ struct ProviderDetailView: View {
     var now: Date = Date()
     /// Max models to list in the breakdown.
     var maxModels: Int = 6
+    var isServiceDown: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
+
+            if isServiceDown {
+                serviceDownBanner
+            }
 
             if !links.isEmpty {
                 linkButtons
@@ -67,6 +72,24 @@ struct ProviderDetailView: View {
             }
             Spacer()
         }
+    }
+
+    private var serviceDownBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(provider.displayName) is unavailable")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text("The service returned a server error. Showing cached data.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.red.opacity(0.1)))
     }
 
     private var linkButtons: some View {

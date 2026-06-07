@@ -38,6 +38,16 @@ actor MockAPIService: APIServiceProtocol {
         return snapshot
     }
 
+    /// Configure the snapshot returned on the next fetch.
+    func setMockSnapshot(_ snapshot: UsageSnapshot?) {
+        mockSnapshot = snapshot
+    }
+
+    /// Configure the error thrown on the next fetch (nil to fetch successfully).
+    func setMockError(_ error: Error?) {
+        mockError = error
+    }
+
     /// Reset mock state
     func reset() {
         mockSnapshot = nil

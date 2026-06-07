@@ -146,7 +146,8 @@ struct MenuBarView: View {
                 planName: planName(for: provider),
                 windows: windows(for: provider),
                 detail: viewModel.providerDetails[provider],
-                now: now
+                now: now,
+                isServiceDown: viewModel.isServiceDown(provider)
             )
         }
     }
@@ -178,7 +179,8 @@ struct MenuBarView: View {
             costLines: costLines(for: provider),
             now: now,
             showExtraUsage: provider == .claude && viewModel.showExtraUsageIndicators,
-            compact: true
+            compact: true,
+            isServiceDown: viewModel.isServiceDown(provider)
         )
     }
 
