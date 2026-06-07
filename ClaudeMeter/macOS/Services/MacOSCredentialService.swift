@@ -9,7 +9,6 @@ import OSLog
 
 /// macOS credential service that reads from Claude Code's Keychain entry
 /// via `/usr/bin/security` CLI (avoids repeated keychain access prompts).
-/// Syncs to ClaudeMeter's own Keychain for iOS access.
 actor MacOSCredentialService: CredentialProvider {
     func loadCredentials() async throws -> ClaudeOAuthCredentials {
         let credentials = try loadFromClaudeCodeKeychain()
@@ -23,7 +22,6 @@ actor MacOSCredentialService: CredentialProvider {
             throw CredentialError.missingScope
         }
 
-        syncToKeychain(credentials)
         return credentials
     }
 
@@ -81,15 +79,6 @@ actor MacOSCredentialService: CredentialProvider {
         }
 
         return credentials
-    }
-
-    private func syncToKeychain(_ credentials: ClaudeOAuthCredentials) {
-        do {
-            try KeychainHelper.saveCredentials(credentials)
-            Logger.credentials.info("Synced credentials to ClaudeMeter Keychain")
-        } catch {
-            Logger.credentials.error("Failed to sync to Keychain: \(error.localizedDescription)")
-        }
     }
 }
 #endif
