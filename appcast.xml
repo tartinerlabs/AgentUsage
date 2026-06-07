@@ -6,26 +6,26 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.13.2</title>
-            <pubDate>Sat, 06 Jun 2026 19:37:23 +0000</pubDate>
-            <sparkle:version>43</sparkle:version>
-            <sparkle:shortVersionString>0.13.2</sparkle:shortVersionString>
+            <title>Version 0.13.3</title>
+            <pubDate>Sun, 07 Jun 2026 09:42:36 +0000</pubDate>
+            <sparkle:version>44</sparkle:version>
+            <sparkle:shortVersionString>0.13.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <h3>Fixed</h3>
 <ul>
-<li>Skip Claude Code `<synthetic>` placeholder rows during blog usage sync so zero-token internal messages are not stored as Anthropic model usage.</li>
+<li>Codex 5-hour and weekly windows now read **live** usage from the ChatGPT backend (`/wham/usage`) using the `~/.codex/auth.json` token, instead of stale local rollout logs. Usage consumed via OpenCode/ChatGPT is now reflected, fixing the menu bar showing **0%** when the local Codex CLI logs were stale. On any error the Codex column is hidden rather than showing a fabricated 0%.</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.2/ClaudeMeter.zip"
-                length="1948213"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.3/ClaudeMeter.zip"
+                length="1995311"
                 type="application/octet-stream"
-                sparkle:edSignature="3EMKw9nwtBFDdADbRZ67AgTWhrDa80HBUoGpv/mghz5b2AP5e7D0n8dga+rRcYFfyDC5lbasyNFU0fhLrSglDQ==" />
+                sparkle:edSignature="1wDNjHbyXHWjDpQ19FKnUQFnTK4ml3/LHkzFROBj/uvzTNADL3qdGr3VuTZ4+LiHQlHwWybSIwFnNvU+rUNlAQ==" />
         </item>
     </channel>
 </rss>
