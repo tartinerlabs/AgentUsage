@@ -39,7 +39,8 @@ struct DashboardTabView: View {
                         planName: viewModel.planType,
                         windows: ProviderUsageSnapshot(claude: snapshot).windows,
                         detail: viewModel.providerDetails[.claude],
-                        now: now
+                        now: now,
+                        isServiceDown: viewModel.isServiceDown(.claude)
                     )
                     if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
                         extraUsageCostSection(extraUsage)
@@ -57,7 +58,8 @@ struct DashboardTabView: View {
                         planName: codex.planName,
                         windows: codex.windows,
                         detail: viewModel.providerDetails[.codex],
-                        now: now
+                        now: now,
+                        isServiceDown: viewModel.isServiceDown(.codex)
                     )
                 }
 
@@ -68,7 +70,8 @@ struct DashboardTabView: View {
                         planName: viewModel.openCodeGoUsage?.planName,
                         windows: viewModel.openCodeGoUsage?.windows ?? [],
                         detail: viewModel.providerDetails[.openCode],
-                        now: now
+                        now: now,
+                        isServiceDown: viewModel.isServiceDown(.openCode)
                     )
                 }
 

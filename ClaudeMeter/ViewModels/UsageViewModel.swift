@@ -69,6 +69,73 @@ final class UsageViewModel {
     /// Whether we're using cached data (offline or stale)
     var isUsingCachedData: Bool = false
 
+    // MARK: - Outage Tracking
+
+    /// Active outage incidents keyed by provider. An entry exists while a provider's
+    /// most recent usage fetch failed with an outage-class error (HTTP 5xx / service
+    /// unavailable); it is cleared on the next successful fetch.
+    var activeIncidents: [Provider: OutageIncident] = [:]
+
+    /// The active Claude incident, if any.
+    var activeClaudeIncident: OutageIncident? { activeIncidents[.claude] }
+
+    /// Whether Claude's service is currently considered down.
+    var isClaudeServiceDown: Bool { activeIncidents[.claude] != nil }
+
+    /// The active incident for a provider, if any.
+    func activeIncident(for provider: Provider) -> OutageIncident? { activeIncidents[provider] }
+
+    /// Whether the given provider's service is currently considered down.
+    func isServiceDown(_ provider: Provider) -> Bool { activeIncidents[provider] != nil }
+
+    /// Whether an error indicates a provider outage (HTTP 5xx / service unavailable),
+    /// as opposed to client errors, auth failures, rate limiting, or connectivity.
+    nonisolated static func isOutageError(_ error: Error) -> Bool {
+        outageErrorCode(error) != nil
+    }
+
+    /// Maps an outage-class error to its HTTP status code, or nil if it is not an outage.
+    nonisolated static func outageErrorCode(_ error: Error) -> Int? {
+        if let apiError = error as? ClaudeAPIService.APIError {
+            switch apiError {
+            case .serviceUnavailable: return 503
+            case .serverError(let code) where (500...599).contains(code): return code
+            default: return nil
+            }
+        }
+        #if os(macOS)
+        if let codexError = error as? CodexUsageService.CodexError {
+            switch codexError {
+            case .serviceUnavailable: return 503
+            case .serverError(let code) where (500...599).contains(code): return code
+            default: return nil
+            }
+        }
+        if let openCodeError = error as? OpenCodeGoUsageService.OpenCodeError {
+            switch openCodeError {
+            case .serverError(let code): return (500...599).contains(code) ? code : nil
+            }
+        }
+        #endif
+        return nil
+    }
+
+    /// Record (or update) an outage incident for a provider, preserving `startedAt`.
+    private func recordOutage(for provider: Provider, error: Error) {
+        let code = Self.outageErrorCode(error)
+        if var incident = activeIncidents[provider] {
+            incident.lastErrorCode = code
+            activeIncidents[provider] = incident
+        } else {
+            activeIncidents[provider] = OutageIncident(startedAt: Date(), lastErrorCode: code)
+        }
+    }
+
+    /// Clear any active incident for a provider (called on a successful fetch).
+    private func clearIncident(for provider: Provider) {
+        activeIncidents[provider] = nil
+    }
+
     /// Time since last successful fetch (for "Last updated X ago" display)
     var timeSinceLastUpdate: String? {
         guard let lastUpdate = lastSuccessfulFetchTime else { return nil }
@@ -188,7 +255,6 @@ final class UsageViewModel {
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
-    private let minForceRefreshInterval: TimeInterval = 5  // Reduced from 20s for better UX
     private var hasInitialized = false
 
     /// Overall status computed from the worst status across all usage windows
@@ -268,11 +334,10 @@ final class UsageViewModel {
     }
 
     func refresh(force: Bool = false) async {
-        let minInterval = force ? minForceRefreshInterval : minRefreshInterval
-
-        // Rate limit: skip if refreshed recently (first load always proceeds)
-        if let lastRefresh = lastRefreshTime,
-           Date().timeIntervalSince(lastRefresh) < minInterval {
+        // Rate limit auto-refresh; a forced refresh (manual) always proceeds.
+        if !force,
+           let lastRefresh = lastRefreshTime,
+           Date().timeIntervalSince(lastRefresh) < minRefreshInterval {
             return
         }
 
@@ -301,6 +366,7 @@ final class UsageViewModel {
                 snapshot = newSnapshot
                 lastRefreshTime = Date()  // Only set on success - allows immediate retry on failure
                 isUsingCachedData = false
+                clearIncident(for: .claude)  // Successful fetch ends any active outage
 
                 // Cache the successful response
                 cacheSnapshot(newSnapshot, planType: planType)
@@ -327,6 +393,11 @@ final class UsageViewModel {
                 #endif
             } catch {
                 errorMessage = error.localizedDescription
+                // Track service outages (5xx / unavailable); leave any incident
+                // untouched for non-outage errors (auth, rate limit, connectivity).
+                if Self.isOutageError(error) {
+                    recordOutage(for: .claude, error: error)
+                }
                 // If we have cached data, use it and show a softer error
                 if snapshot != nil {
                     isUsingCachedData = true
@@ -351,10 +422,28 @@ final class UsageViewModel {
     /// token detail (today/yesterday/30-day, per-model, daily trend).
     private func refreshProviderUsage() async {
         if let codexUsageService {
-            codexUsage = try? await codexUsageService.fetchSnapshot()
+            do {
+                codexUsage = try await codexUsageService.fetchSnapshot()
+                clearIncident(for: .codex)
+            } catch {
+                if Self.isOutageError(error) {
+                    recordOutage(for: .codex, error: error)  // keep cached codexUsage
+                } else {
+                    codexUsage = nil  // preserve existing hide-on-error behavior
+                }
+            }
         }
         if let openCodeGoUsageService {
-            openCodeGoUsage = try? await openCodeGoUsageService.fetchSnapshot()
+            do {
+                openCodeGoUsage = try await openCodeGoUsageService.fetchSnapshot()
+                clearIncident(for: .openCode)
+            } catch {
+                if Self.isOutageError(error) {
+                    recordOutage(for: .openCode, error: error)  // keep cached openCodeGoUsage
+                } else {
+                    openCodeGoUsage = nil  // preserve existing hide-on-error behavior
+                }
+            }
         }
 
         var details: [Provider: ProviderDetail] = [:]

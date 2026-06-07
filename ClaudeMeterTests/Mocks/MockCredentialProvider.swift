@@ -33,6 +33,11 @@ actor MockCredentialProvider: CredentialProvider {
         return credentials
     }
 
+    /// Configure the credentials returned on the next load.
+    func configure(credentials: ClaudeOAuthCredentials?) {
+        mockCredentials = credentials
+    }
+
     /// Reset mock state
     func reset() {
         mockCredentials = nil

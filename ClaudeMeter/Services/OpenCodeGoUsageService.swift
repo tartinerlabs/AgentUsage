@@ -13,6 +13,17 @@ import OSLog
 actor OpenCodeGoUsageService {
     nonisolated let provider: Provider = .openCode
 
+    enum OpenCodeError: LocalizedError {
+        /// The dashboard returned a 5xx status — treated as a service outage.
+        case serverError(Int)
+
+        var errorDescription: String? {
+            switch self {
+            case .serverError(let code): return "OpenCode dashboard server error (\(code))"
+            }
+        }
+    }
+
     private let session: URLSession
     private let configProvider: @Sendable () -> DashboardConfig?
     private let now: @Sendable () -> Date
@@ -38,8 +49,14 @@ actor OpenCodeGoUsageService {
         )
 
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            Logger.tokenUsage.warning("OpenCode Go dashboard request failed")
+        guard let http = response as? HTTPURLResponse else { return nil }
+        if (500...599).contains(http.statusCode) {
+            // Server-side outage — surface it so the UI can show "service down".
+            Logger.tokenUsage.warning("OpenCode Go dashboard returned \(http.statusCode)")
+            throw OpenCodeError.serverError(http.statusCode)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            Logger.tokenUsage.warning("OpenCode Go dashboard request failed (\(http.statusCode))")
             return nil
         }
 
@@ -77,7 +94,7 @@ actor OpenCodeGoUsageService {
     }
 
     private nonisolated static func extractNumber(field: String, key: String, text: String) -> Double? {
-        let pattern = #"['\"]?# + NSRegularExpression.escapedPattern(for: field) + #"['\"]?\s*:\s*(?:\$R\[\d+\]\s*=\s*)?\{[^}]*?['\"]?# + NSRegularExpression.escapedPattern(for: key) + #"['\"]?\s*:\s*['\"]?(-?\d+(?:\.\d+)?)['\"]?"#
+        let pattern = #"['\"]?"# + NSRegularExpression.escapedPattern(for: field) + #"['\"]?\s*:\s*(?:\$R\[\d+\]\s*=\s*)?\{[^}]*?['\"]?"# + NSRegularExpression.escapedPattern(for: key) + #"['\"]?\s*:\s*['\"]?(-?\d+(?:\.\d+)?)['\"]?"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let range = Range(match.range(at: 1), in: text) else {

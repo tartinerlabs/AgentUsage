@@ -28,6 +28,7 @@ struct ProviderCardView: View {
     var now: Date = Date()
     var showExtraUsage: Bool = true
     var compact: Bool = false
+    var isServiceDown: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 10 : 14) {
@@ -86,7 +87,24 @@ struct ProviderCardView: View {
                     )
             }
             Spacer()
+            if isServiceDown {
+                serviceDownBadge
+            }
         }
+    }
+
+    private var serviceDownBadge: some View {
+        Label("Service down", systemImage: "exclamationmark.triangle.fill")
+            .font(.caption2)
+            .fontWeight(.semibold)
+            .foregroundStyle(.red)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.red.opacity(0.12))
+            )
+            .help("This provider's service recently returned a server error. Showing cached data.")
     }
 
     private func extraUsageBar(_ extraUsage: ExtraUsageCost) -> some View {
