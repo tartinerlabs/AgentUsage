@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-06-07
+
+### Fixed
+- Stop a recurring macOS keychain authorization prompt on launch. The app no longer writes a copy of the Claude credentials into its own keychain on every refresh — that write was unused (macOS reads the token directly from Claude Code via the `security` CLI, and iCloud sync is not enabled) and was the source of the repeated "ClaudeMeter wants to use your confidential information" dialog.
+
 ## [0.13.3] - 2026-06-07
 
 ### Fixed
@@ -348,7 +353,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.3...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.4...HEAD
+[0.13.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.0...v0.13.1
