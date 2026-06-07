@@ -235,10 +235,12 @@ actor NotificationService: NotificationServiceProtocol {
 
         let windowDescription: String
         switch usage.windowType {
-        case .session, .codexFiveHour:
+        case .session, .codexFiveHour, .openCodeGoFiveHour:
             windowDescription = "5-hour session"
-        case .opus, .sonnet, .design, .codexWeekly:
+        case .opus, .sonnet, .design, .codexWeekly, .openCodeGoWeekly:
             windowDescription = "weekly"
+        case .openCodeGoMonthly:
+            windowDescription = "monthly"
         }
 
         if threshold == 100 {

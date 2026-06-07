@@ -21,6 +21,8 @@ final class UsageViewModel {
     var isFetchingPeriodSummaries: Bool = false
     /// Codex rate-limit windows (5h / weekly) read from Codex CLI logs.
     var codexUsage: ProviderUsageSnapshot?
+    /// OpenCode Go quota windows read from the authenticated dashboard page.
+    var openCodeGoUsage: ProviderUsageSnapshot?
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
     /// for all providers (Claude, Codex, OpenCode).
     var providerDetails: [Provider: ProviderDetail] = [:]
@@ -181,6 +183,7 @@ final class UsageViewModel {
     private let tokenQuerier: TokenUsageQuerier?
     private let blogUsageSyncService: BlogUsageSyncService?
     private let codexUsageService: CodexUsageService?
+    private let openCodeGoUsageService: OpenCodeGoUsageService?
     #endif
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
@@ -200,6 +203,7 @@ final class UsageViewModel {
         tokenService: TokenUsageService? = nil,
         blogUsageSyncService: BlogUsageSyncService? = nil,
         codexUsageService: CodexUsageService? = nil,
+        openCodeGoUsageService: OpenCodeGoUsageService? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.credentialProvider = credentialProvider
@@ -209,6 +213,7 @@ final class UsageViewModel {
         self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
         self.blogUsageSyncService = blogUsageSyncService
         self.codexUsageService = codexUsageService
+        self.openCodeGoUsageService = openCodeGoUsageService
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
         self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
@@ -347,6 +352,9 @@ final class UsageViewModel {
     private func refreshProviderUsage() async {
         if let codexUsageService {
             codexUsage = try? await codexUsageService.fetchSnapshot()
+        }
+        if let openCodeGoUsageService {
+            openCodeGoUsage = try? await openCodeGoUsageService.fetchSnapshot()
         }
 
         var details: [Provider: ProviderDetail] = [:]

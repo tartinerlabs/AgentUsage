@@ -59,7 +59,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         switch self {
         case .claude: [.rateWindows, .tokenCost]
         case .codex: [.rateWindows, .tokenCost]
-        case .openCode: [.tokenCost]            // BYO-key; no quota windows
+        case .openCode: [.rateWindows, .tokenCost]
         }
     }
 
