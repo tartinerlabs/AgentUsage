@@ -53,10 +53,11 @@ enum DependencyContainer {
         BlogUsageSyncService.shared
     }
 
-    /// Create the Codex rate-limit window service, if Codex logs are present.
+    /// Create the Codex rate-limit window service, if Codex OAuth credentials are present.
+    /// Gated on `auth.json` (the live `/wham/usage` token source), not the rollout logs.
     static func createCodexUsageService() -> CodexUsageService? {
         let fm = FileManager.default
-        guard Constants.codexSessionsDirectories.contains(where: { fm.fileExists(atPath: $0.path) }) else {
+        guard Constants.codexAuthFileURLs.contains(where: { fm.fileExists(atPath: $0.path) }) else {
             return nil
         }
         return CodexUsageService()

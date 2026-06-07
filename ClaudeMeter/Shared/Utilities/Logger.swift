@@ -26,6 +26,9 @@ extension Logger {
     /// Token usage service logging (JSONL parsing, cost calculations)
     static let tokenUsage = Logger(subsystem: subsystem, category: "TokenUsage")
 
+    /// Codex live-usage service logging (ChatGPT /wham/usage fetch, token refresh)
+    static let codex = Logger(subsystem: subsystem, category: "Codex")
+
     /// Notification service logging
     static let notifications = Logger(subsystem: subsystem, category: "Notifications")
 

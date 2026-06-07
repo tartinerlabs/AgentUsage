@@ -11,109 +11,199 @@ import Testing
 
 @Suite("Codex Usage Service", .serialized)
 struct CodexUsageServiceTests {
-    @Test func expiredRateLimitWindowsRefreshToZeroUsage() async throws {
-        let directory = try Self.temporaryDirectory()
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let primaryReset = Int(now.addingTimeInterval(-60).timeIntervalSince1970)
-        let weeklyReset = Int(now.addingTimeInterval(-60).timeIntervalSince1970)
-        try Self.writeRollout(
-            to: directory,
-            primaryUsedPercent: 100,
-            primaryReset: primaryReset,
-            weeklyUsedPercent: 85,
-            weeklyReset: weeklyReset
-        )
+    private static let usageHost = "chatgpt.com"
+    private static let refreshHost = "auth.openai.com"
 
-        let service = CodexUsageService(directories: [directory], now: { now })
+    @Test func bodyWindowsAreMappedFromRateLimit() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let primaryReset = now.addingTimeInterval(8535).timeIntervalSince1970
+        let weeklyReset = now.addingTimeInterval(323_863).timeIntervalSince1970
+        let body = """
+        {"plan_type":"prolite","rate_limit":{"primary_window":{"used_percent":22,"reset_at":\(Int(primaryReset))},"secondary_window":{"used_percent":34,"reset_at":\(Int(weeklyReset))}}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
         let snapshot = try await service.fetchSnapshot()
 
         #expect(snapshot?.provider == .codex)
         #expect(snapshot?.fetchedAt == now)
+        #expect(snapshot?.planName == "Pro 5x")
         #expect(snapshot?.windows.count == 2)
-        #expect(snapshot?.windows.first { $0.windowType == .codexFiveHour }?.utilization == 0)
-        #expect(snapshot?.windows.first { $0.windowType == .codexWeekly }?.utilization == 0)
-        let primaryWindow = try #require(snapshot?.windows.first { $0.windowType == .codexFiveHour })
-        let weeklyWindow = try #require(snapshot?.windows.first { $0.windowType == .codexWeekly })
-        #expect(primaryWindow.resetsAt > now)
-        #expect(weeklyWindow.resetsAt > now)
+        let primary = try #require(snapshot?.windows.first { $0.windowType == .codexFiveHour })
+        let weekly = try #require(snapshot?.windows.first { $0.windowType == .codexWeekly })
+        #expect(primary.utilization == 22)
+        #expect(weekly.utilization == 34)
+        #expect(primary.resetsAt == Date(timeIntervalSince1970: primaryReset))
+        #expect(weekly.resetsAt == Date(timeIntervalSince1970: weeklyReset))
     }
 
-    @Test func activeRateLimitWindowsKeepReportedUsage() async throws {
-        let directory = try Self.temporaryDirectory()
+    @Test func headerPercentsOverrideBody() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let primaryReset = Int(now.addingTimeInterval(60).timeIntervalSince1970)
-        let weeklyReset = Int(now.addingTimeInterval(7 * 24 * 60 * 60).timeIntervalSince1970)
-        try Self.writeRollout(
-            to: directory,
-            primaryUsedPercent: 42,
-            primaryReset: primaryReset,
-            weeklyUsedPercent: 17,
-            weeklyReset: weeklyReset
-        )
+        let body = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":20,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}}}
+        """
+        let headers = [
+            "x-codex-primary-used-percent": "77",
+            "x-codex-secondary-used-percent": "88",
+        ]
 
-        let service = CodexUsageService(directories: [directory], now: { now })
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200, headers: headers), Data(body.utf8))
+        }
         let snapshot = try await service.fetchSnapshot()
 
-        #expect(snapshot?.windows.first { $0.windowType == .codexFiveHour }?.utilization == 42)
-        #expect(snapshot?.windows.first { $0.windowType == .codexWeekly }?.utilization == 17)
-        #expect(snapshot?.windows.first { $0.windowType == .codexFiveHour }?.resetsAt == Date(timeIntervalSince1970: TimeInterval(primaryReset)))
-        #expect(snapshot?.windows.first { $0.windowType == .codexWeekly }?.resetsAt == Date(timeIntervalSince1970: TimeInterval(weeklyReset)))
-    }
-
-    @Test func primaryWindowUsesReportedWindowMinutesForFreePlanWeeklyLimit() async throws {
-        let directory = try Self.temporaryDirectory()
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let weeklyReset = Int(now.addingTimeInterval(7 * 24 * 60 * 60).timeIntervalSince1970)
-        let log = directory.appendingPathComponent("rollout-test.jsonl")
-        try """
-        {"type":"event_msg","payload":{"type":"token_count","rate_limits":{"plan_type":"free","primary":{"used_percent":33,"window_minutes":10080,"resets_at":\(weeklyReset)},"secondary":null}}}
-        """.write(to: log, atomically: true, encoding: .utf8)
-
-        let service = CodexUsageService(directories: [directory], now: { now })
-        let snapshot = try await service.fetchSnapshot()
-
-        let window = try #require(snapshot?.windows.first)
-        #expect(snapshot?.windows.count == 1)
-        #expect(window.windowType == .codexWeekly)
-        #expect(window.utilization == 33)
+        #expect(snapshot?.windows.first { $0.windowType == .codexFiveHour }?.utilization == 77)
+        #expect(snapshot?.windows.first { $0.windowType == .codexWeekly }?.utilization == 88)
+        #expect(snapshot?.planName == "Pro 20x")
     }
 
     @Test func resetAfterSecondsIsResolvedRelativeToFetchTime() async throws {
-        let directory = try Self.temporaryDirectory()
         let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let log = directory.appendingPathComponent("rollout-test.jsonl")
-        try """
-        {"type":"event_msg","payload":{"type":"token_count","rate_limits":{"plan_type":"plus","primary":{"used_percent":"12","window_minutes":"300","reset_after_seconds":"90"},"secondary":null}}}
-        """.write(to: log, atomically: true, encoding: .utf8)
+        let body = """
+        {"plan_type":"plus","rate_limit":{"primary_window":{"used_percent":12,"reset_after_seconds":90},"secondary_window":null}}
+        """
 
-        let service = CodexUsageService(directories: [directory], now: { now })
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
         let snapshot = try await service.fetchSnapshot()
 
+        #expect(snapshot?.windows.count == 1)
         let window = try #require(snapshot?.windows.first)
         #expect(window.windowType == .codexFiveHour)
         #expect(window.utilization == 12)
         #expect(window.resetsAt == now.addingTimeInterval(90))
+        #expect(snapshot?.planName == "Plus")
     }
 
-    private static func temporaryDirectory() throws -> URL {
+    @Test func unauthorizedRefreshesTokenThenSucceeds() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"prolite","rate_limit":{"primary_window":{"used_percent":5,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":null}}
+        """
+        let counter = CallCounter()
+
+        let service = try Self.makeService(now: now) { request in
+            let host = request.url?.host ?? ""
+            if host == Self.refreshHost {
+                counter.refreshCalls += 1
+                return (Self.response(200), Data(#"{"access_token":"new-token"}"#.utf8))
+            }
+            counter.usageCalls += 1
+            // First usage call is unauthorized; after refresh it succeeds.
+            if counter.usageCalls == 1 {
+                return (Self.response(401), Data())
+            }
+            return (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(counter.usageCalls == 2)
+        #expect(counter.refreshCalls == 1)
+        #expect(snapshot?.windows.first?.utilization == 5)
+    }
+
+    @Test func sessionExpiredReturnsNilWithoutFabricatingZero() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let service = try Self.makeService(now: now) { request in
+            let host = request.url?.host ?? ""
+            if host == Self.refreshHost {
+                return (Self.response(400), Data(#"{"error":{"code":"refresh_token_expired"}}"#.utf8))
+            }
+            return (Self.response(401), Data())
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        // Critical anti-bug contract: no snapshot at all, never a 0% window.
+        #expect(snapshot == nil)
+    }
+
+    @Test func missingAuthFileReturnsNil() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("auth.json")
+        let service = CodexUsageService(
+            session: Self.mockSession { _ in
+                Issue.record("Network must not be hit when no auth file is present")
+                return (Self.response(500), Data())
+            },
+            authFileURLs: [missing],
+            now: { now }
+        )
+        let snapshot = try await service.fetchSnapshot()
+        #expect(snapshot == nil)
+    }
+
+    // MARK: - Helpers
+
+    private final class CallCounter {
+        var usageCalls = 0
+        var refreshCalls = 0
+    }
+
+    private static func makeService(
+        now: Date,
+        handler: @escaping @Sendable (URLRequest) -> (HTTPURLResponse, Data)
+    ) throws -> CodexUsageService {
+        let authURL = try writeAuthFile()
+        return CodexUsageService(
+            session: mockSession(handler),
+            authFileURLs: [authURL],
+            now: { now }
+        )
+    }
+
+    private static func mockSession(
+        _ handler: @escaping @Sendable (URLRequest) -> (HTTPURLResponse, Data)
+    ) -> URLSession {
+        CodexURLProtocol.handler = handler
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CodexURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    private static func response(_ status: Int, headers: [String: String] = [:]) -> HTTPURLResponse {
+        HTTPURLResponse(
+            url: Constants.codexUsageURL,
+            statusCode: status,
+            httpVersion: "HTTP/2",
+            headerFields: headers
+        )!
+    }
+
+    private static func writeAuthFile() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("CodexUsageServiceTests-")
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory
+        let url = directory.appendingPathComponent("auth.json")
+        try """
+        {"auth_mode":"chatgpt","tokens":{"access_token":"test-access","refresh_token":"test-refresh","account_id":"test-account"}}
+        """.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+}
+
+private final class CodexURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var handler: (@Sendable (URLRequest) -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.unknown))
+            return
+        }
+        let (response, data) = handler(request)
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
     }
 
-    private static func writeRollout(
-        to directory: URL,
-        primaryUsedPercent: Int,
-        primaryReset: Int,
-        weeklyUsedPercent: Int,
-        weeklyReset: Int
-    ) throws {
-        let log = directory.appendingPathComponent("rollout-test.jsonl")
-        try """
-        {"type":"event_msg","payload":{"type":"token_count","rate_limits":{"plan_type":"plus","primary":{"used_percent":\(primaryUsedPercent),"resets_at":\(primaryReset)},"secondary":{"used_percent":\(weeklyUsedPercent),"resets_at":\(weeklyReset)}}}}
-        """.write(to: log, atomically: true, encoding: .utf8)
-    }
+    override func stopLoading() {}
 }
 #endif

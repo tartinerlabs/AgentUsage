@@ -25,6 +25,16 @@ enum Constants {
         URL(string: apiBaseURL + apiUsagePath)!
     }
 
+    // MARK: - Codex (ChatGPT subscription live usage)
+    /// Server-side ChatGPT quota endpoint. Reflects usage from both Codex CLI and
+    /// OpenCode-via-ChatGPT, unlike the stale local rollout logs.
+    static let codexUsageURL = URL(string: "https://chatgpt.com/backend-api/wham/usage")!
+    static let codexTokenRefreshURL = URL(string: "https://auth.openai.com/oauth/token")!
+    static let codexOAuthClientID = "app_EMoamEEZ73f0CkXaXp7hrann"
+    static let codexAccountIDHeader = "ChatGPT-Account-Id"
+    static let codexPrimaryUsedPercentHeader = "x-codex-primary-used-percent"
+    static let codexSecondaryUsedPercentHeader = "x-codex-secondary-used-percent"
+
     // MARK: - Provider Links (status / console dashboards)
     static let anthropicStatusURL = "https://status.anthropic.com"
     static let anthropicConsoleURL = "https://claude.ai/settings/usage"
@@ -60,6 +70,20 @@ enum Constants {
         return [
             home.appendingPathComponent(".codex/sessions")
         ]
+    }
+
+    /// Codex CLI OAuth credentials (`auth.json`). Honors `CODEX_HOME`, then default locations.
+    /// Used as the bearer-token source for the live `/wham/usage` fetch.
+    nonisolated static var codexAuthFileURLs: [URL] {
+        let env = ProcessInfo.processInfo.environment
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        var urls: [URL] = []
+        if let codexHome = env["CODEX_HOME"], !codexHome.isEmpty {
+            urls.append(URL(fileURLWithPath: codexHome).appendingPathComponent("auth.json"))
+        }
+        urls.append(home.appendingPathComponent(".codex/auth.json"))
+        urls.append(home.appendingPathComponent(".config/codex/auth.json"))
+        return urls
     }
 
     /// OpenCode SQLite database (XDG data home, with fallback).
