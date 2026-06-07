@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.5] - 2026-06-07
+
+### Fixed
+- Stop the remaining macOS keychain authorization prompt on launch, caused by blog usage sync reading its bearer token in-process. The token is now stored and read via the `/usr/bin/security` CLI — whose stable Apple-signed binary lets the keychain "Always Allow" grant persist — instead of in-process keychain APIs that re-prompt on every launch for the unsigned app. After updating, re-enter the blog sync token once in Settings.
+
 ## [0.13.4] - 2026-06-07
 
 ### Fixed
@@ -353,7 +358,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.4...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.5...HEAD
+[0.13.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.1...v0.13.2
