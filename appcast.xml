@@ -6,28 +6,32 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.13.5</title>
-            <pubDate>Sun, 07 Jun 2026 15:35:02 +0000</pubDate>
-            <sparkle:version>46</sparkle:version>
-            <sparkle:shortVersionString>0.13.5</sparkle:shortVersionString>
+            <title>Version 0.14.0</title>
+            <pubDate>Mon, 08 Jun 2026 15:48:32 +0000</pubDate>
+            <sparkle:version>47</sparkle:version>
+            <sparkle:shortVersionString>0.14.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
-<h3>Fixed</h3>
+<h3>Added</h3>
 <ul>
-<li>Stop the remaining macOS keychain authorization prompt on launch, caused by blog usage sync reading its bearer token in-process. The token is now stored and read via the `/usr/bin/security` CLI — whose stable Apple-signed binary lets the keychain "Always Allow" grant persist — instead of in-process keychain APIs that re-prompt on every launch for the unsigned app.</li>
+<li>**Per-provider service outage detection.** When a provider's usage fetch fails with an HTTP 5xx / service-unavailable error, ClaudeMeter tracks an outage and shows a "Service down" indicator on that provider's card (menu bar popover) and a banner on its detail page (menu bar + Dashboard), while continuing to show cached data. Covers Claude, Codex, and OpenCode; clears automatically on the next successful fetch.</li>
 </ul>
 
-**After updating, re-enter your blog sync token once** in Settings (the old keychain entry was reset as part of this fix).
+<h3>Fixed</h3>
+<ul>
+<li>OpenCode Go dashboard usage windows never parsed due to a malformed regex, so OpenCode rate-limit windows were always missing. The parser now extracts rolling/weekly/monthly usage correctly.</li>
+<li>Manual refresh is no longer throttled — pressing refresh always fetches immediately.</li>
+</ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.5/ClaudeMeter.zip"
-                length="1990210"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.0/ClaudeMeter.zip"
+                length="2010682"
                 type="application/octet-stream"
-                sparkle:edSignature="6xV+sZTmArPitq9atg15fbEAzF48k+MSyhunZjKd8VKyueWigGX5fwRjyNouEQxcV/Ry9SQLe2XpNCTFOCnTBw==" />
+                sparkle:edSignature="p/wPa2JJNMZ6uxCs7//uom52BmpuVJYoS/tpkWe5wS7ki8jQyVZX7+GEOte/pSazDXHXiT8+vcj1n+0/u6TjBg==" />
         </item>
     </channel>
 </rss>
