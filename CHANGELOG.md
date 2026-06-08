@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-06-08
+
+### Added
+- Per-provider service outage detection. When a provider's usage fetch fails with an HTTP 5xx / service-unavailable error, ClaudeMeter now tracks an outage and shows a "Service down" indicator on that provider's card (menu bar popover) and a banner on its detail page (menu bar + Dashboard), while continuing to show cached data. Covers Claude, Codex, and OpenCode; the indicator clears automatically on the next successful fetch.
+
+### Fixed
+- OpenCode Go dashboard usage windows never parsed due to a malformed regex (raw-string delimiter bug), so OpenCode rate-limit windows were always missing. The parser now extracts rolling/weekly/monthly usage correctly.
+- Manual refresh is no longer throttled — pressing refresh always fetches immediately (the 5-second cooldown only applied to forced refreshes and is removed).
+
 ## [0.13.5] - 2026-06-07
 
 ### Fixed
@@ -358,7 +367,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.5...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.5...v0.14.0
 [0.13.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.2...v0.13.3
