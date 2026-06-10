@@ -302,6 +302,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     }
 
     private func computeSnapshot() async throws -> TokenUsageSnapshot {
+        await LiteLLMPricingCache.shared.refreshIfNeeded()
+
         let now = Date()
         let todayStart = Calendar.current.startOfDay(for: now)
         let last30DaysStart = Calendar.current.date(byAdding: .day, value: -30, to: todayStart)!
