@@ -21,6 +21,7 @@ enum Constants {
     static let apiUsagePath = "/api/oauth/usage"
     static let anthropicBetaHeader = "oauth-2025-04-20"
 
+    /// Full URL for the Anthropic OAuth usage endpoint.
     static var usageURL: URL {
         URL(string: apiBaseURL + apiUsagePath)!
     }
