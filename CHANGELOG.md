@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-06-10
+
+### Changed
+- Rebuilt and verified against Xcode 27 / macOS 27 (build and full test suite pass on the new SDK).
+
+### Fixed
+- Two environment-dependent test failures: `returnsNilForUnknownModel` raced the live LiteLLM pricing map (which now legitimately prices `gpt-4`) and asserts the static fallback instead; `initialStateIsCorrect` leaked the real app's cached usage snapshot from the shared UserDefaults domain and now stashes and restores it.
+
 ## [0.14.1] - 2026-06-10
 
 ### Fixed
@@ -373,7 +381,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.2...HEAD
+[0.14.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.5...v0.14.0
 [0.13.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.4...v0.13.5
