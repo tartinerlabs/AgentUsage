@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-06-10
+
+- Sign release bot commits via the GitHub API
+
 ## [0.14.3] - 2026-06-10
 
 - Trigger release after CI signing fix
@@ -389,7 +393,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.3...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.4...HEAD
+[0.14.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.3...v0.14.4
 [0.14.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.0...v0.14.1
