@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-06-10
+
+### Fixed
+- Use LiteLLM pricing data as the source of truth for token cost calculations, preferring a configured LiteLLM proxy's `/model/info` pricing and falling back to LiteLLM's hosted model cost map.
+- Refresh LiteLLM pricing before local token imports, zero-cost recalculation, live provider aggregation, and blog usage sync so newly released models such as Claude Mythos/Fable 5 can be priced without hardcoded app updates.
+
 ## [0.14.0] - 2026-06-08
 
 ### Added
@@ -367,7 +373,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.5...v0.14.0
 [0.13.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.3...v0.13.4
