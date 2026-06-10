@@ -894,6 +894,7 @@ actor BlogUsageSyncService {
         updateStatus(.syncing, message: "Syncing blog usage")
 
         do {
+            await LiteLLMPricingCache.shared.refreshIfNeeded()
             let events = try parser.parseAllSources()
             let rows = aggregator.aggregate(events)
             guard !rows.isEmpty else {

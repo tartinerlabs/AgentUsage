@@ -87,6 +87,15 @@ enum ModelPricing: Sendable {
 
     /// Get pricing rates for a model name
     nonisolated static func rates(for model: String) -> Rates? {
+        if let rates = LiteLLMPricingCache.shared.rates(forProvider: "anthropic", model: model) {
+            return rates
+        }
+
+        return fallbackRates(for: model)
+    }
+
+    /// Static fallback used only when LiteLLM pricing has not been cached yet.
+    nonisolated static func fallbackRates(for model: String) -> Rates? {
         let lowercased = model.lowercased()
 
         if lowercased.contains("opus-4-8") || lowercased.contains("opus-4.8") {
@@ -113,6 +122,15 @@ enum ModelPricing: Sendable {
     }
 
     nonisolated static func rates(forProvider provider: String, model: String) -> Rates? {
+        if let rates = LiteLLMPricingCache.shared.rates(forProvider: provider, model: model) {
+            return rates
+        }
+
+        return fallbackRates(forProvider: provider, model: model)
+    }
+
+    /// Static fallback used only when LiteLLM pricing has not been cached yet.
+    nonisolated static func fallbackRates(forProvider provider: String, model: String) -> Rates? {
         let lowercasedProvider = provider.lowercased()
         let lowercasedModel = model.lowercased()
 
@@ -156,6 +174,280 @@ enum ModelPricing: Sendable {
             + Double(cacheWriteTokens) * rates.cacheWritePerMTok
             + Double(cacheReadTokens) * rates.cacheReadPerMTok
         ) / 1_000_000
+    }
+}
+
+/// LiteLLM-backed pricing cache.
+///
+/// LiteLLM is the source of truth for model prices. This cache refreshes from a
+/// configured LiteLLM proxy (`LITELLM_PROXY_URL`) when available, otherwise from
+/// LiteLLM's hosted model cost map. The legacy hardcoded table remains only as
+/// an offline fallback before the first successful refresh.
+final class LiteLLMPricingCache: @unchecked Sendable {
+    static let shared = LiteLLMPricingCache()
+
+    private static let defaultCostMapURL = URL(string: "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json")!
+    private static let cacheDataKey = "LiteLLMPricingCache.data"
+    private static let cacheUpdatedAtKey = "LiteLLMPricingCache.updatedAt"
+    private static let cacheSourceKey = "LiteLLMPricingCache.source"
+
+    private struct ModelInfo: Codable, Sendable {
+        let aliases: [String]?
+        let inputCostPerToken: Double?
+        let outputCostPerToken: Double?
+        let cacheCreationInputTokenCost: Double?
+        let cacheReadInputTokenCost: Double?
+        let outputCostPerReasoningToken: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case aliases
+            case inputCostPerToken = "input_cost_per_token"
+            case outputCostPerToken = "output_cost_per_token"
+            case cacheCreationInputTokenCost = "cache_creation_input_token_cost"
+            case cacheReadInputTokenCost = "cache_read_input_token_cost"
+            case outputCostPerReasoningToken = "output_cost_per_reasoning_token"
+        }
+
+        var rates: ModelPricing.Rates? {
+            guard let inputCostPerToken, let outputCostPerToken else { return nil }
+            return ModelPricing.Rates(
+                inputPerMTok: inputCostPerToken * 1_000_000,
+                outputPerMTok: outputCostPerToken * 1_000_000,
+                cacheWritePerMTok: (cacheCreationInputTokenCost ?? inputCostPerToken) * 1_000_000,
+                cacheReadPerMTok: (cacheReadInputTokenCost ?? inputCostPerToken) * 1_000_000
+            )
+        }
+    }
+
+    private struct ProxyModelInfo: Decodable, Sendable {
+        let modelName: String?
+        let modelInfo: ModelInfo?
+        let directModelInfo: ModelInfo?
+
+        enum CodingKeys: String, CodingKey {
+            case modelName = "model_name"
+            case modelInfo = "model_info"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            modelName = try container.decodeIfPresent(String.self, forKey: .modelName)
+            modelInfo = try container.decodeIfPresent(ModelInfo.self, forKey: .modelInfo)
+            directModelInfo = try? ModelInfo(from: decoder)
+        }
+    }
+
+    private struct ProxyModelInfoResponse: Decodable, Sendable {
+        let data: [ProxyModelInfo]
+    }
+
+    private let lock = NSLock()
+    private var map: [String: ModelInfo]?
+    private var lastRefreshTask: Task<Void, Never>?
+
+    private init() {}
+
+    var sourceDescription: String? {
+        UserDefaults.standard.string(forKey: Self.cacheSourceKey)
+    }
+
+    func refreshIfNeeded(
+        ttl: TimeInterval = 24 * 60 * 60,
+        session: URLSession = .shared,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) async {
+        let lastUpdated = UserDefaults.standard.double(forKey: Self.cacheUpdatedAtKey)
+        if lastUpdated > 0, Date().timeIntervalSince1970 - lastUpdated < ttl, ratesMap() != nil {
+            return
+        }
+
+        lock.lock()
+        if let lastRefreshTask {
+            lock.unlock()
+            await lastRefreshTask.value
+            return
+        }
+        let task = Task<Void, Never> {
+            await self.refresh(session: session, environment: environment)
+        }
+        lastRefreshTask = task
+        lock.unlock()
+
+        await task.value
+
+        lock.lock()
+        lastRefreshTask = nil
+        lock.unlock()
+    }
+
+    func refresh(
+        session: URLSession = .shared,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) async {
+        if let proxyURL = Self.proxyModelInfoURL(environment: environment),
+           let data = try? await Self.fetch(url: proxyURL, session: session, bearerToken: Self.proxyToken(environment: environment)),
+           let map = Self.decodeProxyModelInfo(data) {
+            store(map: map, source: "LiteLLM Proxy")
+            return
+        }
+
+        let costMapURL = Self.costMapURL(environment: environment)
+        if let data = try? await Self.fetch(url: costMapURL, session: session, bearerToken: nil),
+           let map = Self.decodeCostMap(data) {
+            store(map: map, source: "LiteLLM Hosted Map")
+        }
+    }
+
+    func rates(forProvider provider: String, model: String) -> ModelPricing.Rates? {
+        guard let map = ratesMap() else { return nil }
+        for key in lookupKeys(provider: provider, model: model) {
+            if let rates = map[key]?.rates {
+                return rates
+            }
+        }
+        return nil
+    }
+
+    #if DEBUG
+    func clearForTesting() {
+        UserDefaults.standard.removeObject(forKey: Self.cacheDataKey)
+        UserDefaults.standard.removeObject(forKey: Self.cacheUpdatedAtKey)
+        UserDefaults.standard.removeObject(forKey: Self.cacheSourceKey)
+        lock.lock()
+        map = nil
+        lock.unlock()
+    }
+    #endif
+
+    private func ratesMap() -> [String: ModelInfo]? {
+        lock.lock()
+        if let map {
+            lock.unlock()
+            return map
+        }
+        lock.unlock()
+
+        guard let data = UserDefaults.standard.data(forKey: Self.cacheDataKey),
+              let decoded = try? JSONDecoder().decode([String: ModelInfo].self, from: data) else {
+            return nil
+        }
+
+        lock.lock()
+        map = decoded
+        lock.unlock()
+        return decoded
+    }
+
+    private func store(map: [String: ModelInfo], source: String) {
+        guard let data = try? JSONEncoder().encode(map) else { return }
+        UserDefaults.standard.set(data, forKey: Self.cacheDataKey)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.cacheUpdatedAtKey)
+        UserDefaults.standard.set(source, forKey: Self.cacheSourceKey)
+
+        lock.lock()
+        self.map = map
+        lock.unlock()
+    }
+
+    private func lookupKeys(provider: String, model: String) -> [String] {
+        let normalizedProvider = normalize(provider)
+        let normalizedModel = normalize(model)
+        let modelWithoutLiteLLMPrefix = normalizedModel.removingPrefix("litellm/")
+
+        var keys = [
+            normalizedModel,
+            modelWithoutLiteLLMPrefix,
+            "\(normalizedProvider)/\(modelWithoutLiteLLMPrefix)",
+            "\(normalizedProvider).\(modelWithoutLiteLLMPrefix)"
+        ]
+
+        if normalizedProvider == "litellm" {
+            keys.append(contentsOf: [
+                "anthropic/\(modelWithoutLiteLLMPrefix)",
+                "anthropic.\(modelWithoutLiteLLMPrefix)",
+                "openai/\(modelWithoutLiteLLMPrefix)",
+                "openai.\(modelWithoutLiteLLMPrefix)"
+            ])
+        }
+
+        return Array(Set(keys))
+    }
+
+    private func normalize(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func proxyModelInfoURL(environment: [String: String]) -> URL? {
+        guard let raw = environment["LITELLM_PROXY_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty,
+              let base = URL(string: raw) else { return nil }
+        return base.appendingPathComponent("model/info")
+    }
+
+    private static func proxyToken(environment: [String: String]) -> String? {
+        let token = environment["LITELLM_API_KEY"] ?? environment["LITELLM_MASTER_KEY"]
+        return token?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    }
+
+    private static func costMapURL(environment: [String: String]) -> URL {
+        guard let raw = environment["LITELLM_MODEL_COST_MAP_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty,
+              let url = URL(string: raw) else {
+            return defaultCostMapURL
+        }
+        return url
+    }
+
+    private static func fetch(url: URL, session: URLSession, bearerToken: String?) async throws -> Data {
+        var request = URLRequest(url: url)
+        if let bearerToken {
+            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        return data
+    }
+
+    private static func decodeCostMap(_ data: Data) -> [String: ModelInfo]? {
+        guard let decoded = try? JSONDecoder().decode([String: ModelInfo].self, from: data) else { return nil }
+        return expandAliases(decoded)
+    }
+
+    private static func decodeProxyModelInfo(_ data: Data) -> [String: ModelInfo]? {
+        if let response = try? JSONDecoder().decode(ProxyModelInfoResponse.self, from: data) {
+            var result: [String: ModelInfo] = [:]
+            for item in response.data {
+                guard let modelName = item.modelName?.nilIfEmpty,
+                      let modelInfo = item.modelInfo ?? item.directModelInfo else { continue }
+                result[modelName.lowercased()] = modelInfo
+            }
+            return result.isEmpty ? nil : expandAliases(result)
+        }
+
+        return decodeCostMap(data)
+    }
+
+    private static func expandAliases(_ map: [String: ModelInfo]) -> [String: ModelInfo] {
+        var expanded: [String: ModelInfo] = [:]
+        for (key, info) in map {
+            expanded[key.lowercased()] = info
+            for alias in info.aliases ?? [] {
+                expanded[alias.lowercased()] = info
+            }
+        }
+        return expanded
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
+
+    func removingPrefix(_ prefix: String) -> String {
+        hasPrefix(prefix) ? String(dropFirst(prefix.count)) : self
     }
 }
 

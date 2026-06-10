@@ -197,6 +197,7 @@ final class TokenUsageRepository {
         newFileSize: Int64,
         newModified: Date
     ) async throws {
+        await LiteLLMPricingCache.shared.refreshIfNeeded()
         _ = try await importer.importEntries(entries)
 
         // Update file state on main actor
@@ -210,7 +211,8 @@ final class TokenUsageRepository {
 
     /// Recalculate costs for entries that were imported with $0 cost (e.g., new model pricing added)
     func recalculateZeroCostEntries() async throws -> Int {
-        try await importer.recalculateZeroCostEntries()
+        await LiteLLMPricingCache.shared.refreshIfNeeded()
+        return try await importer.recalculateZeroCostEntries()
     }
 
     // MARK: - File State Operations

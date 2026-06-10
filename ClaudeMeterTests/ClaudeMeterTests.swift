@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - ModelPricing Tests
 
-@Suite("ModelPricing")
+@Suite("ModelPricing", .serialized)
 struct ModelPricingTests {
 
     // MARK: - Rate Values
@@ -133,6 +133,64 @@ struct ModelPricingTests {
         #expect(ModelPricing.rates(forProvider: "openai", model: "gpt-5.3-codex")?.inputPerMTok == 1.75)
     }
 
+    @Test func liteLLMHostedCostMapPricesModels() async throws {
+        LiteLLMPricingCache.shared.clearForTesting()
+        defer { LiteLLMPricingCache.shared.clearForTesting() }
+
+        let session = Self.urlSessionReturning("""
+        {
+          "claude-fable-5": {
+            "input_cost_per_token": 0.000010,
+            "output_cost_per_token": 0.000050,
+            "cache_creation_input_token_cost": 0.0000125,
+            "cache_read_input_token_cost": 0.000001,
+            "litellm_provider": "anthropic"
+          }
+        }
+        """)
+
+        await LiteLLMPricingCache.shared.refresh(
+            session: session,
+            environment: ["LITELLM_MODEL_COST_MAP_URL": "https://pricing.test/map.json"]
+        )
+
+        let rates = try #require(ModelPricing.rates(forProvider: "litellm", model: "claude-fable-5"))
+        #expect(rates.inputPerMTok == 10.0)
+        #expect(rates.outputPerMTok == 50.0)
+        #expect(rates.cacheWritePerMTok == 12.5)
+        #expect(rates.cacheReadPerMTok == 1.0)
+    }
+
+    @Test func liteLLMProxyModelInfoOverridesHostedCostMap() async throws {
+        LiteLLMPricingCache.shared.clearForTesting()
+        defer { LiteLLMPricingCache.shared.clearForTesting() }
+
+        let session = Self.urlSessionReturning("""
+        {
+          "data": [
+            {
+              "model_name": "claude-mythos-5",
+              "model_info": {
+                "input_cost_per_token": 0.000010,
+                "output_cost_per_token": 0.000050,
+                "cache_creation_input_token_cost": 0.0000125,
+                "cache_read_input_token_cost": 0.000001
+              }
+            }
+          ]
+        }
+        """)
+
+        await LiteLLMPricingCache.shared.refresh(
+            session: session,
+            environment: ["LITELLM_PROXY_URL": "https://litellm.test"]
+        )
+
+        let rates = try #require(ModelPricing.rates(forProvider: "litellm", model: "claude-mythos-5"))
+        #expect(rates.inputPerMTok == 10.0)
+        #expect(rates.outputPerMTok == 50.0)
+    }
+
     @Test func openAIReasoningTokensAreBilledAsOutput() {
         let cost = ModelPricing.costUSD(
             provider: "openai",
@@ -146,6 +204,39 @@ struct ModelPricingTests {
 
         #expect(cost == 28.0)
     }
+
+    private static func urlSessionReturning(_ body: String) -> URLSession {
+        LiteLLMPricingURLProtocol.body = Data(body.utf8)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [LiteLLMPricingURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+}
+
+private final class LiteLLMPricingURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var body = Data()
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
 
 // MARK: - TokenCount Tests
