@@ -296,52 +296,28 @@ CURRENT_PROJECT_VERSION = 1
 
 ### Release Workflow
 
-GitHub Actions automates releases via `.github/workflows/release.yml`:
+Releases are **fully automated** via `.github/workflows/auto-release.yml`. Every code push to `main`:
 
-1. **Trigger**: Publish a GitHub release
-2. **Validate**: Ensures git tag matches `Config/Version.xcconfig` version
-3. **Build**: Builds unsigned app, creates zip archive
-4. **Sign**: Signs update with Sparkle EdDSA key
-5. **Appcast**: Generates appcast.xml with version and signature
-6. **Upload**: Attaches zip to GitHub release
-7. **Commit**: Pushes updated appcast.xml back to main branch
+1. **Computes the next version** from the latest `v*` tag — patch by default; a `[minor]` or `[major]` token in any commit message since the last tag escalates the bump (highest wins, markers stripped from notes)
+2. **Generates release notes** from commit subjects since the last tag (noise commits like appcast/version-bump/beads updates are filtered out)
+3. **Runs the macOS test suite** — failure aborts before anything is pushed
+4. **Bumps** `Config/Version.xcconfig`, `project.pbxproj`, and `CHANGELOG.md` (flat bullet list under the new version section), committing "Bump version to X.Y.Z"
+5. **Builds** the unsigned app and creates the zip archive
+6. **Creates the GitHub release** with the zip attached — the tag is created here, only after a successful build (`--prerelease` while < 1.0.0)
+7. **Signs** the zip with the Sparkle EdDSA key and **commits the updated appcast.xml** back to main as the final step
 
-**Creating a release:**
+**Do NOT manually bump versions, tag, or run `gh release create`** — just push to main.
+
+A push does not release when it only touches non-code paths (`**/*.md`, `appcast.xml`, `Config/Version.xcconfig`, `.beads/**`, `.claude/**`, `.github/**`, `.gitignore`), when the head commit contains `[skip release]`, or when no release-worthy commits exist since the last tag. The two `github-actions[bot]` commits each release produces ("Bump version to X.Y.Z", "Update appcast for vX.Y.Z") are expected and never retrigger the workflow.
+
+**Manual controls:**
 
 ```bash
-# 1. Update Config/Version.xcconfig
-MARKETING_VERSION = 0.2.0
-CURRENT_PROJECT_VERSION = 2
-
-# 2. Update CHANGELOG.md with release notes
-
-# 3. Commit
-git add . && git commit -m "Bump version to 0.2.0"
-
-# 4. Tag (must match xcconfig version)
-git tag v0.2.0
-
-# 5. Push
-git push && git push --tags
-
-# 6. Create release with detailed notes
-gh release create v0.2.0 --title "ClaudeMeter 0.2.0" --notes-file - --prerelease <<'EOF'
-## What's New
-
-### Added
-- Feature description here
-
-### Fixed
-- Bug fix description here
-
-### Changed
-- Change description here
-
-See [CHANGELOG.md](CHANGELOG.md) for full details.
-EOF
+gh workflow run auto-release.yml -f bump=minor    # force a bump type
+gh workflow run auto-release.yml -f dry_run=true  # compute version/notes + run tests, release nothing
 ```
 
-For stable releases (1.0.0+), omit `--prerelease` flag.
+See `.claude/skills/release/SKILL.md` for failure recovery.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ccf33ec3 -->

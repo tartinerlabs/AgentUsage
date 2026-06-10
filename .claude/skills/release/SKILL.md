@@ -1,110 +1,69 @@
 ---
 name: release
-description: Create a new release for ClaudeMeter. Bumps version in Config/Version.xcconfig, updates CHANGELOG.md, commits, tags, pushes, and creates a GitHub release with detailed notes. Use when releasing a new version.
+description: Operate ClaudeMeter's automated release pipeline. Releases happen automatically on push to main via .github/workflows/auto-release.yml. Use when the user asks how releases work, wants a minor/major bump, wants to skip a release, needs a manual release, or needs to recover from a failed release run.
 allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 ---
 
 # Release Skill
 
-Create a new release for ClaudeMeter following Apple versioning standards.
+Releases are **fully automated**. Every code push to `main` triggers `.github/workflows/auto-release.yml`, which:
 
-## Prerequisites
+1. Computes the next version from the latest `v*` tag (patch by default)
+2. Generates release notes from commit subjects since that tag
+3. Runs the macOS test suite — any failure aborts before anything is pushed
+4. Bumps `Config/Version.xcconfig`, `project.pbxproj`, and `CHANGELOG.md`, commits "Bump version to X.Y.Z"
+5. Builds, ad-hoc signs, and zips the app
+6. Creates the GitHub release with the zip attached (tag is created here, only after a successful build; `--prerelease` while < 1.0.0)
+7. EdDSA-signs the zip and commits the updated `appcast.xml` back to main (the final, user-visible release act)
 
-- Working tree must be clean (no uncommitted changes)
-- Must be on the `main` branch
+There is no manual version bumping, tagging, or `gh release create` anymore.
 
-## Workflow
+## Controlling the automation
 
-### Step 1: Validate State
+### Bump type
 
-1. Check git status - must be clean
-2. Verify on `main` branch
-3. Read current version from `Config/Version.xcconfig`
+- Default: **patch** (0.14.2 → 0.14.3)
+- Include the literal token `[minor]` or `[major]` anywhere in a commit subject or body to escalate; the highest marker since the last tag wins. Markers are stripped from release notes.
+  - Example: `Add per-provider outage tracking [minor]`
 
-### Step 2: Determine New Version
+### Skipping a release
 
-Ask the user what type of release:
-- **patch**: 0.1.0 → 0.1.1 (bug fixes)
-- **minor**: 0.1.0 → 0.2.0 (new features)
-- **major**: 0.1.0 → 1.0.0 (breaking changes)
+A push does NOT release when any of these hold:
 
-Or accept a specific version if provided.
+- It only touches non-code paths: `**/*.md`, `appcast.xml`, `Config/Version.xcconfig`, `.beads/**`, `.claude/**`, `.github/**`, `.gitignore`
+- The head commit message contains `[skip release]`
+- All commits since the last tag filter out as noise (`Update appcast for v…`, `Bump version to …`, `Update beads…`, `[skip release]` commits)
 
-### Step 3: Update Version Files
-
-**IMPORTANT**: All platforms (macOS, iOS, widgets, tests) must have the same version numbers.
-
-1. Update `Config/Version.xcconfig` (source of truth):
-   - Increment `MARKETING_VERSION` to new version
-   - Increment `CURRENT_PROJECT_VERSION` by 1
-
-2. Update `ClaudeMeter.xcodeproj/project.pbxproj` to sync ALL targets:
-   - Replace all `MARKETING_VERSION = X.Y.Z;` with the new version
-   - Replace all `CURRENT_PROJECT_VERSION = N;` with the new build number
-   - This includes: ClaudeMeter (macOS), ClaudeMeter-iOS, ClaudeMeterWidgetsExtension, and all test targets
-   - Use the Edit tool with `replace_all: true` to update all occurrences
-
-### Step 4: Update CHANGELOG.md
-
-1. Read current `CHANGELOG.md`
-2. Ask user for release notes (what was added, fixed, changed)
-3. Add new version section under `[Unreleased]`:
-   ```markdown
-   ## [X.Y.Z] - YYYY-MM-DD
-
-   ### Added
-   - New features here
-
-   ### Fixed
-   - Bug fixes here
-
-   ### Changed
-   - Changes here
-   ```
-4. Update comparison links at bottom of file
-
-### Step 5: Commit and Tag
+### Manual trigger / dry run
 
 ```bash
-git add Config/Version.xcconfig ClaudeMeter.xcodeproj/project.pbxproj CHANGELOG.md
-git commit -m "Bump version to X.Y.Z"
-git tag vX.Y.Z
+# Force a specific bump type
+gh workflow run auto-release.yml -f bump=minor
+
+# Dry run: computes version + notes, runs tests, prints the would-be
+# CHANGELOG/xcconfig diff — pushes and releases nothing
+gh workflow run auto-release.yml -f dry_run=true
+
+# Watch it
+gh run watch
 ```
 
-### Step 6: Push and Create Release
+### Better release notes
 
-```bash
-git push origin main
-git push origin vX.Y.Z
-```
+Auto-notes are a flat bullet list of commit subjects. If richer notes are wanted, write good commit subjects — they ARE the release notes. The `## [Unreleased]` CHANGELOG section is still honored: anything placed there manually stays above the auto-inserted version section.
 
-Create GitHub release with detailed notes:
-```bash
-gh release create vX.Y.Z --title "ClaudeMeter X.Y.Z" --notes-file - --prerelease <<'EOF'
-## What's New
+## Expected bot commits
 
-[Extract from CHANGELOG.md for this version]
+Each release produces two `github-actions[bot]` commits on main: `Bump version to X.Y.Z` and `Update appcast for vX.Y.Z`. These never retrigger the workflow (GITHUB_TOKEN pushes don't fire workflows, and the touched paths are ignored anyway).
 
-See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
-EOF
-```
+## Failure recovery
 
-Use `--prerelease` flag for versions < 1.0.0.
+- **Tests fail**: nothing was pushed. Fix and push again.
+- **Build fails after the bump commit**: main has the bump commit but no tag/release. The next push (or re-running the failed run) detects xcconfig already at the computed version and resumes straight to build.
+- **Appcast push fails** (rare): the release exists but the Sparkle feed is stale. Regenerate/commit `appcast.xml` manually, or delete the release + tag and re-run.
+- **Tag exists error**: a release already went out for that version; usually means a re-run after full success — nothing to do.
 
-### Step 7: Verify
+## Version format
 
-1. Confirm GitHub Actions workflow started
-2. Provide link to the release
-
-## Version Format
-
-- **MARKETING_VERSION**: X.Y.Z (semantic versioning)
-- **CURRENT_PROJECT_VERSION**: Integer, always increments (never decreases)
-
-## Example
-
-```
-Current: 0.1.0 (build 1)
-User requests: minor release with "Added dark mode support"
-Result: 0.2.0 (build 2)
-```
+- **MARKETING_VERSION**: X.Y.Z (semantic versioning) — cosmetic to Sparkle
+- **CURRENT_PROJECT_VERSION**: integer build number, +1 per release, never decreases — this is what Sparkle compares for updates
