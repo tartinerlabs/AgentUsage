@@ -6,29 +6,25 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.14.3</title>
-            <pubDate>Wed, 10 Jun 2026 17:50:52 +0000</pubDate>
-            <sparkle:version>50</sparkle:version>
-            <sparkle:shortVersionString>0.14.3</sparkle:shortVersionString>
+            <title>Version 0.14.4</title>
+            <pubDate>Wed, 10 Jun 2026 18:00:46 +0000</pubDate>
+            <sparkle:version>51</sparkle:version>
+            <sparkle:shortVersionString>0.14.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>Trigger release after CI signing fix</li>
-<li>Document the usage endpoint URL constant</li>
-<li>Extract release logic into local composite actions</li>
-<li>Address PR review: abort on moved main, create release after signing, pin checkout SHA</li>
-<li>Automate releases on push to main</li>
+<li>Sign release bot commits via the GitHub API</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.3/ClaudeMeter.zip"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.4/ClaudeMeter.zip"
                 length="2044907"
                 type="application/octet-stream"
-                sparkle:edSignature="YB76Cd0KMXi1SL7KKeEg5UeyO2M+JVdf88Jn5TXRaGHuANzJdBd9I1JSunqUMGJ139ANiKS2pNCZXq3M+6RHBA==" />
+                sparkle:edSignature="Ss3pTHwwUB6xVbuEjFvyw+SOUFbDwT7JGqY1fK/PuIYwzQKm/UCx9HYv77yEoZfEqWva4XSDa+blcn1p20P/Dw==" />
         </item>
     </channel>
 </rss>
