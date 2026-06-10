@@ -1,0 +1,171 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'appcast.xml'
+      - 'Config/Version.xcconfig'
+      - '.beads/**'
+      - '.claude/**'
+      - '.github/**'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+      dry_run:
+        description: 'Compute version and notes without releasing'
+        type: boolean
+        default: false
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+env:
+  APP_NAME: ClaudeMeter
+  SCHEME: ClaudeMeter
+
+jobs:
+  release:
+    runs-on: macos-26
+    if: github.actor != 'github-actions[bot]'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          # Always release from the tip of main, not the triggering SHA: a run
+          # queued behind another release must see that release's bump commit.
+          ref: main
+          fetch-depth: 0
+
+      - name: Compute version and release notes
+        id: version
+        uses: ./.github/actions/compute-version
+        with:
+          bump: ${{ inputs.bump || 'auto' }}
+
+      - name: Run tests
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          xcodebuild -project ${{ env.APP_NAME }}.xcodeproj \
+            -scheme ${{ env.SCHEME }} \
+            test
+
+      - name: Bump version and update changelog
+        if: steps.version.outputs.skip != 'true' && steps.version.outputs.resume != 'true'
+        uses: ./.github/actions/bump-version
+        with:
+          version: ${{ steps.version.outputs.version }}
+          build-number: ${{ steps.version.outputs.build-number }}
+          last-tag: ${{ steps.version.outputs.last-tag }}
+          notes: ${{ steps.version.outputs.notes }}
+          app-name: ${{ env.APP_NAME }}
+
+      - name: Dry-run report
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run == true
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build-number }}
+          NOTES: ${{ steps.version.outputs.notes }}
+        run: |
+          {
+            echo "## Dry run: would release $VERSION (build $BUILD)"
+            echo ""
+            echo "$NOTES"
+          } >> "$GITHUB_STEP_SUMMARY"
+          git diff
+
+      - name: Commit version bump
+        if: steps.version.outputs.skip != 'true' && steps.version.outputs.resume != 'true' && inputs.dry_run != true
+        uses: ./.github/actions/commit-push
+        with:
+          files: Config/Version.xcconfig ${{ env.APP_NAME }}.xcodeproj/project.pbxproj CHANGELOG.md
+          message: Bump version to ${{ steps.version.outputs.version }}
+          strategy: abort-on-moved-main
+
+      - name: Build and archive
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
+        run: |
+          xcodebuild -project ${{ env.APP_NAME }}.xcodeproj \
+            -scheme ${{ env.SCHEME }} \
+            -configuration Release \
+            -archivePath build/${{ env.APP_NAME }}.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Export app
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
+        run: |
+          mkdir -p build/export
+          cp -R "build/${{ env.APP_NAME }}.xcarchive/Products/Applications/${{ env.APP_NAME }}.app" build/export/
+          # Re-sign with ad-hoc signature to ensure valid code signature
+          codesign --force --deep --sign - "build/export/${{ env.APP_NAME }}.app"
+          # Verify the signature is valid
+          codesign --verify --deep --strict "build/export/${{ env.APP_NAME }}.app"
+
+      - name: Create zip
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
+        run: |
+          cd build/export
+          zip -r -y ../${{ env.APP_NAME }}.zip ${{ env.APP_NAME }}.app
+
+      - name: Compose release notes
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
+        env:
+          NOTES: ${{ steps.version.outputs.notes }}
+        run: |
+          {
+            echo "## What's New"
+            echo ""
+            echo "$NOTES"
+            echo ""
+            echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for full details."
+          } > /tmp/release-notes.md
+
+      - name: Generate appcast
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
+        uses: ./.github/actions/generate-appcast
+        with:
+          version: ${{ steps.version.outputs.version }}
+          build-number: ${{ steps.version.outputs.build-number }}
+          tag: ${{ steps.version.outputs.tag }}
+          notes-file: /tmp/release-notes.md
+          sparkle-private-key: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          app-name: ${{ env.APP_NAME }}
+
+      - name: Create GitHub release
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          FLAGS=""
+          case "$VERSION" in 0.*) FLAGS="--prerelease" ;; esac
+          # gh release create makes the tag at --target itself, so a tag only
+          # ever exists once the build, signing, and appcast generation have
+          # all succeeded; the only step left after this is the appcast push.
+          gh release create "$TAG" "build/${{ env.APP_NAME }}.zip#${{ env.APP_NAME }}.zip" \
+            --target "$(git rev-parse HEAD)" \
+            --title "${{ env.APP_NAME }} $VERSION" \
+            --notes-file /tmp/release-notes.md $FLAGS
+
+      - name: Commit updated appcast
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
+        uses: ./.github/actions/commit-push
+        with:
+          # Publishing the appcast is the final, user-visible release act; the
+          # zip is already downloadable, so Sparkle never sees a dead link.
+          files: appcast.xml
+          message: Update appcast for ${{ steps.version.outputs.tag }}
+          strategy: rebase

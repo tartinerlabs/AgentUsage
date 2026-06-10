@@ -1,0 +1,46 @@
+name: "Bump Version"
+description: "Write the new version into Version.xcconfig and project.pbxproj, and insert the release section into CHANGELOG.md"
+
+inputs:
+  version:
+    description: "New marketing version (X.Y.Z)"
+    required: true
+  build-number:
+    description: "New build number (CURRENT_PROJECT_VERSION)"
+    required: true
+  last-tag:
+    description: "Previous release tag, for the CHANGELOG compare link"
+    required: true
+  notes:
+    description: "Release notes bullet list for the CHANGELOG section"
+    required: true
+  app-name:
+    description: "Xcode project name"
+    required: false
+    default: "ClaudeMeter"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Bump version and update changelog
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        BUILD: ${{ inputs.build-number }}
+        LAST_TAG: ${{ inputs.last-tag }}
+        NOTES: ${{ inputs.notes }}
+        APP_NAME: ${{ inputs.app-name }}
+        REPO: ${{ github.repository }}
+      run: |
+        sed -i '' "s/^MARKETING_VERSION = .*/MARKETING_VERSION = $VERSION/" Config/Version.xcconfig
+        sed -i '' "s/^CURRENT_PROJECT_VERSION = .*/CURRENT_PROJECT_VERSION = $BUILD/" Config/Version.xcconfig
+        sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = $VERSION;/g" "$APP_NAME.xcodeproj/project.pbxproj"
+        sed -i '' "s/CURRENT_PROJECT_VERSION = .*;/CURRENT_PROJECT_VERSION = $BUILD;/g" "$APP_NAME.xcodeproj/project.pbxproj"
+
+        DATE=$(date +%F)
+        awk -v ver="$VERSION" -v date="$DATE" '
+          /^## \[Unreleased\]$/ { print; print ""; printf "## [%s] - %s\n\n%s\n", ver, date, ENVIRON["NOTES"]; next }
+          { print }' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
+        awk -v ver="$VERSION" -v last="$LAST_TAG" -v repo="$REPO" '
+          /^\[Unreleased\]: / { printf "[Unreleased]: https://github.com/%s/compare/v%s...HEAD\n[%s]: https://github.com/%s/compare/%s...v%s\n", repo, ver, ver, repo, last, ver; next }
+          { print }' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md

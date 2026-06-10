@@ -1,0 +1,64 @@
+name: "Commit and Push"
+description: "Commit files as github-actions[bot] and push to main with retry, with a configurable strategy for a moved main"
+
+inputs:
+  files:
+    description: "Space-separated paths to git add"
+    required: true
+  message:
+    description: "Commit message"
+    required: true
+  strategy:
+    description: >-
+      What to do when the push is rejected because main moved:
+      abort-on-moved-main (fail the run so the queued run releases everything
+      together) or rebase (git pull --rebase; only safe when the commit cannot
+      conflict, e.g. appcast.xml).
+    required: false
+    default: "abort-on-moved-main"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Commit and push
+      shell: bash
+      env:
+        FILES: ${{ inputs.files }}
+        MESSAGE: ${{ inputs.message }}
+        STRATEGY: ${{ inputs.strategy }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        # shellcheck disable=SC2086 — FILES is intentionally word-split
+        git add $FILES
+        if git diff --staged --quiet; then
+          echo "Nothing to commit for: $MESSAGE"
+          exit 0
+        fi
+        git commit -m "$MESSAGE"
+
+        PUSHED=false
+        for i in 1 2 3; do
+          if git push origin HEAD:main; then
+            PUSHED=true
+            break
+          fi
+          if [ "$STRATEGY" = "rebase" ]; then
+            git pull --rebase origin main
+          else
+            # Never rebase onto a moved main: that would tag and ship commits
+            # that were not in the test run, notes, or changelog. Abort — the
+            # workflow run queued for that push will release everything
+            # together. Retry only transient push failures.
+            git fetch origin main
+            if [ "$(git rev-parse origin/main)" != "$(git rev-parse HEAD^)" ]; then
+              echo "::error::main moved during the release run; aborting without releasing. The run triggered by the new push (or the next code push) will release these commits."
+              exit 1
+            fi
+            sleep 5
+          fi
+        done
+        if [ "$PUSHED" != "true" ]; then
+          echo "::error::Failed to push '$MESSAGE' after 3 attempts"
+          exit 1
+        fi
