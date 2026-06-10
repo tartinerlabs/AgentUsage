@@ -6,27 +6,31 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.14.1</title>
-            <pubDate>Wed, 10 Jun 2026 03:21:02 +0000</pubDate>
-            <sparkle:version>48</sparkle:version>
-            <sparkle:shortVersionString>0.14.1</sparkle:shortVersionString>
+            <title>Version 0.14.2</title>
+            <pubDate>Wed, 10 Jun 2026 15:24:06 +0000</pubDate>
+            <sparkle:version>49</sparkle:version>
+            <sparkle:shortVersionString>0.14.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
+<h3>Changed</h3>
+<ul>
+<li>Rebuilt and verified against Xcode 27 / macOS 27 (build and full test suite pass on the new SDK).</li>
+</ul>
+
 <h3>Fixed</h3>
 <ul>
-<li>Use LiteLLM pricing data as the source of truth for token cost calculations, preferring a configured LiteLLM proxy's `/model/info` pricing and falling back to LiteLLM's hosted model cost map.</li>
-<li>Refresh LiteLLM pricing before local token imports, zero-cost recalculation, live provider aggregation, and blog usage sync so newly released models such as Claude Mythos/Fable 5 can be priced without hardcoded app updates.</li>
+<li>Two environment-dependent test failures: `returnsNilForUnknownModel` raced the live LiteLLM pricing map (which now legitimately prices `gpt-4`) and asserts the static fallback instead; `initialStateIsCorrect` leaked the real app's cached usage snapshot from the shared UserDefaults domain and now stashes and restores it.</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.1/ClaudeMeter.zip"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.2/ClaudeMeter.zip"
                 length="2044910"
                 type="application/octet-stream"
-                sparkle:edSignature="EsCCpIidJt78D0YP7cWzjbLgmde6M5sDLV8+sygABNetuZv5rfEC+P+QzvVMiBbyKjjg8Teqf5lclXv1wafjDQ==" />
+                sparkle:edSignature="93U8+bwrsVhLVa7SH30ynTa9+M3MYZV53PE3VJu59zIp0leWh5oq4HrFpXxIgekCL073WIcMmbuflkPIbuGNCg==" />
         </item>
     </channel>
 </rss>
