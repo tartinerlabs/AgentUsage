@@ -18,6 +18,8 @@ Releases are **fully automated**. Every code push to `main` triggers `.github/wo
 
 There is no manual version bumping, tagging, or `gh release create` anymore.
 
+The bespoke release logic lives in local composite actions under `.github/actions/` (`compute-version`, `bump-version`, `commit-push`, `generate-appcast`), consumed by `auto-release.yml`.
+
 ## Controlling the automation
 
 ### Bump type

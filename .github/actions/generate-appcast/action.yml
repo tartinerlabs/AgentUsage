@@ -1,0 +1,107 @@
+name: "Generate Appcast"
+description: "EdDSA-sign the release zip with Sparkle's sign_update and write a Sparkle appcast.xml at the repo root"
+
+inputs:
+  version:
+    description: "Marketing version (X.Y.Z)"
+    required: true
+  build-number:
+    description: "Build number (sparkle:version)"
+    required: true
+  tag:
+    description: "Release tag the download URL points at (vX.Y.Z)"
+    required: true
+  notes-file:
+    description: "Path to the markdown release notes to embed"
+    required: true
+  sparkle-private-key:
+    description: "Sparkle EdDSA private key. When empty, signing and appcast generation are skipped with a warning."
+    required: false
+    default: ""
+  sparkle-version:
+    description: "Sparkle release to download sign_update from"
+    required: false
+    default: "2.8.1"
+  app-name:
+    description: "App name (zip is expected at build/<app-name>.zip)"
+    required: false
+    default: "ClaudeMeter"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download Sparkle
+      shell: bash
+      env:
+        SPARKLE_VERSION: ${{ inputs.sparkle-version }}
+      run: |
+        curl -L -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+        mkdir -p sparkle
+        tar -xf sparkle.tar.xz -C sparkle
+
+    - name: Sign update and generate appcast
+      shell: bash
+      env:
+        SPARKLE_PRIVATE_KEY: ${{ inputs.sparkle-private-key }}
+        VERSION: ${{ inputs.version }}
+        BUILD: ${{ inputs.build-number }}
+        TAG: ${{ inputs.tag }}
+        NOTES_FILE: ${{ inputs.notes-file }}
+        APP_NAME: ${{ inputs.app-name }}
+        REPO: ${{ github.repository }}
+      run: |
+        if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+          echo "::warning::SPARKLE_PRIVATE_KEY secret not set. Skipping signing."
+          exit 0
+        fi
+
+        # Sign the zip with EdDSA and build the appcast item by hand:
+        # generate_appcast expects all archives in one directory, which
+        # doesn't fit per-tag GitHub release download URLs.
+        # sign_update outputs: sparkle:edSignature="..." length="..."
+        SIGN_OUTPUT=$(echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/sign_update "build/$APP_NAME.zip" --ed-key-file -)
+        echo "sign_update output: $SIGN_OUTPUT"
+        SIGNATURE=$(echo "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+        if [ -z "$SIGNATURE" ]; then
+          echo "::error::Failed to extract signature from sign_update output"
+          exit 1
+        fi
+        echo "Extracted signature: $SIGNATURE"
+        FILE_SIZE=$(stat -f%z "build/$APP_NAME.zip")
+        DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/$APP_NAME.zip"
+        PUB_DATE=$(date -R)
+
+        # Convert the release notes markdown to basic HTML for Sparkle display
+        RELEASE_HTML=$(cat "$NOTES_FILE" | sed \
+          -e 's/^## \(.*\)/<h2>\1<\/h2>/' \
+          -e 's/^### \(.*\)/<h3>\1<\/h3>/' \
+          -e 's/^- \(.*\)/<li>\1<\/li>/' \
+          -e 's/\[\([^]]*\)\](\([^)]*\))/<a href="\2">\1<\/a>/g' \
+          | awk 'BEGIN{in_list=0} /<li>/{if(!in_list){print "<ul>"; in_list=1}} !/<li>/&&in_list{print "</ul>"; in_list=0} {print} END{if(in_list)print "</ul>"}')
+
+        {
+          echo '<?xml version="1.0" encoding="utf-8"?>'
+          echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+          echo '    <channel>'
+          echo "        <title>${APP_NAME} Updates</title>"
+          echo "        <link>https://github.com/$REPO/releases</link>"
+          echo "        <description>Most recent updates to ${APP_NAME}</description>"
+          echo '        <language>en</language>'
+          echo '        <item>'
+          echo "            <title>Version ${VERSION}</title>"
+          echo "            <pubDate>${PUB_DATE}</pubDate>"
+          echo "            <sparkle:version>${BUILD}</sparkle:version>"
+          echo "            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"
+          echo '            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>'
+          echo '            <description><![CDATA['
+          echo "${RELEASE_HTML}"
+          echo '            ]]></description>'
+          echo '            <enclosure'
+          echo "                url=\"${DOWNLOAD_URL}\""
+          echo "                length=\"${FILE_SIZE}\""
+          echo '                type="application/octet-stream"'
+          echo "                sparkle:edSignature=\"${SIGNATURE}\" />"
+          echo '        </item>'
+          echo '    </channel>'
+          echo '</rss>'
+        } > appcast.xml
