@@ -113,7 +113,9 @@ struct ModelPricingTests {
     }
 
     @Test func returnsNilForUnknownModel() {
-        #expect(ModelPricing.rates(for: "gpt-4") == nil)
+        // gpt-4 is priced by the live LiteLLM cost map, so only the static
+        // fallback is expected to reject it.
+        #expect(ModelPricing.fallbackRates(for: "gpt-4") == nil)
         #expect(ModelPricing.rates(for: "unknown-model") == nil)
         #expect(ModelPricing.rates(for: "") == nil)
     }
