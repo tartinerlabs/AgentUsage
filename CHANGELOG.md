@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-06-10
+
+- Trigger release after CI signing fix
+- Document the usage endpoint URL constant
+- Extract release logic into local composite actions
+- Address PR review: abort on moved main, create release after signing, pin checkout SHA
+- Automate releases on push to main
+
 ## [0.14.2] - 2026-06-10
 
 ### Changed
@@ -381,7 +389,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.2...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.3...HEAD
+[0.14.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.5...v0.14.0
