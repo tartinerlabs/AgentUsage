@@ -16,6 +16,19 @@ import Foundation
 struct UsageViewModelInitialStateTests {
 
     @Test @MainActor func initialStateIsCorrect() async {
+        // The view model loads any cached snapshot from UserDefaults on init,
+        // and the test host shares the real app's defaults domain. Stash and
+        // restore the cache so the test sees a true first-launch state.
+        let defaults = UserDefaults.standard
+        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
+        let savedPlan = defaults.string(forKey: "cachedPlanType")
+        defaults.removeObject(forKey: "cachedUsageSnapshot")
+        defaults.removeObject(forKey: "cachedPlanType")
+        defer {
+            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
+            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
+        }
+
         let mockCredentials = MockCredentialProvider()
         let viewModel = UsageViewModel(credentialProvider: mockCredentials)
 
