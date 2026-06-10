@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           # Always release from the tip of main, not the triggering SHA: a run
           # queued behind another release must see that release's bump commit.
@@ -172,14 +172,27 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Config/Version.xcconfig ${{ env.APP_NAME }}.xcodeproj/project.pbxproj CHANGELOG.md
           git commit -m "Bump version to $VERSION"
+          # Never rebase onto a moved main: that would tag and ship commits
+          # that were not in the test run, notes, or changelog. If main moved,
+          # abort — the workflow run queued for that push will release
+          # everything together. Retry only transient push failures.
+          PUSHED=false
           for i in 1 2 3; do
-            if git push origin HEAD:main; then break; fi
-            if [ "$i" = 3 ]; then
-              echo "::error::Failed to push version bump after 3 attempts"
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+            git fetch origin main
+            if [ "$(git rev-parse origin/main)" != "$(git rev-parse HEAD^)" ]; then
+              echo "::error::main moved during the release run; aborting without releasing. The run triggered by the new push (or the next code push) will release these commits."
               exit 1
             fi
-            git pull --rebase origin main
+            sleep 5
           done
+          if [ "$PUSHED" != "true" ]; then
+            echo "::error::Failed to push version bump after 3 attempts"
+            exit 1
+          fi
 
       - name: Build and archive
         if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
@@ -208,12 +221,9 @@ jobs:
           cd build/export
           zip -r -y ../${{ env.APP_NAME }}.zip ${{ env.APP_NAME }}.app
 
-      - name: Create GitHub release
+      - name: Compose release notes
         if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
         env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          TAG: ${{ steps.version.outputs.tag }}
           NOTES: ${{ steps.version.outputs.notes }}
         run: |
           {
@@ -223,14 +233,6 @@ jobs:
             echo ""
             echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for full details."
           } > /tmp/release-notes.md
-          FLAGS=""
-          case "$VERSION" in 0.*) FLAGS="--prerelease" ;; esac
-          # gh release create makes the tag at --target itself, so a tag only
-          # ever exists once the build has succeeded and the zip is attached.
-          gh release create "$TAG" "build/${{ env.APP_NAME }}.zip#${{ env.APP_NAME }}.zip" \
-            --target "$(git rev-parse HEAD)" \
-            --title "${{ env.APP_NAME }} $VERSION" \
-            --notes-file /tmp/release-notes.md $FLAGS
 
       - name: Download Sparkle
         if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
@@ -301,6 +303,23 @@ jobs:
           else
             echo "::warning::SPARKLE_PRIVATE_KEY secret not set. Skipping signing."
           fi
+
+      - name: Create GitHub release
+        if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          FLAGS=""
+          case "$VERSION" in 0.*) FLAGS="--prerelease" ;; esac
+          # gh release create makes the tag at --target itself, so a tag only
+          # ever exists once the build, signing, and appcast generation have
+          # all succeeded; the only step left after this is the appcast push.
+          gh release create "$TAG" "build/${{ env.APP_NAME }}.zip#${{ env.APP_NAME }}.zip" \
+            --target "$(git rev-parse HEAD)" \
+            --title "${{ env.APP_NAME }} $VERSION" \
+            --notes-file /tmp/release-notes.md $FLAGS
 
       - name: Commit updated appcast
         if: steps.version.outputs.skip != 'true' && inputs.dry_run != true

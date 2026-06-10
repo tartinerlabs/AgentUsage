@@ -59,6 +59,7 @@ Each release produces two `github-actions[bot]` commits on main: `Bump version t
 ## Failure recovery
 
 - **Tests fail**: nothing was pushed. Fix and push again.
+- **"main moved during the release run"**: someone pushed while the release was in flight. Nothing was released; the workflow run queued for that push (or the next code push) releases everything together. Benign.
 - **Build fails after the bump commit**: main has the bump commit but no tag/release. The next push (or re-running the failed run) detects xcconfig already at the computed version and resumes straight to build.
 - **Appcast push fails** (rare): the release exists but the Sparkle feed is stale. Regenerate/commit `appcast.xml` manually, or delete the release + tag and re-run.
 - **Tag exists error**: a release already went out for that version; usually means a re-run after full success — nothing to do.
