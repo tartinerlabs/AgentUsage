@@ -56,7 +56,7 @@ Auto-notes are a flat bullet list of commit subjects. If richer notes are wanted
 
 ## Expected bot commits
 
-Each release produces two `github-actions[bot]` commits on main: `Bump version to X.Y.Z` and `Update appcast for vX.Y.Z`. These never retrigger the workflow (GITHUB_TOKEN pushes don't fire workflows, and the touched paths are ignored anyway).
+Each release produces two `github-actions[bot]` commits on main: `Bump version to X.Y.Z` and `Update appcast for vX.Y.Z`. These never retrigger the workflow (GITHUB_TOKEN pushes don't fire workflows, and the touched paths are ignored anyway). They are created via the GraphQL `createCommitOnBranch` mutation rather than `git push`, so GitHub signs them and they show as **Verified**.
 
 ## Failure recovery
 
