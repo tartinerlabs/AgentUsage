@@ -58,7 +58,9 @@ jobs:
         run: |
           xcodebuild -project ${{ env.APP_NAME }}.xcodeproj \
             -scheme ${{ env.SCHEME }} \
-            test
+            test \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
 
       - name: Bump version and update changelog
         if: steps.version.outputs.skip != 'true' && steps.version.outputs.resume != 'true'
