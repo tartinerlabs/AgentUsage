@@ -1,19 +1,19 @@
 name: "Commit and Push"
-description: "Commit files as github-actions[bot] and push to main with retry, with a configurable strategy for a moved main"
+description: "Commit files to main as github-actions[bot] via the GitHub API (signed, shows as Verified), with a configurable strategy for a moved main"
 
 inputs:
   files:
-    description: "Space-separated paths to git add"
+    description: "Space-separated paths to commit"
     required: true
   message:
     description: "Commit message"
     required: true
   strategy:
     description: >-
-      What to do when the push is rejected because main moved:
+      What to do when the commit is rejected because main moved:
       abort-on-moved-main (fail the run so the queued run releases everything
-      together) or rebase (git pull --rebase; only safe when the commit cannot
-      conflict, e.g. appcast.xml).
+      together) or rebase (retry against the new head; only safe when the
+      commit cannot conflict, e.g. appcast.xml).
     required: false
     default: "abort-on-moved-main"
 
@@ -23,42 +23,80 @@ runs:
     - name: Commit and push
       shell: bash
       env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
         FILES: ${{ inputs.files }}
         MESSAGE: ${{ inputs.message }}
         STRATEGY: ${{ inputs.strategy }}
       run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
         # shellcheck disable=SC2086 — FILES is intentionally word-split
-        git add $FILES
-        if git diff --staged --quiet; then
+        if [ -z "$(git status --porcelain -- $FILES)" ]; then
           echo "Nothing to commit for: $MESSAGE"
           exit 0
         fi
-        git commit -m "$MESSAGE"
 
-        PUSHED=false
+        # Commit through the GraphQL createCommitOnBranch mutation instead of
+        # git push: commits created server-side with GITHUB_TOKEN are signed
+        # by GitHub's key and show as Verified, authored as
+        # github-actions[bot]. File contents go through temp files rather
+        # than argv (project.pbxproj as base64 would blow past ARG_MAX).
+        : > /tmp/additions.jsonl
+        for f in $FILES; do
+          base64 < "$f" | tr -d '\n' > /tmp/contents.b64
+          jq -n --arg path "$f" --rawfile contents /tmp/contents.b64 \
+            '{path: $path, contents: $contents}' >> /tmp/additions.jsonl
+        done
+        jq -s '.' /tmp/additions.jsonl > /tmp/additions.json
+
+        QUERY='mutation($input: CreateCommitOnBranchInput!) {
+          createCommitOnBranch(input: $input) { commit { oid } }
+        }'
+
+        EXPECTED_OID=$(git rev-parse HEAD)
+        NEW_OID=""
         for i in 1 2 3; do
-          if git push origin HEAD:main; then
-            PUSHED=true
+          jq -n --arg query "$QUERY" --arg repo "$REPO" \
+            --arg message "$MESSAGE" --arg oid "$EXPECTED_OID" \
+            --slurpfile additions /tmp/additions.json \
+            '{query: $query, variables: {input: {
+               branch: {repositoryNameWithOwner: $repo, branchName: "main"},
+               message: {headline: $message},
+               expectedHeadOid: $oid,
+               fileChanges: {additions: $additions[0]}}}}' > /tmp/commit-payload.json
+          if gh api graphql --input /tmp/commit-payload.json > /tmp/commit-response.json; then
+            NEW_OID=$(jq -r '.data.createCommitOnBranch.commit.oid' /tmp/commit-response.json)
             break
           fi
-          if [ "$STRATEGY" = "rebase" ]; then
-            git pull --rebase origin main
-          else
-            # Never rebase onto a moved main: that would tag and ship commits
-            # that were not in the test run, notes, or changelog. Abort — the
-            # workflow run queued for that push will release everything
-            # together. Retry only transient push failures.
-            git fetch origin main
-            if [ "$(git rev-parse origin/main)" != "$(git rev-parse HEAD^)" ]; then
+          # expectedHeadOid is a compare-and-swap: the mutation fails when
+          # main moved. Distinguish that from transient API failures.
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$EXPECTED_OID" ]; then
+            if [ "$STRATEGY" = "rebase" ]; then
+              # The commit is built from local file contents, so a moved main
+              # only invalidates expectedHeadOid; retry against the new head.
+              EXPECTED_OID=$(git rev-parse origin/main)
+            else
+              # Never release on top of a moved main: that would tag and ship
+              # commits that were not in the test run, notes, or changelog.
+              # Abort — the workflow run queued for that push will release
+              # everything together.
               echo "::error::main moved during the release run; aborting without releasing. The run triggered by the new push (or the next code push) will release these commits."
               exit 1
             fi
+          else
             sleep 5
           fi
         done
-        if [ "$PUSHED" != "true" ]; then
-          echo "::error::Failed to push '$MESSAGE' after 3 attempts"
+        if [ -z "$NEW_OID" ]; then
+          echo "::error::Failed to commit '$MESSAGE' after 3 attempts"
           exit 1
         fi
+
+        # The commit exists only on the remote; fast-forward the local
+        # checkout to exactly that commit so later steps (git rev-parse HEAD
+        # for the release target) see it. The committed contents are
+        # identical to the local files, so discarding the local edits first
+        # makes the merge a clean fast-forward.
+        git fetch origin main
+        git checkout -- $FILES
+        git merge --ff-only "$NEW_OID"
