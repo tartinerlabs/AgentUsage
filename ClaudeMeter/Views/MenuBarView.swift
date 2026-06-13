@@ -68,8 +68,8 @@ struct MenuBarView: View {
             }
             railAction("gear", help: "Settings (⌘,)") {
                 selectedTab = .settings
+                AppDelegate.activateForMainWindow()
                 openWindow(id: Constants.mainWindowID)
-                NSApp.activate(ignoringOtherApps: true)
             }
             railAction("power", help: "Quit (⌘Q)") {
                 NSApplication.shared.terminate(nil)
