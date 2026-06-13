@@ -52,8 +52,8 @@ struct ClaudeMeterApp: App {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {
                     selectedTab = .settings
+                    AppDelegate.activateForMainWindow()
                     openWindow(id: Constants.mainWindowID)
-                    NSApp.activate(ignoringOtherApps: true)
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }

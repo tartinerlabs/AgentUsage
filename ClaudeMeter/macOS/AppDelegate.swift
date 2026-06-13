@@ -11,6 +11,17 @@ import UserNotifications
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var windowObservers: [NSObjectProtocol] = []
 
+    @MainActor
+    static func activateForMainWindow() {
+        if NSApp.activationPolicy() != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
+
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindowObservers()
         updateActivationPolicy()
@@ -30,14 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     private func setupWindowObservers() {
-        let didBecomeVisible = NotificationCenter.default.addObserver(
-            forName: NSWindow.didBecomeKeyNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.updateActivationPolicy()
-        }
-
         let willClose = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: nil,
@@ -49,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
         }
 
-        windowObservers = [didBecomeVisible, willClose]
+        windowObservers = [willClose]
     }
 
     private func updateActivationPolicy() {
@@ -61,11 +64,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         if NSApp.activationPolicy() != newPolicy {
             NSApp.setActivationPolicy(newPolicy)
-
-            // When switching to regular, activate the app to show menu bar
-            if newPolicy == .regular {
-                NSApp.activate(ignoringOtherApps: true)
-            }
         }
     }
 
