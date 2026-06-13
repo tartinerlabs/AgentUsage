@@ -6,25 +6,25 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.14.4</title>
-            <pubDate>Wed, 10 Jun 2026 18:00:46 +0000</pubDate>
-            <sparkle:version>51</sparkle:version>
-            <sparkle:shortVersionString>0.14.4</sparkle:shortVersionString>
+            <title>Version 0.14.5</title>
+            <pubDate>Sat, 13 Jun 2026 16:53:37 +0000</pubDate>
+            <sparkle:version>52</sparkle:version>
+            <sparkle:shortVersionString>0.14.5</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>Sign release bot commits via the GitHub API</li>
+<li>fix menu bar focus jump</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.4/ClaudeMeter.zip"
-                length="2044907"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.5/ClaudeMeter.zip"
+                length="2044835"
                 type="application/octet-stream"
-                sparkle:edSignature="Ss3pTHwwUB6xVbuEjFvyw+SOUFbDwT7JGqY1fK/PuIYwzQKm/UCx9HYv77yEoZfEqWva4XSDa+blcn1p20P/Dw==" />
+                sparkle:edSignature="c7VhJZ7KGdaHdteOcE4/lZ6S5g9hqRCt2YkxoEefWCWBbQKMW9WrM5e6qqynS+dJO8exrMPVfF7irYUnjgg4AQ==" />
         </item>
     </channel>
 </rss>
