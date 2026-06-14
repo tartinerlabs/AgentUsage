@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.8] - 2026-06-14
+
+- Fix blog account Sign Out silently doing nothing
+
 ## [0.14.7] - 2026-06-14
 
 - Trim verbose blog OAuth debug logging
@@ -407,7 +411,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.7...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.8...HEAD
+[0.14.8]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.6...v0.14.7
 [0.14.6]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.5...v0.14.6
 [0.14.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.4...v0.14.5
