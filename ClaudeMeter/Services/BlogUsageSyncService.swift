@@ -691,6 +691,7 @@ actor BlogUsageSyncService {
     private let client: any BlogUsageSyncPosting
     private let defaults: UserDefaults
     private let keychainAccount: String
+    private let oauthProvider: (any BlogAccessTokenProviding)?
     private let now: @Sendable () -> Date
     private var inFlightTask: Task<BlogUsageSyncStatus, Never>?
 
@@ -700,6 +701,7 @@ actor BlogUsageSyncService {
         client: any BlogUsageSyncPosting = BlogUsageSyncClient(),
         defaults: UserDefaults = .standard,
         keychainAccount: String = BlogUsageSyncService.defaultKeychainAccount,
+        oauthProvider: (any BlogAccessTokenProviding)? = BlogOAuthService.shared,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.parser = parser
@@ -707,6 +709,7 @@ actor BlogUsageSyncService {
         self.client = client
         self.defaults = defaults
         self.keychainAccount = keychainAccount
+        self.oauthProvider = oauthProvider
         self.now = now
     }
 
@@ -876,9 +879,12 @@ actor BlogUsageSyncService {
             return updateStatus(.skipped, message: "Blog usage sync is disabled")
         }
 
-        let token = loadTokenFromKeychain() ?? ""
+        // Prefer the OAuth access token (refreshed if needed); fall back to the static
+        // BLOG_MCP_AUTH_TOKEN when not signed in.
+        let oauthToken = try? await oauthProvider?.validAccessToken()
+        let token = (oauthToken?.isEmpty == false ? oauthToken! : loadTokenFromKeychain()) ?? ""
         guard !token.isEmpty else {
-            return updateStatus(.skipped, message: "BLOG_MCP_AUTH_TOKEN is missing")
+            return updateStatus(.skipped, message: "Sign in to the blog or set BLOG_MCP_AUTH_TOKEN")
         }
 
         guard let endpoint = URL(string: endpointURLString), endpoint.scheme != nil else {

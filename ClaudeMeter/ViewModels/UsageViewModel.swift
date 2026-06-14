@@ -54,6 +54,11 @@ final class UsageViewModel {
     var blogUsageSyncToken: String = ""
     var blogUsageSyncStatus: BlogUsageSyncStatus = .never
     var isBlogUsageSyncing = false
+    // Blog OAuth sign-in state
+    var isBlogSignedIn = false
+    var blogOAuthAccountEmail: String?
+    var isBlogSigningIn = false
+    var blogOAuthError: String?
     #endif
     var selectedTokenPeriod: UsagePeriod = .last30Days {
         didSet {
@@ -249,6 +254,7 @@ final class UsageViewModel {
     private let tokenRepository: TokenUsageRepository?
     private let tokenQuerier: TokenUsageQuerier?
     private let blogUsageSyncService: BlogUsageSyncService?
+    private let blogOAuthService: BlogOAuthService?
     private let codexUsageService: CodexUsageService?
     private let openCodeGoUsageService: OpenCodeGoUsageService?
     #endif
@@ -268,6 +274,7 @@ final class UsageViewModel {
         apiService: (any APIServiceProtocol)? = nil,
         tokenService: TokenUsageService? = nil,
         blogUsageSyncService: BlogUsageSyncService? = nil,
+        blogOAuthService: BlogOAuthService? = nil,
         codexUsageService: CodexUsageService? = nil,
         openCodeGoUsageService: OpenCodeGoUsageService? = nil,
         modelContext: ModelContext? = nil
@@ -278,6 +285,7 @@ final class UsageViewModel {
         self.tokenRepository = modelContext.map { TokenUsageRepository(modelContext: $0) }
         self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
         self.blogUsageSyncService = blogUsageSyncService
+        self.blogOAuthService = blogOAuthService
         self.codexUsageService = codexUsageService
         self.openCodeGoUsageService = openCodeGoUsageService
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
@@ -486,6 +494,35 @@ final class UsageViewModel {
         blogUsageSyncEndpointURLString = settings.endpointURLString
         blogUsageSyncToken = settings.token
         blogUsageSyncStatus = settings.status
+
+        if let blogOAuthService {
+            let account = await blogOAuthService.currentAccount()
+            isBlogSignedIn = account != nil
+            blogOAuthAccountEmail = account?.accountEmail
+        }
+    }
+
+    /// Run the interactive OAuth sign-in flow, then sync immediately on success.
+    func signInToBlog() async {
+        guard let blogOAuthService else { return }
+        isBlogSigningIn = true
+        blogOAuthError = nil
+        defer { isBlogSigningIn = false }
+        do {
+            _ = try await blogOAuthService.signIn()
+            await loadBlogUsageSyncSettings()
+            await syncBlogUsageNow()
+        } catch BlogOAuthError.userCancelled {
+            // User dismissed the sign-in sheet; nothing to report.
+        } catch {
+            blogOAuthError = error.localizedDescription
+        }
+    }
+
+    func signOutOfBlog() async {
+        guard let blogOAuthService else { return }
+        await blogOAuthService.signOut()
+        await loadBlogUsageSyncSettings()
     }
 
     func saveBlogUsageSyncToken(_ token: String) async {
