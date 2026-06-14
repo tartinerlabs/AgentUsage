@@ -54,6 +54,28 @@ enum Constants {
         NSUserName()
     }
 
+    // MARK: - Blog OAuth (Better Auth OAuth 2.1 / OIDC provider)
+    /// OAuth Authorization Code + PKCE flow used to authenticate the blog usage sync.
+    /// ClaudeMeter self-registers as a public client (dynamic registration) and exchanges
+    /// the code for a JWKS-verifiable JWT access token. See `BlogOAuthService`.
+    enum BlogOAuth {
+        static let issuer = "https://ruchern.dev"
+        static let discoveryURL = URL(string: "https://ruchern.dev/api/auth/.well-known/openid-configuration")!
+        static let authorizeURL = URL(string: "https://ruchern.dev/api/auth/oauth2/authorize")!
+        static let tokenURL = URL(string: "https://ruchern.dev/api/auth/oauth2/token")!
+        static let registerURL = URL(string: "https://ruchern.dev/api/auth/oauth2/register")!
+        static let userinfoURL = URL(string: "https://ruchern.dev/api/auth/oauth2/userinfo")!
+        static let redirectURI = "claudemeter://oauth-callback"
+        static let callbackScheme = "claudemeter"
+        static let scopes = "openid profile email offline_access mcp"
+        /// RFC 8707 resource indicator — ensures the access token is issued as a JWT.
+        static let resource = "https://ruchern.dev"
+        static let clientName = "ClaudeMeter"
+        static let tokensKeychainAccount = "blog-oauth-tokens"
+        /// Persisted dynamically-registered client_id (UserDefaults).
+        static let clientIDDefaultsKey = "blogOAuthClientID"
+    }
+
     // MARK: - macOS Only (file system access)
     #if os(macOS)
 

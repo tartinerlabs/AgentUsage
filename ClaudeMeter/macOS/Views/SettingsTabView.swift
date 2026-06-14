@@ -178,10 +178,51 @@ struct SettingsTabView: View {
                         Divider()
 
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("BLOG_MCP_AUTH_TOKEN")
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Blog Account")
+                                        .font(.body)
+                                    if viewModel.isBlogSignedIn {
+                                        Text(viewModel.blogOAuthAccountEmail ?? "Signed in")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        Text("Sign in to authenticate sync with OAuth")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                if viewModel.isBlogSigningIn {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                                if viewModel.isBlogSignedIn {
+                                    Button("Sign Out") {
+                                        Task { await viewModel.signOutOfBlog() }
+                                    }
+                                    .disabled(viewModel.isBlogSigningIn)
+                                } else {
+                                    Button("Sign in to blog") {
+                                        Task { await viewModel.signInToBlog() }
+                                    }
+                                    .disabled(viewModel.isBlogSigningIn)
+                                }
+                            }
+                            if let blogOAuthError = viewModel.blogOAuthError {
+                                Text(blogOAuthError)
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Fallback token (used when not signed in)")
                                 .font(.body)
                             HStack {
-                                SecureField("Bearer token", text: $blogSyncTokenDraft)
+                                SecureField("BLOG_MCP_AUTH_TOKEN", text: $blogSyncTokenDraft)
                                     .textFieldStyle(.roundedBorder)
                                     .onSubmit {
                                         Task { await viewModel.saveBlogUsageSyncToken(blogSyncTokenDraft) }
