@@ -521,7 +521,12 @@ final class UsageViewModel {
 
     func signOutOfBlog() async {
         guard let blogOAuthService else { return }
-        await blogOAuthService.signOut()
+        blogOAuthError = nil
+        do {
+            try await blogOAuthService.signOut()
+        } catch {
+            blogOAuthError = error.localizedDescription
+        }
         await loadBlogUsageSyncSettings()
     }
 
