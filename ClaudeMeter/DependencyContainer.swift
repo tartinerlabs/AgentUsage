@@ -53,6 +53,11 @@ enum DependencyContainer {
         BlogUsageSyncService.shared
     }
 
+    /// Create the blog OAuth service for signing in to the blog usage-ingest endpoint.
+    static func createBlogOAuthService() -> BlogOAuthService {
+        BlogOAuthService.shared
+    }
+
     /// Create the Codex rate-limit window service, if Codex OAuth credentials are present.
     /// Gated on `auth.json` (the live `/wham/usage` token source), not the rollout logs.
     static func createCodexUsageService() -> CodexUsageService? {
@@ -80,12 +85,14 @@ enum DependencyContainer {
         let credentialProvider = createCredentialProvider()
         let tokenService = createTokenUsageService()
         let blogUsageSyncService = createBlogUsageSyncService()
+        let blogOAuthService = createBlogOAuthService()
         let codexUsageService = createCodexUsageService()
         let openCodeGoUsageService = createOpenCodeGoUsageService()
         return UsageViewModel(
             credentialProvider: credentialProvider,
             tokenService: tokenService,
             blogUsageSyncService: blogUsageSyncService,
+            blogOAuthService: blogOAuthService,
             codexUsageService: codexUsageService,
             openCodeGoUsageService: openCodeGoUsageService,
             modelContext: modelContext
