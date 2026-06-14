@@ -60,6 +60,7 @@ enum BlogOAuthError: LocalizedError, Sendable {
     case refreshFailed
     case noRefreshToken
     case notSignedIn
+    case keychainDeleteFailed
 
     var errorDescription: String? {
         switch self {
@@ -83,6 +84,8 @@ enum BlogOAuthError: LocalizedError, Sendable {
             return "No refresh token available. Please sign in again."
         case .notSignedIn:
             return "Not signed in to the blog."
+        case .keychainDeleteFailed:
+            return "Could not remove the saved blog session from the Keychain."
         }
     }
 }
@@ -137,8 +140,11 @@ actor BlogOAuthService: BlogAccessTokenProviding {
     }
 
     /// Delete the persisted tokens (does not revoke server-side).
-    func signOut() {
-        deleteTokensFromKeychain()
+    /// - Throws: `BlogOAuthError.keychainDeleteFailed` if the item could not be removed.
+    func signOut() throws {
+        guard deleteTokensFromKeychain() else {
+            throw BlogOAuthError.keychainDeleteFailed
+        }
     }
 
     /// The persisted account, without any network call. For settings display.
@@ -538,18 +544,43 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         }
     }
 
-    private func deleteTokensFromKeychain() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = [
-            "delete-generic-password",
-            "-s", KeychainHelper.service,
-            "-a", keychainAccount
-        ]
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
-        try? process.run()
-        process.waitUntilExit()
+    /// Delete every matching keychain item and confirm none remain.
+    ///
+    /// `security delete-generic-password` removes only one matching item per call, so a
+    /// keychain that accumulated duplicates (e.g. an item left by an older in-process build
+    /// alongside one written via the CLI) would still report "signed in" after a single
+    /// delete — making the "Sign Out" button appear to do nothing. Loop until the lookup
+    /// comes back empty, then verify, so the UI can trust the result.
+    @discardableResult
+    private func deleteTokensFromKeychain() -> Bool {
+        // Bounded loop: each pass removes at most one item; stop once none remain.
+        for _ in 0..<16 {
+            guard loadTokensFromKeychain() != nil else { return true }
+
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+            process.arguments = [
+                "delete-generic-password",
+                "-s", KeychainHelper.service,
+                "-a", keychainAccount
+            ]
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
+            do {
+                try process.run()
+            } catch {
+                Logger.keychain.error("security delete-generic-password (oauth) failed to run: \(error.localizedDescription)")
+                return false
+            }
+            process.waitUntilExit()
+
+            // A non-zero status with the item still present means we made no progress.
+            if process.terminationStatus != 0, loadTokensFromKeychain() != nil {
+                Logger.keychain.error("security delete-generic-password (oauth) returned status \(process.terminationStatus)")
+                return false
+            }
+        }
+        return loadTokensFromKeychain() == nil
     }
 }
 
