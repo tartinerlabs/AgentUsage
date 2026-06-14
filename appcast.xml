@@ -6,25 +6,27 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.14.6</title>
-            <pubDate>Sat, 13 Jun 2026 17:14:27 +0000</pubDate>
-            <sparkle:version>53</sparkle:version>
-            <sparkle:shortVersionString>0.14.6</sparkle:shortVersionString>
+            <title>Version 0.14.7</title>
+            <pubDate>Sun, 14 Jun 2026 15:12:42 +0000</pubDate>
+            <sparkle:version>54</sparkle:version>
+            <sparkle:shortVersionString>0.14.7</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>Revert "fix menu bar focus jump"</li>
+<li>Trim verbose blog OAuth debug logging</li>
+<li>Fix blog OAuth client re-registration and Better Auth CSRF/audience requirements</li>
+<li>Add OAuth 2.1/PKCE blog sign-in for usage sync</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.6/ClaudeMeter.zip"
-                length="2044906"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.7/ClaudeMeter.zip"
+                length="2139035"
                 type="application/octet-stream"
-                sparkle:edSignature="fdWlkRn3z4h2eUc0mBSSTfCtrbjD81zvkiWvLlB7vjIHGYibeQ/JNJPiW2y9ZdP5tDws18yNgFn+2RkZBTYHDg==" />
+                sparkle:edSignature="wUQNH9PtCOdAXHyZj1147VewVezzz03EzLgX/JJUNcbC1/GssZcmVAIwjsfJjhzY6cayHDg1eBhj63i7tuV8Ag==" />
         </item>
     </channel>
 </rss>
