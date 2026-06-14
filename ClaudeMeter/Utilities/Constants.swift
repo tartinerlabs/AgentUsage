@@ -59,6 +59,8 @@ enum Constants {
     /// ClaudeMeter self-registers as a public client (dynamic registration) and exchanges
     /// the code for a JWKS-verifiable JWT access token. See `BlogOAuthService`.
     enum BlogOAuth {
+        /// Site origin — used for the `Origin` request header (scheme+host only, no path)
+        /// that Better Auth's CSRF guard requires.
         static let issuer = "https://ruchern.dev"
         static let discoveryURL = URL(string: "https://ruchern.dev/api/auth/.well-known/openid-configuration")!
         static let authorizeURL = URL(string: "https://ruchern.dev/api/auth/oauth2/authorize")!
@@ -69,7 +71,10 @@ enum Constants {
         static let callbackScheme = "claudemeter"
         static let scopes = "openid profile email offline_access mcp"
         /// RFC 8707 resource indicator — ensures the access token is issued as a JWT.
-        static let resource = "https://ruchern.dev"
+        /// Must equal the Better Auth base URL (the OIDC `issuer`); the provider's
+        /// `checkResource` only accepts its own baseURL as a valid audience, and the
+        /// resource server verifies the token's `aud` against the same value.
+        static let resource = "https://ruchern.dev/api/auth"
         static let clientName = "ClaudeMeter"
         static let tokensKeychainAccount = "blog-oauth-tokens"
         /// Persisted dynamically-registered client_id (UserDefaults).
