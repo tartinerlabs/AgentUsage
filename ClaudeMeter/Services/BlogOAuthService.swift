@@ -183,21 +183,17 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         do {
             let (data, response) = try await session.data(from: Constants.BlogOAuth.discoveryURL)
             let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            Logger.api.info("Blog OIDC discovery from \(Constants.BlogOAuth.discoveryURL.absoluteString, privacy: .public) -> HTTP \(status)")
             guard status == 200,
                   let decoded = try? JSONDecoder().decode(Discovery.self, from: data) else {
-                let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
-                Logger.api.error("Blog OIDC discovery unusable (HTTP \(status)), using fallback. Body: \(body, privacy: .public)")
+                Logger.api.error("Blog OIDC discovery unusable (HTTP \(status)), using fallback endpoints")
                 return fallback
             }
-            let config = BlogOIDCConfig(
+            return BlogOIDCConfig(
                 authorizationEndpoint: decoded.authorization_endpoint.flatMap(URL.init) ?? fallback.authorizationEndpoint,
                 tokenEndpoint: decoded.token_endpoint.flatMap(URL.init) ?? fallback.tokenEndpoint,
                 registrationEndpoint: decoded.registration_endpoint.flatMap(URL.init) ?? fallback.registrationEndpoint,
                 userinfoEndpoint: decoded.userinfo_endpoint.flatMap(URL.init) ?? fallback.userinfoEndpoint
             )
-            Logger.api.info("Blog OIDC registration endpoint: \(config.registrationEndpoint?.absoluteString ?? "nil", privacy: .public)")
-            return config
         } catch {
             Logger.api.info("Blog OIDC discovery failed, using fallback endpoints: \(error.localizedDescription)")
             return fallback
@@ -214,14 +210,12 @@ actor BlogOAuthService: BlogAccessTokenProviding {
             // so the interactive session can't surface it. Probe the cached client_id
             // up-front and re-register if it's no longer recognised.
             if await cachedClientIsValid(existing, config: config) {
-                Logger.api.info("Blog OAuth: reusing cached client_id")
                 return existing
             }
             Logger.api.info("Blog OAuth: cached client_id no longer valid, re-registering")
             defaults.removeObject(forKey: Constants.BlogOAuth.clientIDDefaultsKey)
         }
         guard let registrationURL = config.registrationEndpoint else {
-            Logger.api.error("Blog OAuth: no registration endpoint in config")
             throw BlogOAuthError.registrationFailed("no registration endpoint")
         }
 
@@ -241,10 +235,7 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         // Better Auth rejects requests with a missing/null Origin (MISSING_OR_NULL_ORIGIN).
         // URLSession sends no Origin by default, so set it to the trusted issuer origin.
         request.setValue(Constants.BlogOAuth.issuer, forHTTPHeaderField: "Origin")
-        let bodyData = try JSONEncoder().encode(RegistrationRequest())
-        request.httpBody = bodyData
-
-        Logger.api.info("Blog OAuth: POST \(registrationURL.absoluteString, privacy: .public) body=\(String(data: bodyData, encoding: .utf8) ?? "<nil>", privacy: .public)")
+        request.httpBody = try JSONEncoder().encode(RegistrationRequest())
 
         let data: Data
         let response: URLResponse
@@ -255,8 +246,6 @@ actor BlogOAuthService: BlogAccessTokenProviding {
             throw BlogOAuthError.registrationFailed("network error: \(error.localizedDescription)")
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-        let body = String(data: data, encoding: .utf8) ?? "<non-utf8 \(data.count) bytes>"
-        Logger.api.info("Blog OAuth: registration -> HTTP \(status) body=\(body, privacy: .public)")
         guard (200..<300).contains(status),
               let decoded = try? JSONDecoder().decode(RegistrationResponse.self, from: data) else {
             let detail = String(data: data, encoding: .utf8) ?? "status \(status)"
@@ -264,7 +253,6 @@ actor BlogOAuthService: BlogAccessTokenProviding {
             throw BlogOAuthError.registrationFailed("HTTP \(status): \(detail)")
         }
         defaults.set(decoded.client_id, forKey: Constants.BlogOAuth.clientIDDefaultsKey)
-        Logger.api.info("Blog OAuth: registered client_id, persisted to UserDefaults")
         return decoded.client_id
     }
 
@@ -293,15 +281,11 @@ actor BlogOAuthService: BlogAccessTokenProviding {
                   let location = http.value(forHTTPHeaderField: "Location") else {
                 // No redirect captured (e.g. a 2xx/4xx). Treat as inconclusive but usable;
                 // a genuinely-broken client_id still surfaces in the interactive flow.
-                Logger.api.info("Blog OAuth: client_id probe got HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1), assuming valid")
                 return true
             }
-            let valid = !location.contains("error=invalid_client")
-            Logger.api.info("Blog OAuth: client_id probe -> \(valid ? "valid" : "invalid", privacy: .public)")
-            return valid
+            return !location.contains("error=invalid_client")
         } catch {
             // Network failure: don't force a re-registration over a transient error.
-            Logger.api.info("Blog OAuth: client_id probe failed (\(error.localizedDescription, privacy: .public)), assuming valid")
             return true
         }
     }
