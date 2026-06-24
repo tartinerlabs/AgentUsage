@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - ".beads/**"
+      - ".claude/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS Build & Test
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Test ClaudeMeterKit package
+        run: swift test --package-path ClaudeMeterKit
+
+      - name: Build macOS app
+        run: |
+          xcodebuild -project ClaudeMeter.xcodeproj \
+            -scheme ClaudeMeter \
+            -configuration Debug \
+            -derivedDataPath build/DerivedData \
+            build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Test macOS app
+        run: |
+          xcodebuild -project ClaudeMeter.xcodeproj \
+            -scheme ClaudeMeter \
+            -configuration Debug \
+            -derivedDataPath build/DerivedData \
+            test \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
+
+  # ios:
+  #   name: iOS Build
+  #   runs-on: macos-26
+  #
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+  #
+  #     - name: Build iOS app
+  #       run: |
+  #         xcodebuild -project ClaudeMeter.xcodeproj \
+  #           -scheme ClaudeMeter-iOS \
+  #           -configuration Debug \
+  #           -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  #           -derivedDataPath build/DerivedData \
+  #           build \
+  #           CODE_SIGN_IDENTITY="-" \
+  #           CODE_SIGNING_REQUIRED=NO
+  #
+  #     - name: Build widgets
+  #       run: |
+  #         xcodebuild -project ClaudeMeter.xcodeproj \
+  #           -scheme ClaudeMeterWidgetsExtension \
+  #           -configuration Debug \
+  #           -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  #           -derivedDataPath build/DerivedData \
+  #           build \
+  #           CODE_SIGN_IDENTITY="-" \
+  #           CODE_SIGNING_REQUIRED=NO
