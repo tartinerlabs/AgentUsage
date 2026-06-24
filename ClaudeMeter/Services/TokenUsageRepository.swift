@@ -112,7 +112,7 @@ actor TokenUsageImporter {
             guard existing == 0 else { continue }
 
             // Calculate cost at import time
-            let cost = calculateCost(tokens: entry.tokens, model: entry.model)
+            let cost = calculateCost(tokens: entry.tokens, model: entry.model, fastMode: entry.fastMode)
 
             let logEntry = TokenLogEntry(
                 messageId: messageId,
@@ -123,7 +123,9 @@ actor TokenUsageImporter {
                 cacheCreationTokens: entry.tokens.cacheCreationTokens,
                 cacheReadTokens: entry.tokens.cacheReadTokens,
                 timestamp: entry.timestamp,
-                costUSD: cost
+                costUSD: cost,
+                cacheCreation1hTokens: entry.tokens.cacheCreation1hTokens,
+                isFastMode: entry.fastMode
             )
 
             modelContext.insert(logEntry)
@@ -137,13 +139,20 @@ actor TokenUsageImporter {
         return insertedCount
     }
 
-    private func calculateCost(tokens: TokenCount, model: String) -> Double {
-        guard let rates = ModelPricing.rates(for: model) else { return 0 }
-        let inputCost = Double(tokens.inputTokens) * rates.inputPerMTok / 1_000_000
-        let outputCost = Double(tokens.outputTokens) * rates.outputPerMTok / 1_000_000
-        let cacheWriteCost = Double(tokens.cacheCreationTokens) * rates.cacheWritePerMTok / 1_000_000
-        let cacheReadCost = Double(tokens.cacheReadTokens) * rates.cacheReadPerMTok / 1_000_000
-        return inputCost + outputCost + cacheWriteCost + cacheReadCost
+    /// Cost for a Claude log entry. Routes through the shared `ModelPricing.costUSD` so the persisted
+    /// number matches the in-memory aggregation path (tiered cache + fast-mode aware).
+    private func calculateCost(tokens: TokenCount, model: String, fastMode: Bool) -> Double {
+        ModelPricing.costUSD(
+            provider: "anthropic",
+            model: model,
+            inputTokens: tokens.inputTokens,
+            outputTokens: tokens.outputTokens,
+            cacheReadTokens: tokens.cacheReadTokens,
+            cacheWriteTokens: tokens.cacheCreationTokens,
+            reasoningTokens: tokens.reasoningTokens,
+            cacheWrite1hTokens: tokens.cacheCreation1hTokens,
+            fastMode: fastMode
+        ) ?? 0
     }
 
     /// Recalculate costs for entries that were imported with $0 cost due to unrecognized models
@@ -158,9 +167,36 @@ actor TokenUsageImporter {
         for entry in entries {
             let cost = calculateCost(
                 tokens: entry.tokenCount,
-                model: entry.modelName
+                model: entry.modelName,
+                fastMode: entry.isFastMode
             )
             if cost > 0 {
+                entry.costUSD = cost
+                updatedCount += 1
+            }
+        }
+
+        if updatedCount > 0 {
+            try modelContext.save()
+        }
+
+        return updatedCount
+    }
+
+    /// Re-price every persisted entry with the current cost model. Used once after a cost-model
+    /// upgrade. Rows imported before the 1h-cache / fast-mode fields existed re-price with those
+    /// defaulting to 0 / standard, so they gain any model-rate corrections but not the new granularity.
+    func recalculateAllCosts() throws -> Int {
+        let entries = try modelContext.fetch(FetchDescriptor<TokenLogEntry>())
+        var updatedCount = 0
+
+        for entry in entries {
+            let cost = calculateCost(
+                tokens: entry.tokenCount,
+                model: entry.modelName,
+                fastMode: entry.isFastMode
+            )
+            if abs(cost - entry.costUSD) > 1e-9 {
                 entry.costUSD = cost
                 updatedCount += 1
             }
@@ -213,6 +249,12 @@ final class TokenUsageRepository {
     func recalculateZeroCostEntries() async throws -> Int {
         await LiteLLMPricingCache.shared.refreshIfNeeded()
         return try await importer.recalculateZeroCostEntries()
+    }
+
+    /// Re-price all persisted entries with the current cost model (used once after a cost-model upgrade).
+    func recalculateAllCosts() async throws -> Int {
+        await LiteLLMPricingCache.shared.refreshIfNeeded()
+        return try await importer.recalculateAllCosts()
     }
 
     // MARK: - File State Operations
