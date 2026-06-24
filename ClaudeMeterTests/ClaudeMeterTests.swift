@@ -715,3 +715,132 @@ struct CredentialsFileTests {
         #expect(file.claudeAiOauth == nil)
     }
 }
+
+// MARK: - Cost Model Accuracy (ccusage-derived)
+
+@Suite("CostModelAccuracy", .serialized)
+struct CostModelAccuracyTests {
+
+    /// 1-hour ephemeral cache writes bill at 2× base input; 5-minute at 1.25×. (Verified vs official pricing.)
+    @Test func oneHourCacheRateIsDoubleInput() {
+        #expect(ModelPricing.opus45.cacheWrite1hPerMTok == 10.0)   // 2 × $5 input
+        #expect(ModelPricing.opus45.cacheWritePerMTok == 6.25)     // 1.25 × $5 input (5-minute)
+        #expect(ModelPricing.sonnet45.cacheWrite1hPerMTok == 6.0)  // 2 × $3 input
+        #expect(ModelPricing.haiku45.cacheWrite1hPerMTok == 2.0)   // 2 × $1 input
+    }
+
+    /// Splitting a cache-creation bucket into a 1h subset raises cost by (1h − 5m) per token.
+    @Test func oneHourCacheCostsMoreThanFiveMinute() {
+        LiteLLMPricingCache.shared.clearForTesting()
+        let model = "claude-opus-4-8-20260101"
+
+        let all5m = ModelPricing.costUSD(
+            provider: "anthropic", model: model,
+            inputTokens: 0, outputTokens: 0, cacheReadTokens: 0,
+            cacheWriteTokens: 1_000_000, reasoningTokens: 0,
+            cacheWrite1hTokens: 0
+        )
+        let all1h = ModelPricing.costUSD(
+            provider: "anthropic", model: model,
+            inputTokens: 0, outputTokens: 0, cacheReadTokens: 0,
+            cacheWriteTokens: 1_000_000, reasoningTokens: 0,
+            cacheWrite1hTokens: 1_000_000
+        )
+
+        #expect(all5m == 6.25)  // 1M × $6.25 (5m)
+        #expect(all1h == 10.0)  // 1M × $10.00 (1h)
+    }
+
+    @Test func fastMultiplierMatchesOfficialPricing() {
+        #expect(ModelPricing.fastMultiplier(provider: "anthropic", model: "claude-opus-4-8-20260101") == 2.0)
+        #expect(ModelPricing.fastMultiplier(provider: "anthropic", model: "claude-opus-4-7-20251101") == 6.0)
+        #expect(ModelPricing.fastMultiplier(provider: "anthropic", model: "claude-opus-4-6") == 6.0)
+        #expect(ModelPricing.fastMultiplier(provider: "anthropic", model: "claude-sonnet-4-6") == 1.0)
+        #expect(ModelPricing.fastMultiplier(provider: "anthropic", model: "claude-opus-4-5") == 1.0)
+        #expect(ModelPricing.fastMultiplier(provider: "openai", model: "gpt-5.5") == 1.0)
+    }
+
+    /// Fast mode scales the whole cost by the per-model multiplier.
+    @Test func fastModeScalesEntireCost() {
+        LiteLLMPricingCache.shared.clearForTesting()
+        func cost(_ model: String, fast: Bool) -> Double? {
+            ModelPricing.costUSD(
+                provider: "anthropic", model: model,
+                inputTokens: 1_000_000, outputTokens: 500_000, cacheReadTokens: 200_000,
+                cacheWriteTokens: 100_000, reasoningTokens: 0,
+                cacheWrite1hTokens: 40_000, fastMode: fast
+            )
+        }
+        let opus48Std = try! #require(cost("claude-opus-4-8-20260101", fast: false))
+        let opus48Fast = try! #require(cost("claude-opus-4-8-20260101", fast: true))
+        #expect(abs(opus48Fast - opus48Std * 2.0) < 1e-9)
+
+        let opus47Std = try! #require(cost("claude-opus-4-7-20251101", fast: false))
+        let opus47Fast = try! #require(cost("claude-opus-4-7-20251101", fast: true))
+        #expect(abs(opus47Fast - opus47Std * 6.0) < 1e-9)
+    }
+}
+
+#if os(macOS)
+@Suite("SidechainDedup")
+struct SidechainDedupTests {
+
+    private func field(msg: String?, req: String?, sidechain: Bool, input: Int) -> TokenUsageService.ParsedFields {
+        TokenUsageService.ParsedFields(
+            entry: UsageEntry(
+                model: "claude-opus-4-8",
+                tokens: TokenCount(inputTokens: input, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0),
+                timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+                fastMode: false
+            ),
+            messageId: msg,
+            requestId: req,
+            isSidechain: sidechain,
+            fallbackId: "fb-\(msg ?? "x")-\(req ?? "x")-\(input)"
+        )
+    }
+
+    /// A sidechain replay (same message id, fresh request id) collapses to one entry, keeping the original.
+    @Test func sidechainReplayKeepsNonSidechain() {
+        let parent = field(msg: "msg1", req: "req-parent", sidechain: false, input: 100)
+        let replay = field(msg: "msg1", req: "req-sidechain", sidechain: true, input: 100)
+
+        let result = TokenUsageService.deduplicate([parent, replay])
+        #expect(result.count == 1)
+        #expect(result[0].isSidechain == false)
+    }
+
+    /// Order-independent: even when the sidechain replay is seen first, the non-sidechain record wins.
+    @Test func nonSidechainReplacesEarlierSidechain() {
+        let replay = field(msg: "msg1", req: "req-sidechain", sidechain: true, input: 100)
+        let parent = field(msg: "msg1", req: "req-parent", sidechain: false, input: 100)
+
+        let result = TokenUsageService.deduplicate([replay, parent])
+        #expect(result.count == 1)
+        #expect(result[0].isSidechain == false)
+    }
+
+    /// Streaming writes the same id+requestId multiple times → collapses to one.
+    @Test func streamingDuplicatesCollapse() {
+        let a = field(msg: "msg1", req: "req1", sidechain: false, input: 100)
+        let b = field(msg: "msg1", req: "req1", sidechain: false, input: 100)
+        #expect(TokenUsageService.deduplicate([a, b]).count == 1)
+    }
+
+    /// On a tie of sidechain status, the higher-token (more complete) record is kept.
+    @Test func higherTokenRecordWins() {
+        let small = field(msg: "msg1", req: "req1", sidechain: false, input: 100)
+        let large = field(msg: "msg1", req: "req1", sidechain: false, input: 300)
+        let result = TokenUsageService.deduplicate([small, large])
+        #expect(result.count == 1)
+        #expect(result[0].entry.tokens.inputTokens == 300)
+    }
+
+    /// Entries missing ids cannot be deduped and are all retained.
+    @Test func entriesWithoutIdsAreKept() {
+        let a = field(msg: nil, req: nil, sidechain: false, input: 100)
+        let b = field(msg: nil, req: nil, sidechain: false, input: 200)
+        #expect(TokenUsageService.deduplicate([a, b]).count == 2)
+    }
+}
+#endif

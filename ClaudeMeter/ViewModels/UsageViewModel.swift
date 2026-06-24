@@ -181,6 +181,8 @@ final class UsageViewModel {
 
     private let cacheKey = "cachedUsageSnapshot"
     private let cacheTimeKey = "cachedUsageSnapshotTime"
+    /// Tracks the cost-model version that persisted history was last re-priced against.
+    fileprivate static let costModelRepricedVersionKey = "costModelRepricedVersion"
     private let cachePlanKey = "cachedPlanType"
 
     var refreshInterval: RefreshFrequency {
@@ -599,6 +601,14 @@ final class UsageViewModel {
 
                 // Recalculate costs for entries imported before new model pricing was added
                 _ = try? await repository.recalculateZeroCostEntries()
+
+                // One-time re-price of all persisted history after a cost-model upgrade
+                // (tiered cache + fast mode). Runs once per cost-model version.
+                let costModelVersion = 2
+                if UserDefaults.standard.integer(forKey: Self.costModelRepricedVersionKey) < costModelVersion {
+                    _ = try? await repository.recalculateAllCosts()
+                    UserDefaults.standard.set(costModelVersion, forKey: Self.costModelRepricedVersionKey)
+                }
 
                 // Query snapshot via background actor (prefer querier to avoid main-actor hops)
                 do {
