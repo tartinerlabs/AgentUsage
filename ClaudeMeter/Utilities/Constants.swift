@@ -54,6 +54,17 @@ enum Constants {
         NSUserName()
     }
 
+    // MARK: - Claude OAuth token refresh (opt-in)
+    /// Token endpoint + client used to refresh an expired Claude OAuth token, mirroring
+    /// Claude Code's own flow. Gated behind `autoRefreshClaudeTokenKey` (default off):
+    /// because Anthropic rotates refresh tokens, refreshing here can race Claude Code's
+    /// own refresh, so users opt in knowingly.
+    static let claudeOAuthTokenURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
+    static let claudeOAuthClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+    static let claudeOAuthScope = "user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
+    /// UserDefaults flag gating opt-in auto-refresh of the Claude token. Default off.
+    static let autoRefreshClaudeTokenKey = "autoRefreshClaudeToken"
+
     // MARK: - Blog OAuth (Better Auth OAuth 2.1 / OIDC provider)
     /// OAuth Authorization Code + PKCE flow used to authenticate the blog usage sync.
     /// ClaudeMeter self-registers as a public client (dynamic registration) and exchanges
