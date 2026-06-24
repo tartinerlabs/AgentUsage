@@ -31,6 +31,7 @@ actor CodexUsageService {
         case invalidResponse
         case serviceUnavailable
         case serverError(Int)
+        case rateLimited(retryAfter: TimeInterval?)
         case maxRetriesExceeded
 
         /// Whether this error should trigger a retry with backoff.
@@ -40,7 +41,7 @@ actor CodexUsageService {
                 return true
             case .serverError(let code):
                 return code >= 500 && code != 501
-            case .unauthorized, .sessionExpired, .invalidResponse, .maxRetriesExceeded:
+            case .unauthorized, .sessionExpired, .invalidResponse, .rateLimited, .maxRetriesExceeded:
                 return false
             }
         }
@@ -57,6 +58,11 @@ actor CodexUsageService {
                 return "Codex usage API temporarily unavailable."
             case .serverError(let code):
                 return "Codex usage API error: \(code)"
+            case .rateLimited(let retryAfter):
+                if let seconds = retryAfter {
+                    return "Codex usage rate limited. Try again in \(Int(seconds))s."
+                }
+                return "Codex usage rate limited. Please try again later."
             case .maxRetriesExceeded:
                 return "Failed after multiple retry attempts."
             }
@@ -96,6 +102,17 @@ actor CodexUsageService {
         var accessToken = auth.accessToken
         var didRefresh = false
         var lastError: CodexError?
+
+        // Proactive refresh: if the access-token JWT is expired or within 5 minutes
+        // of expiry, refresh before the request to avoid a guaranteed 401 round-trip.
+        if let refreshToken = auth.refreshToken,
+           let expiry = Self.jwtExpiry(accessToken),
+           expiry.timeIntervalSince(now()) < 300 {
+            if let refreshed = try? await refreshAccessToken(refreshToken) {
+                accessToken = refreshed
+                didRefresh = true
+            }
+        }
 
         for attempt in 0..<Constants.maxRetryAttempts {
             do {
@@ -140,16 +157,57 @@ actor CodexUsageService {
 
     private func loadAuth() -> CodexAuth? {
         for url in authFileURLs {
-            guard let data = try? Data(contentsOf: url),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let tokens = json["tokens"] as? [String: Any],
-                  let access = tokens["access_token"] as? String,
-                  !access.isEmpty else { continue }
-            let refresh = tokens["refresh_token"] as? String
-            let accountID = tokens["account_id"] as? String
-            return CodexAuth(accessToken: access, refreshToken: refresh, accountID: accountID)
+            if let auth = Self.parseAuth(try? Data(contentsOf: url)) { return auth }
         }
+        // Fallback: read the auth blob from the macOS Keychain (service "Codex Auth"),
+        // as written by other tools. Delegated to the Apple-signed `security` CLI so
+        // an unsigned app doesn't re-prompt on every launch.
+        if let auth = Self.parseAuth(Self.readKeychainAuthData()) { return auth }
         return nil
+    }
+
+    private static func parseAuth(_ data: Data?) -> CodexAuth? {
+        guard let data,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tokens = json["tokens"] as? [String: Any],
+              let access = tokens["access_token"] as? String,
+              !access.isEmpty else { return nil }
+        let refresh = tokens["refresh_token"] as? String
+        let accountID = tokens["account_id"] as? String
+        return CodexAuth(accessToken: access, refreshToken: refresh, accountID: accountID)
+    }
+
+    private static func readKeychainAuthData() -> Data? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        process.arguments = ["find-generic-password", "-s", "Codex Auth", "-a", NSUserName(), "-w"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return nil }
+        let output = pipe.fileHandleForReading.readDataToEndOfFile()
+        let string = String(data: output, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return string?.data(using: .utf8)
+    }
+
+    /// Decodes the `exp` (seconds since epoch) from a JWT access token's payload.
+    private static func jwtExpiry(_ token: String) -> Date? {
+        let parts = token.split(separator: ".")
+        guard parts.count >= 2 else { return nil }
+        var base64 = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        while base64.count % 4 != 0 { base64 += "=" }
+        guard let data = Data(base64Encoded: base64),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let exp = json["exp"] as? Double else { return nil }
+        return Date(timeIntervalSince1970: exp)
     }
 
     /// Refreshes the access token in memory. Never writes `auth.json` back.
@@ -218,6 +276,9 @@ actor CodexUsageService {
             return try parse(data: data, http: http)
         case 401, 403:
             throw CodexError.unauthorized
+        case 429:
+            let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap { Double($0) }
+            throw CodexError.rateLimited(retryAfter: retryAfter)
         case 503:
             throw CodexError.serviceUnavailable
         default:
@@ -230,10 +291,12 @@ actor CodexUsageService {
     private struct UsageResponse: Decodable {
         let planType: String?
         let rateLimit: RateLimit?
+        let codeReviewRateLimit: CodeReviewRateLimit?
 
         enum CodingKeys: String, CodingKey {
             case planType = "plan_type"
             case rateLimit = "rate_limit"
+            case codeReviewRateLimit = "code_review_rate_limit"
         }
     }
 
@@ -244,6 +307,14 @@ actor CodexUsageService {
         enum CodingKeys: String, CodingKey {
             case primaryWindow = "primary_window"
             case secondaryWindow = "secondary_window"
+        }
+    }
+
+    private struct CodeReviewRateLimit: Decodable {
+        let primaryWindow: Window?
+
+        enum CodingKeys: String, CodingKey {
+            case primaryWindow = "primary_window"
         }
     }
 
@@ -282,6 +353,14 @@ actor CodexUsageService {
             now: currentDate
         ) {
             windows.append(secondary)
+        }
+        if let reviews = makeWindow(
+            decoded.codeReviewRateLimit?.primaryWindow,
+            overridePercent: nil,
+            type: .codexReviews,
+            now: currentDate
+        ) {
+            windows.append(reviews)
         }
 
         guard !windows.isEmpty else { throw CodexError.invalidResponse }

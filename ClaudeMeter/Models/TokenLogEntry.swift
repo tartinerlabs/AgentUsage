@@ -27,12 +27,18 @@ final class TokenLogEntry {
     var outputTokens: Int
     var cacheCreationTokens: Int
     var cacheReadTokens: Int
+    /// Subset of `cacheCreationTokens` written with a 1-hour TTL (billed at 2× input). Default 0 for
+    /// rows imported before this field existed (lightweight SwiftData migration).
+    var cacheCreation1hTokens: Int = 0
 
     /// Timestamp from the log entry
     var timestamp: Date
 
     /// Cost in USD calculated at import time
     var costUSD: Double
+
+    /// Whether the request was served in fast mode (premium pricing). Default false for migrated rows.
+    var isFastMode: Bool = false
 
     init(
         messageId: String,
@@ -43,7 +49,9 @@ final class TokenLogEntry {
         cacheCreationTokens: Int,
         cacheReadTokens: Int,
         timestamp: Date,
-        costUSD: Double
+        costUSD: Double,
+        cacheCreation1hTokens: Int = 0,
+        isFastMode: Bool = false
     ) {
         self.id = "\(messageId):\(requestId)"
         self.messageId = messageId
@@ -53,8 +61,10 @@ final class TokenLogEntry {
         self.outputTokens = outputTokens
         self.cacheCreationTokens = cacheCreationTokens
         self.cacheReadTokens = cacheReadTokens
+        self.cacheCreation1hTokens = cacheCreation1hTokens
         self.timestamp = timestamp
         self.costUSD = costUSD
+        self.isFastMode = isFastMode
     }
 
     /// Total tokens for this entry
@@ -68,7 +78,8 @@ final class TokenLogEntry {
             inputTokens: inputTokens,
             outputTokens: outputTokens,
             cacheCreationTokens: cacheCreationTokens,
-            cacheReadTokens: cacheReadTokens
+            cacheReadTokens: cacheReadTokens,
+            cacheCreation1hTokens: cacheCreation1hTokens
         )
     }
 }

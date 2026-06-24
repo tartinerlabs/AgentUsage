@@ -44,6 +44,7 @@ struct SettingsView: View {
 private struct GeneralTab: View {
     @Environment(UsageViewModel.self) private var viewModel
     @StateObject private var launchAtLogin = LaunchAtLoginService.shared
+    @AppStorage(Constants.autoRefreshClaudeTokenKey) private var autoRefreshClaudeToken = false
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -56,6 +57,9 @@ private struct GeneralTab: View {
                     Text(frequency.displayName).tag(frequency)
                 }
             }
+
+            Toggle("Auto-refresh Claude token", isOn: $autoRefreshClaudeToken)
+                .help("When your Claude token expires, refresh it automatically instead of waiting for the Claude CLI. May occasionally require running `claude` again, since it can conflict with Claude Code's own token refresh.")
         }
         .formStyle(.grouped)
     }
