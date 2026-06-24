@@ -17,19 +17,51 @@ enum ModelPricing: Sendable {
         /// 1-hour ephemeral cache write rate (2× base input per Anthropic). Defaults to 2× input.
         let cacheWrite1hPerMTok: Double
 
+        /// Premium per-MTok rates billed on tokens beyond a 200k-token context
+        /// (Anthropic's long-context tier). `nil` when the model has no such tier.
+        let inputAbove200kPerMTok: Double?
+        let outputAbove200kPerMTok: Double?
+        let cacheWriteAbove200kPerMTok: Double?
+        let cacheReadAbove200kPerMTok: Double?
+        let cacheWrite1hAbove200kPerMTok: Double?
+
         init(
             inputPerMTok: Double,
             outputPerMTok: Double,
             cacheWritePerMTok: Double,
             cacheReadPerMTok: Double,
-            cacheWrite1hPerMTok: Double? = nil
+            cacheWrite1hPerMTok: Double? = nil,
+            inputAbove200kPerMTok: Double? = nil,
+            outputAbove200kPerMTok: Double? = nil,
+            cacheWriteAbove200kPerMTok: Double? = nil,
+            cacheReadAbove200kPerMTok: Double? = nil,
+            cacheWrite1hAbove200kPerMTok: Double? = nil
         ) {
             self.inputPerMTok = inputPerMTok
             self.outputPerMTok = outputPerMTok
             self.cacheWritePerMTok = cacheWritePerMTok
             self.cacheReadPerMTok = cacheReadPerMTok
             self.cacheWrite1hPerMTok = cacheWrite1hPerMTok ?? (inputPerMTok * 2)
+            self.inputAbove200kPerMTok = inputAbove200kPerMTok
+            self.outputAbove200kPerMTok = outputAbove200kPerMTok
+            self.cacheWriteAbove200kPerMTok = cacheWriteAbove200kPerMTok
+            self.cacheReadAbove200kPerMTok = cacheReadAbove200kPerMTok
+            // Mirror the base-tier convention: 1h cache writes cost 2× input, including above 200k.
+            self.cacheWrite1hAbove200kPerMTok = cacheWrite1hAbove200kPerMTok ?? inputAbove200kPerMTok.map { $0 * 2 }
         }
+    }
+
+    /// Context size (in tokens) above which Anthropic bills the premium long-context tier.
+    nonisolated static let tierThreshold = 200_000
+
+    /// Cost for `tokens` priced at `base` per MTok, with any amount beyond the 200k
+    /// threshold priced at `above` (when the model defines a long-context tier).
+    /// Returns the undivided sum (token × per-MTok); caller divides by 1,000,000.
+    nonisolated static func tieredCost(tokens: Int, base: Double, above: Double?) -> Double {
+        guard let above, tokens > tierThreshold else {
+            return Double(tokens) * base
+        }
+        return Double(tierThreshold) * base + Double(tokens - tierThreshold) * above
     }
 
     nonisolated static let opus45 = Rates(
@@ -43,14 +75,22 @@ enum ModelPricing: Sendable {
         inputPerMTok: 3.0,
         outputPerMTok: 15.0,
         cacheWritePerMTok: 3.75,
-        cacheReadPerMTok: 0.30
+        cacheReadPerMTok: 0.30,
+        inputAbove200kPerMTok: 6.0,
+        outputAbove200kPerMTok: 22.50,
+        cacheWriteAbove200kPerMTok: 7.50,
+        cacheReadAbove200kPerMTok: 0.60
     )
 
     nonisolated static let sonnet4 = Rates(
         inputPerMTok: 3.0,
         outputPerMTok: 15.0,
         cacheWritePerMTok: 3.75,
-        cacheReadPerMTok: 0.30
+        cacheReadPerMTok: 0.30,
+        inputAbove200kPerMTok: 6.0,
+        outputAbove200kPerMTok: 22.50,
+        cacheWriteAbove200kPerMTok: 7.50,
+        cacheReadAbove200kPerMTok: 0.60
     )
 
     nonisolated static let haiku45 = Rates(
@@ -189,12 +229,13 @@ enum ModelPricing: Sendable {
         // `cacheWrite1hTokens` is a subset of `cacheWriteTokens`; the remainder is 5-minute cache.
         let cacheWrite5mTokens = max(0, cacheWriteTokens - cacheWrite1hTokens)
 
+        // Tokens beyond a 200k context bill at the premium tier (no-op when the model lacks one).
         var cost = (
-            Double(inputTokens) * rates.inputPerMTok
-            + Double(billableOutputTokens) * rates.outputPerMTok
-            + Double(cacheWrite5mTokens) * rates.cacheWritePerMTok
-            + Double(cacheWrite1hTokens) * rates.cacheWrite1hPerMTok
-            + Double(cacheReadTokens) * rates.cacheReadPerMTok
+            tieredCost(tokens: inputTokens, base: rates.inputPerMTok, above: rates.inputAbove200kPerMTok)
+            + tieredCost(tokens: billableOutputTokens, base: rates.outputPerMTok, above: rates.outputAbove200kPerMTok)
+            + tieredCost(tokens: cacheWrite5mTokens, base: rates.cacheWritePerMTok, above: rates.cacheWriteAbove200kPerMTok)
+            + tieredCost(tokens: cacheWrite1hTokens, base: rates.cacheWrite1hPerMTok, above: rates.cacheWrite1hAbove200kPerMTok)
+            + tieredCost(tokens: cacheReadTokens, base: rates.cacheReadPerMTok, above: rates.cacheReadAbove200kPerMTok)
         ) / 1_000_000
 
         // Fast mode scales input, output, and (stacked) cache rates by the same per-model factor,
@@ -238,6 +279,11 @@ final class LiteLLMPricingCache: @unchecked Sendable {
         let cacheCreationInputTokenCost: Double?
         let cacheReadInputTokenCost: Double?
         let outputCostPerReasoningToken: Double?
+        // Long-context (>200k) tier rates, when LiteLLM publishes them.
+        let inputCostPerTokenAbove200k: Double?
+        let outputCostPerTokenAbove200k: Double?
+        let cacheCreationInputTokenCostAbove200k: Double?
+        let cacheReadInputTokenCostAbove200k: Double?
 
         enum CodingKeys: String, CodingKey {
             case aliases
@@ -246,6 +292,10 @@ final class LiteLLMPricingCache: @unchecked Sendable {
             case cacheCreationInputTokenCost = "cache_creation_input_token_cost"
             case cacheReadInputTokenCost = "cache_read_input_token_cost"
             case outputCostPerReasoningToken = "output_cost_per_reasoning_token"
+            case inputCostPerTokenAbove200k = "input_cost_per_token_above_200k_tokens"
+            case outputCostPerTokenAbove200k = "output_cost_per_token_above_200k_tokens"
+            case cacheCreationInputTokenCostAbove200k = "cache_creation_input_token_cost_above_200k_tokens"
+            case cacheReadInputTokenCostAbove200k = "cache_read_input_token_cost_above_200k_tokens"
         }
 
         var rates: ModelPricing.Rates? {
@@ -254,7 +304,11 @@ final class LiteLLMPricingCache: @unchecked Sendable {
                 inputPerMTok: inputCostPerToken * 1_000_000,
                 outputPerMTok: outputCostPerToken * 1_000_000,
                 cacheWritePerMTok: (cacheCreationInputTokenCost ?? inputCostPerToken) * 1_000_000,
-                cacheReadPerMTok: (cacheReadInputTokenCost ?? inputCostPerToken) * 1_000_000
+                cacheReadPerMTok: (cacheReadInputTokenCost ?? inputCostPerToken) * 1_000_000,
+                inputAbove200kPerMTok: inputCostPerTokenAbove200k.map { $0 * 1_000_000 },
+                outputAbove200kPerMTok: outputCostPerTokenAbove200k.map { $0 * 1_000_000 },
+                cacheWriteAbove200kPerMTok: cacheCreationInputTokenCostAbove200k.map { $0 * 1_000_000 },
+                cacheReadAbove200kPerMTok: cacheReadInputTokenCostAbove200k.map { $0 * 1_000_000 }
             )
         }
     }
@@ -324,17 +378,40 @@ final class LiteLLMPricingCache: @unchecked Sendable {
         session: URLSession = .shared,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) async {
+        var map: [String: ModelInfo]?
+        var source: String?
+
         if let proxyURL = Self.proxyModelInfoURL(environment: environment),
            let data = try? await Self.fetch(url: proxyURL, session: session, bearerToken: Self.proxyToken(environment: environment)),
-           let map = Self.decodeProxyModelInfo(data) {
-            store(map: map, source: "LiteLLM Proxy")
-            return
+           let proxyMap = Self.decodeProxyModelInfo(data) {
+            map = proxyMap
+            source = "LiteLLM Proxy"
+        } else {
+            let costMapURL = Self.costMapURL(environment: environment)
+            if let data = try? await Self.fetch(url: costMapURL, session: session, bearerToken: nil),
+               let costMap = Self.decodeCostMap(data) {
+                map = costMap
+                source = "LiteLLM Hosted Map"
+            }
         }
 
-        let costMapURL = Self.costMapURL(environment: environment)
-        if let data = try? await Self.fetch(url: costMapURL, session: session, bearerToken: nil),
-           let map = Self.decodeCostMap(data) {
-            store(map: map, source: "LiteLLM Hosted Map")
+        // models.dev fallback: fill in models LiteLLM doesn't price so new models
+        // aren't silently free. LiteLLM entries always win when both define a model.
+        if let data = try? await Self.fetch(url: Self.modelsDevURL(environment: environment), session: session, bearerToken: nil),
+           let modelsDevMap = Self.decodeModelsDev(data) {
+            if var merged = map {
+                for (key, info) in modelsDevMap where merged[key] == nil {
+                    merged[key] = info
+                }
+                map = merged
+            } else {
+                map = modelsDevMap
+                source = "models.dev"
+            }
+        }
+
+        if let map, let source {
+            store(map: map, source: source)
         }
     }
 
@@ -436,6 +513,58 @@ final class LiteLLMPricingCache: @unchecked Sendable {
             return defaultCostMapURL
         }
         return url
+    }
+
+    private static let defaultModelsDevURL = URL(string: "https://models.dev/api.json")!
+
+    private static func modelsDevURL(environment: [String: String]) -> URL {
+        guard let raw = environment["MODELS_DEV_API_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty,
+              let url = URL(string: raw) else {
+            return defaultModelsDevURL
+        }
+        return url
+    }
+
+    /// Decodes the models.dev catalog (`{ provider: { models: { id: { cost: {...} } } } }`).
+    /// `cost` values are USD per million tokens, so we convert to per-token for `ModelInfo`.
+    private static func decodeModelsDev(_ data: Data) -> [String: ModelInfo]? {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+
+        var result: [String: ModelInfo] = [:]
+        for (providerID, providerValue) in root {
+            guard let provider = providerValue as? [String: Any],
+                  let models = provider["models"] as? [String: Any] else { continue }
+
+            for (modelID, modelValue) in models {
+                guard let model = modelValue as? [String: Any],
+                      let cost = model["cost"] as? [String: Any],
+                      let input = (cost["input"] as? NSNumber)?.doubleValue,
+                      let output = (cost["output"] as? NSNumber)?.doubleValue else { continue }
+
+                let cacheWrite = (cost["cache_write"] as? NSNumber)?.doubleValue
+                let cacheRead = (cost["cache_read"] as? NSNumber)?.doubleValue
+                let info = ModelInfo(
+                    aliases: nil,
+                    inputCostPerToken: input / 1_000_000,
+                    outputCostPerToken: output / 1_000_000,
+                    cacheCreationInputTokenCost: cacheWrite.map { $0 / 1_000_000 },
+                    cacheReadInputTokenCost: cacheRead.map { $0 / 1_000_000 },
+                    outputCostPerReasoningToken: nil,
+                    inputCostPerTokenAbove200k: nil,
+                    outputCostPerTokenAbove200k: nil,
+                    cacheCreationInputTokenCostAbove200k: nil,
+                    cacheReadInputTokenCostAbove200k: nil
+                )
+
+                let modelKey = modelID.lowercased()
+                let prov = providerID.lowercased()
+                result[modelKey] = info
+                result["\(prov)/\(modelKey)"] = info
+                result["\(prov).\(modelKey)"] = info
+            }
+        }
+        return result.isEmpty ? nil : result
     }
 
     private static func fetch(url: URL, session: URLSession, bearerToken: String?) async throws -> Data {

@@ -751,6 +751,31 @@ struct CostModelAccuracyTests {
         #expect(all1h == 10.0)  // 1M × $10.00 (1h)
     }
 
+    /// Sonnet bills tokens beyond a 200k context at the premium long-context tier.
+    @Test func tieredPricingAbove200kContext() {
+        LiteLLMPricingCache.shared.clearForTesting()
+        let cost = ModelPricing.costUSD(
+            provider: "anthropic", model: "claude-sonnet-4-5",
+            inputTokens: 300_000, outputTokens: 0, cacheReadTokens: 0,
+            cacheWriteTokens: 0, reasoningTokens: 0
+        )
+        // First 200k × $3/MTok + next 100k × $6/MTok = 0.6 + 0.6 = $1.20
+        // (flat pricing would undercount at 300k × $3/MTok = $0.90).
+        #expect(abs((cost ?? 0) - 1.20) < 1e-9)
+    }
+
+    /// Models without a 200k tier (e.g. Opus) price all tokens flat.
+    @Test func noTierForModelsWithoutAbove200kRates() {
+        LiteLLMPricingCache.shared.clearForTesting()
+        let cost = ModelPricing.costUSD(
+            provider: "anthropic", model: "claude-opus-4-5",
+            inputTokens: 300_000, outputTokens: 0, cacheReadTokens: 0,
+            cacheWriteTokens: 0, reasoningTokens: 0
+        )
+        // 300k × $5/MTok = $1.50, no tier break.
+        #expect(abs((cost ?? 0) - 1.50) < 1e-9)
+    }
+
     @Test func fastMultiplierMatchesOfficialPricing() {
         #expect(ModelPricing.fastMultiplier(provider: "anthropic", model: "claude-opus-4-8-20260101") == 2.0)
         #expect(ModelPricing.fastMultiplier(provider: "anthropic", model: "claude-opus-4-7-20251101") == 6.0)
