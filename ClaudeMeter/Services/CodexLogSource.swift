@@ -10,12 +10,16 @@ import Foundation
 import ClaudeMeterKit
 import OSLog
 
-/// Reads Codex CLI session rollout logs (`~/.codex/sessions/<y>/<m>/<d>/rollout-*.jsonl`).
+/// Reads Codex CLI session rollout logs (`~/.codex/sessions/<y>/<m>/<d>/rollout-*.jsonl`
+/// and `archived_sessions/`).
 ///
 /// Each rollout file is one session. Token usage lives in `event_msg` payloads of
-/// type `token_count` (`info.total_token_usage`, cumulative for the session). We
-/// take the last such event per file and emit a single entry, attributed to the
-/// session's most recent `turn_context.model`.
+/// type `token_count`. We emit one entry **per turn** (per `token_count` event),
+/// preferring `info.last_token_usage` and otherwise differencing
+/// `info.total_token_usage` against the previous cumulative total. Per-turn entries
+/// keep each turn on its own timestamp so day/30-day buckets stay accurate even when
+/// a session spans midnight. Each turn is attributed to the most recent
+/// `turn_context.model` seen before it.
 actor CodexLogSource: UsageLogSource {
     nonisolated let provider: Provider = .codex
 
@@ -41,11 +45,50 @@ actor CodexLogSource: UsageLogSource {
         let files = rolloutFiles(modifiedAfter: since)
         var entries: [ProviderUsageEntry] = []
         for file in files {
-            if let entry = parseRollout(at: file), entry.timestamp >= since {
-                entries.append(entry)
-            }
+            entries.append(contentsOf: parseRollout(at: file).filter { $0.timestamp >= since })
         }
         return entries
+    }
+
+    /// Cumulative or per-turn Codex token totals from a `token_count` event.
+    private struct CodexUsageTotals {
+        var input = 0
+        var cachedInput = 0
+        var output = 0
+        var reasoning = 0
+
+        static let zero = CodexUsageTotals()
+
+        init() {}
+
+        init(_ dict: [String: Any]) {
+            input = dict["input_tokens"] as? Int ?? 0
+            cachedInput = dict["cached_input_tokens"] as? Int ?? 0
+            output = dict["output_tokens"] as? Int ?? 0
+            reasoning = dict["reasoning_output_tokens"] as? Int ?? 0
+        }
+
+        /// Per-turn delta = this cumulative total minus the previous one (saturating).
+        func subtracting(_ other: CodexUsageTotals) -> CodexUsageTotals {
+            var result = CodexUsageTotals()
+            result.input = max(0, input - other.input)
+            result.cachedInput = max(0, cachedInput - other.cachedInput)
+            result.output = max(0, output - other.output)
+            result.reasoning = max(0, reasoning - other.reasoning)
+            return result
+        }
+
+        /// Split into disjoint components so totals/cost don't double-count:
+        /// `input` includes cached; `output` includes reasoning.
+        var tokenCount: TokenCount {
+            TokenCount(
+                inputTokens: max(0, input - cachedInput),
+                outputTokens: max(0, output - reasoning),
+                cacheCreationTokens: 0,
+                cacheReadTokens: cachedInput,
+                reasoningTokens: reasoning
+            )
+        }
     }
 
     // MARK: - File discovery
@@ -74,14 +117,16 @@ actor CodexLogSource: UsageLogSource {
 
     // MARK: - Parsing
 
-    private func parseRollout(at url: URL) -> ProviderUsageEntry? {
+    private func parseRollout(at url: URL) -> [ProviderUsageEntry] {
         guard let data = try? Data(contentsOf: url),
-              let content = String(data: data, encoding: .utf8) else { return nil }
+              let content = String(data: data, encoding: .utf8) else { return [] }
 
+        let fileModified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
         var sessionId: String?
-        var model: String?
-        var lastTokenUsage: [String: Any]?
-        var lastTimestamp: Date?
+        var currentModel: String?
+        var previousTotal: CodexUsageTotals = .zero
+        var entries: [ProviderUsageEntry] = []
+        var turnIndex = 0
 
         for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
             guard let lineData = line.data(using: .utf8),
@@ -94,50 +139,52 @@ actor CodexLogSource: UsageLogSource {
             case "session_meta":
                 sessionId = payload?["id"] as? String
             case "turn_context":
-                if let m = payload?["model"] as? String, !m.isEmpty { model = m }
+                if let m = payload?["model"] as? String, !m.isEmpty { currentModel = m }
             case "event_msg":
                 guard (payload?["type"] as? String) == "token_count",
-                      let info = payload?["info"] as? [String: Any],
-                      let total = info["total_token_usage"] as? [String: Any] else { continue }
-                lastTokenUsage = total
-                if let ts = json["timestamp"] as? String {
-                    lastTimestamp = isoFormatter.date(from: ts) ?? isoFormatterNoFraction.date(from: ts)
+                      let info = payload?["info"] as? [String: Any] else { continue }
+
+                // Prefer the per-turn figure; else difference the cumulative total.
+                let turnTotals: CodexUsageTotals
+                if let last = info["last_token_usage"] as? [String: Any] {
+                    turnTotals = CodexUsageTotals(last)
+                } else if let total = info["total_token_usage"] as? [String: Any] {
+                    let totals = CodexUsageTotals(total)
+                    turnTotals = totals.subtracting(previousTotal)
+                } else {
+                    continue
                 }
+
+                // Keep the cumulative baseline current for the next delta.
+                if let total = info["total_token_usage"] as? [String: Any] {
+                    previousTotal = CodexUsageTotals(total)
+                }
+
+                let tokens = turnTotals.tokenCount
+                guard tokens.totalTokens > 0 else { continue }
+
+                let timestamp = (json["timestamp"] as? String).flatMap {
+                    isoFormatter.date(from: $0) ?? isoFormatterNoFraction.date(from: $0)
+                } ?? fileModified ?? Date()
+
+                let id = sessionId ?? url.deletingPathExtension().lastPathComponent
+                entries.append(
+                    ProviderUsageEntry(
+                        provider: .codex,
+                        model: currentModel ?? "gpt-5-codex",
+                        pricingProviderKey: "openai",
+                        tokens: tokens,
+                        timestamp: timestamp,
+                        dedupKey: "codex:\(id):\(turnIndex)"
+                    )
+                )
+                turnIndex += 1
             default:
                 continue
             }
         }
 
-        guard let total = lastTokenUsage else { return nil }
-
-        // Codex: total = input + output; `input` includes cached, `output` includes reasoning.
-        // Split into disjoint components so totals/cost don't double-count.
-        let rawInput = total["input_tokens"] as? Int ?? 0
-        let cachedInput = total["cached_input_tokens"] as? Int ?? 0
-        let rawOutput = total["output_tokens"] as? Int ?? 0
-        let reasoning = total["reasoning_output_tokens"] as? Int ?? 0
-
-        let tokens = TokenCount(
-            inputTokens: max(0, rawInput - cachedInput),
-            outputTokens: max(0, rawOutput - reasoning),
-            cacheCreationTokens: 0,
-            cacheReadTokens: cachedInput,
-            reasoningTokens: reasoning
-        )
-
-        let id = sessionId ?? url.deletingPathExtension().lastPathComponent
-        let timestamp = lastTimestamp
-            ?? (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
-            ?? Date()
-
-        return ProviderUsageEntry(
-            provider: .codex,
-            model: model ?? "gpt-5-codex",
-            pricingProviderKey: "openai",
-            tokens: tokens,
-            timestamp: timestamp,
-            dedupKey: "codex:\(id)"
-        )
+        return entries
     }
 }
 #endif

@@ -21,6 +21,8 @@ struct ProviderUsageEntry: Sendable {
     let dedupKey: String
     /// Cost already computed by the provider, if trustworthy; nil → compute via `ModelPricing`.
     let precomputedCostUSD: Double?
+    /// True when served in fast mode (Claude only); premium pricing applies. Non-Claude sources pass false.
+    let fastMode: Bool
 
     init(
         provider: Provider,
@@ -29,7 +31,8 @@ struct ProviderUsageEntry: Sendable {
         tokens: TokenCount,
         timestamp: Date,
         dedupKey: String,
-        precomputedCostUSD: Double? = nil
+        precomputedCostUSD: Double? = nil,
+        fastMode: Bool = false
     ) {
         self.provider = provider
         self.model = model
@@ -38,6 +41,7 @@ struct ProviderUsageEntry: Sendable {
         self.timestamp = timestamp
         self.dedupKey = dedupKey
         self.precomputedCostUSD = precomputedCostUSD
+        self.fastMode = fastMode
     }
 }
 
