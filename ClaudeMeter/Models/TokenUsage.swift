@@ -11,8 +11,25 @@ enum ModelPricing: Sendable {
     struct Rates: Sendable {
         let inputPerMTok: Double
         let outputPerMTok: Double
+        /// 5-minute ephemeral cache write rate (1.25× base input per Anthropic).
         let cacheWritePerMTok: Double
         let cacheReadPerMTok: Double
+        /// 1-hour ephemeral cache write rate (2× base input per Anthropic). Defaults to 2× input.
+        let cacheWrite1hPerMTok: Double
+
+        init(
+            inputPerMTok: Double,
+            outputPerMTok: Double,
+            cacheWritePerMTok: Double,
+            cacheReadPerMTok: Double,
+            cacheWrite1hPerMTok: Double? = nil
+        ) {
+            self.inputPerMTok = inputPerMTok
+            self.outputPerMTok = outputPerMTok
+            self.cacheWritePerMTok = cacheWritePerMTok
+            self.cacheReadPerMTok = cacheReadPerMTok
+            self.cacheWrite1hPerMTok = cacheWrite1hPerMTok ?? (inputPerMTok * 2)
+        }
     }
 
     nonisolated static let opus45 = Rates(
@@ -162,18 +179,41 @@ enum ModelPricing: Sendable {
         outputTokens: Int,
         cacheReadTokens: Int,
         cacheWriteTokens: Int,
-        reasoningTokens: Int
+        reasoningTokens: Int,
+        cacheWrite1hTokens: Int = 0,
+        fastMode: Bool = false
     ) -> Double? {
         guard let rates = rates(forProvider: provider, model: model) else { return nil }
         let billsReasoningAsOutput = provider.lowercased() == "openai"
         let billableOutputTokens = outputTokens + (billsReasoningAsOutput ? reasoningTokens : 0)
+        // `cacheWrite1hTokens` is a subset of `cacheWriteTokens`; the remainder is 5-minute cache.
+        let cacheWrite5mTokens = max(0, cacheWriteTokens - cacheWrite1hTokens)
 
-        return (
+        var cost = (
             Double(inputTokens) * rates.inputPerMTok
             + Double(billableOutputTokens) * rates.outputPerMTok
-            + Double(cacheWriteTokens) * rates.cacheWritePerMTok
+            + Double(cacheWrite5mTokens) * rates.cacheWritePerMTok
+            + Double(cacheWrite1hTokens) * rates.cacheWrite1hPerMTok
             + Double(cacheReadTokens) * rates.cacheReadPerMTok
         ) / 1_000_000
+
+        // Fast mode scales input, output, and (stacked) cache rates by the same per-model factor,
+        // so multiplying the whole standard-computed cost is exact. Verified vs platform.claude.com.
+        if fastMode {
+            cost *= fastMultiplier(provider: provider, model: model)
+        }
+        return cost
+    }
+
+    /// Fast-mode premium multiplier (research preview, Opus-only) applied when `usage.speed == "fast"`.
+    /// Opus 4.8 = 2×, Opus 4.7/4.6 = 6×; all other models 1×. Verified against official pricing.
+    nonisolated static func fastMultiplier(provider: String, model: String) -> Double {
+        guard provider.lowercased() == "anthropic" else { return 1.0 }
+        let m = model.lowercased()
+        if m.contains("opus-4-8") || m.contains("opus-4.8") { return 2.0 }
+        if m.contains("opus-4-7") || m.contains("opus-4.7") { return 6.0 }
+        if m.contains("opus-4-6") || m.contains("opus-4.6") { return 6.0 }
+        return 1.0
     }
 }
 
@@ -459,22 +499,27 @@ struct TokenCount: Sendable {
     let cacheReadTokens: Int
     /// Reasoning tokens (Codex/OpenCode report these; Claude leaves it 0).
     let reasoningTokens: Int
+    /// Subset of `cacheCreationTokens` written with a 1-hour TTL (billed at 2× input). 0 when unknown.
+    let cacheCreation1hTokens: Int
 
     init(
         inputTokens: Int,
         outputTokens: Int,
         cacheCreationTokens: Int,
         cacheReadTokens: Int,
-        reasoningTokens: Int = 0
+        reasoningTokens: Int = 0,
+        cacheCreation1hTokens: Int = 0
     ) {
         self.inputTokens = inputTokens
         self.outputTokens = outputTokens
         self.cacheCreationTokens = cacheCreationTokens
         self.cacheReadTokens = cacheReadTokens
         self.reasoningTokens = reasoningTokens
+        self.cacheCreation1hTokens = cacheCreation1hTokens
     }
 
     var totalTokens: Int {
+        // `cacheCreation1hTokens` is a subset of `cacheCreationTokens`, so it is not added here.
         inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens + reasoningTokens
     }
 
@@ -487,7 +532,8 @@ nonisolated func + (lhs: TokenCount, rhs: TokenCount) -> TokenCount {
         outputTokens: lhs.outputTokens + rhs.outputTokens,
         cacheCreationTokens: lhs.cacheCreationTokens + rhs.cacheCreationTokens,
         cacheReadTokens: lhs.cacheReadTokens + rhs.cacheReadTokens,
-        reasoningTokens: lhs.reasoningTokens + rhs.reasoningTokens
+        reasoningTokens: lhs.reasoningTokens + rhs.reasoningTokens,
+        cacheCreation1hTokens: lhs.cacheCreation1hTokens + rhs.cacheCreation1hTokens
     )
 }
 
@@ -496,6 +542,15 @@ struct UsageEntry: Sendable {
     let model: String
     let tokens: TokenCount
     let timestamp: Date
+    /// True when the request was served in fast mode (`usage.speed == "fast"`); premium pricing applies.
+    let fastMode: Bool
+
+    init(model: String, tokens: TokenCount, timestamp: Date, fastMode: Bool = false) {
+        self.model = model
+        self.tokens = tokens
+        self.timestamp = timestamp
+        self.fastMode = fastMode
+    }
 }
 
 /// Time periods for usage aggregation

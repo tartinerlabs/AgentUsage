@@ -227,7 +227,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             return []
         }
 
-        var entries: [(entry: UsageEntry, messageId: String, requestId: String)] = []
+        var parsed: [ParsedFields] = []
         var isFirstLine = offset > 0  // Skip first line only if we seeked
 
         for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
@@ -238,13 +238,13 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             }
 
             guard let lineData = line.data(using: .utf8),
-                  let result = parseLogEntryWithIDs(data: lineData) else {
+                  let fields = parseCommonFields(data: lineData) else {
                 continue
             }
-            entries.append(result)
+            parsed.append(fields)
         }
 
-        return entries
+        return Self.deduplicate(parsed).map(idTuple(from:))
     }
 
     /// Parse JSONL file and return entries with their IDs for deduplication
@@ -252,21 +252,40 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let data = try Data(contentsOf: url)
         guard let content = String(data: data, encoding: .utf8) else { return [] }
 
-        var entries: [(entry: UsageEntry, messageId: String, requestId: String)] = []
+        var parsed: [ParsedFields] = []
 
         for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
             guard let lineData = line.data(using: .utf8),
-                  let result = parseLogEntryWithIDs(data: lineData) else {
+                  let fields = parseCommonFields(data: lineData) else {
                 continue
             }
-            entries.append(result)
+            parsed.append(fields)
         }
 
-        return entries
+        return Self.deduplicate(parsed).map(idTuple(from:))
     }
 
-    /// Parse a single log entry and return with IDs
-    private func parseLogEntryWithIDs(data: Data) -> (entry: UsageEntry, messageId: String, requestId: String)? {
+    /// Map a deduped entry to the import tuple, substituting synthetic ids when message/request ids are absent.
+    private func idTuple(from fields: ParsedFields) -> (entry: UsageEntry, messageId: String, requestId: String) {
+        (
+            entry: fields.entry,
+            messageId: fields.messageId ?? fields.fallbackId,
+            requestId: fields.requestId ?? fields.fallbackId
+        )
+    }
+
+    /// Common fields parsed from one JSONL assistant line, before dedup.
+    struct ParsedFields {
+        let entry: UsageEntry
+        let messageId: String?
+        let requestId: String?
+        let isSidechain: Bool
+        /// SHA-based synthetic id for entries missing message/request ids (keeps SwiftData ids unique).
+        let fallbackId: String
+    }
+
+    /// Parse a single assistant log line into common fields (tokens incl. 1h cache, fast mode, sidechain).
+    private func parseCommonFields(data: Data) -> ParsedFields? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String,
               type == "assistant",
@@ -282,10 +301,10 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let outputTokens = usage["output_tokens"] as? Int ?? 0
         let cacheCreationTokens = usage["cache_creation_input_tokens"] as? Int ?? 0
         let cacheReadTokens = usage["cache_read_input_tokens"] as? Int ?? 0
-
-        let fallbackId = fallbackIdentifier(for: data)
-        let messageId = (message["id"] as? String) ?? fallbackId
-        let requestId = (json["requestId"] as? String) ?? (json["request_id"] as? String) ?? fallbackId
+        // 1h ephemeral cache (billed at 2× input). Subset of cache_creation_input_tokens.
+        let cacheCreation1hTokens = (usage["cache_creation"] as? [String: Any])?["ephemeral_1h_input_tokens"] as? Int ?? 0
+        let fastMode = (usage["speed"] as? String) == "fast"
+        let isSidechain = json["isSidechain"] as? Bool ?? false
 
         let entry = UsageEntry(
             model: model,
@@ -293,12 +312,63 @@ actor TokenUsageService: TokenUsageServiceProtocol {
                 inputTokens: inputTokens,
                 outputTokens: outputTokens,
                 cacheCreationTokens: cacheCreationTokens,
-                cacheReadTokens: cacheReadTokens
+                cacheReadTokens: cacheReadTokens,
+                cacheCreation1hTokens: cacheCreation1hTokens
             ),
-            timestamp: timestamp
+            timestamp: timestamp,
+            fastMode: fastMode
         )
 
-        return (entry, messageId, requestId)
+        return ParsedFields(
+            entry: entry,
+            messageId: message["id"] as? String,
+            requestId: (json["requestId"] as? String) ?? (json["request_id"] as? String),
+            isSidechain: isSidechain,
+            fallbackId: fallbackIdentifier(for: data)
+        )
+    }
+
+    /// Dedup keys for one entry: the exact `messageId:requestId` plus a `messageId`-only fallback that
+    /// catches sidechain replays (same message, fresh requestId). Empty when no messageId — cannot dedup.
+    nonisolated static func dedupKeys(messageId: String?, requestId: String?) -> [String] {
+        guard let messageId else { return [] }
+        guard let requestId else { return ["msg:\(messageId)"] }
+        return ["\(messageId):\(requestId)", "msg:\(messageId)"]
+    }
+
+    /// Sidechain-aware dedup (ported from ccusage): on collision keep the better record —
+    /// a non-sidechain entry beats a sidechain one; otherwise the higher total-token entry wins.
+    nonisolated static func deduplicate(_ parsed: [ParsedFields]) -> [ParsedFields] {
+        var slotForKey: [String: Int] = [:]
+        var result: [ParsedFields] = []
+
+        for candidate in parsed {
+            let keys = dedupKeys(messageId: candidate.messageId, requestId: candidate.requestId)
+            guard !keys.isEmpty else {
+                result.append(candidate) // no ids → cannot dedup, keep
+                continue
+            }
+
+            if let slot = keys.lazy.compactMap({ slotForKey[$0] }).first {
+                if shouldReplaceDeduped(existing: result[slot], candidate: candidate) {
+                    result[slot] = candidate
+                }
+                for key in keys { slotForKey[key] = slot }
+            } else {
+                let slot = result.count
+                result.append(candidate)
+                for key in keys { slotForKey[key] = slot }
+            }
+        }
+
+        return result
+    }
+
+    nonisolated static func shouldReplaceDeduped(existing: ParsedFields, candidate: ParsedFields) -> Bool {
+        if existing.isSidechain != candidate.isSidechain {
+            return existing.isSidechain && !candidate.isSidechain
+        }
+        return candidate.entry.tokens.totalTokens > existing.entry.tokens.totalTokens
     }
 
     private func computeSnapshot() async throws -> TokenUsageSnapshot {
@@ -374,7 +444,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
                 pricingProviderKey: "anthropic",
                 tokens: entry.tokens,
                 timestamp: entry.timestamp,
-                dedupKey: "claude:\(index)"  // Claude entries are already deduped during parse
+                dedupKey: "claude:\(index)",  // Claude entries are already deduped during parse
+                fastMode: entry.fastMode
             )
         }
 
@@ -481,76 +552,21 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let data = try Data(contentsOf: url)
         guard let content = String(data: data, encoding: .utf8) else { return [] }
 
-        var entries: [UsageEntry] = []
-        var processedHashes = Set<String>()
+        var parsed: [ParsedFields] = []
 
         for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
             guard let lineData = line.data(using: .utf8),
-                  let result = parseLogEntry(data: lineData, cutoff: cutoff) else {
+                  let fields = parseCommonFields(data: lineData) else {
                 continue
             }
-
-            // Deduplicate by message.id + requestId (same approach as ccusage)
-            // Streaming responses log multiple entries per API call with the same IDs
-            if let hash = result.uniqueHash {
-                if processedHashes.contains(hash) {
-                    continue // Skip duplicate message
-                }
-                processedHashes.insert(hash)
+            if let cutoff, fields.entry.timestamp < cutoff {
+                continue
             }
-
-            entries.append(result.entry)
-        }
-        return entries
-    }
-
-    /// Creates a unique hash from message.id and requestId for deduplication
-    /// Returns nil if either field is missing (matches ccusage behavior)
-    private func createUniqueHash(messageId: String?, requestId: String?) -> String? {
-        guard let messageId, let requestId else {
-            return nil
-        }
-        return "\(messageId):\(requestId)"
-    }
-
-    private func parseLogEntry(data: Data, cutoff: Date?) -> (entry: UsageEntry, uniqueHash: String?)? {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String,
-              type == "assistant",
-              let message = json["message"] as? [String: Any],
-              let model = message["model"] as? String,
-              let usage = message["usage"] as? [String: Any],
-              let timestampString = json["timestamp"] as? String,
-              let timestamp = isoFormatter.date(from: timestampString) ?? isoFormatterNoFraction.date(from: timestampString) else {
-            return nil
+            parsed.append(fields)
         }
 
-        if let cutoff, timestamp < cutoff {
-            return nil
-        }
-
-        let inputTokens = usage["input_tokens"] as? Int ?? 0
-        let outputTokens = usage["output_tokens"] as? Int ?? 0
-        let cacheCreationTokens = usage["cache_creation_input_tokens"] as? Int ?? 0
-        let cacheReadTokens = usage["cache_read_input_tokens"] as? Int ?? 0
-
-        // Extract message.id and requestId for deduplication (same as ccusage)
-        let messageId = message["id"] as? String
-        let requestId = (json["requestId"] as? String) ?? (json["request_id"] as? String)
-        let uniqueHash = createUniqueHash(messageId: messageId, requestId: requestId)
-
-        let entry = UsageEntry(
-            model: model,
-            tokens: TokenCount(
-                inputTokens: inputTokens,
-                outputTokens: outputTokens,
-                cacheCreationTokens: cacheCreationTokens,
-                cacheReadTokens: cacheReadTokens
-            ),
-            timestamp: timestamp
-        )
-
-        return (entry, uniqueHash)
+        // Sidechain-aware dedup (ccusage approach): collapse streaming duplicates and sidechain replays.
+        return Self.deduplicate(parsed).map(\.entry)
     }
 
     private func fallbackIdentifier(for data: Data) -> String {
@@ -585,7 +601,9 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             outputTokens: entry.tokens.outputTokens,
             cacheReadTokens: entry.tokens.cacheReadTokens,
             cacheWriteTokens: entry.tokens.cacheCreationTokens,
-            reasoningTokens: entry.tokens.reasoningTokens
+            reasoningTokens: entry.tokens.reasoningTokens,
+            cacheWrite1hTokens: entry.tokens.cacheCreation1hTokens,
+            fastMode: entry.fastMode
         ) ?? 0
     }
 }
