@@ -56,6 +56,7 @@ public enum UsageWindowType: String, Sendable, Codable {
     // Generic windows for providers other than Claude.
     case codexFiveHour  // Codex primary limit (rate_limits.primary, window_minutes 300)
     case codexWeekly    // Codex secondary limit (rate_limits.secondary, window_minutes 10080)
+    case codexReviews   // Codex code-review limit (code_review_rate_limit, 7 days)
     case openCodeGoFiveHour
     case openCodeGoWeekly
     case openCodeGoMonthly
@@ -68,6 +69,7 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .design: "Claude Design"
         case .codexFiveHour: "5-hour limit"
         case .codexWeekly: "Weekly limit"
+        case .codexReviews: "Code reviews"
         case .openCodeGoFiveHour: "5-hour limit"
         case .openCodeGoWeekly: "Weekly limit"
         case .openCodeGoMonthly: "Monthly limit"
@@ -82,6 +84,7 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .design: 7 * 24 * 60 * 60  // 7 days in seconds
         case .codexFiveHour: 5 * 60 * 60      // 5 hours in seconds
         case .codexWeekly: 7 * 24 * 60 * 60   // 7 days in seconds
+        case .codexReviews: 7 * 24 * 60 * 60  // 7 days in seconds
         case .openCodeGoFiveHour: 5 * 60 * 60
         case .openCodeGoWeekly: 7 * 24 * 60 * 60
         case .openCodeGoMonthly: 30 * 24 * 60 * 60

@@ -29,7 +29,11 @@ enum CredentialError: LocalizedError {
         case .missingOAuth:
             return "No OAuth credentials found. Please authenticate with Claude CLI."
         case .expired:
+            #if os(macOS)
+            return "Claude token expired. Run `claude` to refresh it, or enable auto-refresh in Settings."
+            #else
             return "Credentials have expired. Please re-authenticate with Claude CLI."
+            #endif
         case .missingScope:
             return "Missing required 'user:profile' scope."
         case .keychainNotFound:

@@ -54,6 +54,17 @@ enum Constants {
         NSUserName()
     }
 
+    // MARK: - Claude OAuth token refresh (opt-in)
+    /// Token endpoint + client used to refresh an expired Claude OAuth token, mirroring
+    /// Claude Code's own flow. Gated behind `autoRefreshClaudeTokenKey` (default off):
+    /// because Anthropic rotates refresh tokens, refreshing here can race Claude Code's
+    /// own refresh, so users opt in knowingly.
+    static let claudeOAuthTokenURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
+    static let claudeOAuthClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+    static let claudeOAuthScope = "user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
+    /// UserDefaults flag gating opt-in auto-refresh of the Claude token. Default off.
+    static let autoRefreshClaudeTokenKey = "autoRefreshClaudeToken"
+
     // MARK: - Blog OAuth (Better Auth OAuth 2.1 / OIDC provider)
     /// OAuth Authorization Code + PKCE flow used to authenticate the blog usage sync.
     /// ClaudeMeter self-registers as a public client (dynamic registration) and exchanges
@@ -84,20 +95,62 @@ enum Constants {
     // MARK: - macOS Only (file system access)
     #if os(macOS)
 
+    /// Expands a leading `~` against the current user's home directory.
+    private nonisolated static func expandTilde(_ path: String, home: URL) -> URL {
+        if path == "~" { return home }
+        if path.hasPrefix("~/") { return home.appendingPathComponent(String(path.dropFirst(2))) }
+        return URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+    }
+
+    /// Splits a comma-separated env value into trimmed, non-empty entries.
+    private nonisolated static func envPaths(_ value: String?) -> [String] {
+        guard let value, !value.isEmpty else { return [] }
+        return value.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// Claude Code project logs. Honors `CLAUDE_CONFIG_DIR` (comma-separated) and
+    /// `XDG_CONFIG_HOME`, falling back to `~/.claude` and `~/.config/claude`.
     nonisolated static var claudeProjectsDirectories: [URL] {
+        let env = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser
+
+        let configDirs = envPaths(env["CLAUDE_CONFIG_DIR"])
+        if !configDirs.isEmpty {
+            return configDirs.map { dir in
+                let base = expandTilde(dir, home: home)
+                // Accept either a config dir or one already pointing at projects/.
+                return base.lastPathComponent == "projects" ? base : base.appendingPathComponent("projects")
+            }
+        }
+
+        let configBase: URL = {
+            if let xdg = env["XDG_CONFIG_HOME"], !xdg.isEmpty {
+                return expandTilde(xdg, home: home)
+            }
+            return home.appendingPathComponent(".config")
+        }()
+
         return [
             home.appendingPathComponent(".claude/projects"),
-            home.appendingPathComponent(".config/claude/projects")
+            configBase.appendingPathComponent("claude/projects")
         ]
     }
 
     /// Codex CLI session rollout logs (`rollout-*.jsonl`), nested by year/month/day.
+    /// Honors `CODEX_HOME` (comma-separated) and includes `archived_sessions/`.
     nonisolated static var codexSessionsDirectories: [URL] {
+        let env = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return [
-            home.appendingPathComponent(".codex/sessions")
-        ]
+
+        var bases = envPaths(env["CODEX_HOME"]).map { expandTilde($0, home: home) }
+        if bases.isEmpty {
+            bases = [home.appendingPathComponent(".codex")]
+        }
+        return bases.flatMap {
+            [$0.appendingPathComponent("sessions"), $0.appendingPathComponent("archived_sessions")]
+        }
     }
 
     /// Codex CLI OAuth credentials (`auth.json`). Honors `CODEX_HOME`, then default locations.
@@ -114,15 +167,23 @@ enum Constants {
         return urls
     }
 
-    /// OpenCode SQLite database (XDG data home, with fallback).
-    nonisolated static var openCodeDatabaseURLs: [URL] {
+    /// OpenCode data directories. Honors `OPENCODE_DATA_DIR` (comma-separated) and
+    /// `XDG_DATA_HOME`, falling back to `~/.local/share/opencode`.
+    nonisolated static var openCodeDataDirectories: [URL] {
+        let env = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser
-        var urls: [URL] = []
-        if let xdgData = ProcessInfo.processInfo.environment["XDG_DATA_HOME"], !xdgData.isEmpty {
-            urls.append(URL(fileURLWithPath: xdgData).appendingPathComponent("opencode/opencode.db"))
+
+        var dirs = envPaths(env["OPENCODE_DATA_DIR"]).map { expandTilde($0, home: home) }
+        if let xdgData = env["XDG_DATA_HOME"], !xdgData.isEmpty {
+            dirs.append(expandTilde(xdgData, home: home).appendingPathComponent("opencode"))
         }
-        urls.append(home.appendingPathComponent(".local/share/opencode/opencode.db"))
-        return urls
+        dirs.append(home.appendingPathComponent(".local/share/opencode"))
+        return dirs
+    }
+
+    /// OpenCode SQLite database candidates, derived from `openCodeDataDirectories`.
+    nonisolated static var openCodeDatabaseURLs: [URL] {
+        openCodeDataDirectories.map { $0.appendingPathComponent("opencode.db") }
     }
     #endif
 }
