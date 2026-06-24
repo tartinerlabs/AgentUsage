@@ -9,9 +9,16 @@
 import Foundation
 import ClaudeMeterKit
 import OSLog
+import SQLite3
 
 actor OpenCodeGoUsageService {
     nonisolated let provider: Provider = .openCode
+
+    /// Spend limits per window for the Go tier (USD), used to synthesize quota
+    /// percentages from local cost when the dashboard cookie isn't configured.
+    private static let sessionLimitUSD = 12.0
+    private static let weeklyLimitUSD = 30.0
+    private static let monthlyLimitUSD = 60.0
 
     enum OpenCodeError: LocalizedError {
         /// The dashboard returned a 5xx status — treated as a service outage.
@@ -26,20 +33,27 @@ actor OpenCodeGoUsageService {
 
     private let session: URLSession
     private let configProvider: @Sendable () -> DashboardConfig?
+    private let databaseURLs: [URL]
     private let now: @Sendable () -> Date
 
     init(
         session: URLSession = .shared,
         configProvider: @escaping @Sendable () -> DashboardConfig? = { DashboardConfig.load() },
+        databaseURLs: [URL] = Constants.openCodeDatabaseURLs,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.session = session
         self.configProvider = configProvider
+        self.databaseURLs = databaseURLs
         self.now = now
     }
 
     func fetchSnapshot() async throws -> ProviderUsageSnapshot? {
-        guard let config = configProvider() else { return nil }
+        // No dashboard cookie configured → estimate windows from local spend so the
+        // column isn't empty out of the box. Real percentages require the cookie.
+        guard let config = configProvider() else {
+            return localFallbackSnapshot(now: now())
+        }
         var request = URLRequest(url: config.dashboardURL)
         request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
         request.setValue(config.cookieHeader, forHTTPHeaderField: "Cookie")
@@ -91,6 +105,93 @@ actor OpenCodeGoUsageService {
             planName: "Go",
             fetchedAt: now
         )
+    }
+
+    // MARK: - Local cost fallback (zero-config)
+
+    /// Estimates Go quota windows from local OpenCode spend (`providerID == opencode-go`)
+    /// against the per-window dollar limits. Used when no dashboard cookie is set.
+    private func localFallbackSnapshot(now: Date) -> ProviderUsageSnapshot? {
+        guard let dbURL = databaseURLs.first(where: { FileManager.default.fileExists(atPath: $0.path) }) else {
+            return nil
+        }
+        let rows = Self.readGoCostRows(dbURL: dbURL)
+        guard !rows.isEmpty else { return nil }
+
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        utc.firstWeekday = 2 // Monday
+
+        // Session: rolling 5-hour window; reset = oldest in-window event + 5h.
+        let sessionStart = now.addingTimeInterval(-5 * 3600)
+        let sessionRows = rows.filter { $0.date >= sessionStart }
+        let sessionCost = sessionRows.reduce(0) { $0 + $1.cost }
+        let sessionReset = sessionRows.map(\.date).min()?.addingTimeInterval(5 * 3600)
+            ?? now.addingTimeInterval(5 * 3600)
+
+        // Weekly: UTC week (Monday start).
+        let weekStart = utc.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+        let weekReset = utc.date(byAdding: .day, value: 7, to: weekStart) ?? now.addingTimeInterval(7 * 86400)
+        let weekCost = rows.filter { $0.date >= weekStart }.reduce(0) { $0 + $1.cost }
+
+        // Monthly: UTC calendar month.
+        let monthStart = utc.dateInterval(of: .month, for: now)?.start ?? now
+        let monthReset = utc.date(byAdding: .month, value: 1, to: monthStart) ?? now.addingTimeInterval(30 * 86400)
+        let monthCost = rows.filter { $0.date >= monthStart }.reduce(0) { $0 + $1.cost }
+
+        func percent(_ cost: Double, _ limit: Double) -> Double {
+            min(100, max(0, cost / limit * 100))
+        }
+
+        let windows = [
+            UsageWindow(utilization: percent(sessionCost, Self.sessionLimitUSD), resetsAt: sessionReset, windowType: .openCodeGoFiveHour),
+            UsageWindow(utilization: percent(weekCost, Self.weeklyLimitUSD), resetsAt: weekReset, windowType: .openCodeGoWeekly),
+            UsageWindow(utilization: percent(monthCost, Self.monthlyLimitUSD), resetsAt: monthReset, windowType: .openCodeGoMonthly)
+        ]
+        return ProviderUsageSnapshot(provider: .openCode, windows: windows, planName: "Go", fetchedAt: now)
+    }
+
+    /// Reads `(timestamp, cost)` rows for `opencode-go` spend, trying the `message`
+    /// table first and falling back to the `session` table.
+    private nonisolated static func readGoCostRows(dbURL: URL) -> [(date: Date, cost: Double)] {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(dbURL.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let db else {
+            if let db { sqlite3_close(db) }
+            return []
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 2000)
+
+        let messageSQL = """
+        SELECT json_extract(data, '$.time.created'), json_extract(data, '$.cost') \
+        FROM message \
+        WHERE json_extract(data, '$.providerID') = 'opencode-go' \
+        AND json_extract(data, '$.role') = 'assistant' \
+        AND json_extract(data, '$.cost') > 0
+        """
+        if let rows = runCostQuery(db: db, sql: messageSQL), !rows.isEmpty {
+            return rows
+        }
+
+        let sessionSQL = """
+        SELECT time_created, cost FROM session \
+        WHERE json_extract(model, '$.providerID') = 'opencode-go' AND cost > 0
+        """
+        return runCostQuery(db: db, sql: sessionSQL) ?? []
+    }
+
+    private nonisolated static func runCostQuery(db: OpaquePointer, sql: String) -> [(date: Date, cost: Double)]? {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+
+        var rows: [(date: Date, cost: Double)] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let millis = sqlite3_column_int64(stmt, 0)
+            let cost = sqlite3_column_double(stmt, 1)
+            rows.append((date: Date(timeIntervalSince1970: Double(millis) / 1000), cost: cost))
+        }
+        return rows
     }
 
     private nonisolated static func extractNumber(field: String, key: String, text: String) -> Double? {
