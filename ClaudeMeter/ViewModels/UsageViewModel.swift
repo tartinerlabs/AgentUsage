@@ -125,6 +125,21 @@ final class UsageViewModel {
         return nil
     }
 
+    /// Whether an error indicates the provider rate-limited us (HTTP 429). Such
+    /// errors are transient, so callers keep the last-good cached data instead of
+    /// blanking the provider's column.
+    nonisolated static func isRateLimitError(_ error: Error) -> Bool {
+        if let apiError = error as? ClaudeAPIService.APIError, case .rateLimited = apiError {
+            return true
+        }
+        #if os(macOS)
+        if let codexError = error as? CodexUsageService.CodexError, case .rateLimited = codexError {
+            return true
+        }
+        #endif
+        return false
+    }
+
     /// Record (or update) an outage incident for a provider, preserving `startedAt`.
     private func recordOutage(for provider: Provider, error: Error) {
         let code = Self.outageErrorCode(error)
@@ -438,6 +453,8 @@ final class UsageViewModel {
             } catch {
                 if Self.isOutageError(error) {
                     recordOutage(for: .codex, error: error)  // keep cached codexUsage
+                } else if Self.isRateLimitError(error) {
+                    Logger.viewModel.warning("Codex usage rate limited; keeping cached data")  // keep cached codexUsage
                 } else {
                     codexUsage = nil  // preserve existing hide-on-error behavior
                 }
@@ -450,6 +467,8 @@ final class UsageViewModel {
             } catch {
                 if Self.isOutageError(error) {
                     recordOutage(for: .openCode, error: error)  // keep cached openCodeGoUsage
+                } else if Self.isRateLimitError(error) {
+                    Logger.viewModel.warning("OpenCode usage rate limited; keeping cached data")  // keep cached openCodeGoUsage
                 } else {
                     openCodeGoUsage = nil  // preserve existing hide-on-error behavior
                 }
