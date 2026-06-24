@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.10] - 2026-06-24
+
+- Add opt-in Claude OAuth token auto-refresh (macOS)
+- Improve token/cost accuracy & coverage to match ccusage/OpenUsage
+- Improve Claude token cost accuracy: 1h cache tier, fast mode, sidechain dedup
+
 ## [0.14.9] - 2026-06-24
 
 - add xcode skills for security, SwiftUI, UIKit, and device interaction
@@ -415,7 +421,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.9...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.10...HEAD
+[0.14.10]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.6...v0.14.7
