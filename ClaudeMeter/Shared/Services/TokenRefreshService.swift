@@ -2,107 +2,103 @@
 //  TokenRefreshService.swift
 //  ClaudeMeter
 //
-//  Service for refreshing expired OAuth tokens
+//  Refreshes an expired Claude OAuth access token using the refresh token.
 //
 
 import Foundation
 
-/// Service for refreshing expired OAuth tokens using refresh_token
+/// Refreshes Claude OAuth tokens against Anthropic's token endpoint, mirroring
+/// Claude Code's own flow (endpoint + client_id + scope from `Constants`).
+///
+/// This only fetches new tokens; persisting them (and the keychain write-back that
+/// keeps Claude Code working, since refresh tokens rotate) is the caller's job — see
+/// `MacOSCredentialService`. Gated behind the opt-in `autoRefreshClaudeTokenKey`.
 actor TokenRefreshService {
     static let shared = TokenRefreshService()
 
-    private let tokenURL = URL(string: "https://api.anthropic.com/oauth/token")!
+    private let session: URLSession
 
-    private init() {}
-
-    /// Attempt to refresh expired credentials using the refresh token
-    /// - Parameter credentials: Current (possibly expired) credentials
-    /// - Returns: New credentials with fresh access token
-    /// - Throws: TokenRefreshError if refresh fails
-    func refreshIfNeeded(_ credentials: ClaudeOAuthCredentials) async throws -> ClaudeOAuthCredentials {
-        // Check if token is expired or about to expire (within 5 minutes)
-        guard credentials.isExpired || credentials.isAboutToExpire else {
-            return credentials
-        }
-
-        // Ensure we have a refresh token
-        guard let refreshToken = credentials.refreshToken else {
-            throw TokenRefreshError.noRefreshToken
-        }
-
-        return try await performRefresh(refreshToken: refreshToken)
+    init(session: URLSession = .shared) {
+        self.session = session
     }
 
-    private func performRefresh(refreshToken: String) async throws -> ClaudeOAuthCredentials {
-        var request = URLRequest(url: tokenURL)
+    /// New tokens returned by a successful refresh.
+    struct RefreshedTokens: Sendable {
+        let accessToken: String
+        /// Anthropic rotates refresh tokens, so a fresh one usually accompanies each refresh.
+        let refreshToken: String?
+        let expiresInSeconds: Int?
+        let scopes: [String]?
+    }
+
+    /// Exchanges a refresh token for a new access token.
+    /// - Throws: `TokenRefreshError` on network/HTTP failure or an invalid refresh token.
+    func refresh(refreshToken: String) async throws -> RefreshedTokens {
+        var request = URLRequest(url: Constants.claudeOAuthTokenURL)
         request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = Constants.requestTimeout
 
-        let body = [
+        let body: [String: String] = [
             "grant_type": "refresh_token",
-            "refresh_token": refreshToken
+            "refresh_token": refreshToken,
+            "client_id": Constants.claudeOAuthClientID,
+            "scope": Constants.claudeOAuthScope
         ]
-        request.httpBody = body.map { "\($0.key)=\($0.value)" }.joined(separator: "&").data(using: .utf8)
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        let (data, response): (Data, URLResponse)
+        let data: Data
+        let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await session.data(for: request)
         } catch {
             throw TokenRefreshError.networkError(error)
         }
 
-        guard let httpResponse = response as? HTTPURLResponse else {
+        guard let http = response as? HTTPURLResponse else {
             throw TokenRefreshError.invalidResponse
         }
 
-        switch httpResponse.statusCode {
-        case 200:
-            return try parseTokenResponse(data)
+        switch http.statusCode {
+        case 200..<300:
+            return try parse(data)
         case 400, 401:
+            // invalid_grant — the refresh token itself is expired/revoked/rotated away.
             throw TokenRefreshError.invalidRefreshToken
         default:
-            throw TokenRefreshError.serverError(httpResponse.statusCode)
+            throw TokenRefreshError.serverError(http.statusCode)
         }
     }
 
-    private func parseTokenResponse(_ data: Data) throws -> ClaudeOAuthCredentials {
+    private func parse(_ data: Data) throws -> RefreshedTokens {
         struct TokenResponse: Decodable {
             let accessToken: String
             let refreshToken: String?
             let expiresIn: Int?
-            let tokenType: String?
             let scope: String?
 
             enum CodingKeys: String, CodingKey {
                 case accessToken = "access_token"
                 case refreshToken = "refresh_token"
                 case expiresIn = "expires_in"
-                case tokenType = "token_type"
                 case scope
             }
         }
 
-        let response = try JSONDecoder().decode(TokenResponse.self, from: data)
-
-        // Calculate expiration time (expires_in is in seconds)
-        let expiresAtMs: Double?
-        if let expiresIn = response.expiresIn {
-            expiresAtMs = (Date().timeIntervalSince1970 + Double(expiresIn)) * 1000
-        } else {
-            expiresAtMs = nil
+        guard let response = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
+            throw TokenRefreshError.invalidResponse
         }
 
-        // Parse scopes
-        let scopes = response.scope?.components(separatedBy: " ") ?? []
+        let scopes = response.scope?
+            .split(separator: " ")
+            .map(String.init)
 
-        return ClaudeOAuthCredentials(
+        return RefreshedTokens(
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
-            expiresAt: expiresAtMs,
-            scopes: scopes,
-            subscriptionType: nil,
-            rateLimitTier: nil
+            expiresInSeconds: response.expiresIn,
+            scopes: (scopes?.isEmpty ?? true) ? nil : scopes
         )
     }
 }
@@ -134,11 +130,10 @@ enum TokenRefreshError: LocalizedError {
 // MARK: - ClaudeOAuthCredentials Extensions
 
 extension ClaudeOAuthCredentials {
-    /// Check if token is about to expire (within 5 minutes)
+    /// Whether the token is within 5 minutes of expiring (refresh proactively).
     var isAboutToExpire: Bool {
-        guard let expiresAt else { return false }
-        let expiresDate = Date(timeIntervalSince1970: expiresAt / 1000)
+        guard let expiresAtDate else { return false }
         let bufferSeconds: TimeInterval = 300 // 5 minutes
-        return Date().addingTimeInterval(bufferSeconds) >= expiresDate
+        return Date().addingTimeInterval(bufferSeconds) >= expiresAtDate
     }
 }
