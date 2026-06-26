@@ -6,27 +6,26 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.14.10</title>
-            <pubDate>Wed, 24 Jun 2026 15:34:22 +0000</pubDate>
-            <sparkle:version>57</sparkle:version>
-            <sparkle:shortVersionString>0.14.10</sparkle:shortVersionString>
+            <title>Version 0.14.11</title>
+            <pubDate>Fri, 26 Jun 2026 07:29:11 +0000</pubDate>
+            <sparkle:version>58</sparkle:version>
+            <sparkle:shortVersionString>0.14.11</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>Add opt-in Claude OAuth token auto-refresh (macOS)</li>
-<li>Improve token/cost accuracy & coverage to match ccusage/OpenUsage</li>
-<li>Improve Claude token cost accuracy: 1h cache tier, fast mode, sidechain dedup</li>
+<li>revert: 200k tiered pricing applied to daily aggregates (aeea0f7) (#15)</li>
+<li>ci: add pull request workflow</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.10/ClaudeMeter.zip"
-                length="2204429"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.11/ClaudeMeter.zip"
+                length="2172640"
                 type="application/octet-stream"
-                sparkle:edSignature="TXBaPcIMXJrO+eGAqlqF1IkMvMwB26qtgHTl48300zav/wTzZBz2CBrl9bHUL1HnOIMzjjLBxqjW3JlhPiDXCg==" />
+                sparkle:edSignature="1+YjUpevsvi8hZbbW+jYJAtZqrVhWNfzp7BsYatcDzj+eiErOLetIukTW0bjJRv88XPUvpKa4fwmmyrJUVZeDQ==" />
         </item>
     </channel>
 </rss>
