@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.11] - 2026-06-26
+
+- revert: 200k tiered pricing applied to daily aggregates (aeea0f7) (#15)
+- ci: add pull request workflow
+
 ## [0.14.10] - 2026-06-24
 
 - Add opt-in Claude OAuth token auto-refresh (macOS)
@@ -421,7 +426,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.10...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.11...HEAD
+[0.14.11]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.10...v0.14.11
 [0.14.10]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.7...v0.14.8
