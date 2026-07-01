@@ -118,7 +118,12 @@ final class UsageViewModel {
         }
         if let openCodeError = error as? OpenCodeGoUsageService.OpenCodeError {
             switch openCodeError {
-            case .serverError(let code): return (500...599).contains(code) ? code : nil
+            case .serverError(let code):
+                return (500...599).contains(code) ? code : nil
+            case .apiError(let code, _):
+                return (500...599).contains(code) ? code : nil
+            case .invalidCredentials, .networkError, .parseFailed:
+                return nil
             }
         }
         #endif
