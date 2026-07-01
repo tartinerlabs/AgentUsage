@@ -60,6 +60,13 @@ enum ModelPricing: Sendable {
         cacheReadPerMTok: 0.30
     )
 
+    nonisolated static let fable5 = Rates(
+        inputPerMTok: 10.0,
+        outputPerMTok: 50.0,
+        cacheWritePerMTok: 12.50,
+        cacheReadPerMTok: 1.00
+    )
+
     nonisolated static let haiku45 = Rates(
         inputPerMTok: 1.0,
         outputPerMTok: 5.0,
@@ -122,7 +129,9 @@ enum ModelPricing: Sendable {
     nonisolated static func fallbackRates(for model: String) -> Rates? {
         let lowercased = model.lowercased()
 
-        if lowercased.contains("opus-4-8") || lowercased.contains("opus-4.8") {
+        if lowercased.contains("fable-5") || lowercased.contains("fable.5") {
+            return fable5
+        } else if lowercased.contains("opus-4-8") || lowercased.contains("opus-4.8") {
             return opus45
         } else if lowercased.contains("opus-4-7") || lowercased.contains("opus-4.7") {
             return opus45
