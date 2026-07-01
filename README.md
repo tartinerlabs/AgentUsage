@@ -1,16 +1,14 @@
 # ClaudeMeter
 
-A multi-platform app (macOS + iOS) that monitors your Claude Code API usage in real-time.
-
-> **Archived:** This project was archived on 2026-05-01 and is no longer maintained. Releases and source code remain available as-is, but no further feature work, fixes, support, or releases are planned.
+A multi-platform app (macOS + iOS) that monitors your Claude Code, OpenAI Codex, and OpenCode API usage in real-time.
 
 ## Overview
 
-Multi-platform app that monitors Claude Code API usage in real-time. Tracks session (5-hour) and weekly (7-day) rate limits for Opus and Sonnet models, plus token usage and cost from local logs.
+Multi-platform app that monitors Claude Code, OpenAI Codex, and OpenCode API usage in real-time. Tracks session (5-hour) and weekly (7-day) rate limits, plus token usage and cost from local logs.
 
 **Platforms:**
-- **macOS 15+**: Menu bar app with notifications and auto-updates
-- **iOS 18+**: Dashboard app with widgets and Live Activity
+- **macOS 15+** (stable): Menu bar app with notifications and auto-updates. Tracks all three providers.
+- **iOS 18+** (beta): Dashboard app with widgets and Live Activity.
 
 ## Features
 
@@ -48,7 +46,7 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 2. Move `ClaudeMeter.app` to Applications
 3. Launch - appears in menu bar
 
-**iOS:** Currently in development. Build from source (see below).
+**iOS:** Beta. Build from source (see below).
 
 **Prerequisites:**
 ```bash
@@ -136,12 +134,16 @@ No data collection or transmission. All processing is local. Reads credentials f
 
 **Updates:** [Sparkle 2.8.1](https://sparkle-project.org/) (macOS)
 
-**Data:** Anthropic OAuth API for rate limits, local JSONL logs for tokens, [Anthropic pricing](https://anthropic.com/pricing)
+**Data:** Anthropic OAuth API for Claude rate limits; ChatGPT `wham/usage` for Codex rate limits (incl. Codex Spark + credits); opencode.ai server-function RPC for OpenCode quota. Local JSONL/SQLite logs for tokens, with [Anthropic](https://anthropic.com/pricing) / OpenAI pricing.
+
+**Providers:** Claude Code (stable), OpenAI Codex (stable), OpenCode (stable; cookie auth is manual via Settings — browser-cookie auto-import is planned for a later release).
+
+**Credits:** OpenCode quota logic and Codex Spark/Credits decoding are ported from [CodexBar](https://github.com/steipete/CodexBar) by Peter Steinberger (MIT).
 
 **Releases:** Automated via GitHub Actions. See [releases](https://github.com/tartinerlabs/ClaudeMeter/releases).
 
 ## Support
 
-This project is archived and no longer accepts support requests. Existing issues and releases remain available for reference.
+Open an issue at https://github.com/tartinerlabs/ClaudeMeter/issues for bugs or feature requests.
 
 **Releases:** https://github.com/tartinerlabs/ClaudeMeter/releases
