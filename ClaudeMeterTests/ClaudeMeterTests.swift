@@ -48,6 +48,15 @@ struct ModelPricingTests {
         #expect(rates.cacheReadPerMTok == 0.30)
     }
 
+    @Test func fable5RatesAreCorrect() {
+        let rates = ModelPricing.fable5
+        #expect(rates.inputPerMTok == 10.0)
+        #expect(rates.outputPerMTok == 50.0)
+        #expect(rates.cacheWritePerMTok == 12.50)
+        #expect(rates.cacheReadPerMTok == 1.00)
+        #expect(rates.cacheWrite1hPerMTok == 20.0)
+    }
+
     @Test func haiku45RatesAreCorrect() {
         let rates = ModelPricing.haiku45
         #expect(rates.inputPerMTok == 1.0)
@@ -98,6 +107,17 @@ struct ModelPricingTests {
         let rates = ModelPricing.fallbackRates(for: "claude-sonnet-5")!
         #expect(rates.inputPerMTok == 3.0)
         #expect(rates.outputPerMTok == 15.0)
+    }
+
+    @Test func matchesFable5Variants() {
+        #expect(ModelPricing.fallbackRates(for: "claude-fable-5") != nil)
+        #expect(ModelPricing.fallbackRates(for: "claude-fable-5-20260101") != nil)
+        #expect(ModelPricing.fallbackRates(for: "claude-fable.5") != nil)
+        #expect(ModelPricing.fallbackRates(for: "CLAUDE-FABLE-5") != nil)
+
+        let rates = ModelPricing.fallbackRates(for: "claude-fable-5")!
+        #expect(rates.inputPerMTok == 10.0)
+        #expect(rates.outputPerMTok == 50.0)
     }
 
     @Test func matchesSonnet4Variants() {
