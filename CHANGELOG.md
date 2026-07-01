@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.14] - 2026-07-01
+
+- fix OpenCode provider attribution
+
 ## [0.14.13] - 2026-07-01
 
 - Add claude-fable-5 pricing to ModelPricing fallback table
@@ -434,7 +438,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.13...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.14...HEAD
+[0.14.14]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.13...v0.14.14
 [0.14.13]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.12...v0.14.13
 [0.14.12]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.11...v0.14.12
 [0.14.11]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.10...v0.14.11
