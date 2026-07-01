@@ -104,11 +104,17 @@ enum Constants {
     }
 
     /// Codex CLI session rollout logs (`rollout-*.jsonl`), nested by year/month/day.
+    /// Honors `CODEX_HOME`, then the default location — matching `codexAuthFileURLs`
+    /// so a custom `CODEX_HOME` doesn't split auth vs. logs.
     nonisolated static var codexSessionsDirectories: [URL] {
+        let env = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return [
-            home.appendingPathComponent(".codex/sessions")
-        ]
+        var urls: [URL] = []
+        if let codexHome = env["CODEX_HOME"], !codexHome.isEmpty {
+            urls.append(URL(fileURLWithPath: codexHome).appendingPathComponent("sessions"))
+        }
+        urls.append(home.appendingPathComponent(".codex/sessions"))
+        return urls
     }
 
     /// Codex CLI OAuth credentials (`auth.json`). Honors `CODEX_HOME`, then default locations.
