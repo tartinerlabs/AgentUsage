@@ -53,6 +53,13 @@ enum ModelPricing: Sendable {
         cacheReadPerMTok: 0.30
     )
 
+    nonisolated static let sonnet5 = Rates(
+        inputPerMTok: 3.0,
+        outputPerMTok: 15.0,
+        cacheWritePerMTok: 3.75,
+        cacheReadPerMTok: 0.30
+    )
+
     nonisolated static let haiku45 = Rates(
         inputPerMTok: 1.0,
         outputPerMTok: 5.0,
@@ -123,6 +130,8 @@ enum ModelPricing: Sendable {
             return opus45
         } else if lowercased.contains("opus-4-5") || lowercased.contains("opus-4.5") {
             return opus45
+        } else if lowercased.contains("sonnet-5") || lowercased.contains("sonnet.5") {
+            return sonnet5
         } else if lowercased.contains("sonnet-4-6") || lowercased.contains("sonnet-4.6") {
             return sonnet45
         } else if lowercased.contains("sonnet-4-5") || lowercased.contains("sonnet-4.5") {
