@@ -68,10 +68,11 @@ enum DependencyContainer {
         return CodexUsageService()
     }
 
-    /// Create the OpenCode Go dashboard quota service when dashboard auth is configured.
-    static func createOpenCodeGoUsageService() -> OpenCodeGoUsageService? {
-        guard OpenCodeGoUsageService.DashboardConfig.load() != nil else { return nil }
-        return OpenCodeGoUsageService()
+    /// Create the OpenCode Go dashboard quota service.
+    /// Always created — `fetchSnapshot()` returns nil when no cookie is configured,
+    /// so a cookie pasted into Settings after launch is picked up on the next refresh.
+    static func createOpenCodeGoUsageService() -> OpenCodeGoUsageService {
+        OpenCodeGoUsageService()
     }
     #endif
 

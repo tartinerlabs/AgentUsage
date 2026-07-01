@@ -501,4 +501,47 @@ private actor CountingPosting: BlogUsageSyncPosting {
         }
     }
 }
+
+@Suite("Blog OAuth Client ID Extraction")
+struct BlogOAuthClientIDExtractionTests {
+    @Test func topLevelClientID() {
+        let data = Data(#"{"client_id":"cli_123"}"#.utf8)
+        #expect(BlogOAuthService.extractClientID(from: data) == "cli_123")
+    }
+
+    @Test func nestedClientObject() {
+        let data = Data(#"{"client":{"client_id":"cli_456","client_name":"ClaudeMeter"}}"#.utf8)
+        #expect(BlogOAuthService.extractClientID(from: data) == "cli_456")
+    }
+
+    @Test func camelCaseClientID() {
+        let data = Data(#"{"clientId":"cli_789"}"#.utf8)
+        #expect(BlogOAuthService.extractClientID(from: data) == "cli_789")
+    }
+
+    @Test func ignoresExtraFields() {
+        let data = Data(#"{"client_id":"cli_x","client_secret":null,"redirect_uris":["claudemeter://oauth"]}"#.utf8)
+        #expect(BlogOAuthService.extractClientID(from: data) == "cli_x")
+    }
+
+    @Test func emptyClientIDReturnsNil() {
+        let data = Data(#"{"client_id":""}"#.utf8)
+        #expect(BlogOAuthService.extractClientID(from: data) == nil)
+    }
+
+    @Test func missingClientIDReturnsNil() {
+        let data = Data(#"{"client_name":"ClaudeMeter"}"#.utf8)
+        #expect(BlogOAuthService.extractClientID(from: data) == nil)
+    }
+
+    @Test func nonStringClientIDReturnsNil() {
+        let data = Data(#"{"client_id":12345}"#.utf8)
+        #expect(BlogOAuthService.extractClientID(from: data) == nil)
+    }
+
+    @Test func nonJSONReturnsNil() {
+        let data = Data("<html>not json</html>".utf8)
+        #expect(BlogOAuthService.extractClientID(from: data) == nil)
+    }
+}
 #endif

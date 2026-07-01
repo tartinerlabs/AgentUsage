@@ -92,6 +92,14 @@ enum Constants {
         static let clientIDDefaultsKey = "blogOAuthClientID"
     }
 
+    // MARK: - OpenCode quota (opencode.ai server-function auth)
+    enum OpenCode {
+        /// Pasted `auth` (or `__Host-auth`) cookie value, stored in UserDefaults.
+        static let cookieDefaultsKey = "openCodeAuthCookie"
+        /// Optional `wrk_…` workspace ID (auto-discovered when nil).
+        static let workspaceIDDefaultsKey = "openCodeWorkspaceID"
+    }
+
     // MARK: - macOS Only (file system access)
     #if os(macOS)
 

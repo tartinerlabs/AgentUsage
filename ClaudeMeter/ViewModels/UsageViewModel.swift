@@ -23,6 +23,9 @@ final class UsageViewModel {
     var codexUsage: ProviderUsageSnapshot?
     /// OpenCode Go quota windows read from the authenticated dashboard page.
     var openCodeGoUsage: ProviderUsageSnapshot?
+    /// True when the last OpenCode fetch failed with an invalid/expired cookie,
+    /// so Settings can prompt the user to re-authenticate. Cleared on success.
+    var openCodeAuthError = false
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
     /// for all providers (Claude, Codex, OpenCode).
     var providerDetails: [Provider: ProviderDetail] = [:]
@@ -451,12 +454,14 @@ final class UsageViewModel {
         if let openCodeGoUsageService {
             do {
                 openCodeGoUsage = try await openCodeGoUsageService.fetchSnapshot()
+                openCodeAuthError = false
                 clearIncident(for: .openCode)
             } catch {
                 if Self.isOutageError(error) {
                     recordOutage(for: .openCode, error: error)  // keep cached openCodeGoUsage
                 } else {
                     openCodeGoUsage = nil  // preserve existing hide-on-error behavior
+                    openCodeAuthError = (error as? OpenCodeGoUsageService.OpenCodeError) == .invalidCredentials
                 }
             }
         }

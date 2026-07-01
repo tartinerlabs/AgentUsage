@@ -118,23 +118,51 @@ struct OpenCodeGoUsageServiceTests {
 
     @Test func loadsConfigCookieOnlyWithoutWorkspace() throws {
         // Cookie present, no workspace ID -> auto-discovered at fetch time.
-        let config = try #require(OpenCodeGoUsageService.DashboardConfig.load(environment: [
-            "OPENCODE_GO_AUTH_COOKIE": "secret-cookie"
-        ]))
+        // Pass an isolated UserDefaults so .standard can't shadow the env path.
+        let config = try #require(OpenCodeGoUsageService.DashboardConfig.load(
+            environment: ["OPENCODE_GO_AUTH_COOKIE": "secret-cookie"],
+            defaults: Self.emptyDefaults))
 
         #expect(config.workspaceID == nil)
         #expect(config.cookieHeader == "auth=secret-cookie")
     }
 
     @Test func loadsConfigFromEnvironmentAndNormalizesURLWorkspace() throws {
-        let config = try #require(OpenCodeGoUsageService.DashboardConfig.load(environment: [
-            "OPENCODE_GO_WORKSPACE_ID": "https://opencode.ai/workspace/wrk_01ABCDEF0123456789ABCDEFG/go",
-            "OPENCODE_GO_AUTH_COOKIE": "secret-cookie"
-        ]))
+        let config = try #require(OpenCodeGoUsageService.DashboardConfig.load(
+            environment: [
+                "OPENCODE_GO_WORKSPACE_ID": "https://opencode.ai/workspace/wrk_01ABCDEF0123456789ABCDEFG/go",
+                "OPENCODE_GO_AUTH_COOKIE": "secret-cookie"
+            ],
+            defaults: Self.emptyDefaults))
 
         #expect(config.workspaceID == "wrk_01ABCDEF0123456789ABCDEFG")
         #expect(config.cookieHeader == "auth=secret-cookie")
         #expect(config.dashboardURL.absoluteString == "https://opencode.ai/workspace/wrk_01ABCDEF0123456789ABCDEFG/go")
+    }
+
+    @Test func loadsConfigFromUserDefaults() throws {
+        // The Settings UI path: cookie + workspace persisted to UserDefaults.
+        let defaults = UserDefaults(suiteName: "opencode-test-\(UUID().uuidString)")!
+        defaults.set("ud-cookie", forKey: "openCodeAuthCookie")
+        defaults.set("https://opencode.ai/workspace/wrk_UD/workspace/go", forKey: "openCodeWorkspaceID")
+
+        let config = try #require(OpenCodeGoUsageService.DashboardConfig.load(
+            environment: [:],
+            defaults: defaults))
+
+        #expect(config.workspaceID == "wrk_UD")
+        #expect(config.cookieHeader == "auth=ud-cookie")
+    }
+
+    @Test func userDefaultsTakesPrecedenceOverEnv() throws {
+        let defaults = UserDefaults(suiteName: "opencode-test-\(UUID().uuidString)")!
+        defaults.set("ud-cookie", forKey: "openCodeAuthCookie")
+
+        let config = try #require(OpenCodeGoUsageService.DashboardConfig.load(
+            environment: ["OPENCODE_GO_AUTH_COOKIE": "env-cookie"],
+            defaults: defaults))
+
+        #expect(config.cookieHeader == "auth=ud-cookie")
     }
 
     @Test func normalizesWorkspaceIDVariants() {
@@ -303,6 +331,11 @@ struct OpenCodeGoUsageServiceTests {
     }
 
     // MARK: - Helpers
+
+    /// A fresh empty UserDefaults suite, so `.standard` can't shadow config tests.
+    private static var emptyDefaults: UserDefaults {
+        UserDefaults(suiteName: "opencode-empty-\(UUID().uuidString)")!
+    }
 
     private static var cookieOnlyConfig: OpenCodeGoUsageService.DashboardConfig {
         OpenCodeGoUsageService.DashboardConfig(workspaceID: "wrk_TESTWORKSPACE00", authCookie: "test-cookie")

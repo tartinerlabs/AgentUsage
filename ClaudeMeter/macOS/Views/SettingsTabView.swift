@@ -13,6 +13,8 @@ struct SettingsTabView: View {
     @StateObject private var launchAtLogin = LaunchAtLoginService.shared
     @State private var notificationSettings = NotificationSettings.load()
     @State private var blogSyncTokenDraft = ""
+    @AppStorage("openCodeAuthCookie") private var openCodeAuthCookie = ""
+    @AppStorage("openCodeWorkspaceID") private var openCodeWorkspaceID = ""
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -252,6 +254,33 @@ struct SettingsTabView: View {
                                 Task { await viewModel.syncBlogUsageNow() }
                             }
                             .disabled(viewModel.isBlogUsageSyncing)
+                        }
+                    }
+                }
+
+                settingsCard(title: "OpenCode Quota") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("OpenCode cookie")
+                                .font(.body)
+                            Text("Paste the `auth` (or `__Host-auth`) cookie from opencode.ai. The workspace is auto-discovered when left blank.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        SecureField("auth=…", text: $openCodeAuthCookie)
+                        TextField("wrk_… (optional)", text: $openCodeWorkspaceID)
+                        if viewModel.openCodeAuthError {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                                Text("Cookie expired or invalid — paste a fresh cookie from opencode.ai.")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                        } else if !openCodeAuthCookie.isEmpty {
+                            Text("Changes apply on the next refresh.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }

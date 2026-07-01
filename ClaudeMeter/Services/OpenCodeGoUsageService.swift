@@ -769,8 +769,18 @@ actor OpenCodeGoUsageService {
         static func load(
             environment: [String: String] = ProcessInfo.processInfo.environment,
             fileManager: FileManager = .default,
-            homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+            homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+            defaults: UserDefaults = .standard
         ) -> DashboardConfig? {
+            // UserDefaults (Settings UI) takes precedence — the primary path for 1.0+.
+            if let cookie = defaults.string(forKey: Constants.OpenCode.cookieDefaultsKey),
+               !cookie.isEmpty
+            {
+                return DashboardConfig(
+                    workspaceID: normalizedWorkspaceID(defaults.string(forKey: Constants.OpenCode.workspaceIDDefaultsKey)),
+                    authCookie: cookie)
+            }
+
             // Env-var path: cookie required, workspace optional (auto-discovered).
             if let authCookie = environment["OPENCODE_GO_AUTH_COOKIE"],
                !authCookie.isEmpty

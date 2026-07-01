@@ -233,7 +233,6 @@ actor BlogOAuthService: BlogAccessTokenProviding {
             let response_types = ["code"]
             let scope = Constants.BlogOAuth.scopes
         }
-        struct RegistrationResponse: Decodable { let client_id: String }
 
         var request = URLRequest(url: registrationURL)
         request.httpMethod = "POST"
@@ -243,23 +242,49 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         request.setValue(Constants.BlogOAuth.issuer, forHTTPHeaderField: "Origin")
         request.httpBody = try JSONEncoder().encode(RegistrationRequest())
 
+        // Block redirects: RFC 7591 registration returns 201/200 with a JSON body, never a
+        // 3xx. If the issuer redirects (e.g. to add a trailing slash or a canonical host),
+        // following it would land on a non-JSON 200 page and silently break `client_id`
+        // extraction — the original "client_id never persists" bug.
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: NoRedirectDelegate())
         } catch {
             Logger.api.error("Blog OAuth: registration request threw: \(error.localizedDescription, privacy: .public)")
             throw BlogOAuthError.registrationFailed("network error: \(error.localizedDescription)")
         }
-        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        let http = response as? HTTPURLResponse
+        let status = http?.statusCode ?? -1
+        let contentType = http?.value(forHTTPHeaderField: "content-type") ?? "unknown"
         guard (200..<300).contains(status),
-              let decoded = try? JSONDecoder().decode(RegistrationResponse.self, from: data) else {
-            let detail = String(data: data, encoding: .utf8) ?? "status \(status)"
-            Logger.api.error("Blog OAuth: registration failed HTTP \(status): \(detail, privacy: .public)")
+              let clientID = Self.extractClientID(from: data) else {
+            let detail = String(data: data, encoding: .utf8) ?? "<non-UTF-8 \(data.count) bytes>"
+            Logger.api.error("Blog OAuth: registration failed HTTP \(status) (content-type: \(contentType, privacy: .public)): \(detail, privacy: .public)")
             throw BlogOAuthError.registrationFailed("HTTP \(status): \(detail)")
         }
-        defaults.set(decoded.client_id, forKey: Constants.BlogOAuth.clientIDDefaultsKey)
-        return decoded.client_id
+        defaults.set(clientID, forKey: Constants.BlogOAuth.clientIDDefaultsKey)
+        Logger.api.info("Blog OAuth: registered client_id (\(clientID.prefix(8))…)")
+        return clientID
+    }
+
+    /// Extracts the dynamically-registered `client_id` from a registration response.
+    ///
+    /// RFC 7591 returns it at the top level (`{"client_id":"…"}). Some providers wrap it
+    /// (`{"client":{"client_id":"…"}}`) or camelCase it (`clientId`). We accept any of
+    /// those so a provider-side shape change doesn't silently break sign-in.
+    nonisolated static func extractClientID(from data: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        if let id = object["client_id"] as? String, !id.isEmpty { return id }
+        if let client = object["client"] as? [String: Any],
+           let id = client["client_id"] as? String, !id.isEmpty
+        {
+            return id
+        }
+        if let id = object["clientId"] as? String, !id.isEmpty { return id }
+        return nil
     }
 
     /// Probe the authorization endpoint to confirm a cached `client_id` still exists.
