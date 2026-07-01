@@ -89,7 +89,8 @@ actor OpenCodeLogSource: UsageLogSource {
 
             entries.append(
                 ProviderUsageEntry(
-                    provider: model.provider,
+                    // Source bucket follows the log owner; providerID is only the upstream pricing key.
+                    provider: .openCode,
                     model: model.id,
                     pricingProviderKey: model.providerID,
                     tokens: tokens,
@@ -103,28 +104,17 @@ actor OpenCodeLogSource: UsageLogSource {
     }
 
     /// OpenCode stores `model` as JSON: `{"id":"gpt-5.5","providerID":"openai","variant":"…"}`.
-    static func parseModel(_ json: String) -> (id: String, providerID: String, provider: Provider) {
+    static func parseModel(_ json: String) -> (id: String, providerID: String) {
         guard let data = json.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return (json.isEmpty ? "unknown" : json, "unknown", .openCode)
+            return (json.isEmpty ? "unknown" : json, "unknown")
         }
         let id = (obj["id"] as? String) ?? "unknown"
         let providerID = (obj["providerID"] as? String)
             ?? (obj["providerId"] as? String)
             ?? (obj["provider"] as? String)
             ?? "unknown"
-        return (id, providerID, providerBucket(forProviderID: providerID))
-    }
-
-    static func providerBucket(forProviderID providerID: String) -> Provider {
-        switch providerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "openai":
-            return .codex
-        case "opencode", "opencode-go", "opencode-zen":
-            return .openCode
-        default:
-            return .openCode
-        }
+        return (id, providerID)
     }
 }
 #endif
