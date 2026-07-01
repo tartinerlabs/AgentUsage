@@ -102,6 +102,26 @@ struct BlogUsageSyncTests {
         #expect(events.first?.reasoningTokens == 10)
     }
 
+    @Test func openCodeParserPreservesOpenAIProviderID() throws {
+        let root = try Self.temporaryDirectory()
+        let dataHome = root.appendingPathComponent("xdg", isDirectory: true)
+        let databaseDirectory = dataHome.appendingPathComponent("opencode", isDirectory: true)
+        try FileManager.default.createDirectory(at: databaseDirectory, withIntermediateDirectories: true)
+        let database = databaseDirectory.appendingPathComponent("opencode.db")
+        try Self.createOpenCodeDatabase(at: database, providerID: "openai")
+
+        let parser = BlogUsageSourceParser(
+            homeDirectory: root,
+            environment: ["XDG_DATA_HOME": dataHome.path]
+        )
+        let events = try parser.parseOpenCodeEvents()
+
+        #expect(events.count == 1)
+        #expect(events.first?.agent == "opencode")
+        #expect(events.first?.provider == "openai")
+        #expect(events.first?.model == "gpt-5.5")
+    }
+
     @Test func parseAllSourcesCoversClaudeCodexAndOpenCodeGo() throws {
         let home = try Self.temporaryDirectory()
 
@@ -398,7 +418,7 @@ struct BlogUsageSyncTests {
         )
     }
 
-    private static func createOpenCodeDatabase(at url: URL) throws {
+    private static func createOpenCodeDatabase(at url: URL, providerID: String = "opencode-go") throws {
         var database: OpaquePointer?
         guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {
             throw BlogUsageTestError.sqliteOpenFailed
@@ -409,7 +429,7 @@ struct BlogUsageSyncTests {
             throw BlogUsageTestError.sqliteExecFailed
         }
         let data = """
-        {"role":"assistant","time":{"created":1771952413521},"providerID":"opencode-go","modelID":"gpt-5.5","tokens":{"input":100,"output":50,"reasoning":10,"cache":{"read":30,"write":20}}}
+        {"role":"assistant","time":{"created":1771952413521},"providerID":"\(providerID)","modelID":"gpt-5.5","tokens":{"input":100,"output":50,"reasoning":10,"cache":{"read":30,"write":20}}}
         """
         let escaped = data.replacingOccurrences(of: "'", with: "''")
         guard sqlite3_exec(database, "INSERT INTO message (id, createdAt, data) VALUES ('msg-1', '2026-06-02T10:00:00Z', '\(escaped)')", nil, nil, nil) == SQLITE_OK else {
