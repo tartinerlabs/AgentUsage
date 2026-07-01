@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.12] - 2026-07-01
+
+- Add claude-sonnet-5 pricing to ModelPricing fallback table
+
 ## [0.14.11] - 2026-06-26
 
 - revert: 200k tiered pricing applied to daily aggregates (aeea0f7) (#15)
@@ -426,7 +430,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.11...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.12...HEAD
+[0.14.12]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.11...v0.14.12
 [0.14.11]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.10...v0.14.11
 [0.14.10]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.8...v0.14.9
