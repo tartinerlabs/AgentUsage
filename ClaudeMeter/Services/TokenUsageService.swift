@@ -65,10 +65,16 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let todayStart = calendar.startOfDay(for: Date())
         let yesterdayStart = calendar.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
 
-        var result: [Provider: ProviderDetail] = [:]
+        var entriesByProvider: [Provider: [ProviderUsageEntry]] = [:]
         for source in extraSources {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
+            for entry in entries {
+                entriesByProvider[entry.provider, default: []].append(entry)
+            }
+        }
 
+        var result: [Provider: ProviderDetail] = [:]
+        for (provider, entries) in entriesByProvider {
             let todayEntries = entries.filter { $0.timestamp >= todayStart }
             let yesterdayEntries = entries.filter { $0.timestamp >= yesterdayStart && $0.timestamp < todayStart }
 
@@ -77,7 +83,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
                 byModel[entry.model] = (byModel[entry.model] ?? .zero) + entry.tokens
             }
 
-            result[source.provider] = ProviderDetail(
+            result[provider] = ProviderDetail(
                 today: aggregateSummary(entries: todayEntries, period: .today),
                 yesterday: aggregateSummary(entries: yesterdayEntries, period: .today),
                 last30Days: aggregateSummary(entries: entries, period: .last30Days),
