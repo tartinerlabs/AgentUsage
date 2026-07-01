@@ -19,6 +19,8 @@ struct ProviderDetailView: View {
     /// Max models to list in the breakdown.
     var maxModels: Int = 6
     var isServiceDown: Bool = false
+    /// Remaining prepaid credit balance (e.g. Codex `credits.balance`), in USD.
+    var creditsRemaining: Double? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -35,9 +37,13 @@ struct ProviderDetailView: View {
             if !windows.isEmpty {
                 VStack(spacing: 14) {
                     ForEach(Array(windows.enumerated()), id: \.offset) { _, window in
-                        UsageRowView(title: window.windowType.displayName, usage: window, now: now, showStatusDot: true)
+                        UsageRowView(title: window.name ?? window.windowType.displayName, usage: window, now: now, showStatusDot: true)
                     }
                 }
+            }
+
+            if let credits = creditsRemaining, credits > 0 {
+                creditsSection(credits)
             }
 
             if let detail {
@@ -90,6 +96,23 @@ struct ProviderDetailView: View {
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.red.opacity(0.1)))
+    }
+
+    private func creditsSection(_ credits: Double) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "creditcard.fill")
+                .foregroundStyle(provider.accentColor)
+            Text("Credits remaining")
+                .font(.subheadline)
+            Spacer()
+            Text(String(format: "$%.2f", credits))
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 8).fill(provider.accentColor.opacity(0.08)))
     }
 
     private var linkButtons: some View {

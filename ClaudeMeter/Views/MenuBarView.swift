@@ -147,7 +147,8 @@ struct MenuBarView: View {
                 windows: windows(for: provider),
                 detail: viewModel.providerDetails[provider],
                 now: now,
-                isServiceDown: viewModel.isServiceDown(provider)
+                isServiceDown: viewModel.isServiceDown(provider),
+                creditsRemaining: creditsRemaining(for: provider)
             )
         }
     }
@@ -199,6 +200,14 @@ struct MenuBarView: View {
         case .claude: return viewModel.planType
         case .codex: return viewModel.codexUsage?.planName
         case .openCode: return nil
+        }
+    }
+
+    private func creditsRemaining(for provider: Provider) -> Double? {
+        switch provider {
+        case .claude: return nil
+        case .codex: return viewModel.codexUsage?.creditsRemaining
+        case .openCode: return viewModel.openCodeGoUsage?.creditsRemaining
         }
     }
 

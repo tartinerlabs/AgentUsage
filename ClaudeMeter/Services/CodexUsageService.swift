@@ -230,10 +230,15 @@ actor CodexUsageService {
     private struct UsageResponse: Decodable {
         let planType: String?
         let rateLimit: RateLimit?
+        let credits: CreditDetails?
+        /// Model-specific limits (e.g. GPT-5.3-Codex-Spark) alongside primary/weekly.
+        let additionalRateLimits: [AdditionalRateLimit]?
 
         enum CodingKeys: String, CodingKey {
             case planType = "plan_type"
             case rateLimit = "rate_limit"
+            case credits
+            case additionalRateLimits = "additional_rate_limits"
         }
     }
 
@@ -256,6 +261,53 @@ actor CodexUsageService {
             case usedPercent = "used_percent"
             case resetAt = "reset_at"
             case resetAfterSeconds = "reset_after_seconds"
+        }
+    }
+
+    /// One entry of `additional_rate_limits`: a named, model-specific limit
+    /// (e.g. GPT-5.3-Codex-Spark) whose windows reuse the `RateLimit` shape.
+    private struct AdditionalRateLimit: Decodable {
+        let limitName: String?
+        let meteredFeature: String?
+        let rateLimit: RateLimit?
+
+        enum CodingKeys: String, CodingKey {
+            case limitName = "limit_name"
+            case meteredFeature = "metered_feature"
+            case rateLimit = "rate_limit"
+        }
+
+        /// Whether this entry is a Codex Spark limit (by name).
+        var isSpark: Bool {
+            [limitName, meteredFeature]
+                .compactMap { $0?.lowercased() }
+                .contains { $0.contains("spark") }
+        }
+
+        var displayName: String {
+            let label = limitName ?? meteredFeature ?? "Codex extra"
+            return label.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
+    /// `credits` object from `wham/usage`. `balance` is the remaining prepaid
+    /// credit in USD (may arrive as a number or a numeric string).
+    private struct CreditDetails: Decodable {
+        let balance: Double?
+
+        enum CodingKeys: String, CodingKey { case balance }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            if let value = try? container.decode(Double.self, forKey: .balance) {
+                balance = value
+            } else if let string = try? container.decode(String.self, forKey: .balance),
+                      let value = Double(string.trimmingCharacters(in: .whitespacesAndNewlines))
+            {
+                balance = value
+            } else {
+                balance = nil
+            }
         }
     }
 
@@ -284,12 +336,37 @@ actor CodexUsageService {
             windows.append(secondary)
         }
 
+        // Model-specific limits (e.g. GPT-5.3-Codex-Spark) from `additional_rate_limits`.
+        // Ported from CodexBar's CodexAdditionalRateLimitMapper (MIT, © 2026 Peter Steinberger).
+        for entry in decoded.additionalRateLimits ?? [] {
+            let label = entry.displayName
+            if let spark = makeWindow(
+                entry.rateLimit?.primaryWindow,
+                overridePercent: nil,
+                type: .codexSpark,
+                now: currentDate,
+                name: entry.isSpark ? "Codex Spark" : label
+            ) {
+                windows.append(spark)
+            }
+            if let sparkWeekly = makeWindow(
+                entry.rateLimit?.secondaryWindow,
+                overridePercent: nil,
+                type: .codexSparkWeekly,
+                now: currentDate,
+                name: entry.isSpark ? "Codex Spark weekly" : label
+            ) {
+                windows.append(sparkWeekly)
+            }
+        }
+
         guard !windows.isEmpty else { throw CodexError.invalidResponse }
 
         return ProviderUsageSnapshot(
             provider: .codex,
             windows: windows,
             planName: planName(from: decoded.planType),
+            creditsRemaining: decoded.credits?.balance,
             fetchedAt: currentDate
         )
     }
@@ -301,7 +378,8 @@ actor CodexUsageService {
         _ window: Window?,
         overridePercent: Double?,
         type: UsageWindowType,
-        now: Date
+        now: Date,
+        name: String? = nil
     ) -> UsageWindow? {
         guard let percent = overridePercent ?? window?.usedPercent else { return nil }
 
@@ -314,7 +392,7 @@ actor CodexUsageService {
             resetsAt = now.addingTimeInterval(type.totalDuration)
         }
 
-        return UsageWindow(utilization: percent, resetsAt: resetsAt, windowType: type)
+        return UsageWindow(utilization: percent, resetsAt: resetsAt, windowType: type, name: name)
     }
 
     private func headerPercent(_ http: HTTPURLResponse, _ name: String) -> Double? {
@@ -329,7 +407,7 @@ actor CodexUsageService {
         switch raw.lowercased() {
         case "prolite": return "Pro 5x"
         case "pro": return "Pro 20x"
-        default: return raw.capitalized
+        default: return raw.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 

@@ -56,6 +56,8 @@ public enum UsageWindowType: String, Sendable, Codable {
     // Generic windows for providers other than Claude.
     case codexFiveHour  // Codex primary limit (rate_limits.primary, window_minutes 300)
     case codexWeekly    // Codex secondary limit (rate_limits.secondary, window_minutes 10080)
+    case codexSpark          // Codex Spark model-specific 5-hour limit (additional_rate_limits)
+    case codexSparkWeekly    // Codex Spark model-specific weekly limit
     case openCodeGoFiveHour
     case openCodeGoWeekly
     case openCodeGoMonthly
@@ -68,6 +70,8 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .design: "Claude Design"
         case .codexFiveHour: "5-hour limit"
         case .codexWeekly: "Weekly limit"
+        case .codexSpark: "Codex Spark"
+        case .codexSparkWeekly: "Codex Spark weekly"
         case .openCodeGoFiveHour: "5-hour limit"
         case .openCodeGoWeekly: "Weekly limit"
         case .openCodeGoMonthly: "Monthly limit"
@@ -82,6 +86,8 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .design: 7 * 24 * 60 * 60  // 7 days in seconds
         case .codexFiveHour: 5 * 60 * 60      // 5 hours in seconds
         case .codexWeekly: 7 * 24 * 60 * 60   // 7 days in seconds
+        case .codexSpark: 5 * 60 * 60
+        case .codexSparkWeekly: 7 * 24 * 60 * 60
         case .openCodeGoFiveHour: 5 * 60 * 60
         case .openCodeGoWeekly: 7 * 24 * 60 * 60
         case .openCodeGoMonthly: 30 * 24 * 60 * 60
@@ -95,11 +101,14 @@ public struct UsageWindow: Sendable, Codable {
     public let utilization: Double  // API returns percentage (0-100), not decimal (0-1)
     public let resetsAt: Date
     public let windowType: UsageWindowType
+    /// Optional label for named model-specific limits (e.g. "Codex Spark").
+    public let name: String?
 
-    public init(utilization: Double, resetsAt: Date, windowType: UsageWindowType) {
+    public init(utilization: Double, resetsAt: Date, windowType: UsageWindowType, name: String? = nil) {
         self.utilization = utilization
         self.resetsAt = resetsAt
         self.windowType = windowType
+        self.name = name
     }
 
     public var percentUsed: Int {
@@ -356,6 +365,8 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
     public let extraUsage: ExtraUsageCost?
     /// Plan / tier name reported by the provider, if any (e.g. Codex `plan_type`).
     public let planName: String?
+    /// Remaining prepaid credit balance reported by the provider (e.g. Codex `credits.balance`), in USD.
+    public let creditsRemaining: Double?
     public let fetchedAt: Date
 
     public var id: String { provider.id }
@@ -365,12 +376,14 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         windows: [UsageWindow],
         extraUsage: ExtraUsageCost? = nil,
         planName: String? = nil,
+        creditsRemaining: Double? = nil,
         fetchedAt: Date
     ) {
         self.provider = provider
         self.windows = windows
         self.extraUsage = extraUsage
         self.planName = planName
+        self.creditsRemaining = creditsRemaining
         self.fetchedAt = fetchedAt
     }
 
@@ -380,6 +393,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design].compactMap { $0 }
         self.extraUsage = snapshot.extraUsage
         self.planName = planName
+        self.creditsRemaining = nil
         self.fetchedAt = snapshot.fetchedAt
     }
 

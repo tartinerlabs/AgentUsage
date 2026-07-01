@@ -137,6 +137,90 @@ struct CodexUsageServiceTests {
         #expect(snapshot == nil)
     }
 
+    @Test func decodesSparkWindowsFromAdditionalRateLimits() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let sparkReset = now.addingTimeInterval(3600).timeIntervalSince1970
+        let sparkWeeklyReset = now.addingTimeInterval(604_800).timeIntervalSince1970
+        let body = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":20,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}},"additional_rate_limits":[{"limit_name":"GPT-5.3-Codex-Spark","metered_feature":"spark","rate_limit":{"primary_window":{"used_percent":41,"reset_at":\(Int(sparkReset)),"limit_window_seconds":300},"secondary_window":{"used_percent":52,"reset_at":\(Int(sparkWeeklyReset)),"limit_window_seconds":10080}}}]}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        // primary + weekly + spark 5h + spark weekly
+        #expect(snapshot?.windows.count == 4)
+        let spark = try #require(snapshot?.windows.first { $0.windowType == .codexSpark })
+        let sparkWeekly = try #require(snapshot?.windows.first { $0.windowType == .codexSparkWeekly })
+        #expect(spark.utilization == 41)
+        #expect(spark.resetsAt == Date(timeIntervalSince1970: sparkReset))
+        #expect(spark.name == "Codex Spark")
+        #expect(sparkWeekly.utilization == 52)
+        #expect(sparkWeekly.name == "Codex Spark weekly")
+    }
+
+    @Test func ignoresNonSparkAdditionalRateLimitButStillSurfacesIt() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":20,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}},"additional_rate_limits":[{"limit_name":"Some Other Limit","rate_limit":{"primary_window":{"used_percent":5,"reset_at":\(Int(now.timeIntervalSince1970 + 30))}}}]}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        // primary + weekly + the non-spark primary (no secondary window in the entry)
+        #expect(snapshot?.windows.count == 3)
+        let extra = try #require(snapshot?.windows.first { $0.windowType == .codexSpark })
+        #expect(extra.utilization == 5)
+        #expect(extra.name == "Some Other Limit")
+    }
+
+    @Test func decodesCreditsBalanceAsCreditsRemaining() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":20,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}},"credits":{"has_credits":true,"unlimited":false,"balance":12.34}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.creditsRemaining == 12.34)
+    }
+
+    @Test func decodesCreditsBalanceGivenAsString() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":20,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}},"credits":{"has_credits":true,"unlimited":false,"balance":"5.50"}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.creditsRemaining == 5.50)
+    }
+
+    @Test func planTypeSnakeCaseIsTitleCased() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"free_workspace","rate_limit":{"primary_window":{"used_percent":1,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":2,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.planName == "Free Workspace")
+    }
+
     // MARK: - Helpers
 
     private final class CallCounter {

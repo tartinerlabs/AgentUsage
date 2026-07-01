@@ -59,7 +59,8 @@ struct DashboardTabView: View {
                         windows: codex.windows,
                         detail: viewModel.providerDetails[.codex],
                         now: now,
-                        isServiceDown: viewModel.isServiceDown(.codex)
+                        isServiceDown: viewModel.isServiceDown(.codex),
+                        creditsRemaining: codex.creditsRemaining
                     )
                 }
 
