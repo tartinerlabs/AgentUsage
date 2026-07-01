@@ -716,6 +716,66 @@ struct ClaudeOAuthCredentialsTests {
         )
         #expect(credentials.planDisplayName == "Max")
     }
+
+    @Test func planDisplayNameMax5xFromRateLimitTier() {
+        let credentials = ClaudeOAuthCredentials(
+            accessToken: "token",
+            refreshToken: nil,
+            expiresAt: nil,
+            scopes: nil,
+            subscriptionType: "max",
+            rateLimitTier: "default_claude_max_5x"
+        )
+        #expect(credentials.planDisplayName == "Max 5x")
+    }
+
+    @Test func planDisplayNameMax20xFromRateLimitTier() {
+        let credentials = ClaudeOAuthCredentials(
+            accessToken: "token",
+            refreshToken: nil,
+            expiresAt: nil,
+            scopes: nil,
+            subscriptionType: "max",
+            rateLimitTier: "claude_max_subscription_20x"
+        )
+        #expect(credentials.planDisplayName == "Max 20x")
+    }
+
+    @Test func planDisplayNameMax5xCaseInsensitiveTier() {
+        let credentials = ClaudeOAuthCredentials(
+            accessToken: "token",
+            refreshToken: nil,
+            expiresAt: nil,
+            scopes: nil,
+            subscriptionType: "MAX",
+            rateLimitTier: "DEFAULT_CLAUDE_MAX_5X"
+        )
+        #expect(credentials.planDisplayName == "Max 5x")
+    }
+
+    @Test func planDisplayNameMaxTierWithoutMultiplierSuffix() {
+        let credentials = ClaudeOAuthCredentials(
+            accessToken: "token",
+            refreshToken: nil,
+            expiresAt: nil,
+            scopes: nil,
+            subscriptionType: "max",
+            rateLimitTier: "some_future_tier"
+        )
+        #expect(credentials.planDisplayName == "Max")
+    }
+
+    @Test func planDisplayNameProIgnoredWhenTierHasNoMultiplier() {
+        let credentials = ClaudeOAuthCredentials(
+            accessToken: "token",
+            refreshToken: nil,
+            expiresAt: nil,
+            scopes: nil,
+            subscriptionType: "pro",
+            rateLimitTier: "standard"
+        )
+        #expect(credentials.planDisplayName == "Pro")
+    }
 }
 
 // MARK: - CredentialsFile Tests
