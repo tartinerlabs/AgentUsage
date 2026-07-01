@@ -77,7 +77,7 @@ actor OpenCodeLogSource: UsageLogSource {
             let cacheWrite = Int(sqlite3_column_int64(stmt, 6))
             let timeCreatedMillis = sqlite3_column_int64(stmt, 7)
 
-            let (modelId, providerKey) = Self.parseModel(modelJSON)
+            let model = Self.parseModel(modelJSON)
 
             let tokens = TokenCount(
                 inputTokens: input,
@@ -89,9 +89,9 @@ actor OpenCodeLogSource: UsageLogSource {
 
             entries.append(
                 ProviderUsageEntry(
-                    provider: .openCode,
-                    model: modelId,
-                    pricingProviderKey: providerKey,
+                    provider: model.provider,
+                    model: model.id,
+                    pricingProviderKey: model.providerID,
                     tokens: tokens,
                     timestamp: Date(timeIntervalSince1970: Double(timeCreatedMillis) / 1000),
                     dedupKey: "opencode:\(id)"
@@ -103,14 +103,28 @@ actor OpenCodeLogSource: UsageLogSource {
     }
 
     /// OpenCode stores `model` as JSON: `{"id":"gpt-5.5","providerID":"openai","variant":"…"}`.
-    static func parseModel(_ json: String) -> (model: String, pricingProviderKey: String) {
+    static func parseModel(_ json: String) -> (id: String, providerID: String, provider: Provider) {
         guard let data = json.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return (json.isEmpty ? "unknown" : json, "openai")
+            return (json.isEmpty ? "unknown" : json, "unknown", .openCode)
         }
         let id = (obj["id"] as? String) ?? "unknown"
-        let providerID = (obj["providerID"] as? String) ?? "openai"
-        return (id, providerID)
+        let providerID = (obj["providerID"] as? String)
+            ?? (obj["providerId"] as? String)
+            ?? (obj["provider"] as? String)
+            ?? "unknown"
+        return (id, providerID, providerBucket(forProviderID: providerID))
+    }
+
+    static func providerBucket(forProviderID providerID: String) -> Provider {
+        switch providerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "openai":
+            return .codex
+        case "opencode", "opencode-go", "opencode-zen":
+            return .openCode
+        default:
+            return .openCode
+        }
     }
 }
 #endif
