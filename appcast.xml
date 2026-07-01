@@ -6,25 +6,26 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.14.14</title>
-            <pubDate>Wed, 01 Jul 2026 10:08:50 +0000</pubDate>
-            <sparkle:version>61</sparkle:version>
-            <sparkle:shortVersionString>0.14.14</sparkle:shortVersionString>
+            <title>Version 0.14.15</title>
+            <pubDate>Wed, 01 Jul 2026 14:57:56 +0000</pubDate>
+            <sparkle:version>62</sparkle:version>
+            <sparkle:shortVersionString>0.14.15</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>fix OpenCode provider attribution</li>
+<li>fix: show Max 5x/20x tier in plan display</li>
+<li>add menu bar right-click planning issues</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.14/ClaudeMeter.zip"
-                length="2181058"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.15/ClaudeMeter.zip"
+                length="2181427"
                 type="application/octet-stream"
-                sparkle:edSignature="Wq9wqvgqcx3/dn7qs+niaRdt0Q+mBGkHbrJk9SCEWOGMEZvRilydRU0e9jVKQymXkSPg9WjKxJH94N1h2scpAA==" />
+                sparkle:edSignature="0IsuutgujZ01VG/PVj+SMK/15wy/5frPfqAHcWHcI1XvnGWOG2O0iPt4oqlORGCmRAg8CPJB5s7fCd9vSi5kBQ==" />
         </item>
     </channel>
 </rss>
