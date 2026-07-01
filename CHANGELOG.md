@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.15] - 2026-07-01
+
+- fix: show Max 5x/20x tier in plan display
+- add menu bar right-click planning issues
+
 ## [0.14.14] - 2026-07-01
 
 - fix OpenCode provider attribution
@@ -438,7 +443,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.14...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.15...HEAD
+[0.14.15]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.14...v0.14.15
 [0.14.14]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.13...v0.14.14
 [0.14.13]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.12...v0.14.13
 [0.14.12]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.11...v0.14.12
