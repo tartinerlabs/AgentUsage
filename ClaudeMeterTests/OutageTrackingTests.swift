@@ -269,3 +269,278 @@ struct OutageRegressionTests {
         #expect(viewModel.activeClaudeIncident?.startedAt == incident?.startedAt)
     }
 }
+
+// MARK: - Codex Outage Classification
+
+#if os(macOS)
+@Suite("Codex Outage Error Classification")
+struct CodexOutageClassificationTests {
+    @Test func codexServiceUnavailableIsOutage() {
+        #expect(UsageViewModel.outageErrorCode(CodexUsageService.CodexError.serviceUnavailable) == 503)
+    }
+
+    @Test func codexServerError500IsOutage() {
+        #expect(UsageViewModel.outageErrorCode(CodexUsageService.CodexError.serverError(500)) == 500)
+    }
+
+    @Test func codexServerError502IsOutage() {
+        #expect(UsageViewModel.outageErrorCode(CodexUsageService.CodexError.serverError(502)) == 502)
+    }
+
+    @Test func codexServerError404IsNotOutage() {
+        #expect(UsageViewModel.outageErrorCode(CodexUsageService.CodexError.serverError(404)) == nil)
+    }
+
+    @Test func codexUnauthorizedIsNotOutage() {
+        #expect(UsageViewModel.isOutageError(CodexUsageService.CodexError.unauthorized) == false)
+    }
+
+    @Test func codexSessionExpiredIsNotOutage() {
+        #expect(UsageViewModel.isOutageError(CodexUsageService.CodexError.sessionExpired) == false)
+    }
+
+    @Test func codexNetworkErrorIsNotOutage() {
+        #expect(UsageViewModel.isOutageError(CodexUsageService.CodexError.networkError(URLError(.timedOut))) == false)
+    }
+
+    @Test func codexInvalidResponseIsNotOutage() {
+        #expect(UsageViewModel.isOutageError(CodexUsageService.CodexError.invalidResponse) == false)
+    }
+
+    @Test func codexMaxRetriesIsNotOutage() {
+        #expect(UsageViewModel.isOutageError(CodexUsageService.CodexError.maxRetriesExceeded) == false)
+    }
+}
+
+// MARK: - OpenCode Outage Classification
+
+@Suite("OpenCode Outage Error Classification")
+struct OpenCodeOutageClassificationTests {
+    @Test func openCodeServerError503IsOutage() {
+        #expect(UsageViewModel.outageErrorCode(OpenCodeGoUsageService.OpenCodeError.serverError(503)) == 503)
+    }
+
+    @Test func openCodeServerError502IsOutage() {
+        #expect(UsageViewModel.outageErrorCode(OpenCodeGoUsageService.OpenCodeError.serverError(502)) == 502)
+    }
+
+    @Test func openCodeServerError404IsNotOutage() {
+        #expect(UsageViewModel.outageErrorCode(OpenCodeGoUsageService.OpenCodeError.serverError(404)) == nil)
+    }
+
+    @Test func openCodeApiError500IsOutage() {
+        #expect(UsageViewModel.outageErrorCode(OpenCodeGoUsageService.OpenCodeError.apiError(500, "boom")) == 500)
+    }
+
+    @Test func openCodeApiError404IsNotOutage() {
+        #expect(UsageViewModel.outageErrorCode(OpenCodeGoUsageService.OpenCodeError.apiError(404, "nope")) == nil)
+    }
+
+    @Test func openCodeInvalidCredentialsIsNotOutage() {
+        #expect(UsageViewModel.isOutageError(OpenCodeGoUsageService.OpenCodeError.invalidCredentials) == false)
+    }
+
+    @Test func openCodeParseFailedIsNotOutage() {
+        #expect(UsageViewModel.isOutageError(OpenCodeGoUsageService.OpenCodeError.parseFailed("x")) == false)
+    }
+
+    @Test func openCodeNetworkErrorIsNotOutage() {
+        #expect(UsageViewModel.isOutageError(OpenCodeGoUsageService.OpenCodeError.networkError("x")) == false)
+    }
+}
+
+// MARK: - Codex Outage Lifecycle
+
+@Suite("Codex Outage Lifecycle", .serialized)
+struct CodexOutageLifecycleTests {
+    @Test @MainActor func outagePreservesCachedCodexSnapshot() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let okBody = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":20,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}}}
+        """
+        let authURL = try Self.writeCodexAuthFile()
+        var calls = 0
+        let session = Self.codexSession { _ in
+            calls += 1
+            return calls == 1
+                ? (Self.codexResponse(200), Data(okBody.utf8))
+                : (Self.codexResponse(503), Data())
+        }
+        let codexService = CodexUsageService(session: session, authFileURLs: [authURL], now: { now })
+        let viewModel = Self.makeViewModel(codexUsageService: codexService)
+
+        // First call succeeds -> snapshot cached, no incident.
+        await viewModel.refresh(force: true)
+        #expect(viewModel.codexUsage != nil)
+        #expect(viewModel.isServiceDown(.codex) == false)
+
+        // Second call 503 -> outage recorded, cached codexUsage preserved.
+        await viewModel.refresh(force: true)
+        #expect(viewModel.isServiceDown(.codex) == true)
+        #expect(viewModel.activeIncident(for: .codex)?.lastErrorCode == 503)
+        #expect(viewModel.codexUsage != nil)  // preserved
+    }
+
+    @Test @MainActor func successfulFetchClearsCodexIncident() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let okBody = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":5,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":7,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}}}
+        """
+        let authURL = try Self.writeCodexAuthFile()
+        var calls = 0
+        // The Codex service retries 5xx up to 3x per fetchSnapshot(), so the
+        // first refresh must exhaust those retries (3 × 503) to register an
+        // outage; the second refresh then returns 200 and clears it.
+        let session = Self.codexSession { _ in
+            calls += 1
+            return calls <= 3
+                ? (Self.codexResponse(503), Data())
+                : (Self.codexResponse(200), Data(okBody.utf8))
+        }
+        let codexService = CodexUsageService(session: session, authFileURLs: [authURL], now: { now })
+        let viewModel = Self.makeViewModel(codexUsageService: codexService)
+
+        await viewModel.refresh(force: true)
+        #expect(viewModel.isServiceDown(.codex) == true)
+
+        await viewModel.refresh(force: true)
+        #expect(viewModel.isServiceDown(.codex) == false)
+        #expect(viewModel.codexUsage != nil)
+    }
+
+    @MainActor
+    private static func makeViewModel(codexUsageService: CodexUsageService) -> UsageViewModel {
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        return UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            codexUsageService: codexUsageService
+        )
+    }
+
+    private static func codexSession(
+        _ handler: @escaping @Sendable (URLRequest) -> (HTTPURLResponse, Data)
+    ) -> URLSession {
+        CodexOutageURLProtocol.handler = handler
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CodexOutageURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    private static func codexResponse(_ status: Int) -> HTTPURLResponse {
+        HTTPURLResponse(
+            url: Constants.codexUsageURL,
+            statusCode: status,
+            httpVersion: "HTTP/2",
+            headerFields: nil)!
+    }
+
+    private static func writeCodexAuthFile() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CodexOutageTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("auth.json")
+        try """
+        {"auth_mode":"chatgpt","tokens":{"access_token":"test-access","refresh_token":"test-refresh","account_id":"test-account"}}
+        """.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+}
+
+// MARK: - OpenCode Outage Lifecycle
+
+@Suite("OpenCode Outage Lifecycle", .serialized)
+struct OpenCodeOutageLifecycleTests {
+    @Test @MainActor func outagePreservesCachedOpenCodeSnapshot() async {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let json = #"{"rollingUsage":{"usagePercent":12.5,"resetInSec":3600},"weeklyUsage":{"usagePercent":34,"resetInSec":604800}}"#
+        var calls = 0
+        let transport = OutageMockTransport { _ in
+            calls += 1
+            if calls == 1 {
+                return OutageMockTransport.makeResponse(body: json, status: 200)
+            }
+            return OutageMockTransport.makeResponse(body: "", status: 503)
+        }
+        let service = OpenCodeGoUsageService(
+            transport: transport,
+            configProvider: { OpenCodeGoUsageService.DashboardConfig(workspaceID: "wrk_TEST", authCookie: "c") },
+            now: { now }
+        )
+        let viewModel = Self.makeViewModel(openCodeGoUsageService: service)
+
+        await viewModel.refresh(force: true)
+        #expect(viewModel.openCodeGoUsage != nil)
+        #expect(viewModel.isServiceDown(.openCode) == false)
+
+        await viewModel.refresh(force: true)
+        #expect(viewModel.isServiceDown(.openCode) == true)
+        #expect(viewModel.activeIncident(for: .openCode)?.lastErrorCode == 503)
+        #expect(viewModel.openCodeGoUsage != nil)  // preserved
+    }
+
+    @Test @MainActor func invalidCredentialsDoesNotCreateIncident() async {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let transport = OutageMockTransport { _ in
+            OutageMockTransport.makeResponse(body: "", status: 401)
+        }
+        let service = OpenCodeGoUsageService(
+            transport: transport,
+            configProvider: { OpenCodeGoUsageService.DashboardConfig(workspaceID: "wrk_TEST", authCookie: "c") },
+            now: { now }
+        )
+        let viewModel = Self.makeViewModel(openCodeGoUsageService: service)
+
+        await viewModel.refresh(force: true)
+        // 401 -> invalidCredentials, NOT an outage; column hidden, no incident.
+        #expect(viewModel.isServiceDown(.openCode) == false)
+        #expect(viewModel.openCodeGoUsage == nil)
+    }
+
+    @MainActor
+    private static func makeViewModel(openCodeGoUsageService: OpenCodeGoUsageService) -> UsageViewModel {
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        return UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            openCodeGoUsageService: openCodeGoUsageService
+        )
+    }
+}
+
+private struct OutageMockTransport: OpenCodeHTTPTransport {
+    let handler: @Sendable (URLRequest) -> (Data, HTTPURLResponse)
+
+    func response(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        handler(request)
+    }
+
+    static func makeResponse(body: String, status: Int) -> (Data, HTTPURLResponse) {
+        let url = URL(string: "https://opencode.ai/_server")!
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
+        return (Data(body.utf8), response)
+    }
+}
+
+private final class CodexOutageURLProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var handler: (@Sendable (URLRequest) -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.unknown))
+            return
+        }
+        let (response, data) = handler(request)
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+#endif
