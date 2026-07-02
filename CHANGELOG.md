@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.18] - 2026-07-02
+
+- feat: show Rolling/Weekly/Monthly Usage for OpenCode Go in menu bar
+
 ## [0.14.17] - 2026-07-02
 
 - fix: route OpenCode ChatGPT-subscription usage to Codex bucket
@@ -451,7 +455,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.17...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.18...HEAD
+[0.14.18]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.17...v0.14.18
 [0.14.17]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.16...v0.14.17
 [0.14.16]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.15...v0.14.16
 [0.14.15]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.14...v0.14.15
