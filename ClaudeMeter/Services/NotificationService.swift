@@ -109,6 +109,15 @@ actor NotificationService: NotificationServiceProtocol {
             )
         }
 
+        if let newFable = newSnapshot.fable, currentSettings.notifyFable {
+            await checkWindow(
+                name: newFable.windowType.displayName,
+                oldUsage: oldSnapshot?.fable,
+                newUsage: newFable,
+                settings: currentSettings
+            )
+        }
+
         // Check for extra usage activation
         if currentSettings.notifyExtraUsage {
             let wasActive = oldSnapshot?.isExtraUsageActive ?? false
@@ -239,7 +248,7 @@ actor NotificationService: NotificationServiceProtocol {
             windowDescription = "5-hour session"
         case .openCodeGoFiveHour:
             windowDescription = "rolling"
-        case .opus, .sonnet, .design, .codexWeekly, .openCodeGoWeekly:
+        case .opus, .sonnet, .design, .fable, .codexWeekly, .openCodeGoWeekly:
             windowDescription = "weekly"
         case .openCodeGoMonthly:
             windowDescription = "monthly"
