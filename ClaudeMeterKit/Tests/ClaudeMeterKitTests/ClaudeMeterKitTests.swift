@@ -43,6 +43,10 @@ struct UsageWindowTypeTests {
         #expect(UsageWindowType.session.displayName == "Current session")
         #expect(UsageWindowType.opus.displayName == "All models")
         #expect(UsageWindowType.sonnet.displayName == "Sonnet")
+
+        #expect(UsageWindowType.openCodeGoFiveHour.displayName == "Rolling Usage")
+        #expect(UsageWindowType.openCodeGoWeekly.displayName == "Weekly Usage")
+        #expect(UsageWindowType.openCodeGoMonthly.displayName == "Monthly Usage")
     }
 
     @Test func totalDurations() {
