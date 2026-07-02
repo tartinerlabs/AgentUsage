@@ -99,7 +99,8 @@ actor CodexUsageService {
 
         for attempt in 0..<Constants.maxRetryAttempts {
             do {
-                return try await performRequest(accessToken: accessToken, accountID: auth.accountID)
+                let snapshot = try await performRequest(accessToken: accessToken, accountID: auth.accountID)
+                return await enrichWithResetCredits(snapshot, accessToken: accessToken, accountID: auth.accountID)
             } catch let error as CodexError {
                 lastError = error
 
@@ -230,11 +231,18 @@ actor CodexUsageService {
     private struct UsageResponse: Decodable {
         let planType: String?
         let rateLimit: RateLimit?
+        let rateLimitResetCredits: ResetCreditsSummary?
 
         enum CodingKeys: String, CodingKey {
             case planType = "plan_type"
             case rateLimit = "rate_limit"
+            case rateLimitResetCredits = "rate_limit_reset_credits"
         }
+    }
+
+    private struct ResetCreditsSummary: Decodable {
+        let availableCount: Int
+        enum CodingKeys: String, CodingKey { case availableCount = "available_count" }
     }
 
     private struct RateLimit: Decodable {
@@ -286,10 +294,15 @@ actor CodexUsageService {
 
         guard !windows.isEmpty else { throw CodexError.invalidResponse }
 
+        let resetCredits = decoded.rateLimitResetCredits.map {
+            RateLimitResetCredits(availableCount: $0.availableCount, expirations: [])
+        }
+
         return ProviderUsageSnapshot(
             provider: .codex,
             windows: windows,
             planName: planName(from: decoded.planType),
+            rateLimitResetCredits: resetCredits,
             fetchedAt: currentDate
         )
     }
@@ -336,7 +349,109 @@ actor CodexUsageService {
     private func calculateRetryDelay(attempt: Int) -> TimeInterval {
         Constants.initialRetryDelay * pow(Constants.retryBackoffMultiplier, Double(attempt))
     }
+
+    // MARK: - Reset Credits
+
+    /// Enriches a usage snapshot with per-credit expiry details from the dedicated
+    /// `/wham/rate-limit-reset-credits` endpoint. Best-effort: on any failure the
+    /// snapshot is returned unchanged (keeping the usage-body count as the fallback).
+    private func enrichWithResetCredits(
+        _ snapshot: ProviderUsageSnapshot,
+        accessToken: String,
+        accountID: String?
+    ) async -> ProviderUsageSnapshot {
+        guard let details = await fetchResetCreditsDetails(accessToken: accessToken, accountID: accountID) else {
+            return snapshot
+        }
+        return ProviderUsageSnapshot(
+            provider: snapshot.provider,
+            windows: snapshot.windows,
+            extraUsage: snapshot.extraUsage,
+            planName: snapshot.planName,
+            rateLimitResetCredits: RateLimitResetCredits(
+                availableCount: details.availableCount,
+                expirations: details.expirations
+            ),
+            fetchedAt: snapshot.fetchedAt
+        )
+    }
+
+    /// Best-effort GET of the dedicated reset-credits endpoint (per-credit expiry).
+    /// Never throws — returns nil on any failure so callers fall back to the
+    /// usage-body count. Requires extra headers the endpoint expects.
+    private func fetchResetCreditsDetails(accessToken: String, accountID: String?) async -> ResetCreditsDetails? {
+        var request = URLRequest(url: Constants.codexResetCreditsURL)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("ClaudeMeter/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("codex-1", forHTTPHeaderField: "OpenAI-Beta")
+        request.setValue("Codex Desktop", forHTTPHeaderField: "originator")
+        if let accountID, !accountID.isEmpty {
+            request.setValue(accountID, forHTTPHeaderField: Constants.codexAccountIDHeader)
+        }
+        request.timeoutInterval = Constants.requestTimeout
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            Logger.codex.info("Reset-credits fetch failed; using usage-body count: \(error.localizedDescription)")
+            return nil
+        }
+
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            Logger.codex.info("Reset-credits fetch returned non-2xx; using usage-body count")
+            return nil
+        }
+
+        return parseResetCreditsDetails(data: data)
+    }
+
+    /// Parses the dedicated reset-credits response. Uses `JSONSerialization` to handle
+    /// `expires_at` as either an ISO-8601 string or an epoch number.
+    private func parseResetCreditsDetails(data: Data) -> ResetCreditsDetails? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        guard let count = (json["available_count"] as? Int)
+            ?? (json["available_count"] as? Double).map({ Int($0) }) else { return nil }
+        let credits = json["credits"] as? [[String: Any]] ?? []
+        let expirations = credits
+            .filter { credit in
+                guard let status = credit["status"] as? String else { return true }
+                return status == "available"
+            }
+            .compactMap { credit -> Date? in
+                if let str = credit["expires_at"] as? String {
+                    return codexResetCreditDateFormatterWithFractional.date(from: str)
+                        ?? codexResetCreditDateFormatter.date(from: str)
+                }
+                if let seconds = credit["expires_at"] as? Double {
+                    return Date(timeIntervalSince1970: seconds)
+                }
+                return nil
+            }
+            .sorted()
+        return ResetCreditsDetails(availableCount: count, expirations: expirations)
+    }
 }
+
+private struct ResetCreditsDetails {
+    let availableCount: Int
+    let expirations: [Date]
+}
+
+private let codexResetCreditDateFormatter: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter
+}()
+
+private let codexResetCreditDateFormatterWithFractional: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+}()
 
 private extension CharacterSet {
     /// URL-query value safe set (excludes `&`, `=`, `+`, etc.).
