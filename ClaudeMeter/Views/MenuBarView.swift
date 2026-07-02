@@ -273,9 +273,11 @@ struct MenuBarView: View {
             }
             Spacer()
             if let snapshot = viewModel.snapshot {
-                Text("Updated \(DateFormatters.relativeDescription(from: snapshot.fetchedAt, to: now))")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                LastUpdatedLabel(
+                    relativeText: DateFormatters.relativeDescription(from: snapshot.fetchedAt, to: now),
+                    isCached: viewModel.isUsingCachedData,
+                    isOffline: viewModel.isOffline
+                )
             }
             if viewModel.isLoading || viewModel.isLoadingTokenUsage {
                 ProgressView().scaleEffect(0.5)
