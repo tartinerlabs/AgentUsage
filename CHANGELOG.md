@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.17] - 2026-07-02
+
+- fix: route OpenCode ChatGPT-subscription usage to Codex bucket
+
 ## [0.14.16] - 2026-07-01
 
 - fix: keep OpenCode logs in OpenCode bucket
@@ -447,7 +451,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.16...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.17...HEAD
+[0.14.17]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.16...v0.14.17
 [0.14.16]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.15...v0.14.16
 [0.14.15]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.14...v0.14.15
 [0.14.14]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.13...v0.14.14
