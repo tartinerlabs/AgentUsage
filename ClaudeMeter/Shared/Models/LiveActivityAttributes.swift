@@ -18,6 +18,7 @@ enum MetricType: String, CaseIterable, Identifiable {
     case opus
     case sonnet
     case design
+    case fable
 
     var id: String { rawValue }
 
@@ -27,6 +28,7 @@ enum MetricType: String, CaseIterable, Identifiable {
         case .opus: return "All models"
         case .sonnet: return "Sonnet"
         case .design: return "Claude Design"
+        case .fable: return "Fable"
         }
     }
 }

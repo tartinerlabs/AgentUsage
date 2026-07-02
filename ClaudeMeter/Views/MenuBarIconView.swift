@@ -21,12 +21,12 @@ struct MenuBarIconView: View {
         #if DEBUG
         // In debug mode, show countdown for any window if simulation is enabled
         if viewModel.debugSimulate100Percent {
-            let windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design].compactMap { $0 }
+            let windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable].compactMap { $0 }
             return windows.min(by: { $0.resetsAt < $1.resetsAt })
         }
         #endif
 
-        let windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design]
+        let windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable]
             .compactMap { $0 }
             .filter { $0.isAtLimit }
         return windows.min(by: { $0.resetsAt < $1.resetsAt })
@@ -77,12 +77,15 @@ struct MenuBarIconView: View {
                 if viewModel.menuBarShowDesign, let design = snapshot.design {
                     usageColumn(label: "DESIGN", usage: design)
                 }
+                if viewModel.menuBarShowFable, let fable = snapshot.fable {
+                    usageColumn(label: "FABLE", usage: fable)
+                }
                 if viewModel.menuBarShowCodex, let codexWindow = codexMenuBarWindow {
                     usageColumn(label: "CODEX", usage: codexWindow)
                 }
 
                 // Fallback if nothing is enabled
-                if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet && !viewModel.menuBarShowDesign && !viewModel.menuBarShowCodex {
+                if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet && !viewModel.menuBarShowDesign && !viewModel.menuBarShowFable && !viewModel.menuBarShowCodex {
                     usageColumn(label: "CURR", usage: snapshot.session)
                 }
             } else if viewModel.menuBarShowCodex, let codexWindow = codexMenuBarWindow {

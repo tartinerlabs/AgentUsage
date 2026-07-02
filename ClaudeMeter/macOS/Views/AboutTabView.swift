@@ -40,7 +40,7 @@ struct AboutTabView: View {
                         featureRow(
                             icon: "chart.bar.fill",
                             title: "Usage Tracking",
-                            description: "Monitor session, Opus, and Sonnet usage limits"
+                            description: "Monitor session, Opus, Sonnet, and Fable usage limits"
                         )
                         Divider()
                         featureRow(

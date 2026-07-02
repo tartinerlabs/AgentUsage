@@ -124,6 +124,7 @@ struct DashboardView: View {
                         var arr: [MetricType] = [.session, .opus]
                         if snapshot.sonnet != nil { arr.append(.sonnet) }
                         if snapshot.design != nil { arr.append(.design) }
+                        if snapshot.fable != nil { arr.append(.fable) }
                         return arr
                     }()
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
@@ -215,6 +216,9 @@ struct DashboardView: View {
             }
             if let design = snapshot.design {
                 UsageCardView(title: design.windowType.displayName, usage: design, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+            }
+            if let fable = snapshot.fable {
+                UsageCardView(title: fable.windowType.displayName, usage: fable, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             }
         }
 

@@ -43,6 +43,7 @@ struct UsageWindowTypeTests {
         #expect(UsageWindowType.session.displayName == "Current session")
         #expect(UsageWindowType.opus.displayName == "All models")
         #expect(UsageWindowType.sonnet.displayName == "Sonnet")
+        #expect(UsageWindowType.fable.displayName == "Fable")
 
         #expect(UsageWindowType.openCodeGoFiveHour.displayName == "Rolling Usage")
         #expect(UsageWindowType.openCodeGoWeekly.displayName == "Weekly Usage")
@@ -58,13 +59,16 @@ struct UsageWindowTypeTests {
 
         // Sonnet: 7 days
         #expect(UsageWindowType.sonnet.totalDuration == 7 * 24 * 60 * 60)
+
+        // Fable: 7 days
+        #expect(UsageWindowType.fable.totalDuration == 7 * 24 * 60 * 60)
     }
 
     @Test func codable() throws {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
 
-        for type in [UsageWindowType.session, .opus, .sonnet] {
+        for type in [UsageWindowType.session, .opus, .sonnet, .fable] {
             let data = try encoder.encode(type)
             let decoded = try decoder.decode(UsageWindowType.self, from: data)
             #expect(decoded == type)
@@ -445,9 +449,11 @@ struct UsageSnapshotTests {
         #expect(placeholder.session.utilization == 45)
         #expect(placeholder.opus.utilization == 32)
         #expect(placeholder.sonnet?.utilization == 28)
+        #expect(placeholder.fable?.utilization == 16)
         #expect(placeholder.session.windowType == .session)
         #expect(placeholder.opus.windowType == .opus)
         #expect(placeholder.sonnet?.windowType == .sonnet)
+        #expect(placeholder.fable?.windowType == .fable)
     }
 
     @Test func codable() throws {
@@ -458,15 +464,18 @@ struct UsageSnapshotTests {
         let session = UsageWindow(utilization: 30, resetsAt: now, windowType: .session)
         let opus = UsageWindow(utilization: 50, resetsAt: now, windowType: .opus)
         let sonnet = UsageWindow(utilization: 40, resetsAt: now, windowType: .sonnet)
+        let fable = UsageWindow(utilization: 16, resetsAt: now, windowType: .fable)
 
         let cost = ExtraUsageCost(used: 5.0, limit: 50.0, currencyCode: "USD")
-        let snapshot = UsageSnapshot(session: session, opus: opus, sonnet: sonnet, extraUsage: cost, fetchedAt: now)
+        let snapshot = UsageSnapshot(session: session, opus: opus, sonnet: sonnet, fable: fable, extraUsage: cost, fetchedAt: now)
         let data = try encoder.encode(snapshot)
         let decoded = try decoder.decode(UsageSnapshot.self, from: data)
 
         #expect(decoded.session.utilization == 30)
         #expect(decoded.opus.utilization == 50)
         #expect(decoded.sonnet?.utilization == 40)
+        #expect(decoded.fable?.utilization == 16)
+        #expect(decoded.fable?.windowType == .fable)
         #expect(decoded.hasExtraUsageEnabled == true)
         #expect(decoded.extraUsage?.used == 5.0)
         #expect(decoded.extraUsage?.limit == 50.0)

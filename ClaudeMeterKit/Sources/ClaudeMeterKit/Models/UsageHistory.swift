@@ -25,6 +25,9 @@ public struct DailyUsageRecord: Sendable, Codable, Identifiable {
     /// Peak sonnet utilization observed during the day (0-100, optional)
     public let peakSonnetUtilization: Double?
 
+    /// Peak fable utilization observed during the day (0-100, optional)
+    public let peakFableUtilization: Double?
+
     /// Timestamp when this record was last updated
     public let updatedAt: Date
 
@@ -33,12 +36,14 @@ public struct DailyUsageRecord: Sendable, Codable, Identifiable {
         peakSessionUtilization: Double,
         peakOpusUtilization: Double,
         peakSonnetUtilization: Double?,
+        peakFableUtilization: Double? = nil,
         updatedAt: Date = Date()
     ) {
         self.date = date
         self.peakSessionUtilization = peakSessionUtilization
         self.peakOpusUtilization = peakOpusUtilization
         self.peakSonnetUtilization = peakSonnetUtilization
+        self.peakFableUtilization = peakFableUtilization
         self.updatedAt = updatedAt
     }
 
@@ -52,6 +57,7 @@ public struct DailyUsageRecord: Sendable, Codable, Identifiable {
             peakSessionUtilization: snapshot.session.utilization,
             peakOpusUtilization: snapshot.opus.utilization,
             peakSonnetUtilization: snapshot.sonnet?.utilization,
+            peakFableUtilization: snapshot.fable?.utilization,
             updatedAt: Date()
         )
     }
@@ -63,6 +69,7 @@ public struct DailyUsageRecord: Sendable, Codable, Identifiable {
             peakSessionUtilization: max(peakSessionUtilization, snapshot.session.utilization),
             peakOpusUtilization: max(peakOpusUtilization, snapshot.opus.utilization),
             peakSonnetUtilization: mergePeak(peakSonnetUtilization, snapshot.sonnet?.utilization),
+            peakFableUtilization: mergePeak(peakFableUtilization, snapshot.fable?.utilization),
             updatedAt: Date()
         )
     }
@@ -154,12 +161,14 @@ public struct UsageHistory: Sendable, Codable {
             let baseSession = Double.random(in: 20...60)
             let baseOpus = Double.random(in: 15...45)
             let baseSonnet = Double.random(in: 10...35)
+            let baseFable = Double.random(in: 10...35)
 
             records.append(DailyUsageRecord(
                 date: normalizedDate,
                 peakSessionUtilization: baseSession + Double.random(in: 0...15),
                 peakOpusUtilization: baseOpus + Double.random(in: 0...10),
                 peakSonnetUtilization: baseSonnet + Double.random(in: 0...10),
+                peakFableUtilization: baseFable + Double.random(in: 0...10),
                 updatedAt: date
             ))
         }

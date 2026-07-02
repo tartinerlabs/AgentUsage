@@ -39,12 +39,20 @@ final class MenuBarSettingsManager {
         }
     }
 
+    /// Show Fable (7d) usage in menu bar
+    var menuBarShowFable: Bool {
+        didSet {
+            UserDefaults.standard.set(menuBarShowFable, forKey: "menuBarShowFable")
+        }
+    }
+
     init() {
         let defaults = UserDefaults.standard
         self.menuBarShowSession = defaults.object(forKey: "menuBarShowSession") as? Bool ?? true
         self.menuBarShowAllModels = defaults.object(forKey: "menuBarShowAllModels") as? Bool ?? false
         self.menuBarShowSonnet = defaults.object(forKey: "menuBarShowSonnet") as? Bool ?? false
         self.menuBarShowDesign = defaults.object(forKey: "menuBarShowDesign") as? Bool ?? false
+        self.menuBarShowFable = defaults.object(forKey: "menuBarShowFable") as? Bool ?? false
     }
 }
 
@@ -54,6 +62,7 @@ enum MenuBarDisplayWindow: String, CaseIterable, Identifiable {
     case allModels = "allModels"
     case sonnet = "sonnet"
     case design = "design"
+    case fable = "fable"
 
     var id: String { rawValue }
 
@@ -63,6 +72,7 @@ enum MenuBarDisplayWindow: String, CaseIterable, Identifiable {
         case .allModels: return "All Models (7d)"
         case .sonnet: return "Sonnet (7d)"
         case .design: return "Claude Design (7d)"
+        case .fable: return "Fable (7d)"
         }
     }
 }
