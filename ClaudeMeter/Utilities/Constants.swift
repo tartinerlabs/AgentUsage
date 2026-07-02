@@ -36,6 +36,11 @@ enum Constants {
     static let codexPrimaryUsedPercentHeader = "x-codex-primary-used-percent"
     static let codexSecondaryUsedPercentHeader = "x-codex-secondary-used-percent"
 
+    /// Dedicated reset-credits endpoint (per-credit expiry). Best-effort: the usage body's
+    /// `rate_limit_reset_credits.available_count` is the count-only fallback. Requires extra
+    /// headers the endpoint expects: `OpenAI-Beta: codex-1`, `originator: Codex Desktop`.
+    static let codexResetCreditsURL = URL(string: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")!
+
     // MARK: - Provider Links (status / console dashboards)
     static let anthropicStatusURL = "https://status.anthropic.com"
     static let anthropicConsoleURL = "https://claude.ai/settings/usage"

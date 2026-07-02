@@ -343,6 +343,65 @@ public struct UsageSnapshot: Sendable, Codable {
     )
 }
 
+// MARK: - Rate Limit Reset Credits
+
+/// On-demand rate-limit reset credits for a Codex account.
+///
+/// The count comes from the usage body's `rate_limit_reset_credits.available_count`
+/// (always available) or the dedicated `/wham/rate-limit-reset-credits` endpoint
+/// (which also carries each credit's expiry). When only the count is available,
+/// `expirations` is empty.
+public struct RateLimitResetCredits: Sendable, Codable, Equatable {
+    /// Number of reset credits still available (floored).
+    public let availableCount: Int
+    /// Per-credit expiry dates for still-available credits, sorted soonest-first.
+    /// Empty when only the usage-body count was available (no dedicated fetch).
+    public let expirations: [Date]
+
+    public init(availableCount: Int, expirations: [Date] = []) {
+        self.availableCount = availableCount
+        self.expirations = expirations
+    }
+
+    /// The soonest expiry, if any — drives the 24-hour warning triangle.
+    public var soonestExpiration: Date? {
+        expirations.min()
+    }
+
+    /// True when the soonest still-available credit expires within 24 hours
+    /// (or is already past due). Drives the amber warning triangle in the UI.
+    public func hasImminentExpiry(now: Date = Date()) -> Bool {
+        guard let soonest = soonestExpiration else { return false }
+        return soonest.timeIntervalSince(now) <= 24 * 60 * 60
+    }
+
+    /// Hover-tooltip text listing each credit's expiry countdown.
+    /// Returns nil when there are no per-credit expiry dates (count-only fallback).
+    public func tooltipText(now: Date = Date()) -> String? {
+        guard !expirations.isEmpty else { return nil }
+        let sorted = expirations.sorted()
+        if sorted.count == 1 {
+            return "Reset expires in \(Self.countdownLabel(sorted[0], from: now))"
+        }
+        let entries = sorted.enumerated().compactMap { index, date -> String? in
+            "\(index + 1). \(Self.countdownLabel(date, from: now))"
+        }
+        guard !entries.isEmpty else { return nil }
+        return "Resets expire in:\n" + entries.joined(separator: "\n")
+    }
+
+    private static func countdownLabel(_ date: Date, from now: Date) -> String {
+        let interval = date.timeIntervalSince(now)
+        guard interval > 0 else { return "soon" }
+        let days = Int(interval) / 86400
+        let hours = (Int(interval) % 86400) / 3600
+        let minutes = (Int(interval) % 3600) / 60
+        if days > 0 { return "\(days)d \(hours)h" }
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
+    }
+}
+
 // MARK: - Provider Usage Snapshot
 
 /// Provider-agnostic rate-window snapshot.
@@ -356,6 +415,9 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
     public let extraUsage: ExtraUsageCost?
     /// Plan / tier name reported by the provider, if any (e.g. Codex `plan_type`).
     public let planName: String?
+    /// On-demand rate-limit reset credits (Codex only). nil when the provider
+    /// doesn't report them or the account has no reset-credit balance.
+    public let rateLimitResetCredits: RateLimitResetCredits?
     public let fetchedAt: Date
 
     public var id: String { provider.id }
@@ -365,12 +427,14 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         windows: [UsageWindow],
         extraUsage: ExtraUsageCost? = nil,
         planName: String? = nil,
+        rateLimitResetCredits: RateLimitResetCredits? = nil,
         fetchedAt: Date
     ) {
         self.provider = provider
         self.windows = windows
         self.extraUsage = extraUsage
         self.planName = planName
+        self.rateLimitResetCredits = rateLimitResetCredits
         self.fetchedAt = fetchedAt
     }
 
@@ -380,6 +444,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design].compactMap { $0 }
         self.extraUsage = snapshot.extraUsage
         self.planName = planName
+        self.rateLimitResetCredits = nil
         self.fetchedAt = snapshot.fetchedAt
     }
 
