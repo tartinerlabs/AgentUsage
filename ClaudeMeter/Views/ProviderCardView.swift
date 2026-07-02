@@ -29,6 +29,7 @@ struct ProviderCardView: View {
     var showExtraUsage: Bool = true
     var compact: Bool = false
     var isServiceDown: Bool = false
+    var rateLimitResetCredits: RateLimitResetCredits? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 10 : 14) {
@@ -45,6 +46,24 @@ struct ProviderCardView: View {
                         )
                     }
                 }
+            }
+
+            if let credits = rateLimitResetCredits {
+                HStack(spacing: 6) {
+                    Text("Rate Limit Resets")
+                        .font(compact ? .caption : .subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if credits.hasImminentExpiry(now: now) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.orange)
+                    }
+                    Text("\(credits.availableCount) available")
+                        .font(.system(size: compact ? 13 : 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(provider.accentColor)
+                }
+                .help(credits.tooltipText(now: now) ?? "")
             }
 
             if showExtraUsage, let extraUsage {
