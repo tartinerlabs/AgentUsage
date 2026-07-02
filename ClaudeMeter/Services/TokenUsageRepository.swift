@@ -208,6 +208,24 @@ actor TokenUsageImporter {
 
         return updatedCount
     }
+
+    /// Batch-delete entries (and stale file bookmarks) older than the 13-month
+    /// retention window. Runs in-store without materializing rows — unlike the
+    /// legacy fetch-then-loop that used to live on the main-actor facade.
+    func cleanupOldEntries() throws {
+        let cutoffDate = Calendar.current.date(byAdding: .month, value: -13, to: Date()) ?? Date()
+        try modelContext.delete(
+            model: TokenLogEntry.self,
+            where: #Predicate { $0.timestamp < cutoffDate }
+        )
+        // Files untouched for the whole retention window are past the scan cutoff and
+        // will never be read again, so their incremental-read bookmarks can go too.
+        try modelContext.delete(
+            model: ImportedFile.self,
+            where: #Predicate { $0.lastModified < cutoffDate }
+        )
+        try modelContext.save()
+    }
 }
 
 /// Repository for querying token usage data via SwiftData (main actor for UI)
@@ -339,20 +357,10 @@ final class TokenUsageRepository {
         return try modelContext.fetchCount(descriptor)
     }
 
-    /// Clean up entries older than retention period (13 months)
-    /// 13 months ensures full calendar year available for "Wrapped" feature
-    func cleanupOldEntries() throws {
-        let cutoffDate = Calendar.current.date(byAdding: .month, value: -13, to: Date()) ?? Date()
-        let descriptor = FetchDescriptor<TokenLogEntry>(
-            predicate: #Predicate { $0.timestamp < cutoffDate }
-        )
-
-        let oldEntries = try modelContext.fetch(descriptor)
-        for entry in oldEntries {
-            modelContext.delete(entry)
-        }
-
-        try modelContext.save()
+    /// Clean up entries older than the retention period (13 months) on the background actor.
+    /// 13 months ensures a full calendar year is available for the "Wrapped" feature.
+    func cleanupOldEntries() async throws {
+        try await importer.cleanupOldEntries()
     }
 }
 #endif
