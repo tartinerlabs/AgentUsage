@@ -147,7 +147,8 @@ struct MenuBarView: View {
                 windows: windows(for: provider),
                 detail: viewModel.providerDetails[provider],
                 now: now,
-                isServiceDown: viewModel.isServiceDown(provider)
+                isServiceDown: viewModel.isServiceDown(provider),
+                rateLimitResetCredits: resetCredits(for: provider)
             )
         }
     }
@@ -180,7 +181,8 @@ struct MenuBarView: View {
             now: now,
             showExtraUsage: provider == .claude && viewModel.showExtraUsageIndicators,
             compact: true,
-            isServiceDown: viewModel.isServiceDown(provider)
+            isServiceDown: viewModel.isServiceDown(provider),
+            rateLimitResetCredits: resetCredits(for: provider)
         )
     }
 
@@ -199,6 +201,13 @@ struct MenuBarView: View {
         case .claude: return viewModel.planType
         case .codex: return viewModel.codexUsage?.planName
         case .openCode: return viewModel.openCodeGoUsage?.planName
+        }
+    }
+
+    private func resetCredits(for provider: Provider) -> RateLimitResetCredits? {
+        switch provider {
+        case .codex: return viewModel.codexUsage?.rateLimitResetCredits
+        default: return nil
         }
     }
 
