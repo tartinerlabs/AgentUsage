@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.20] - 2026-07-02
+
+- Add Fable weekly usage limit window
+
 ## [0.14.19] - 2026-07-02
 
 - feat: add Codex rate-limit reset credits display
@@ -459,7 +463,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.19...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.20...HEAD
+[0.14.20]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.19...v0.14.20
 [0.14.19]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.18...v0.14.19
 [0.14.18]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.17...v0.14.18
 [0.14.17]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.16...v0.14.17
