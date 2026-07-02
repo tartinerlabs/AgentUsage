@@ -118,9 +118,13 @@ struct DashboardTabView: View {
                 }
             }
             if let snapshot = viewModel.snapshot {
-                Text("Updated \(relativeDescription(from: snapshot.fetchedAt, to: now))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                LastUpdatedLabel(
+                    relativeText: relativeDescription(from: snapshot.fetchedAt, to: now),
+                    isCached: viewModel.isUsingCachedData,
+                    isOffline: viewModel.isOffline,
+                    font: .caption,
+                    neutralStyle: AnyShapeStyle(.secondary)
+                )
             }
         }
     }
