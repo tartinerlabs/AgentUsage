@@ -45,7 +45,7 @@ struct MenuBarView: View {
         var list: [Provider] = []
         if viewModel.snapshot != nil { list.append(.claude) }
         if viewModel.codexUsage != nil { list.append(.codex) }
-        if viewModel.providerDetails[.openCode] != nil { list.append(.openCode) }
+        if viewModel.providerDetails[.openCode] != nil || viewModel.openCodeGoUsage != nil { list.append(.openCode) }
         return list
     }
 
@@ -190,7 +190,7 @@ struct MenuBarView: View {
         switch provider {
         case .claude: return viewModel.snapshot.map { ProviderUsageSnapshot(claude: $0).windows } ?? []
         case .codex: return viewModel.codexUsage?.windows ?? []
-        case .openCode: return []
+        case .openCode: return viewModel.openCodeGoUsage?.windows ?? []
         }
     }
 
@@ -198,7 +198,7 @@ struct MenuBarView: View {
         switch provider {
         case .claude: return viewModel.planType
         case .codex: return viewModel.codexUsage?.planName
-        case .openCode: return nil
+        case .openCode: return viewModel.openCodeGoUsage?.planName
         }
     }
 
