@@ -69,6 +69,7 @@ struct SettingsTabView: View {
                                 Toggle("All Models (7d)", isOn: $viewModel.menuBarShowAllModels)
                                 Toggle("Sonnet (7d)", isOn: $viewModel.menuBarShowSonnet)
                                 Toggle("Claude Design (7d)", isOn: $viewModel.menuBarShowDesign)
+                                Toggle("Fable (7d)", isOn: $viewModel.menuBarShowFable)
                                 Toggle("Codex (5h)", isOn: $viewModel.menuBarShowCodex)
                                 Toggle("Extra Usage Cost", isOn: $viewModel.menuBarShowExtraUsage)
                             }

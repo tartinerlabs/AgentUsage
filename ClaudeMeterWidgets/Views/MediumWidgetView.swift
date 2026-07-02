@@ -25,6 +25,11 @@ struct MediumWidgetView: View {
                 Divider()
                 metricView(title: design.windowType.displayName, usage: design)
             }
+
+            if let fable = entry.snapshot.fable {
+                Divider()
+                metricView(title: fable.windowType.displayName, usage: fable)
+            }
         }
         .padding(.horizontal, 8)
         .accessibilityElement(children: .contain)

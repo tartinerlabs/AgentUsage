@@ -52,6 +52,7 @@ public enum UsageWindowType: String, Sendable, Codable {
     case opus     // 7 days - default weekly limit (seven_day)
     case sonnet   // 7 days - separate Sonnet limit (seven_day_sonnet)
     case design   // 7 days - Claude Design limit (seven_day_omelette)
+    case fable    // 7 days - separate Fable limit (limits[] weekly_scoped, scope.model.display_name == "Fable")
 
     // Generic windows for providers other than Claude.
     case codexFiveHour  // Codex primary limit (rate_limits.primary, window_minutes 300)
@@ -66,6 +67,7 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .opus: "All models"
         case .sonnet: "Sonnet"
         case .design: "Claude Design"
+        case .fable: "Fable"
         case .codexFiveHour: "5-hour limit"
         case .codexWeekly: "Weekly limit"
         case .openCodeGoFiveHour: "Rolling Usage"
@@ -80,6 +82,7 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .opus: 7 * 24 * 60 * 60    // 7 days in seconds
         case .sonnet: 7 * 24 * 60 * 60  // 7 days in seconds
         case .design: 7 * 24 * 60 * 60  // 7 days in seconds
+        case .fable: 7 * 24 * 60 * 60   // 7 days in seconds
         case .codexFiveHour: 5 * 60 * 60      // 5 hours in seconds
         case .codexWeekly: 7 * 24 * 60 * 60   // 7 days in seconds
         case .openCodeGoFiveHour: 5 * 60 * 60
@@ -279,14 +282,16 @@ public struct UsageSnapshot: Sendable, Codable {
     public let opus: UsageWindow      // Weekly default limit (was "seven_day")
     public let sonnet: UsageWindow?   // Separate Sonnet limit (if available)
     public let design: UsageWindow?   // Claude Design limit (if available)
+    public let fable: UsageWindow?    // Separate Fable limit (if available)
     public let extraUsage: ExtraUsageCost?  // Monthly extra usage spending
     public let fetchedAt: Date
 
-    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, design: UsageWindow? = nil, extraUsage: ExtraUsageCost? = nil, fetchedAt: Date) {
+    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, design: UsageWindow? = nil, fable: UsageWindow? = nil, extraUsage: ExtraUsageCost? = nil, fetchedAt: Date) {
         self.session = session
         self.opus = opus
         self.sonnet = sonnet
         self.design = design
+        self.fable = fable
         self.extraUsage = extraUsage
         self.fetchedAt = fetchedAt
     }
@@ -297,13 +302,14 @@ public struct UsageSnapshot: Sendable, Codable {
         opus = try container.decode(UsageWindow.self, forKey: .opus)
         sonnet = try container.decodeIfPresent(UsageWindow.self, forKey: .sonnet)
         design = try container.decodeIfPresent(UsageWindow.self, forKey: .design)
+        fable = try container.decodeIfPresent(UsageWindow.self, forKey: .fable)
         extraUsage = try container.decodeIfPresent(ExtraUsageCost.self, forKey: .extraUsage)
         fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
     }
 
     /// Whether any window is currently in extra usage territory
     public var isExtraUsageActive: Bool {
-        session.isUsingExtraUsage || opus.isUsingExtraUsage || (sonnet?.isUsingExtraUsage ?? false) || (design?.isUsingExtraUsage ?? false)
+        session.isUsingExtraUsage || opus.isUsingExtraUsage || (sonnet?.isUsingExtraUsage ?? false) || (design?.isUsingExtraUsage ?? false) || (fable?.isUsingExtraUsage ?? false)
     }
 
     /// Whether extra usage is enabled (has cost data from the API)
@@ -338,6 +344,11 @@ public struct UsageSnapshot: Sendable, Codable {
             utilization: 12,
             resetsAt: Date().addingTimeInterval(5 * 24 * 60 * 60),
             windowType: .design
+        ),
+        fable: UsageWindow(
+            utilization: 16,
+            resetsAt: Date().addingTimeInterval(5 * 24 * 60 * 60),
+            windowType: .fable
         ),
         fetchedAt: Date()
     )
@@ -441,7 +452,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
     /// Bridge an existing Claude `UsageSnapshot` into the provider-agnostic shape.
     public init(claude snapshot: UsageSnapshot, planName: String? = nil) {
         self.provider = .claude
-        self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design].compactMap { $0 }
+        self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable].compactMap { $0 }
         self.extraUsage = snapshot.extraUsage
         self.planName = planName
         self.rateLimitResetCredits = nil

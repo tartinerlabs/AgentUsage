@@ -79,6 +79,16 @@ struct UsageHistoryView: View {
                     .symbol(Circle())
                     .interpolationMethod(.catmullRom)
                 }
+
+                if let fable = record.peakFableUtilization {
+                    LineMark(
+                        x: .value("Date", record.date, unit: .day),
+                        y: .value("Usage", fable)
+                    )
+                    .foregroundStyle(by: .value("Type", "Fable"))
+                    .symbol(Circle())
+                    .interpolationMethod(.catmullRom)
+                }
             }
 
             // Warning threshold line
@@ -111,7 +121,8 @@ struct UsageHistoryView: View {
         .chartForegroundStyleScale([
             "Session": Color.blue,
             "All Models": Color.orange,
-            "Sonnet": Color.purple
+            "Sonnet": Color.purple,
+            "Fable": Color.teal
         ])
         .chartLegend(position: .bottom)
         .frame(height: 200)
