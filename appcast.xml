@@ -6,25 +6,25 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.14.18</title>
-            <pubDate>Thu, 02 Jul 2026 15:08:57 +0000</pubDate>
-            <sparkle:version>65</sparkle:version>
-            <sparkle:shortVersionString>0.14.18</sparkle:shortVersionString>
+            <title>Version 0.14.19</title>
+            <pubDate>Thu, 02 Jul 2026 15:19:28 +0000</pubDate>
+            <sparkle:version>66</sparkle:version>
+            <sparkle:shortVersionString>0.14.19</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>feat: show Rolling/Weekly/Monthly Usage for OpenCode Go in menu bar</li>
+<li>feat: add Codex rate-limit reset credits display</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.18/ClaudeMeter.zip"
-                length="2182202"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.19/ClaudeMeter.zip"
+                length="2216354"
                 type="application/octet-stream"
-                sparkle:edSignature="v7K5Fnl7Dfc4LpD2TyMfprvSRyRLC2eRGXQQawJopxO0nMk8N0dSHoqUherXlb/PhNyfCwaxPnD4MrT2iOvuDg==" />
+                sparkle:edSignature="AdGE/8jkBZ3YHMfSzMedxWWXUL3ZD4bqBMdhg+GXPuNbAUAJBZwCMqX920KNFuzHMP+ymRV+C9zm9ckWau05AA==" />
         </item>
     </channel>
 </rss>
