@@ -68,9 +68,9 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .design: "Claude Design"
         case .codexFiveHour: "5-hour limit"
         case .codexWeekly: "Weekly limit"
-        case .openCodeGoFiveHour: "5-hour limit"
-        case .openCodeGoWeekly: "Weekly limit"
-        case .openCodeGoMonthly: "Monthly limit"
+        case .openCodeGoFiveHour: "Rolling Usage"
+        case .openCodeGoWeekly: "Weekly Usage"
+        case .openCodeGoMonthly: "Monthly Usage"
         }
     }
 
