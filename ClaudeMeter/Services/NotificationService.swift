@@ -235,8 +235,10 @@ actor NotificationService: NotificationServiceProtocol {
 
         let windowDescription: String
         switch usage.windowType {
-        case .session, .codexFiveHour, .openCodeGoFiveHour:
+        case .session, .codexFiveHour:
             windowDescription = "5-hour session"
+        case .openCodeGoFiveHour:
+            windowDescription = "rolling"
         case .opus, .sonnet, .design, .codexWeekly, .openCodeGoWeekly:
             windowDescription = "weekly"
         case .openCodeGoMonthly:
