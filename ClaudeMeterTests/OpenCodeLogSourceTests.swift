@@ -12,11 +12,12 @@ import ClaudeMeterKit
 
 @Suite("OpenCode Log Source")
 struct OpenCodeLogSourceTests {
-    @Test func keepsOpenAIProviderIDInOpenCodeBucket() throws {
+    @Test func mapsOpenAIProviderIDToCodexBucket() throws {
         let model = OpenCodeLogSource.parseModel(#"{"id":"gpt-5.5","providerID":"openai"}"#)
 
         #expect(model.id == "gpt-5.5")
         #expect(model.providerID == "openai")
+        #expect(model.provider == .codex)
     }
 
     @Test func parsesOpenCodeProviderIDsForPricing() throws {
@@ -24,14 +25,28 @@ struct OpenCodeLogSourceTests {
         let zenModel = OpenCodeLogSource.parseModel(#"{"id":"gpt-5.1-codex","providerID":"opencode-zen"}"#)
 
         #expect(goModel.providerID == "opencode-go")
+        #expect(goModel.provider == .openCode)
         #expect(zenModel.providerID == "opencode-zen")
+        #expect(zenModel.provider == .openCode)
     }
 
-    @Test func parsesOpenAICompatibleGLMWithoutChangingSourceBucket() throws {
+    @Test func routesOpenAIProviderIDToCodexRegardlessOfModel() throws {
+        // The rule is providerID-based: a model served through an OpenAI-compatible
+        // setup reporting providerID="openai" routes to Codex even if not a GPT model.
         let model = OpenCodeLogSource.parseModel(#"{"id":"glm-5.2","providerID":"openai"}"#)
 
         #expect(model.id == "glm-5.2")
         #expect(model.providerID == "openai")
+        #expect(model.provider == .codex)
+    }
+
+    @Test func keepsGLMWithOpenCodeGoProviderInOpenCodeBucket() throws {
+        // Real-world GLM sessions arrive via OpenCode Go (providerID="opencode-go").
+        let model = OpenCodeLogSource.parseModel(#"{"id":"glm-5.2","providerID":"opencode-go"}"#)
+
+        #expect(model.id == "glm-5.2")
+        #expect(model.providerID == "opencode-go")
+        #expect(model.provider == .openCode)
     }
 
     @Test func invalidModelJSONFallsBackWithoutOpenAIHardcoding() throws {
@@ -39,9 +54,10 @@ struct OpenCodeLogSourceTests {
 
         #expect(model.id == "not-json")
         #expect(model.providerID == "unknown")
+        #expect(model.provider == .openCode)
     }
 
-    @Test func sqliteRowsUseOpenCodeBucketAndProviderIDForPricingProvider() async throws {
+    @Test func sqliteRowsUseProviderIDForBucketAndPricingProvider() async throws {
         let root = try Self.temporaryDirectory()
         let database = root.appendingPathComponent("opencode.db")
         try Self.createSessionDatabase(
@@ -54,7 +70,7 @@ struct OpenCodeLogSourceTests {
         let entry = try #require(entries.first)
 
         #expect(entries.count == 1)
-        #expect(entry.provider == .openCode)
+        #expect(entry.provider == .codex)
         #expect(entry.pricingProviderKey == "openai")
         #expect(entry.model == "gpt-5.5")
         #expect(entry.tokens.inputTokens == 100)
@@ -64,10 +80,10 @@ struct OpenCodeLogSourceTests {
         #expect(entry.tokens.cacheCreationTokens == 20)
     }
 
-    @Test func extraProviderDetailsAggregateOpenCodeOpenAIRowsUnderOpenCode() async throws {
+    @Test func extraProviderDetailsAggregateByEntryProviderNotSourceProvider() async throws {
         let source = StaticUsageLogSource(entries: [
             ProviderUsageEntry(
-                provider: .openCode,
+                provider: .codex,
                 model: "gpt-5.5",
                 pricingProviderKey: "openai",
                 tokens: TokenCount(inputTokens: 100, outputTokens: 40, cacheCreationTokens: 20, cacheReadTokens: 30),
@@ -79,8 +95,8 @@ struct OpenCodeLogSourceTests {
 
         let details = await service.fetchExtraProviderDetails(since: Date(timeIntervalSince1970: 0))
 
-        #expect(details[.openCode]?.last30Days.tokens.totalTokens == 190)
-        #expect(details[.codex] == nil)
+        #expect(details[.codex]?.last30Days.tokens.totalTokens == 190)
+        #expect(details[.openCode] == nil)
     }
 
     private static func temporaryDirectory() throws -> URL {
