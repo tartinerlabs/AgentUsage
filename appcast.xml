@@ -6,25 +6,25 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.14.19</title>
-            <pubDate>Thu, 02 Jul 2026 15:19:28 +0000</pubDate>
-            <sparkle:version>66</sparkle:version>
-            <sparkle:shortVersionString>0.14.19</sparkle:shortVersionString>
+            <title>Version 0.14.20</title>
+            <pubDate>Thu, 02 Jul 2026 15:59:03 +0000</pubDate>
+            <sparkle:version>67</sparkle:version>
+            <sparkle:shortVersionString>0.14.20</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>feat: add Codex rate-limit reset credits display</li>
+<li>Add Fable weekly usage limit window</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.19/ClaudeMeter.zip"
-                length="2216354"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.20/ClaudeMeter.zip"
+                length="2227977"
                 type="application/octet-stream"
-                sparkle:edSignature="AdGE/8jkBZ3YHMfSzMedxWWXUL3ZD4bqBMdhg+GXPuNbAUAJBZwCMqX920KNFuzHMP+ymRV+C9zm9ckWau05AA==" />
+                sparkle:edSignature="bgK3TQOQPO5Pl0SX5D8K7yHsxz28loRk9oiO+Z//qXieq5ab/kLqiLOUPcMP+hdg8BkzRq+IgUK6k/wVwfD4Ag==" />
         </item>
     </channel>
 </rss>
