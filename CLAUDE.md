@@ -298,7 +298,7 @@ CURRENT_PROJECT_VERSION = 1
 
 Releases are **fully automated** via `.github/workflows/auto-release.yml`. Every code push to `main`:
 
-1. **Computes the next version** from the latest `v*` tag — patch by default; a `[minor]` or `[major]` token in any commit message since the last tag escalates the bump (highest wins, markers stripped from notes)
+1. **Computes the next version** from the latest `v*` tag — minor by default; a `[patch]` token on every release-worthy commit downgrades to patch (a pure bug-fix release), and any `[major]` token escalates to major (highest wins, markers stripped from notes)
 2. **Generates release notes** from commit subjects since the last tag (noise commits like appcast/version-bump/beads updates are filtered out)
 3. **Runs the macOS test suite** — failure aborts before anything is pushed
 4. **Bumps** `Config/Version.xcconfig`, `project.pbxproj`, and `CHANGELOG.md` (flat bullet list under the new version section), committing "Bump version to X.Y.Z"
