@@ -3,7 +3,7 @@ description: "Compute the next release version and release notes from git histor
 
 inputs:
   bump:
-    description: "Version bump type (auto, patch, minor, major). auto detects [minor]/[major] markers in commit messages."
+    description: "Version bump type (auto, patch, minor, major). auto defaults to minor; a [patch] marker on every commit downgrades to patch, and any [major] marker escalates to major."
     required: false
     default: "auto"
 
@@ -51,7 +51,7 @@ runs:
         NOTES=$(git log "$RANGE" --no-merges --format='%s' \
           | grep -vE '^(Update appcast for v|Bump version to |Update beads)' \
           | grep -vF '[skip release]' \
-          | sed -E 's/ *\[(minor|major)\]//g' \
+          | sed -E 's/ *\[(minor|major|patch)\]//g' \
           | sed 's/^/- /')
         if [ -z "$NOTES" ]; then
           echo "No release-worthy commits since $LAST_TAG; skipping."
@@ -61,10 +61,20 @@ runs:
 
         BUMP="$BUMP_INPUT"
         if [ "$BUMP" = "auto" ]; then
-          LOG=$(git log "$RANGE" --no-merges --format='%s %b')
-          if echo "$LOG" | grep -qiF '[major]'; then BUMP=major
-          elif echo "$LOG" | grep -qiF '[minor]'; then BUMP=minor
-          else BUMP=patch
+          # Default to minor: a release adds something user-facing, and plain
+          # commit subjects carry no type to infer from. Under-bumping (a
+          # feature shipped as patch) is the harmful case; over-bumping is not.
+          # release-worthy subjects only (same noise filter as NOTES)
+          SUBJECTS=$(git log "$RANGE" --no-merges --format='%s' \
+            | grep -vE '^(Update appcast for v|Bump version to |Update beads)')
+          BODY=$(git log "$RANGE" --no-merges --format='%b')
+          if printf '%s\n%s' "$SUBJECTS" "$BODY" | grep -qiF '[major]'; then
+            BUMP=major
+          # patch only when EVERY release-worthy subject carries [patch]
+          elif [ -n "$SUBJECTS" ] && ! printf '%s' "$SUBJECTS" | grep -qivF '[patch]'; then
+            BUMP=patch
+          else
+            BUMP=minor
           fi
         fi
 
