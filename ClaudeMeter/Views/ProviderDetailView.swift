@@ -19,6 +19,8 @@ struct ProviderDetailView: View {
     /// Max models to list in the breakdown.
     var maxModels: Int = 6
     var isServiceDown: Bool = false
+    /// On-demand rate-limit reset credits (Codex only).
+    var rateLimitResetCredits: RateLimitResetCredits? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -38,6 +40,10 @@ struct ProviderDetailView: View {
                         UsageRowView(title: window.windowType.displayName, usage: window, now: now, showStatusDot: true)
                     }
                 }
+            }
+
+            if let credits = rateLimitResetCredits {
+                resetCreditsRow(credits)
             }
 
             if let detail {
@@ -111,6 +117,27 @@ struct ProviderDetailView: View {
                 }
             }
             Spacer()
+        }
+    }
+
+    // MARK: - Reset Credits
+
+    private func resetCreditsRow(_ credits: RateLimitResetCredits) -> some View {
+        HStack(spacing: 8) {
+            Text("Rate Limit Resets")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            if credits.hasImminentExpiry(now: now) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.orange)
+                    .help(credits.tooltipText(now: now) ?? "")
+            }
+            Text("\(credits.availableCount) available")
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(provider.accentColor)
+                .help(credits.tooltipText(now: now) ?? "")
         }
     }
 

@@ -86,6 +86,9 @@ struct CodexUsageServiceTests {
         let counter = CallCounter()
 
         let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                return (Self.response(url: Constants.codexResetCreditsURL, 404), Data())
+            }
             let host = request.url?.host ?? ""
             if host == Self.refreshHost {
                 counter.refreshCalls += 1
@@ -137,11 +140,161 @@ struct CodexUsageServiceTests {
         #expect(snapshot == nil)
     }
 
+    // MARK: - Reset Credits
+
+    @Test func resetCreditsCountParsedFromUsageBody() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"prolite","rate_limit":{"primary_window":{"used_percent":5,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":null},"rate_limit_reset_credits":{"available_count":3}}
+        """
+
+        let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                return (Self.response(url: Constants.codexResetCreditsURL, 404), Data())
+            }
+            return (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        let credits = try #require(snapshot?.rateLimitResetCredits)
+        #expect(credits.availableCount == 3)
+        #expect(credits.expirations.isEmpty)
+    }
+
+    @Test func resetCreditsDetailsEnrichExpirations() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let usageBody = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":22,"reset_at":\(Int(now.timeIntervalSince1970 + 3600))},"secondary_window":null},"rate_limit_reset_credits":{"available_count":2}}
+        """
+        let expiry1 = now.addingTimeInterval(3 * 86400)
+        let expiry2 = now.addingTimeInterval(7 * 86400)
+        let resetBody = """
+        {"available_count":2,"credits":[{"status":"available","expires_at":"\(Self.iso8601(expiry2))"},{"status":"available","expires_at":"\(Self.iso8601(expiry1))"}]}
+        """
+
+        let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                return (Self.response(url: Constants.codexResetCreditsURL, 200), Data(resetBody.utf8))
+            }
+            return (Self.response(200), Data(usageBody.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        let credits = try #require(snapshot?.rateLimitResetCredits)
+        #expect(credits.availableCount == 2)
+        #expect(credits.expirations.count == 2)
+        #expect(credits.expirations == [expiry1, expiry2].sorted())
+    }
+
+    @Test func resetCreditsDetailsFailureFallsBackToCount() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"plus","rate_limit":{"primary_window":{"used_percent":12,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":null},"rate_limit_reset_credits":{"available_count":3}}
+        """
+
+        let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                return (Self.response(url: Constants.codexResetCreditsURL, 500), Data())
+            }
+            return (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        let credits = try #require(snapshot?.rateLimitResetCredits)
+        #expect(credits.availableCount == 3)
+        #expect(credits.expirations.isEmpty)
+    }
+
+    @Test func resetCreditsDetailsSendsExpectedHeaders() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":5,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":null},"rate_limit_reset_credits":{"available_count":1}}
+        """
+        let capture = HeaderCapture()
+
+        let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                capture.openAIBeta = request.value(forHTTPHeaderField: "OpenAI-Beta")
+                capture.originator = request.value(forHTTPHeaderField: "originator")
+                capture.authorization = request.value(forHTTPHeaderField: "Authorization")
+                return (Self.response(url: Constants.codexResetCreditsURL, 200), Data(#"{"available_count":1,"credits":[]}"#.utf8))
+            }
+            return (Self.response(200), Data(body.utf8))
+        }
+        _ = try await service.fetchSnapshot()
+
+        #expect(capture.openAIBeta == "codex-1")
+        #expect(capture.originator == "Codex Desktop")
+        #expect(capture.authorization == "Bearer test-access")
+    }
+
+    @Test func resetCreditsFiltersNonAvailableCredits() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let usageBody = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":5,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":null},"rate_limit_reset_credits":{"available_count":3}}
+        """
+        let availableExpiry = now.addingTimeInterval(5 * 86400)
+        let resetBody = """
+        {"available_count":3,"credits":[{"status":"available","expires_at":"\(Self.iso8601(availableExpiry))"},{"status":"consumed","expires_at":"\(Self.iso8601(now.addingTimeInterval(86400)))"},{"status":"expired","expires_at":"\(Self.iso8601(now.addingTimeInterval(86400)))"},{"status":"available","expires_at":"\(Self.iso8601(now.addingTimeInterval(10 * 86400)))"}]}
+        """
+
+        let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                return (Self.response(url: Constants.codexResetCreditsURL, 200), Data(resetBody.utf8))
+            }
+            return (Self.response(200), Data(usageBody.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        let credits = try #require(snapshot?.rateLimitResetCredits)
+        #expect(credits.expirations.count == 2)
+        #expect(credits.expirations == [availableExpiry, now.addingTimeInterval(10 * 86400)].sorted())
+    }
+
+    @Test func resetCreditsParsesEpochExpiresAt() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let usageBody = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":5,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":null},"rate_limit_reset_credits":{"available_count":1}}
+        """
+        let epochExpiry = now.addingTimeInterval(6 * 86400).timeIntervalSince1970
+        let resetBody = """
+        {"available_count":1,"credits":[{"status":"available","expires_at":\(epochExpiry)}]}
+        """
+
+        let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                return (Self.response(url: Constants.codexResetCreditsURL, 200), Data(resetBody.utf8))
+            }
+            return (Self.response(200), Data(usageBody.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        let credits = try #require(snapshot?.rateLimitResetCredits)
+        #expect(credits.expirations.count == 1)
+        #expect(credits.expirations.first == Date(timeIntervalSince1970: epochExpiry))
+    }
+
     // MARK: - Helpers
 
     private final class CallCounter {
         var usageCalls = 0
         var refreshCalls = 0
+    }
+
+    private final class HeaderCapture {
+        var openAIBeta: String?
+        var originator: String?
+        var authorization: String?
+    }
+
+    private static func isResetCreditsPath(_ request: URLRequest) -> Bool {
+        (request.url?.path ?? "").contains("rate-limit-reset-credits")
+    }
+
+    private static func iso8601(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.string(from: date)
     }
 
     private static func makeService(
@@ -166,8 +319,12 @@ struct CodexUsageServiceTests {
     }
 
     private static func response(_ status: Int, headers: [String: String] = [:]) -> HTTPURLResponse {
+        Self.response(url: Constants.codexUsageURL, status, headers: headers)
+    }
+
+    private static func response(url: URL, _ status: Int, headers: [String: String] = [:]) -> HTTPURLResponse {
         HTTPURLResponse(
-            url: Constants.codexUsageURL,
+            url: url,
             statusCode: status,
             httpVersion: "HTTP/2",
             headerFields: headers
