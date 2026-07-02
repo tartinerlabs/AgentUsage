@@ -8,7 +8,7 @@ allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 
 Releases are **fully automated**. Every code push to `main` triggers `.github/workflows/auto-release.yml`, which:
 
-1. Computes the next version from the latest `v*` tag (patch by default)
+1. Computes the next version from the latest `v*` tag (minor by default)
 2. Generates release notes from commit subjects since that tag
 3. Runs the macOS test suite — any failure aborts before anything is pushed
 4. Bumps `Config/Version.xcconfig`, `project.pbxproj`, and `CHANGELOG.md`, commits "Bump version to X.Y.Z"
@@ -24,9 +24,12 @@ The bespoke release logic lives in local composite actions under `.github/action
 
 ### Bump type
 
-- Default: **patch** (0.14.2 → 0.14.3)
-- Include the literal token `[minor]` or `[major]` anywhere in a commit subject or body to escalate; the highest marker since the last tag wins. Markers are stripped from release notes.
-  - Example: `Add per-provider outage tracking [minor]`
+- Default: **minor** (0.14.2 → 0.15.0) — a release is assumed to add something user-facing, since plain commit subjects carry no type to infer from
+- Include the literal token `[patch]` on **every** release-worthy commit since the last tag to downgrade to a patch (0.14.2 → 0.14.3) — use for pure bug-fix releases
+  - Example: `Fix menu bar badge alignment [patch]`
+- Include the literal token `[major]` anywhere in a commit subject or body to escalate to a major (breaking) bump; it wins over everything else. Markers are stripped from release notes.
+  - Example: `Drop legacy usage endpoint [major]`
+- `[minor]` is still accepted but is a no-op alias of the default
 
 ### Skipping a release
 
