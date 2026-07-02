@@ -113,6 +113,8 @@ final class LiveActivityManager: ObservableObject {
             return snapshot.sonnet ?? snapshot.opus
         case .design:
             return snapshot.design ?? snapshot.opus
+        case .fable:
+            return snapshot.fable ?? snapshot.opus
         }
     }
 }

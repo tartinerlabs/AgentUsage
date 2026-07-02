@@ -39,6 +39,10 @@ struct LargeWidgetView: View {
                 usageRow(title: design.windowType.displayName, usage: design)
             }
 
+            if let fable = entry.snapshot.fable {
+                usageRow(title: fable.windowType.displayName, usage: fable)
+            }
+
             Spacer()
         }
         .padding(4)

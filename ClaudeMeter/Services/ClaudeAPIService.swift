@@ -150,6 +150,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             let sevenDaySonnet: UsageWindowResponse?  // Separate Sonnet limit
             let sevenDayOmelette: UsageWindowResponse?  // Claude Design ("omelette" is Anthropic's internal codename)
             let extraUsage: ExtraUsageResponse?
+            let limits: [LimitEntry]?  // Generalized per-model/session limits (source of Fable, etc.)
 
             enum CodingKeys: String, CodingKey {
                 case fiveHour = "five_hour"
@@ -157,6 +158,37 @@ actor ClaudeAPIService: APIServiceProtocol {
                 case sevenDaySonnet = "seven_day_sonnet"
                 case sevenDayOmelette = "seven_day_omelette"
                 case extraUsage = "extra_usage"
+                case limits
+            }
+        }
+
+        // Generalized limit entry from the `limits` array. Per-model weekly limits
+        // (Fable, etc.) arrive here as `kind == "weekly_scoped"` with the model's
+        // display name under `scope.model.display_name`, rather than as a dedicated
+        // top-level `seven_day_*` key.
+        struct LimitEntry: Decodable {
+            let kind: String?
+            let percent: Double?
+            let resetsAt: String?
+            let scope: Scope?
+
+            struct Scope: Decodable {
+                let model: Model?
+
+                struct Model: Decodable {
+                    let displayName: String?
+
+                    enum CodingKeys: String, CodingKey {
+                        case displayName = "display_name"
+                    }
+                }
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case kind
+                case percent
+                case resetsAt = "resets_at"
+                case scope
             }
         }
 
@@ -225,6 +257,19 @@ actor ClaudeAPIService: APIServiceProtocol {
             )
         }
 
+        // Separate Fable limit (if available). Fable has no dedicated top-level key;
+        // it appears in the `limits` array as a weekly-scoped entry whose model
+        // display name is "Fable".
+        let fable = response.limits?
+            .first { ($0.scope?.model?.displayName ?? "").caseInsensitiveCompare("Fable") == .orderedSame }
+            .map {
+                UsageWindow(
+                    utilization: $0.percent ?? 0,
+                    resetsAt: dateFormatter.date(from: $0.resetsAt ?? "") ?? Date(),
+                    windowType: .fable
+                )
+            }
+
         // Extra usage cost (API returns amounts in cents)
         let extraUsage: ExtraUsageCost? = {
             guard let extra = response.extraUsage,
@@ -243,6 +288,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             opus: opus,
             sonnet: sonnet,
             design: design,
+            fable: fable,
             extraUsage: extraUsage,
             fetchedAt: Date()
         )

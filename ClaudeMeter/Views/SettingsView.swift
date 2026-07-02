@@ -114,6 +114,10 @@ private struct NotificationsTab: View {
                         get: { settings.notifyDesign },
                         set: { settings.notifyDesign = $0; settings.save() }
                     ))
+                    Toggle("Fable (weekly)", isOn: Binding(
+                        get: { settings.notifyFable },
+                        set: { settings.notifyFable = $0; settings.save() }
+                    ))
                 }
 
                 Section {

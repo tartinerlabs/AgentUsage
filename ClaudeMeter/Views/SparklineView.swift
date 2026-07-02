@@ -117,6 +117,19 @@ extension SparklineView {
             width: width
         )
     }
+
+    /// Create a sparkline from daily usage records for fable utilization
+    static func fable(from records: [DailyUsageRecord], width: CGFloat = 30, height: CGFloat = 10) -> SparklineView? {
+        let fableValues = records.compactMap(\.peakFableUtilization)
+        guard fableValues.count >= 2 else { return nil }
+
+        return SparklineView(
+            values: fableValues,
+            color: .white.opacity(0.8),
+            height: height,
+            width: width
+        )
+    }
 }
 
 #Preview {

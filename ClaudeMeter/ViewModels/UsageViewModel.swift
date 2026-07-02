@@ -232,6 +232,12 @@ final class UsageViewModel {
         }
     }
 
+    var menuBarShowFable: Bool {
+        didSet {
+            UserDefaults.standard.set(menuBarShowFable, forKey: "menuBarShowFable")
+        }
+    }
+
     var menuBarShowCodex: Bool {
         didSet {
             UserDefaults.standard.set(menuBarShowCodex, forKey: "menuBarShowCodex")
@@ -303,6 +309,7 @@ final class UsageViewModel {
         self.menuBarShowAllModels = defaults.object(forKey: "menuBarShowAllModels") as? Bool ?? false
         self.menuBarShowSonnet = defaults.object(forKey: "menuBarShowSonnet") as? Bool ?? false
         self.menuBarShowDesign = defaults.object(forKey: "menuBarShowDesign") as? Bool ?? false
+        self.menuBarShowFable = defaults.object(forKey: "menuBarShowFable") as? Bool ?? false
         self.menuBarShowCodex = defaults.object(forKey: "menuBarShowCodex") as? Bool ?? false
         self.menuBarShowExtraUsage = defaults.object(forKey: "menuBarShowExtraUsage") as? Bool ?? true
 

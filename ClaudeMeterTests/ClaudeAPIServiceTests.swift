@@ -55,11 +55,13 @@ struct APIResponseParsingTests {
             let fiveHour: UsageWindowResponse?
             let sevenDay: UsageWindowResponse?
             let sevenDaySonnet: UsageWindowResponse?
+            let limits: [LimitEntry]?
 
             enum CodingKeys: String, CodingKey {
                 case fiveHour = "five_hour"
                 case sevenDay = "seven_day"
                 case sevenDaySonnet = "seven_day_sonnet"
+                case limits
             }
         }
 
@@ -70,6 +72,32 @@ struct APIResponseParsingTests {
             enum CodingKeys: String, CodingKey {
                 case utilization
                 case resetsAt = "resets_at"
+            }
+        }
+
+        struct LimitEntry: Decodable {
+            let kind: String?
+            let percent: Double?
+            let resetsAt: String?
+            let scope: Scope?
+
+            struct Scope: Decodable {
+                let model: Model?
+
+                struct Model: Decodable {
+                    let displayName: String?
+
+                    enum CodingKeys: String, CodingKey {
+                        case displayName = "display_name"
+                    }
+                }
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case kind
+                case percent
+                case resetsAt = "resets_at"
+                case scope
             }
         }
 
@@ -104,10 +132,21 @@ struct APIResponseParsingTests {
             )
         }
 
+        let fable = response.limits?
+            .first { ($0.scope?.model?.displayName ?? "").caseInsensitiveCompare("Fable") == .orderedSame }
+            .map {
+                UsageWindow(
+                    utilization: $0.percent ?? 0,
+                    resetsAt: dateFormatter.date(from: $0.resetsAt ?? "") ?? Date(),
+                    windowType: .fable
+                )
+            }
+
         return UsageSnapshot(
             session: session,
             opus: opus,
             sonnet: sonnet,
+            fable: fable,
             fetchedAt: Date()
         )
     }
@@ -159,6 +198,58 @@ struct APIResponseParsingTests {
         #expect(snapshot.session.utilization == 50.0)
         #expect(snapshot.opus.utilization == 40.0)
         #expect(snapshot.sonnet == nil)
+    }
+
+    @Test func parsesFableFromLimitsArray() throws {
+        // Fable has no dedicated top-level key; it arrives in the `limits` array
+        // as a weekly-scoped entry whose model display name is "Fable".
+        let json = """
+        {
+            "five_hour": {
+                "utilization": 9.0,
+                "resets_at": "2026-07-02T20:20:00.332945Z"
+            },
+            "seven_day": {
+                "utilization": 11.0,
+                "resets_at": "2026-07-08T08:00:00.332967Z"
+            },
+            "limits": [
+                { "kind": "session", "percent": 9, "resets_at": "2026-07-02T20:20:00.332945Z", "scope": null },
+                { "kind": "weekly_all", "percent": 11, "resets_at": "2026-07-08T08:00:00.332967Z", "scope": null },
+                { "kind": "weekly_scoped", "percent": 16, "resets_at": "2026-07-08T08:00:00.333287Z",
+                  "scope": { "model": { "id": null, "display_name": "Fable" } } }
+            ]
+        }
+        """
+
+        let snapshot = try parseUsageResponse(json)
+
+        #expect(snapshot.fable?.utilization == 16)
+        #expect(snapshot.fable?.windowType == .fable)
+        #expect(snapshot.opus.utilization == 11.0)
+    }
+
+    @Test func parsesResponseWithoutFable() throws {
+        // No Fable-scoped entry in limits → fable window is nil.
+        let json = """
+        {
+            "five_hour": {
+                "utilization": 50.0,
+                "resets_at": "2024-01-15T18:30:00.000Z"
+            },
+            "seven_day": {
+                "utilization": 40.0,
+                "resets_at": "2024-01-20T00:00:00.000Z"
+            },
+            "limits": [
+                { "kind": "session", "percent": 50, "resets_at": "2024-01-15T18:30:00.000Z", "scope": null }
+            ]
+        }
+        """
+
+        let snapshot = try parseUsageResponse(json)
+
+        #expect(snapshot.fable == nil)
     }
 
     @Test func parsesResponseAt100Percent() throws {

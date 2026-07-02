@@ -11,6 +11,7 @@ enum MetricType: String, AppEnum {
     case opus
     case sonnet
     case design
+    case fable
 
     static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Metric")
 
@@ -18,7 +19,8 @@ enum MetricType: String, AppEnum {
         .session: DisplayRepresentation(title: "Current session (5h)"),
         .opus: DisplayRepresentation(title: "All models (7d)"),
         .sonnet: DisplayRepresentation(title: "Sonnet (7d)"),
-        .design: DisplayRepresentation(title: "Claude Design (7d)")
+        .design: DisplayRepresentation(title: "Claude Design (7d)"),
+        .fable: DisplayRepresentation(title: "Fable (7d)")
     ]
 
     var displayName: String {
@@ -27,6 +29,7 @@ enum MetricType: String, AppEnum {
         case .opus: return "All models"
         case .sonnet: return "Sonnet"
         case .design: return "Claude Design"
+        case .fable: return "Fable"
         }
     }
 }

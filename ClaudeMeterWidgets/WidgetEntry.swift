@@ -27,6 +27,8 @@ struct WidgetEntry: TimelineEntry {
             return snapshot.sonnet ?? snapshot.opus
         case .design:
             return snapshot.design ?? snapshot.opus
+        case .fable:
+            return snapshot.fable ?? snapshot.opus
         }
     }
 }
