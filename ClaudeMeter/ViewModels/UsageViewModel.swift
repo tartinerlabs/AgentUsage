@@ -184,6 +184,9 @@ final class UsageViewModel {
     /// Tracks the cost-model version that persisted history was last re-priced against.
     fileprivate static let costModelRepricedVersionKey = "costModelRepricedVersion"
     private let cachePlanKey = "cachedPlanType"
+    /// Epoch-seconds timestamps gating once-per-day maintenance passes.
+    private static let lastCleanupDateKey = "lastTokenCleanupDate"
+    private static let lastZeroCostRecalcDateKey = "lastZeroCostRecalcDate"
 
     var refreshInterval: RefreshFrequency {
         didSet {
@@ -565,6 +568,14 @@ final class UsageViewModel {
         blogUsageSyncStatus = status
     }
 
+    /// True if ≥24h have elapsed since the epoch-seconds timestamp stored at `key`
+    /// (or it was never set). Does not update the stored value.
+    private static func shouldRunMaintenance(key: String) -> Bool {
+        let last = UserDefaults.standard.double(forKey: key)
+        guard last > 0 else { return true }
+        return Date().timeIntervalSince1970 - last >= 24 * 60 * 60
+    }
+
     /// Refresh token usage from SwiftData repository (with incremental import)
     private func refreshTokenUsage() async {
         isLoadingTokenUsage = true
@@ -606,8 +617,20 @@ final class UsageViewModel {
                     }
                 }
 
-                // Recalculate costs for entries imported before new model pricing was added
-                _ = try? await repository.recalculateZeroCostEntries()
+                // Trim entries past the 13-month retention window at most once per day.
+                // This is a menu-bar app that can run for weeks, so gate on elapsed
+                // time, not launch count.
+                if Self.shouldRunMaintenance(key: Self.lastCleanupDateKey) {
+                    try? await repository.cleanupOldEntries()
+                    UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCleanupDateKey)
+                }
+
+                // Reprice $0 rows only when the LiteLLM pricing cache may have changed
+                // (~24h TTL), instead of a full-table scan on every refresh.
+                if Self.shouldRunMaintenance(key: Self.lastZeroCostRecalcDateKey) {
+                    _ = try? await repository.recalculateZeroCostEntries()
+                    UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastZeroCostRecalcDateKey)
+                }
 
                 // One-time re-price of all persisted history after a cost-model change.
                 // Runs once per cost-model version. v3 reverts the 200k tiered
@@ -630,10 +653,16 @@ final class UsageViewModel {
                     throw TokenUsageError.swiftDataError(error)
                 }
 
-                // Prefetch and cache summaries for all periods
-                await prefetchAllPeriodSummaries()
-                // Update the currently selected period summary from cache
-                selectedPeriodSummary = periodSummaries[selectedTokenPeriod]
+                // Seed the two periods fetchSnapshot already computed; fetch only the
+                // visible period if it isn't one of them. Longer periods (90/180/365d)
+                // load on demand via DashboardTabView's .task(id: selectedTokenPeriod).
+                periodSummaries[.today] = tokenSnapshot?.today
+                periodSummaries[.last30Days] = tokenSnapshot?.last30Days
+                if selectedTokenPeriod != .today && selectedTokenPeriod != .last30Days {
+                    await refreshSelectedPeriodSummary()
+                } else {
+                    selectedPeriodSummary = periodSummaries[selectedTokenPeriod]
+                }
 
             } else if let service = tokenService {
                 // Fallback to direct service query (no persistence)
