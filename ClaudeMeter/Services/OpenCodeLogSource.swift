@@ -89,8 +89,7 @@ actor OpenCodeLogSource: UsageLogSource {
 
             entries.append(
                 ProviderUsageEntry(
-                    // Source bucket follows the log owner; providerID is only the upstream pricing key.
-                    provider: .openCode,
+                    provider: model.provider,
                     model: model.id,
                     pricingProviderKey: model.providerID,
                     tokens: tokens,
@@ -104,17 +103,31 @@ actor OpenCodeLogSource: UsageLogSource {
     }
 
     /// OpenCode stores `model` as JSON: `{"id":"gpt-5.5","providerID":"openai","variant":"…"}`.
-    static func parseModel(_ json: String) -> (id: String, providerID: String) {
+    ///
+    /// `providerID` is the upstream OpenCode provider key, not the display bucket.
+    /// ChatGPT-subscription sessions report `providerID: "openai"` (first-party
+    /// OpenAI models served via the codex endpoint) and belong in the Codex bucket;
+    /// OpenCode Go/Zen and OpenAI-compatible third-party setups stay in OpenCode.
+    static func parseModel(_ json: String) -> (id: String, providerID: String, provider: Provider) {
         guard let data = json.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return (json.isEmpty ? "unknown" : json, "unknown")
+            return (json.isEmpty ? "unknown" : json, "unknown", .openCode)
         }
         let id = (obj["id"] as? String) ?? "unknown"
         let providerID = (obj["providerID"] as? String)
             ?? (obj["providerId"] as? String)
             ?? (obj["provider"] as? String)
             ?? "unknown"
-        return (id, providerID)
+        return (id, providerID, providerBucket(forProviderID: providerID))
+    }
+
+    static func providerBucket(forProviderID providerID: String) -> Provider {
+        switch providerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "openai":
+            return .codex
+        default:
+            return .openCode
+        }
     }
 }
 #endif
