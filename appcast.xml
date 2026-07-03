@@ -6,25 +6,25 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.16.0</title>
-            <pubDate>Thu, 02 Jul 2026 17:12:26 +0000</pubDate>
-            <sparkle:version>69</sparkle:version>
-            <sparkle:shortVersionString>0.16.0</sparkle:shortVersionString>
+            <title>Version 0.17.0</title>
+            <pubDate>Fri, 03 Jul 2026 03:11:28 +0000</pubDate>
+            <sparkle:version>70</sparkle:version>
+            <sparkle:shortVersionString>0.17.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>Cut redundant per-refresh SwiftData work for token usage</li>
+<li>Persist usage history with SwiftData</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.16.0/ClaudeMeter.zip"
-                length="2235998"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.17.0/ClaudeMeter.zip"
+                length="2256778"
                 type="application/octet-stream"
-                sparkle:edSignature="URF67p4ngz8VlkgwgVSQWyDzj3I0ge/tYCXYMwpZburDzubzudVFHITl73DHQXlXnSX3viUSzcn8UcjQ3j30Dw==" />
+                sparkle:edSignature="j5R9Dck5ClWfvk/2ADWk1simsN/rt0HKWEOq2M+d7JMwEDf+aM+mGIge2fECJ0idiDhg4Rom+/6GF1KV3W+NAw==" />
         </item>
     </channel>
 </rss>
