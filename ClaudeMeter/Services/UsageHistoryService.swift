@@ -8,42 +8,90 @@
 import Foundation
 import ClaudeMeterKit
 import OSLog
+import SwiftData
 
 /// Service for managing historical usage data
 actor UsageHistoryService {
     static let shared = UsageHistoryService()
+    nonisolated private static let logger = Logger(subsystem: "com.tartinerlabs.ClaudeMeter", category: "History")
 
     private let storageKey = "usageHistory"
+    private let repository: UsageHistoryRepository?
+    private let defaults: UserDefaults
     private var history: UsageHistory
 
-    private init() {
-        history = Self.loadFromStorage()
+    init(repository: UsageHistoryRepository? = nil, defaults: UserDefaults = .standard) {
+        self.repository = repository
+        self.defaults = defaults
+        self.history = Self.loadFromStorage(defaults: defaults)
     }
 
     // MARK: - Public API
 
     /// Record a new snapshot to history
-    func record(snapshot: UsageSnapshot) {
+    func record(snapshot: UsageSnapshot) async {
+        if let repository {
+            do {
+                try await repository.migrateFromUserDefaultsIfNeeded(defaults: defaults)
+                try await repository.record(snapshot: snapshot)
+                Self.logger.debug("Recorded usage snapshot to SwiftData history")
+            } catch {
+                Self.logger.error("Failed to save SwiftData usage history: \(error.localizedDescription)")
+            }
+            return
+        }
+
         history.record(snapshot: snapshot)
         saveToStorage()
-        Logger.history.debug("Recorded usage snapshot to history")
+        Self.logger.debug("Recorded usage snapshot to history")
     }
 
     /// Get the current usage history
-    func getHistory() -> UsageHistory {
-        history
+    func getHistory() async -> UsageHistory {
+        if let repository {
+            do {
+                try await repository.migrateFromUserDefaultsIfNeeded(defaults: defaults)
+                return try await repository.fetchHistory()
+            } catch {
+                Self.logger.error("Failed to load SwiftData usage history: \(error.localizedDescription)")
+                return history
+            }
+        }
+
+        return history
     }
 
     /// Get records for the last N days
-    func getRecords(days: Int) -> [DailyUsageRecord] {
-        history.last(days)
+    func getRecords(days: Int) async -> [DailyUsageRecord] {
+        if let repository {
+            do {
+                try await repository.migrateFromUserDefaultsIfNeeded(defaults: defaults)
+                return try await repository.fetchRecords(days: days)
+            } catch {
+                Self.logger.error("Failed to load SwiftData usage records: \(error.localizedDescription)")
+                return history.last(days)
+            }
+        }
+
+        return history.last(days)
     }
 
     /// Clear all history
-    func clear() {
+    func clear() async {
+        if let repository {
+            do {
+                try await repository.clear()
+                history = UsageHistory()
+                Self.logger.info("Cleared SwiftData usage history")
+            } catch {
+                Self.logger.error("Failed to clear SwiftData usage history: \(error.localizedDescription)")
+            }
+            return
+        }
+
         history = UsageHistory()
         saveToStorage()
-        Logger.history.info("Cleared usage history")
+        Self.logger.info("Cleared usage history")
     }
 
     // MARK: - Persistence
@@ -51,14 +99,14 @@ actor UsageHistoryService {
     private func saveToStorage() {
         do {
             let data = try JSONEncoder().encode(history)
-            UserDefaults.standard.set(data, forKey: storageKey)
+            defaults.set(data, forKey: storageKey)
         } catch {
-            Logger.history.error("Failed to save usage history: \(error.localizedDescription)")
+            Self.logger.error("Failed to save usage history: \(error.localizedDescription)")
         }
     }
 
-    private static func loadFromStorage() -> UsageHistory {
-        guard let data = UserDefaults.standard.data(forKey: "usageHistory"),
+    private static func loadFromStorage(defaults: UserDefaults) -> UsageHistory {
+        guard let data = defaults.data(forKey: "usageHistory"),
               let history = try? JSONDecoder().decode(UsageHistory.self, from: data) else {
             return UsageHistory()
         }
