@@ -264,6 +264,7 @@ final class UsageViewModel {
     private let tokenService: TokenUsageService?
     private let tokenRepository: TokenUsageRepository?
     private let tokenQuerier: TokenUsageQuerier?
+    private let usageHistoryService: UsageHistoryService
     private let blogUsageSyncService: BlogUsageSyncService?
     private let blogOAuthService: BlogOAuthService?
     private let codexUsageService: CodexUsageService?
@@ -288,6 +289,7 @@ final class UsageViewModel {
         blogOAuthService: BlogOAuthService? = nil,
         codexUsageService: CodexUsageService? = nil,
         openCodeGoUsageService: OpenCodeGoUsageService? = nil,
+        usageHistoryService: UsageHistoryService? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.credentialProvider = credentialProvider
@@ -295,6 +297,9 @@ final class UsageViewModel {
         self.tokenService = tokenService
         self.tokenRepository = modelContext.map { TokenUsageRepository(modelContext: $0) }
         self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
+        self.usageHistoryService = usageHistoryService
+            ?? modelContext.map { UsageHistoryService(repository: UsageHistoryRepository(modelContainer: $0.container)) }
+            ?? UsageHistoryService.shared
         self.blogUsageSyncService = blogUsageSyncService
         self.blogOAuthService = blogOAuthService
         self.codexUsageService = codexUsageService
@@ -323,6 +328,7 @@ final class UsageViewModel {
     init(credentialProvider: any CredentialProvider, apiService: (any APIServiceProtocol)? = nil) {
         self.credentialProvider = credentialProvider
         self.apiService = apiService ?? ClaudeAPIService()
+        self.usageHistoryService = UsageHistoryService.shared
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
         self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
@@ -392,7 +398,7 @@ final class UsageViewModel {
                 cacheSnapshot(newSnapshot, planType: planType)
 
                 // Record to usage history for trend tracking
-                await UsageHistoryService.shared.record(snapshot: newSnapshot)
+                await usageHistoryService.record(snapshot: newSnapshot)
 
                 // Check for threshold crossings and send notifications (macOS only)
                 #if os(macOS)
