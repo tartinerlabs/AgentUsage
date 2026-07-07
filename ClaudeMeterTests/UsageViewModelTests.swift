@@ -67,6 +67,16 @@ struct UsageViewModelInitialStateTests {
 struct UsageViewModelStatusTests {
 
     @Test @MainActor func overallStatusIsOnTrackWhenNoSnapshot() async {
+        // The view model loads any cached snapshot from UserDefaults on init,
+        // and concurrent tests write to the shared defaults domain. Stash and
+        // restore the cache so this test truly starts with no snapshot.
+        let defaults = UserDefaults.standard
+        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
+        defaults.removeObject(forKey: "cachedUsageSnapshot")
+        defer {
+            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
+        }
+
         let mockCredentials = MockCredentialProvider()
         let viewModel = UsageViewModel(credentialProvider: mockCredentials)
 
