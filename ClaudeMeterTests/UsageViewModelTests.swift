@@ -129,6 +129,61 @@ struct UsageViewModelOfflineModeTests {
     }
 }
 
+// MARK: - Refresh Gate Tests
+
+@Suite("UsageViewModel Refresh Gate")
+struct UsageViewModelRefreshGateTests {
+
+    private func makeSnapshot() -> UsageSnapshot {
+        UsageSnapshot(
+            session: UsageWindow(utilization: 50, resetsAt: Date().addingTimeInterval(3600), windowType: .session),
+            opus: UsageWindow(utilization: 30, resetsAt: Date().addingTimeInterval(86400), windowType: .opus),
+            sonnet: nil,
+            fetchedAt: Date()
+        )
+    }
+
+    /// Regression: the rate-limit gate must advance when a refresh cycle RUNS, not
+    /// only when the Claude fetch succeeds. This is what stops Claude's outcome from
+    /// deciding whether the batch (and thus the other providers) may refresh. A
+    /// failed cycle still advances the timestamp, so a non-forced refresh right after
+    /// is debounced.
+    @Test @MainActor func gateAdvancesEvenWhenClaudeFetchFails() async {
+        // Isolate from any cached snapshot in the shared defaults domain.
+        let defaults = UserDefaults.standard
+        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
+        let savedPlan = defaults.string(forKey: "cachedPlanType")
+        defaults.removeObject(forKey: "cachedUsageSnapshot")
+        defaults.removeObject(forKey: "cachedPlanType")
+        defer {
+            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
+            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
+        }
+
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+
+        // First cycle fails. The gate timestamp advances because the cycle ran.
+        await mockAPI.setMockError(ClaudeAPIService.APIError.rateLimited(retryAfter: 30))
+        await viewModel.refresh(force: true)
+        #expect(viewModel.snapshot == nil)
+
+        // A non-forced refresh immediately after must be debounced by the 30s gate,
+        // even though a valid snapshot is now available — proving the gate advanced
+        // on the prior failed run rather than waiting for a Claude success.
+        await mockAPI.setMockError(nil)
+        await mockAPI.setMockSnapshot(makeSnapshot())
+        await viewModel.refresh(force: false)
+        #expect(viewModel.snapshot == nil)
+
+        // A forced refresh bypasses the gate and applies the new snapshot.
+        await viewModel.refresh(force: true)
+        #expect(viewModel.snapshot != nil)
+    }
+}
+
 // MARK: - Refresh Frequency Tests
 
 @Suite("RefreshFrequency")
