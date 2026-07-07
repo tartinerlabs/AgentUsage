@@ -260,11 +260,11 @@ final class UsageViewModel {
 
     private let credentialProvider: any CredentialProvider
     private let apiService: any APIServiceProtocol
+    private let usageHistoryService: UsageHistoryService
     #if os(macOS)
     private let tokenService: TokenUsageService?
     private let tokenRepository: TokenUsageRepository?
     private let tokenQuerier: TokenUsageQuerier?
-    private let usageHistoryService: UsageHistoryService
     private let blogUsageSyncService: BlogUsageSyncService?
     private let blogOAuthService: BlogOAuthService?
     private let codexUsageService: CodexUsageService?

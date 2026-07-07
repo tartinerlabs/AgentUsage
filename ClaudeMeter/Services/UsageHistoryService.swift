@@ -19,6 +19,7 @@ actor UsageHistoryService {
     private let repository: UsageHistoryRepository?
     private let defaults: UserDefaults
     private var history: UsageHistory
+    private var didMigrate = false
 
     init(repository: UsageHistoryRepository? = nil, defaults: UserDefaults = .standard) {
         self.repository = repository
@@ -32,7 +33,7 @@ actor UsageHistoryService {
     func record(snapshot: UsageSnapshot) async {
         if let repository {
             do {
-                try await repository.migrateFromUserDefaultsIfNeeded(defaults: defaults)
+                try await ensureMigrated(repository)
                 try await repository.record(snapshot: snapshot)
                 Self.logger.debug("Recorded usage snapshot to SwiftData history")
             } catch {
@@ -50,7 +51,7 @@ actor UsageHistoryService {
     func getHistory() async -> UsageHistory {
         if let repository {
             do {
-                try await repository.migrateFromUserDefaultsIfNeeded(defaults: defaults)
+                try await ensureMigrated(repository)
                 return try await repository.fetchHistory()
             } catch {
                 Self.logger.error("Failed to load SwiftData usage history: \(error.localizedDescription)")
@@ -65,7 +66,7 @@ actor UsageHistoryService {
     func getRecords(days: Int) async -> [DailyUsageRecord] {
         if let repository {
             do {
-                try await repository.migrateFromUserDefaultsIfNeeded(defaults: defaults)
+                try await ensureMigrated(repository)
                 return try await repository.fetchRecords(days: days)
             } catch {
                 Self.logger.error("Failed to load SwiftData usage records: \(error.localizedDescription)")
@@ -95,6 +96,12 @@ actor UsageHistoryService {
     }
 
     // MARK: - Persistence
+
+    private func ensureMigrated(_ repository: UsageHistoryRepository) async throws {
+        guard !didMigrate else { return }
+        try await repository.migrateFromUserDefaultsIfNeeded(defaults: defaults)
+        didMigrate = true
+    }
 
     private func saveToStorage() {
         do {
