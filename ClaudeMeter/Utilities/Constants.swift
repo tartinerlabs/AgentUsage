@@ -41,11 +41,31 @@ enum Constants {
     /// headers the endpoint expects: `OpenAI-Beta: codex-1`, `originator: Codex Desktop`.
     static let codexResetCreditsURL = URL(string: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")!
 
+    // MARK: - Cursor (live usage)
+    /// Cursor's dashboard backend (Connect RPC over HTTP, returns JSON). Bearer-authed
+    /// with the access token read from Cursor's local state DB / keychain.
+    /// Approach derived from robinebers/openusage (MIT).
+    static let cursorUsageURL = URL(string: "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage")!
+    static let cursorPlanURL = URL(string: "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo")!
+    static let cursorTokenRefreshURL = URL(string: "https://api2.cursor.sh/oauth/token")!
+    static let cursorOAuthClientID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB"
+    static let cursorConnectProtocolVersionHeader = "Connect-Protocol-Version"
+    /// REST fallback for legacy request-quota accounts. Cookie-authed with the WorkOS session token.
+    static let cursorRestUsageURL = URL(string: "https://cursor.com/api/usage")!
+    /// Generic-password keychain services Cursor's CLI writes.
+    static let cursorKeychainAccessTokenService = "cursor-access-token"
+    static let cursorKeychainRefreshTokenService = "cursor-refresh-token"
+    /// `ItemTable` keys inside Cursor's `state.vscdb`.
+    static let cursorStateAccessTokenKey = "cursorAuth/accessToken"
+    static let cursorStateRefreshTokenKey = "cursorAuth/refreshToken"
+
     // MARK: - Provider Links (status / console dashboards)
     static let anthropicStatusURL = "https://status.anthropic.com"
     static let anthropicConsoleURL = "https://claude.ai/settings/usage"
     static let openaiStatusURL = "https://status.openai.com"
     static let openaiPlatformURL = "https://platform.openai.com/usage"
+    static let cursorStatusURL = "https://status.cursor.com"
+    static let cursorDashboardURL = "https://cursor.com/dashboard"
 
     // MARK: - Network Configuration
     static let requestTimeout: TimeInterval = 30
@@ -139,6 +159,15 @@ enum Constants {
         }
         urls.append(home.appendingPathComponent(".local/share/opencode/opencode.db"))
         return urls
+    }
+
+    /// Cursor's local state DB (`state.vscdb`), which holds the auth tokens in `ItemTable`.
+    /// The access token also lives in the keychain (`cursorKeychainAccessTokenService`).
+    nonisolated static var cursorStateDBURLs: [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return [
+            home.appendingPathComponent("Library/Application Support/Cursor/User/globalStorage/state.vscdb")
+        ]
     }
     #endif
 }

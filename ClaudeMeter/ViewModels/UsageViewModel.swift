@@ -23,6 +23,8 @@ final class UsageViewModel {
     var codexUsage: ProviderUsageSnapshot?
     /// OpenCode Go quota windows read from the authenticated dashboard page.
     var openCodeGoUsage: ProviderUsageSnapshot?
+    /// Cursor billing-cycle usage windows read from Cursor's dashboard backend.
+    var cursorUsage: ProviderUsageSnapshot?
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
     /// for all providers (Claude, Codex, OpenCode).
     var providerDetails: [Provider: ProviderDetail] = [:]
@@ -118,6 +120,11 @@ final class UsageViewModel {
         }
         if let openCodeError = error as? OpenCodeGoUsageService.OpenCodeError {
             switch openCodeError {
+            case .serverError(let code): return (500...599).contains(code) ? code : nil
+            }
+        }
+        if let cursorError = error as? CursorUsageService.CursorError {
+            switch cursorError {
             case .serverError(let code): return (500...599).contains(code) ? code : nil
             }
         }
@@ -269,6 +276,7 @@ final class UsageViewModel {
     private let blogOAuthService: BlogOAuthService?
     private let codexUsageService: CodexUsageService?
     private let openCodeGoUsageService: OpenCodeGoUsageService?
+    private let cursorUsageService: CursorUsageService?
     #endif
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
@@ -289,6 +297,7 @@ final class UsageViewModel {
         blogOAuthService: BlogOAuthService? = nil,
         codexUsageService: CodexUsageService? = nil,
         openCodeGoUsageService: OpenCodeGoUsageService? = nil,
+        cursorUsageService: CursorUsageService? = nil,
         usageHistoryService: UsageHistoryService? = nil,
         modelContext: ModelContext? = nil
     ) {
@@ -304,6 +313,7 @@ final class UsageViewModel {
         self.blogOAuthService = blogOAuthService
         self.codexUsageService = codexUsageService
         self.openCodeGoUsageService = openCodeGoUsageService
+        self.cursorUsageService = cursorUsageService
         let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
         self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
@@ -490,6 +500,18 @@ final class UsageViewModel {
                     recordOutage(for: .openCode, error: error)  // keep cached openCodeGoUsage
                 } else {
                     openCodeGoUsage = nil  // preserve existing hide-on-error behavior
+                }
+            }
+        }
+        if let cursorUsageService {
+            do {
+                cursorUsage = try await cursorUsageService.fetchSnapshot()
+                clearIncident(for: .cursor)
+            } catch {
+                if Self.isOutageError(error) {
+                    recordOutage(for: .cursor, error: error)  // keep cached cursorUsage
+                } else {
+                    cursorUsage = nil  // preserve existing hide-on-error behavior
                 }
             }
         }

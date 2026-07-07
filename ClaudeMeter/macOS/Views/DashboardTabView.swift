@@ -76,6 +76,21 @@ struct DashboardTabView: View {
                     )
                 }
 
+                if let cursor = viewModel.cursorUsage {
+                    Divider()
+                    ProviderDetailView(
+                        provider: .cursor,
+                        planName: cursor.planName,
+                        windows: cursor.windows,
+                        detail: viewModel.providerDetails[.cursor],
+                        now: now,
+                        isServiceDown: viewModel.isServiceDown(.cursor)
+                    )
+                    if viewModel.showExtraUsageIndicators, let extraUsage = cursor.extraUsage {
+                        extraUsageCostSection(extraUsage)
+                    }
+                }
+
                 // Claude token-cost drill-down (more periods: 7/90/180/year)
                 if viewModel.snapshot != nil {
                     Divider()

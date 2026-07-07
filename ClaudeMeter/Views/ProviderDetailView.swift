@@ -227,6 +227,8 @@ struct ProviderDetailView: View {
             return [("Status", Constants.openaiStatusURL), ("Usage", Constants.openaiPlatformURL)]
         case .openCode:
             return []
+        case .cursor:
+            return [("Status", Constants.cursorStatusURL), ("Dashboard", Constants.cursorDashboardURL)]
         }
     }
 }

@@ -15,6 +15,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
     case claude
     case codex
     case openCode
+    case cursor
 
     public var id: String { rawValue }
 
@@ -24,6 +25,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .claude: "Claude"
         case .codex: "Codex"
         case .openCode: "OpenCode"
+        case .cursor: "Cursor"
         }
     }
 
@@ -33,6 +35,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .claude: "sparkles"
         case .codex: "chevron.left.forwardslash.chevron.right"
         case .openCode: "curlybraces"
+        case .cursor: "cursorarrow"
         }
     }
 
@@ -42,6 +45,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .claude: Color(red: 217/255, green: 119/255, blue: 87/255)   // Claude clay
         case .codex: Color(red: 16/255, green: 163/255, blue: 127/255)    // OpenAI green
         case .openCode: Color(red: 99/255, green: 102/255, blue: 241/255) // Indigo
+        case .cursor: Color(red: 120/255, green: 132/255, blue: 148/255)  // Cursor slate
         }
     }
 
@@ -60,6 +64,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .claude: [.rateWindows, .tokenCost]
         case .codex: [.rateWindows, .tokenCost]
         case .openCode: [.rateWindows, .tokenCost]
+        case .cursor: [.rateWindows]  // no local token logs — live usage windows only
         }
     }
 
@@ -76,6 +81,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .claude: "anthropic"
         case .codex: "openai"
         case .openCode: "openai"
+        case .cursor: "anthropic"  // unused: Cursor has no local-log token-cost path
         }
     }
 }

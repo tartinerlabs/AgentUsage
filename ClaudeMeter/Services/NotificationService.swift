@@ -250,7 +250,7 @@ actor NotificationService: NotificationServiceProtocol {
             windowDescription = "rolling"
         case .opus, .sonnet, .design, .fable, .codexWeekly, .openCodeGoWeekly:
             windowDescription = "weekly"
-        case .openCodeGoMonthly:
+        case .openCodeGoMonthly, .cursorTotal, .cursorAuto, .cursorApi, .cursorRequests:
             windowDescription = "monthly"
         }
 

@@ -73,6 +73,13 @@ enum DependencyContainer {
         guard OpenCodeGoUsageService.DashboardConfig.load() != nil else { return nil }
         return OpenCodeGoUsageService()
     }
+
+    /// Create the Cursor live-usage service when Cursor's local auth token is present
+    /// (its `state.vscdb` DB or the `cursor-access-token` keychain entry).
+    static func createCursorUsageService() -> CursorUsageService? {
+        guard CursorAuthLoader.load() != nil else { return nil }
+        return CursorUsageService()
+    }
     #endif
 
     // MARK: - ViewModel Factory
@@ -88,6 +95,7 @@ enum DependencyContainer {
         let blogOAuthService = createBlogOAuthService()
         let codexUsageService = createCodexUsageService()
         let openCodeGoUsageService = createOpenCodeGoUsageService()
+        let cursorUsageService = createCursorUsageService()
         return UsageViewModel(
             credentialProvider: credentialProvider,
             tokenService: tokenService,
@@ -95,6 +103,7 @@ enum DependencyContainer {
             blogOAuthService: blogOAuthService,
             codexUsageService: codexUsageService,
             openCodeGoUsageService: openCodeGoUsageService,
+            cursorUsageService: cursorUsageService,
             modelContext: modelContext
         )
     }

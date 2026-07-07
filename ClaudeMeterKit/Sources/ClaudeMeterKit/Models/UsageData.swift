@@ -60,6 +60,10 @@ public enum UsageWindowType: String, Sendable, Codable {
     case openCodeGoFiveHour
     case openCodeGoWeekly
     case openCodeGoMonthly
+    case cursorTotal     // Cursor plan usage this billing cycle (planUsage.totalPercentUsed)
+    case cursorAuto      // Cursor "Auto" model usage (planUsage.autoPercentUsed)
+    case cursorApi       // Cursor API-key usage (planUsage.apiPercentUsed)
+    case cursorRequests  // Cursor legacy premium-request quota (numRequests / maxRequestUsage)
 
     public var displayName: String {
         switch self {
@@ -73,6 +77,10 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .openCodeGoFiveHour: "Rolling Usage"
         case .openCodeGoWeekly: "Weekly Usage"
         case .openCodeGoMonthly: "Monthly Usage"
+        case .cursorTotal: "Total usage"
+        case .cursorAuto: "Auto usage"
+        case .cursorApi: "API usage"
+        case .cursorRequests: "Requests"
         }
     }
 
@@ -88,6 +96,10 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .openCodeGoFiveHour: 5 * 60 * 60
         case .openCodeGoWeekly: 7 * 24 * 60 * 60
         case .openCodeGoMonthly: 30 * 24 * 60 * 60
+        case .cursorTotal: 30 * 24 * 60 * 60     // monthly billing cycle
+        case .cursorAuto: 30 * 24 * 60 * 60
+        case .cursorApi: 30 * 24 * 60 * 60
+        case .cursorRequests: 30 * 24 * 60 * 60
         }
     }
 }
