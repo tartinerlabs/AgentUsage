@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-07-07
+
+- bd: update sync.remote
+- Simplify usage history persistence and fix iOS build
+
 ## [0.17.0] - 2026-07-03
 
 - Persist usage history with SwiftData
@@ -476,7 +481,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.20...v0.15.0
