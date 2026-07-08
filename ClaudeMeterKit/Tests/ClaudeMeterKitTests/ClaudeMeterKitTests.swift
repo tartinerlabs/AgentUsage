@@ -394,6 +394,47 @@ struct UsageSnapshotTests {
         #expect(snapshot.isExtraUsageActive == false)
     }
 
+    // MARK: - allWindowsExpired
+
+    @Test func allWindowsExpiredTrueWhenAllWindowsPast() {
+        let past = Date().addingTimeInterval(-3600)
+        let session = UsageWindow(utilization: 50, resetsAt: past, windowType: .session)
+        let opus = UsageWindow(utilization: 30, resetsAt: past, windowType: .opus)
+
+        let snapshot = UsageSnapshot(session: session, opus: opus, sonnet: nil, fetchedAt: Date())
+        #expect(snapshot.allWindowsExpired == true)
+    }
+
+    @Test func allWindowsExpiredFalseWhenAnyWindowFuture() {
+        let past = Date().addingTimeInterval(-3600)
+        let future = Date().addingTimeInterval(3600)
+        let session = UsageWindow(utilization: 50, resetsAt: past, windowType: .session)
+        let opus = UsageWindow(utilization: 30, resetsAt: future, windowType: .opus)
+
+        let snapshot = UsageSnapshot(session: session, opus: opus, sonnet: nil, fetchedAt: Date())
+        #expect(snapshot.allWindowsExpired == false)
+    }
+
+    @Test func allWindowsExpiredFalseWhenAllWindowsFuture() {
+        let future = Date().addingTimeInterval(3600)
+        let session = UsageWindow(utilization: 50, resetsAt: future, windowType: .session)
+        let opus = UsageWindow(utilization: 30, resetsAt: future, windowType: .opus)
+
+        let snapshot = UsageSnapshot(session: session, opus: opus, sonnet: nil, fetchedAt: Date())
+        #expect(snapshot.allWindowsExpired == false)
+    }
+
+    @Test func allWindowsExpiredChecksOptionalWindows() {
+        let past = Date().addingTimeInterval(-3600)
+        let future = Date().addingTimeInterval(3600)
+        let session = UsageWindow(utilization: 50, resetsAt: past, windowType: .session)
+        let opus = UsageWindow(utilization: 30, resetsAt: past, windowType: .opus)
+        let sonnet = UsageWindow(utilization: 20, resetsAt: future, windowType: .sonnet)
+
+        let snapshot = UsageSnapshot(session: session, opus: opus, sonnet: sonnet, fetchedAt: Date())
+        #expect(snapshot.allWindowsExpired == false, "future sonnet window should keep snapshot fresh")
+    }
+
     @Test func extraUsageCostPercentUsed() {
         let cost = ExtraUsageCost(used: 25.0, limit: 50.0, currencyCode: "USD")
         #expect(cost.percentUsed == 50.0)
