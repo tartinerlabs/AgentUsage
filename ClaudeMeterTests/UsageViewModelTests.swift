@@ -184,7 +184,131 @@ struct UsageViewModelRefreshGateTests {
     }
 }
 
-// MARK: - Refresh Frequency Tests
+// MARK: - No Usage Data Tests
+
+@Suite("UsageViewModel No Usage Data")
+struct UsageViewModelNoUsageDataTests {
+
+    private func makeSnapshot(resetsAt: Date) -> UsageSnapshot {
+        UsageSnapshot(
+            session: UsageWindow(utilization: 50, resetsAt: resetsAt, windowType: .session),
+            opus: UsageWindow(utilization: 30, resetsAt: resetsAt, windowType: .opus),
+            sonnet: nil,
+            fetchedAt: Date()
+        )
+    }
+
+    /// Regression: after a usage-window reset with no prompt sent, the API
+    /// returns no usage data (404/empty). The ViewModel must drop the stale
+    /// cached snapshot and show "No usage data" — not hold onto pre-reset
+    /// percentages.
+    @Test @MainActor func noUsageDataErrorDropsStaleSnapshot() async {
+        let defaults = UserDefaults.standard
+        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
+        let savedPlan = defaults.string(forKey: "cachedPlanType")
+        defaults.removeObject(forKey: "cachedUsageSnapshot")
+        defaults.removeObject(forKey: "cachedPlanType")
+        defer {
+            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
+            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
+        }
+
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+
+        // Seed a cached snapshot, then have the next fetch report no usage data.
+        await mockAPI.setMockSnapshot(makeSnapshot(resetsAt: Date().addingTimeInterval(3600)))
+        await viewModel.refresh(force: true)
+        #expect(viewModel.snapshot != nil)
+        #expect(viewModel.isNoUsageData == false)
+
+        await mockAPI.setMockError(ClaudeAPIService.APIError.noUsageData)
+        await mockAPI.setMockSnapshot(nil)
+        await viewModel.refresh(force: true)
+
+        #expect(viewModel.snapshot == nil, "stale cached snapshot should be dropped")
+        #expect(viewModel.isNoUsageData == true)
+        #expect(viewModel.isUsingCachedData == false)
+        #expect(viewModel.errorMessage == nil, "noUsageData is not an error message")
+    }
+
+    /// Safety net: any API error (not just noUsageData) with an all-expired
+    /// cached snapshot should also drop the stale data and show "No usage data".
+    @Test @MainActor func staleExpiredCacheDroppedOnAnyError() async {
+        let defaults = UserDefaults.standard
+        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
+        let savedPlan = defaults.string(forKey: "cachedPlanType")
+        defaults.removeObject(forKey: "cachedUsageSnapshot")
+        defaults.removeObject(forKey: "cachedPlanType")
+        defer {
+            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
+            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
+        }
+
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+
+        // Seed a snapshot whose windows all expired in the past.
+        let stale = makeSnapshot(resetsAt: Date().addingTimeInterval(-3600))
+        await mockAPI.setMockSnapshot(stale)
+        await viewModel.refresh(force: true)
+        #expect(viewModel.snapshot != nil)
+
+        // Any non-noUsageData error with expired cache → no usage data state.
+        await mockAPI.setMockError(ClaudeAPIService.APIError.invalidResponse)
+        await mockAPI.setMockSnapshot(nil)
+        await viewModel.refresh(force: true)
+
+        #expect(viewModel.snapshot == nil, "expired cached snapshot should be dropped")
+        #expect(viewModel.isNoUsageData == true)
+        #expect(viewModel.isUsingCachedData == false)
+    }
+
+    /// No regression: a non-expired cached snapshot is kept on API error, and a
+    /// successful fetch clears the no-usage-data flag.
+    @Test @MainActor func freshCacheKeptOnErrorAndSuccessClearsFlag() async {
+        let defaults = UserDefaults.standard
+        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
+        let savedPlan = defaults.string(forKey: "cachedPlanType")
+        defaults.removeObject(forKey: "cachedUsageSnapshot")
+        defaults.removeObject(forKey: "cachedPlanType")
+        defer {
+            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
+            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
+        }
+
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+
+        // Fresh (unexpired) cache.
+        let fresh = makeSnapshot(resetsAt: Date().addingTimeInterval(3600))
+        await mockAPI.setMockSnapshot(fresh)
+        await viewModel.refresh(force: true)
+        #expect(viewModel.snapshot != nil)
+        #expect(viewModel.isNoUsageData == false)
+
+        // A transient error keeps the fresh cache (existing behavior).
+        await mockAPI.setMockError(ClaudeAPIService.APIError.invalidResponse)
+        await mockAPI.setMockSnapshot(nil)
+        await viewModel.refresh(force: true)
+        #expect(viewModel.snapshot != nil, "fresh cache should be kept on error")
+        #expect(viewModel.isUsingCachedData == true)
+        #expect(viewModel.isNoUsageData == false)
+
+        // A successful fetch clears any no-usage-data flag.
+        await mockAPI.setMockError(nil)
+        await mockAPI.setMockSnapshot(fresh)
+        await viewModel.refresh(force: true)
+        #expect(viewModel.isNoUsageData == false)
+        #expect(viewModel.isUsingCachedData == false)
+    }
+}
 
 @Suite("RefreshFrequency")
 struct RefreshFrequencyTests {

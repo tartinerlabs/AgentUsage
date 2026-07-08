@@ -31,6 +31,8 @@ struct DashboardView: View {
                     }
                     liveActivityCard(snapshot: snapshot)
                     usageCardsSection(snapshot: snapshot)
+                } else if viewModel.isNoUsageData {
+                    noUsageDataView
                 } else if let error = viewModel.errorMessage {
                     errorView(error)
                 } else if viewModel.isLoading {
@@ -346,6 +348,30 @@ struct DashboardView: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Loading usage data")
+    }
+
+    private var noUsageDataView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text("No usage data")
+                .font(.headline)
+            Text("Your usage limits will appear after your next Claude prompt.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No usage data yet")
+        .accessibilityHint("Usage limits will appear after your next Claude prompt")
     }
 
     private var emptyStateView: some View {
