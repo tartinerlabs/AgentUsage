@@ -77,6 +77,21 @@ struct APIErrorRetryTests {
         #expect(error.isRetryable == false)
     }
 
+    @Test func noUsageDataIsNotRetryable() {
+        // "No usage data" after a reset is a terminal state, not a transient
+        // failure — retrying won't produce usage that doesn't exist yet.
+        let error = ClaudeAPIService.APIError.noUsageData
+        #expect(error.isRetryable == false)
+    }
+
+    @Test func noUsageDataIsNotAnOutage() {
+        // Must not be classified as an outage — it's not a server problem,
+        // just a window reset with no usage yet.
+        let error = ClaudeAPIService.APIError.noUsageData
+        #expect(UsageViewModel.outageErrorCode(error) == nil)
+        #expect(UsageViewModel.isOutageError(error) == false)
+    }
+
     @Test func maxRetriesExceededIsNotRetryable() {
         let error = ClaudeAPIService.APIError.maxRetriesExceeded
         #expect(error.isRetryable == false)

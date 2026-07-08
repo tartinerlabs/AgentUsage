@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Design System
+
+`DESIGN.md` is the source of truth for ClaudeMeter's SwiftUI visual system. When
+changing SwiftUI views, widgets, menu bar UI, or Live Activities, consult it and
+preserve its color, typography, spacing, material, icon, and status-system
+rules.
+
 ## Build Commands
 
 Multi-platform SwiftUI app (macOS + iOS) built with Xcode (no npm/yarn/package managers).

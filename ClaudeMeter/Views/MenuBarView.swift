@@ -43,7 +43,7 @@ struct MenuBarView: View {
 
     private var availableProviders: [Provider] {
         var list: [Provider] = []
-        if viewModel.snapshot != nil { list.append(.claude) }
+        if viewModel.snapshot != nil || viewModel.isNoUsageData { list.append(.claude) }
         if viewModel.codexUsage != nil { list.append(.codex) }
         if viewModel.providerDetails[.openCode] != nil || viewModel.openCodeGoUsage != nil { list.append(.openCode) }
         return list
