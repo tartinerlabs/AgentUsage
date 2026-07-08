@@ -13,6 +13,13 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 > source of truth; don't `bd import` during normal operation; don't
 > reach for third-party Dolt hosting before trying the default).
 
+## Design System
+
+`DESIGN.md` is the source of truth for ClaudeMeter's SwiftUI visual system. When
+changing SwiftUI views, widgets, menu bar UI, or Live Activities, consult it and
+preserve its color, typography, spacing, material, icon, and status-system
+rules.
+
 ## Quick Reference
 
 ```bash

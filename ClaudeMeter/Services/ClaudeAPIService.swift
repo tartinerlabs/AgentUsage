@@ -16,6 +16,12 @@ actor ClaudeAPIService: APIServiceProtocol {
         case rateLimited(retryAfter: TimeInterval?)
         case serviceUnavailable
         case maxRetriesExceeded
+        /// The usage endpoint returned no usage data (HTTP 404/204, or a 200 body
+        /// with no windows). This happens after a usage-window reset when no
+        /// prompt has been sent yet — there is genuinely nothing to report.
+        /// Not an error: the ViewModel shows a "No usage data" state instead of
+        /// holding onto stale cached data.
+        case noUsageData
 
         var errorDescription: String? {
             switch self {
@@ -36,6 +42,8 @@ actor ClaudeAPIService: APIServiceProtocol {
                 return "Service temporarily unavailable."
             case .maxRetriesExceeded:
                 return "Failed after multiple retry attempts."
+            case .noUsageData:
+                return nil
             }
         }
 
@@ -47,7 +55,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             case .serverError(let code):
                 // Retry on 5xx server errors (except 501 Not Implemented)
                 return code >= 500 && code != 501
-            case .unauthorized, .invalidResponse, .maxRetriesExceeded:
+            case .unauthorized, .invalidResponse, .maxRetriesExceeded, .noUsageData:
                 return false
             }
         }
@@ -106,7 +114,20 @@ actor ClaudeAPIService: APIServiceProtocol {
 
         switch httpResponse.statusCode {
         case 200:
+            if data.isEmpty {
+                Logger.api.info("Usage endpoint returned 200 with empty body — no usage data yet")
+                throw APIError.noUsageData
+            }
             return try parseUsageResponse(data)
+        case 204:
+            Logger.api.info("Usage endpoint returned 204 No Content — no usage data yet")
+            throw APIError.noUsageData
+        case 404:
+            // The usage endpoint returns 404 after a window reset when no prompt
+            // has been sent yet — there is no usage record to report. This is not
+            // a server error; the ViewModel surfaces a "No usage data" state.
+            Logger.api.info("Usage endpoint returned 404 — no usage data yet (window reset, no prompt sent)")
+            throw APIError.noUsageData
         case 401, 403:
             throw APIError.unauthorized
         case 429:
@@ -117,6 +138,7 @@ actor ClaudeAPIService: APIServiceProtocol {
         case 503:
             throw APIError.serviceUnavailable
         default:
+            Logger.api.error("Usage endpoint returned unexpected status \(httpResponse.statusCode)")
             throw APIError.serverError(httpResponse.statusCode)
         }
     }
@@ -218,6 +240,22 @@ actor ClaudeAPIService: APIServiceProtocol {
 
         let decoder = JSONDecoder()
         let response = try decoder.decode(APIResponse.self, from: data)
+
+        // After a usage-window reset with no prompt sent yet, the endpoint can
+        // return a 200 body where every window is absent/null and `limits` is
+        // empty or missing. That is "no usage data" — throw so the ViewModel
+        // shows a "No usage data" state instead of fabricating 0% meters.
+        // Partial responses (some windows present) fall through and parse
+        // normally; absent top-level windows still default to 0% there.
+        let hasAnyWeeklyScoped = (response.limits ?? []).contains { $0.kind == "weekly_scoped" }
+        if response.fiveHour == nil,
+           response.sevenDay == nil,
+           response.sevenDaySonnet == nil,
+           response.sevenDayOmelette == nil,
+           !hasAnyWeeklyScoped {
+            Logger.api.info("Usage response has no windows — no usage data yet (window reset, no prompt sent)")
+            throw APIError.noUsageData
+        }
 
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
