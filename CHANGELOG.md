@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-07-08
+
+- Add allWindowsExpired tests to ClaudeMeterKit
+
 ## [0.20.0] - 2026-07-08
 
 - Handle no-usage-data state after Claude window resets
@@ -490,7 +494,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.17.0...v0.18.0
