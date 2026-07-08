@@ -45,6 +45,8 @@ struct DashboardTabView: View {
                     if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
                         extraUsageCostSection(extraUsage)
                     }
+                } else if viewModel.isNoUsageData {
+                    noUsageDataSection
                 } else if let error = viewModel.errorMessage {
                     errorSection(error: error)
                 } else {
@@ -395,6 +397,24 @@ struct DashboardTabView: View {
     }
 
     // MARK: - Error & Loading
+
+    private var noUsageDataSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("No usage data", systemImage: "chart.bar.xaxis")
+                .foregroundStyle(.secondary)
+                .font(.headline)
+            Text("Your usage limits will appear after your next Claude prompt.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.secondary.opacity(0.08))
+        )
+    }
 
     private func errorSection(error: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {

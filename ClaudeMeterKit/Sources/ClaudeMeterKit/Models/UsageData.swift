@@ -312,6 +312,16 @@ public struct UsageSnapshot: Sendable, Codable {
         session.isUsingExtraUsage || opus.isUsingExtraUsage || (sonnet?.isUsingExtraUsage ?? false) || (design?.isUsingExtraUsage ?? false) || (fable?.isUsingExtraUsage ?? false)
     }
 
+    /// True when every window's reset time has passed. Used as a safety net in
+    /// `refreshClaude()`: if a fetch fails and the cached snapshot's windows
+    /// are all expired, the cached data is stale (from before a reset) and is
+    /// dropped in favor of a "No usage data" state.
+    public var allWindowsExpired: Bool {
+        let allWindows = [session, opus, sonnet, design, fable].compactMap { $0 }
+        guard !allWindows.isEmpty else { return true }
+        return allWindows.allSatisfy { $0.resetsAt < Date() }
+    }
+
     /// Whether extra usage is enabled (has cost data from the API)
     public var hasExtraUsageEnabled: Bool {
         extraUsage != nil

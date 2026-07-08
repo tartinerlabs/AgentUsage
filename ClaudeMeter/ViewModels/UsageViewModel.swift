@@ -74,6 +74,11 @@ final class UsageViewModel {
     /// Whether we're using cached data (offline or stale)
     var isUsingCachedData: Bool = false
 
+    /// True when the Claude usage endpoint reports no usage data yet — the
+    /// usage windows have reset but no prompt has been sent since. The UI shows
+    /// a "No usage data" state instead of stale cached meters or a spinner.
+    var isNoUsageData: Bool = false
+
     // MARK: - Outage Tracking
 
     /// Active outage incidents keyed by provider. An entry exists while a provider's
@@ -411,6 +416,7 @@ final class UsageViewModel {
 
         isLoading = true
         errorMessage = nil
+        isNoUsageData = false  // Reset on each online fetch attempt
 
         // Store old snapshot for threshold comparison (macOS only)
         #if os(macOS)
@@ -423,6 +429,7 @@ final class UsageViewModel {
             let newSnapshot = try await apiService.fetchUsage(token: credentials.accessToken)
             snapshot = newSnapshot
             isUsingCachedData = false
+            isNoUsageData = false
             clearIncident(for: .claude)  // Successful fetch ends any active outage
 
             // Cache the successful response
@@ -449,14 +456,37 @@ final class UsageViewModel {
             }
             #endif
         } catch {
+            // "No usage data" is not an error — the usage windows have reset but
+            // no prompt has been sent yet. Drop any cached snapshot (it is stale
+            // pre-reset data) and show a "No usage data" state in the UI.
+            if let apiError = error as? ClaudeAPIService.APIError,
+               case .noUsageData = apiError {
+                Logger.viewModel.info("No usage data yet (window reset, no prompt sent)")
+                snapshot = nil
+                isNoUsageData = true
+                isUsingCachedData = false
+                errorMessage = nil
+                clearIncident(for: .claude)
+                isLoading = false
+                return
+            }
+
             errorMessage = error.localizedDescription
             // Track service outages (5xx / unavailable); leave any incident
             // untouched for non-outage errors (auth, rate limit, connectivity).
             if Self.isOutageError(error) {
                 recordOutage(for: .claude, error: error)
             }
-            // If we have cached data, use it and show a softer error
-            if snapshot != nil {
+            // Safety net: if the cached snapshot's windows have all expired, the
+            // cached data is from before a reset and is now stale. Drop it and
+            // show "No usage data" rather than holding onto pre-reset percentages.
+            if let cached = snapshot, cached.allWindowsExpired {
+                Logger.viewModel.info("Cached snapshot is stale (all windows expired) — showing No usage data")
+                snapshot = nil
+                isNoUsageData = true
+                isUsingCachedData = false
+                errorMessage = nil
+            } else if snapshot != nil {
                 isUsingCachedData = true
                 Logger.viewModel.warning("API fetch failed, using cached data: \(error.localizedDescription)")
             }
