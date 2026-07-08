@@ -6,26 +6,25 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
-            <title>Version 0.20.0</title>
-            <pubDate>Wed, 08 Jul 2026 04:47:05 +0000</pubDate>
-            <sparkle:version>73</sparkle:version>
-            <sparkle:shortVersionString>0.20.0</sparkle:shortVersionString>
+            <title>Version 0.21.0</title>
+            <pubDate>Wed, 08 Jul 2026 05:01:46 +0000</pubDate>
+            <sparkle:version>74</sparkle:version>
+            <sparkle:shortVersionString>0.21.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <h2>What's New</h2>
 
 <ul>
-<li>Handle no-usage-data state after Claude window resets</li>
-<li>Add DESIGN.md documenting the app's design system</li>
+<li>Add allWindowsExpired tests to ClaudeMeterKit</li>
 </ul>
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
             <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.20.0/ClaudeMeter.zip"
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.21.0/ClaudeMeter.zip"
                 length="2271510"
                 type="application/octet-stream"
-                sparkle:edSignature="RvMqcM/PMqgf9vEvrCwsyd0TFiZCUUiUlLw3x3QeqUlSUxeSyoWIZH1zeFpFoJVYvjODlrXhWI3hOCkWGYV4Cw==" />
+                sparkle:edSignature="uE0shgs3Psxewq8L435jGsHDYZCsAlyupaoTxegfWGAhFDaBzTa3U2GymmZn4QeeUVmzmrIqGoO7b8nMJeJqAA==" />
         </item>
     </channel>
 </rss>
