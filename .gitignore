@@ -23,3 +23,6 @@ sparkle_private_key
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Sparkle appcast is a build artifact published to the gh-pages branch, not tracked on main
+appcast.xml

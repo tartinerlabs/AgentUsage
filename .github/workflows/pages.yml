@@ -1,0 +1,54 @@
+# Deploys the gh-pages branch (which holds appcast.xml, the Sparkle update feed)
+# to the live GitHub Pages site.
+#
+# Why Pages source is "GitHub Actions" and not "Deploy from a branch": GitHub's
+# legacy branch-deploy pipeline has failed server-side (deployments stuck
+# queued), leaving the live feed stale while the branch was current. This
+# workflow uploads the branch as an artifact and deploys it explicitly instead.
+#
+# Why appcast.xml lives on gh-pages and not main: it is a build artifact, fully
+# regenerated each release (one self-contained item, no history), so it is kept
+# out of main's source tree. auto-release.yml publishes it to gh-pages.
+#
+# Why workflow_run and not `on: push`: auto-release pushes to gh-pages via the
+# createCommitOnBranch mutation using GITHUB_TOKEN, and GitHub suppresses
+# workflow triggers from GITHUB_TOKEN pushes. workflow_run on Auto Release's
+# completion is the reliable signal — and it requires this file on the default
+# branch, which also makes manual dispatch work.
+name: Deploy appcast to Pages
+
+on:
+  workflow_run:
+    workflows: ["Auto Release"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Deploy on a successful release or a manual dispatch; a failed release
+    # never pushed a new appcast, so there is nothing to publish.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: gh-pages
+
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
