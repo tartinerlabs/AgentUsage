@@ -173,9 +173,10 @@ jobs:
           #
           # appcast.xml is the Sparkle feed, served from GitHub Pages off the
           # gh-pages branch (see .github/workflows/pages.yml). It lives only on
-          # gh-pages, not main — it is a build artifact, fully regenerated each
-          # release (one self-contained item, no history to preserve), so it is
-          # replaced wholesale. Commit server-side via createCommitOnBranch so
+          # gh-pages, not main — it is a build artifact. The generate-appcast
+          # step already merged this release's item into the existing feed
+          # (accumulating full version history), so we publish the whole file
+          # wholesale here. Commit server-side via createCommitOnBranch so
           # it is signed/Verified as github-actions[bot], like the rest of the
           # pipeline (mirrors .github/actions/commit-push). gh-pages must
           # already exist (created during Pages setup); releases serialize

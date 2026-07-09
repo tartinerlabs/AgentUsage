@@ -1,5 +1,5 @@
 name: "Generate Appcast"
-description: "EdDSA-sign the release zip with Sparkle's sign_update and write a Sparkle appcast.xml at the repo root"
+description: "EdDSA-sign the release zip with Sparkle's sign_update and prepend a new item to the accumulating Sparkle appcast.xml (full version history)"
 
 inputs:
   version:
@@ -49,15 +49,19 @@ runs:
         NOTES_FILE: ${{ inputs.notes-file }}
         APP_NAME: ${{ inputs.app-name }}
         REPO: ${{ github.repository }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
           echo "::warning::SPARKLE_PRIVATE_KEY secret not set. Skipping signing."
           exit 0
         fi
 
-        # Sign the zip with EdDSA and build the appcast item by hand:
-        # generate_appcast expects all archives in one directory, which
+        # Sign the zip with EdDSA and build this release's appcast item by
+        # hand: generate_appcast expects all archives in one directory, which
         # doesn't fit per-tag GitHub release download URLs.
+        # The appcast is an ACCUMULATING feed: we prepend this item to the
+        # existing feed (fetched from gh-pages) so Sparkle shows the full
+        # version history, rather than regenerating a single-item feed.
         # sign_update outputs: sparkle:edSignature="..." length="..."
         SIGN_OUTPUT=$(echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/sign_update "build/$APP_NAME.zip" --ed-key-file -)
         echo "sign_update output: $SIGN_OUTPUT"
@@ -79,14 +83,8 @@ runs:
           -e 's/\[\([^]]*\)\](\([^)]*\))/<a href="\2">\1<\/a>/g' \
           | awk 'BEGIN{in_list=0} /<li>/{if(!in_list){print "<ul>"; in_list=1}} !/<li>/&&in_list{print "</ul>"; in_list=0} {print} END{if(in_list)print "</ul>"}')
 
+        # Build this release's <item> on its own.
         {
-          echo '<?xml version="1.0" encoding="utf-8"?>'
-          echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">'
-          echo '    <channel>'
-          echo "        <title>${APP_NAME} Updates</title>"
-          echo "        <link>https://github.com/$REPO/releases</link>"
-          echo "        <description>Most recent updates to ${APP_NAME}</description>"
-          echo '        <language>en</language>'
           echo '        <item>'
           echo "            <title>Version ${VERSION}</title>"
           echo "            <pubDate>${PUB_DATE}</pubDate>"
@@ -102,6 +100,47 @@ runs:
           echo '                type="application/octet-stream"'
           echo "                sparkle:edSignature=\"${SIGNATURE}\" />"
           echo '        </item>'
+        } > "$RUNNER_TEMP/new-item.xml"
+
+        # Fetch the existing feed from gh-pages (the prior release's complete
+        # feed — this action runs before the publish-to-gh-pages step, so
+        # gh-pages still holds the previous release's appcast). The raw media
+        # type returns the file contents directly, no base64 decode needed.
+        EXISTING_FEED=$(gh api "repos/$REPO/contents/appcast.xml?ref=gh-pages" \
+          -H "Accept: application/vnd.github.raw" 2>/dev/null || true)
+
+        # Prior items, minus any whose build == this build (keeps re-runs idempotent).
+        EXISTING_ITEMS=""
+        if [ -n "$EXISTING_FEED" ]; then
+          EXISTING_ITEMS=$(printf '%s\n' "$EXISTING_FEED" \
+            | sed -n '/<item>/,/<\/item>/p' \
+            | awk -v build="$BUILD" '
+                /<item>/ { buf=""; skip=0 }
+                { buf = buf $0 "\n" }
+                $0 ~ ("<sparkle:version>" build "</sparkle:version>") { skip=1 }
+                /<\/item>/ { if (!skip) printf "%s", buf }
+              ')
+        else
+          echo "::warning::Could not fetch existing appcast from gh-pages; writing a single-item feed"
+        fi
+
+        # Assemble the accumulating feed: header, new item first, then prior items.
+        {
+          echo '<?xml version="1.0" encoding="utf-8"?>'
+          echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+          echo '    <channel>'
+          echo "        <title>${APP_NAME} Updates</title>"
+          echo "        <link>https://github.com/$REPO/releases</link>"
+          echo "        <description>Most recent updates to ${APP_NAME}</description>"
+          echo '        <language>en</language>'
+          cat "$RUNNER_TEMP/new-item.xml"
+          if [ -n "$EXISTING_ITEMS" ]; then
+            printf '%s' "$EXISTING_ITEMS"
+          fi
           echo '    </channel>'
           echo '</rss>'
         } > appcast.xml
+
+        # Fail loudly if the merged feed isn't well-formed XML.
+        xmllint --noout appcast.xml
+        echo "appcast.xml now contains $(grep -c '<item>' appcast.xml) item(s)"

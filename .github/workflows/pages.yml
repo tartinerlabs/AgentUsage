@@ -6,9 +6,10 @@
 # queued), leaving the live feed stale while the branch was current. This
 # workflow uploads the branch as an artifact and deploys it explicitly instead.
 #
-# Why appcast.xml lives on gh-pages and not main: it is a build artifact, fully
-# regenerated each release (one self-contained item, no history), so it is kept
-# out of main's source tree. auto-release.yml publishes it to gh-pages.
+# Why appcast.xml lives on gh-pages and not main: it is a build artifact kept
+# out of main's source tree. It is an accumulating feed — each release prepends
+# its item to the existing feed (full version history). auto-release.yml
+# publishes it to gh-pages.
 #
 # Why workflow_run and not `on: push`: auto-release pushes to gh-pages via the
 # createCommitOnBranch mutation using GITHUB_TOKEN, and GitHub suppresses

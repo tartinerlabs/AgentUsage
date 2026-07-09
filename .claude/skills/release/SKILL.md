@@ -14,7 +14,7 @@ Releases are **fully automated**. Every code push to `main` triggers `.github/wo
 4. Bumps `Config/Version.xcconfig`, `project.pbxproj`, and `CHANGELOG.md`, commits "Bump version to X.Y.Z"
 5. Builds, ad-hoc signs, and zips the app
 6. Creates the GitHub release with the zip attached (tag is created here, only after a successful build; `--prerelease` while < 1.0.0)
-7. EdDSA-signs the zip and publishes the updated `appcast.xml` to the `gh-pages` branch (the final, user-visible release act). The Sparkle feed is served from GitHub Pages off `gh-pages`; `appcast.xml` lives only there, not on main. `.github/workflows/pages.yml` then deploys it via `workflow_run`.
+7. EdDSA-signs the zip, prepends this release's item to the existing feed (fetched from `gh-pages`) so the appcast **accumulates full version history**, and publishes the updated `appcast.xml` to the `gh-pages` branch (the final, user-visible release act). The Sparkle feed is served from GitHub Pages off `gh-pages`; `appcast.xml` lives only there, not on main. `.github/workflows/pages.yml` then deploys it via `workflow_run`.
 
 There is no manual version bumping, tagging, or `gh release create` anymore.
 
@@ -66,7 +66,7 @@ Each release produces two `github-actions[bot]` commits on main: `Bump version t
 - **Tests fail**: nothing was pushed. Fix and push again.
 - **"main moved during the release run"**: someone pushed while the release was in flight. Nothing was released; the workflow run queued for that push (or the next code push) releases everything together. Benign.
 - **Build fails after the bump commit**: main has the bump commit but no tag/release. The next push (or re-running the failed run) detects xcconfig already at the computed version and resumes straight to build.
-- **Appcast push fails** (rare): the release exists but the Sparkle feed is stale. Re-run the failed run, or push the regenerated `appcast.xml` to the `gh-pages` branch manually (then trigger `pages.yml` to redeploy), or delete the release + tag and re-run.
+- **Appcast push fails** (rare): the release exists but the Sparkle feed is stale. Re-run the failed run (the generate-appcast step re-fetches the current `gh-pages` feed and re-prepends this release's item — it is idempotent, deduping by build number). If pushing `appcast.xml` to `gh-pages` by hand, keep it an accumulating feed — prepend the new item to the current feed rather than overwriting with a single item, then trigger `pages.yml` to redeploy. Or delete the release + tag and re-run.
 - **Tag exists error**: a release already went out for that version; usually means a re-run after full success — nothing to do.
 
 ## Version format
