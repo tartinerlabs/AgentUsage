@@ -26,5 +26,1673 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
                 type="application/octet-stream"
                 sparkle:edSignature="Lm4Z4Wrcg3Z1pFmFD24Jex9jfFdAAMxQq+tbphMQGgvPjLYo1nkW9Bdt74NBBwNdwvV7sL5xbfoLRb3Dmn+gCA==" />
         </item>
+        <item>
+            <title>Version 0.23.0</title>
+            <pubDate>Thu, 09 Jul 2026 06:15:16 +0000</pubDate>
+            <sparkle:version>76</sparkle:version>
+            <sparkle:shortVersionString>0.23.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Fix unclosed Blog Usage Sync card brace and add missing syncOpenCodeGoService</li>
+<li>Fix test failures: remove @private from blogUsageSyncStatusText, resultColor, and settingsCard functions</li>
+<li>Add OpenCode Go configuration UI and settings</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.23.0/ClaudeMeter.zip"
+                length="2297142"
+                type="application/octet-stream"
+                sparkle:edSignature="Hh8vFYnEbI6ADMW4I0fW0aKoCpECZaM7bGfmQqmiiMZQCvtFlUXim7yobGwiEwflB5dOd2mlXz7nEVbCkL4BDA==" />
+        </item>
+        <item>
+            <title>Version 0.22.0</title>
+            <pubDate>Thu, 09 Jul 2026 05:03:33 +0000</pubDate>
+            <sparkle:version>75</sparkle:version>
+            <sparkle:shortVersionString>0.22.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Auto-refresh expired Claude OAuth token instead of showing stale usage</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.22.0/ClaudeMeter.zip"
+                length="2277728"
+                type="application/octet-stream"
+                sparkle:edSignature="bXGLGZEzxH5U4tcKtYkh/T02iMjCH9VhYz8fM/2Kbtul/iihm8pRqfaq8xD3M3azTgVqCjtu+IwfAr+Bs22SAQ==" />
+        </item>
+        <item>
+            <title>Version 0.21.0</title>
+            <pubDate>Wed, 08 Jul 2026 05:01:46 +0000</pubDate>
+            <sparkle:version>74</sparkle:version>
+            <sparkle:shortVersionString>0.21.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Add allWindowsExpired tests to ClaudeMeterKit</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.21.0/ClaudeMeter.zip"
+                length="2271510"
+                type="application/octet-stream"
+                sparkle:edSignature="uE0shgs3Psxewq8L435jGsHDYZCsAlyupaoTxegfWGAhFDaBzTa3U2GymmZn4QeeUVmzmrIqGoO7b8nMJeJqAA==" />
+        </item>
+        <item>
+            <title>Version 0.20.0</title>
+            <pubDate>Wed, 08 Jul 2026 04:47:05 +0000</pubDate>
+            <sparkle:version>73</sparkle:version>
+            <sparkle:shortVersionString>0.20.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Handle no-usage-data state after Claude window resets</li>
+<li>Add DESIGN.md documenting the app's design system</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.20.0/ClaudeMeter.zip"
+                length="2271510"
+                type="application/octet-stream"
+                sparkle:edSignature="RvMqcM/PMqgf9vEvrCwsyd0TFiZCUUiUlLw3x3QeqUlSUxeSyoWIZH1zeFpFoJVYvjODlrXhWI3hOCkWGYV4Cw==" />
+        </item>
+        <item>
+            <title>Version 0.19.0</title>
+            <pubDate>Tue, 07 Jul 2026 17:41:49 +0000</pubDate>
+            <sparkle:version>72</sparkle:version>
+            <sparkle:shortVersionString>0.19.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Decouple Claude provider fetch from Codex and OpenCode in refresh</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.19.0/ClaudeMeter.zip"
+                length="2258952"
+                type="application/octet-stream"
+                sparkle:edSignature="UnWhv2pA1FmpfkIbR9iNbRIG/WN6GtVyX5iVPnHpainjDUqirGSHFrE0m1Wkn7HANIF2Ns9qeXxXCUGupCugBQ==" />
+        </item>
+        <item>
+            <title>Version 0.18.0</title>
+            <pubDate>Tue, 07 Jul 2026 17:26:35 +0000</pubDate>
+            <sparkle:version>71</sparkle:version>
+            <sparkle:shortVersionString>0.18.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>bd: update sync.remote</li>
+<li>Simplify usage history persistence and fix iOS build</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.18.0/ClaudeMeter.zip"
+                length="2257024"
+                type="application/octet-stream"
+                sparkle:edSignature="3nk9F2xJvjjmpu3Q5DVh8kZvQmqvvrwSD6CXiXWX5Z0PstaVnrd1eVontfC6heGubprQ6fZ5BHeqmUV7ypLhBw==" />
+        </item>
+        <item>
+            <title>Version 0.17.0</title>
+            <pubDate>Fri, 03 Jul 2026 03:11:28 +0000</pubDate>
+            <sparkle:version>70</sparkle:version>
+            <sparkle:shortVersionString>0.17.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Persist usage history with SwiftData</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.17.0/ClaudeMeter.zip"
+                length="2256778"
+                type="application/octet-stream"
+                sparkle:edSignature="j5R9Dck5ClWfvk/2ADWk1simsN/rt0HKWEOq2M+d7JMwEDf+aM+mGIge2fECJ0idiDhg4Rom+/6GF1KV3W+NAw==" />
+        </item>
+        <item>
+            <title>Version 0.16.0</title>
+            <pubDate>Thu, 02 Jul 2026 17:12:26 +0000</pubDate>
+            <sparkle:version>69</sparkle:version>
+            <sparkle:shortVersionString>0.16.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Cut redundant per-refresh SwiftData work for token usage</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.16.0/ClaudeMeter.zip"
+                length="2235998"
+                type="application/octet-stream"
+                sparkle:edSignature="URF67p4ngz8VlkgwgVSQWyDzj3I0ge/tYCXYMwpZburDzubzudVFHITl73DHQXlXnSX3viUSzcn8UcjQ3j30Dw==" />
+        </item>
+        <item>
+            <title>Version 0.15.0</title>
+            <pubDate>Thu, 02 Jul 2026 16:49:52 +0000</pubDate>
+            <sparkle:version>68</sparkle:version>
+            <sparkle:shortVersionString>0.15.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Default release bump to minor instead of patch</li>
+<li>Show cached/offline indicator on macOS usage surfaces</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.15.0/ClaudeMeter.zip"
+                length="2233667"
+                type="application/octet-stream"
+                sparkle:edSignature="ErlXU/rVu7N3amcca+gRkUm3jzU2d7xXFOIL7cAvxeeheTLQJaweekUpXAlj7X6Nm8zUaWWQ2iczUk8O222YBA==" />
+        </item>
+        <item>
+            <title>Version 0.14.20</title>
+            <pubDate>Thu, 02 Jul 2026 15:59:03 +0000</pubDate>
+            <sparkle:version>67</sparkle:version>
+            <sparkle:shortVersionString>0.14.20</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Add Fable weekly usage limit window</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.20/ClaudeMeter.zip"
+                length="2227977"
+                type="application/octet-stream"
+                sparkle:edSignature="bgK3TQOQPO5Pl0SX5D8K7yHsxz28loRk9oiO+Z//qXieq5ab/kLqiLOUPcMP+hdg8BkzRq+IgUK6k/wVwfD4Ag==" />
+        </item>
+        <item>
+            <title>Version 0.14.19</title>
+            <pubDate>Thu, 02 Jul 2026 15:19:28 +0000</pubDate>
+            <sparkle:version>66</sparkle:version>
+            <sparkle:shortVersionString>0.14.19</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>feat: add Codex rate-limit reset credits display</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.19/ClaudeMeter.zip"
+                length="2216354"
+                type="application/octet-stream"
+                sparkle:edSignature="AdGE/8jkBZ3YHMfSzMedxWWXUL3ZD4bqBMdhg+GXPuNbAUAJBZwCMqX920KNFuzHMP+ymRV+C9zm9ckWau05AA==" />
+        </item>
+        <item>
+            <title>Version 0.14.18</title>
+            <pubDate>Thu, 02 Jul 2026 15:08:57 +0000</pubDate>
+            <sparkle:version>65</sparkle:version>
+            <sparkle:shortVersionString>0.14.18</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>feat: show Rolling/Weekly/Monthly Usage for OpenCode Go in menu bar</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.18/ClaudeMeter.zip"
+                length="2182202"
+                type="application/octet-stream"
+                sparkle:edSignature="v7K5Fnl7Dfc4LpD2TyMfprvSRyRLC2eRGXQQawJopxO0nMk8N0dSHoqUherXlb/PhNyfCwaxPnD4MrT2iOvuDg==" />
+        </item>
+        <item>
+            <title>Version 0.14.17</title>
+            <pubDate>Thu, 02 Jul 2026 11:47:18 +0000</pubDate>
+            <sparkle:version>64</sparkle:version>
+            <sparkle:shortVersionString>0.14.17</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>fix: route OpenCode ChatGPT-subscription usage to Codex bucket</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.17/ClaudeMeter.zip"
+                length="2181415"
+                type="application/octet-stream"
+                sparkle:edSignature="CTkqeronSRu/+JlA16y2A9o3iK6AeGI34H7F4BDo1ODoGmRh+AlSdwsdwfNz1iKy2G78NJp6WMVGGy5OYkpDBg==" />
+        </item>
+        <item>
+            <title>Version 0.14.16</title>
+            <pubDate>Wed, 01 Jul 2026 17:47:38 +0000</pubDate>
+            <sparkle:version>63</sparkle:version>
+            <sparkle:shortVersionString>0.14.16</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>fix: keep OpenCode logs in OpenCode bucket</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.16/ClaudeMeter.zip"
+                length="2181074"
+                type="application/octet-stream"
+                sparkle:edSignature="8apjjL27PeNAbF4dw3hbKF5y2aroSi8SBiQTGj7HZ/8DzgEYMGCd6M2NGNvWEQyWLTwqbTZgLNB/3tRs9GzaBA==" />
+        </item>
+        <item>
+            <title>Version 0.14.15</title>
+            <pubDate>Wed, 01 Jul 2026 14:57:56 +0000</pubDate>
+            <sparkle:version>62</sparkle:version>
+            <sparkle:shortVersionString>0.14.15</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>fix: show Max 5x/20x tier in plan display</li>
+<li>add menu bar right-click planning issues</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.15/ClaudeMeter.zip"
+                length="2181427"
+                type="application/octet-stream"
+                sparkle:edSignature="0IsuutgujZ01VG/PVj+SMK/15wy/5frPfqAHcWHcI1XvnGWOG2O0iPt4oqlORGCmRAg8CPJB5s7fCd9vSi5kBQ==" />
+        </item>
+        <item>
+            <title>Version 0.14.14</title>
+            <pubDate>Wed, 01 Jul 2026 10:08:50 +0000</pubDate>
+            <sparkle:version>61</sparkle:version>
+            <sparkle:shortVersionString>0.14.14</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>fix OpenCode provider attribution</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.14/ClaudeMeter.zip"
+                length="2181058"
+                type="application/octet-stream"
+                sparkle:edSignature="Wq9wqvgqcx3/dn7qs+niaRdt0Q+mBGkHbrJk9SCEWOGMEZvRilydRU0e9jVKQymXkSPg9WjKxJH94N1h2scpAA==" />
+        </item>
+        <item>
+            <title>Version 0.14.13</title>
+            <pubDate>Wed, 01 Jul 2026 09:45:38 +0000</pubDate>
+            <sparkle:version>60</sparkle:version>
+            <sparkle:shortVersionString>0.14.13</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Add claude-fable-5 pricing to ModelPricing fallback table</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.13/ClaudeMeter.zip"
+                length="2172754"
+                type="application/octet-stream"
+                sparkle:edSignature="3DVKv0DdvW1tGvZELaiovJ0IKufi5zzvo2efNY5bO6qHpp5NAHfbLtCoJiEJ9SjGy4r3We9ZGJu/0xomwg2TAA==" />
+        </item>
+        <item>
+            <title>Version 0.14.12</title>
+            <pubDate>Wed, 01 Jul 2026 09:35:11 +0000</pubDate>
+            <sparkle:version>59</sparkle:version>
+            <sparkle:shortVersionString>0.14.12</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Add claude-sonnet-5 pricing to ModelPricing fallback table</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.12/ClaudeMeter.zip"
+                length="2172661"
+                type="application/octet-stream"
+                sparkle:edSignature="NhAnfoYBPOo6SFlRPOoSycHWatN2I7iw8/6kCdMFQu44b+LBRfoabKDZ5z6xv32CYBQZorJWXm+sweMM5IuJCw==" />
+        </item>
+        <item>
+            <title>Version 0.14.11</title>
+            <pubDate>Fri, 26 Jun 2026 07:29:11 +0000</pubDate>
+            <sparkle:version>58</sparkle:version>
+            <sparkle:shortVersionString>0.14.11</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>revert: 200k tiered pricing applied to daily aggregates (aeea0f7) (#15)</li>
+<li>ci: add pull request workflow</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.11/ClaudeMeter.zip"
+                length="2172640"
+                type="application/octet-stream"
+                sparkle:edSignature="1+YjUpevsvi8hZbbW+jYJAtZqrVhWNfzp7BsYatcDzj+eiErOLetIukTW0bjJRv88XPUvpKa4fwmmyrJUVZeDQ==" />
+        </item>
+        <item>
+            <title>Version 0.14.10</title>
+            <pubDate>Wed, 24 Jun 2026 15:34:22 +0000</pubDate>
+            <sparkle:version>57</sparkle:version>
+            <sparkle:shortVersionString>0.14.10</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Add opt-in Claude OAuth token auto-refresh (macOS)</li>
+<li>Improve token/cost accuracy & coverage to match ccusage/OpenUsage</li>
+<li>Improve Claude token cost accuracy: 1h cache tier, fast mode, sidechain dedup</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.10/ClaudeMeter.zip"
+                length="2204429"
+                type="application/octet-stream"
+                sparkle:edSignature="TXBaPcIMXJrO+eGAqlqF1IkMvMwB26qtgHTl48300zav/wTzZBz2CBrl9bHUL1HnOIMzjjLBxqjW3JlhPiDXCg==" />
+        </item>
+        <item>
+            <title>Version 0.14.9</title>
+            <pubDate>Wed, 24 Jun 2026 12:35:52 +0000</pubDate>
+            <sparkle:version>56</sparkle:version>
+            <sparkle:shortVersionString>0.14.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>add xcode skills for security, SwiftUI, UIKit, and device interaction</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.9/ClaudeMeter.zip"
+                length="2140526"
+                type="application/octet-stream"
+                sparkle:edSignature="sCtnj4x9wnqvhO6m/mcCwomf/PX3A1g34hKCiOfcPZhnEeqJE8UANi1JMW5QVvaWwJIlXRekIoJknzzuidS+DQ==" />
+        </item>
+        <item>
+            <title>Version 0.14.8</title>
+            <pubDate>Sun, 14 Jun 2026 15:21:28 +0000</pubDate>
+            <sparkle:version>55</sparkle:version>
+            <sparkle:shortVersionString>0.14.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Fix blog account Sign Out silently doing nothing</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.8/ClaudeMeter.zip"
+                length="2140523"
+                type="application/octet-stream"
+                sparkle:edSignature="oeHKyhXEmjGAEajxOdM3krmbvgyR1J1WTaK1JiPfzkVz8d7DxAuFnuB022Hye4MXQuDgN3KwCOHY10NI6jOiDg==" />
+        </item>
+        <item>
+            <title>Version 0.14.7</title>
+            <pubDate>Sun, 14 Jun 2026 15:12:42 +0000</pubDate>
+            <sparkle:version>54</sparkle:version>
+            <sparkle:shortVersionString>0.14.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Trim verbose blog OAuth debug logging</li>
+<li>Fix blog OAuth client re-registration and Better Auth CSRF/audience requirements</li>
+<li>Add OAuth 2.1/PKCE blog sign-in for usage sync</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.7/ClaudeMeter.zip"
+                length="2139035"
+                type="application/octet-stream"
+                sparkle:edSignature="wUQNH9PtCOdAXHyZj1147VewVezzz03EzLgX/JJUNcbC1/GssZcmVAIwjsfJjhzY6cayHDg1eBhj63i7tuV8Ag==" />
+        </item>
+        <item>
+            <title>Version 0.14.6</title>
+            <pubDate>Sat, 13 Jun 2026 17:14:27 +0000</pubDate>
+            <sparkle:version>53</sparkle:version>
+            <sparkle:shortVersionString>0.14.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Revert "fix menu bar focus jump"</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.6/ClaudeMeter.zip"
+                length="2044906"
+                type="application/octet-stream"
+                sparkle:edSignature="fdWlkRn3z4h2eUc0mBSSTfCtrbjD81zvkiWvLlB7vjIHGYibeQ/JNJPiW2y9ZdP5tDws18yNgFn+2RkZBTYHDg==" />
+        </item>
+        <item>
+            <title>Version 0.14.5</title>
+            <pubDate>Sat, 13 Jun 2026 16:53:37 +0000</pubDate>
+            <sparkle:version>52</sparkle:version>
+            <sparkle:shortVersionString>0.14.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>fix menu bar focus jump</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.5/ClaudeMeter.zip"
+                length="2044835"
+                type="application/octet-stream"
+                sparkle:edSignature="c7VhJZ7KGdaHdteOcE4/lZ6S5g9hqRCt2YkxoEefWCWBbQKMW9WrM5e6qqynS+dJO8exrMPVfF7irYUnjgg4AQ==" />
+        </item>
+        <item>
+            <title>Version 0.14.4</title>
+            <pubDate>Wed, 10 Jun 2026 18:00:46 +0000</pubDate>
+            <sparkle:version>51</sparkle:version>
+            <sparkle:shortVersionString>0.14.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Sign release bot commits via the GitHub API</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.4/ClaudeMeter.zip"
+                length="2044907"
+                type="application/octet-stream"
+                sparkle:edSignature="Ss3pTHwwUB6xVbuEjFvyw+SOUFbDwT7JGqY1fK/PuIYwzQKm/UCx9HYv77yEoZfEqWva4XSDa+blcn1p20P/Dw==" />
+        </item>
+        <item>
+            <title>Version 0.14.3</title>
+            <pubDate>Wed, 10 Jun 2026 17:50:52 +0000</pubDate>
+            <sparkle:version>50</sparkle:version>
+            <sparkle:shortVersionString>0.14.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Trigger release after CI signing fix</li>
+<li>Document the usage endpoint URL constant</li>
+<li>Extract release logic into local composite actions</li>
+<li>Address PR review: abort on moved main, create release after signing, pin checkout SHA</li>
+<li>Automate releases on push to main</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.3/ClaudeMeter.zip"
+                length="2044907"
+                type="application/octet-stream"
+                sparkle:edSignature="YB76Cd0KMXi1SL7KKeEg5UeyO2M+JVdf88Jn5TXRaGHuANzJdBd9I1JSunqUMGJ139ANiKS2pNCZXq3M+6RHBA==" />
+        </item>
+        <item>
+            <title>Version 0.14.2</title>
+            <pubDate>Wed, 10 Jun 2026 15:24:06 +0000</pubDate>
+            <sparkle:version>49</sparkle:version>
+            <sparkle:shortVersionString>0.14.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Changed</h3>
+<ul>
+<li>Rebuilt and verified against Xcode 27 / macOS 27 (build and full test suite pass on the new SDK).</li>
+</ul>
+
+<h3>Fixed</h3>
+<ul>
+<li>Two environment-dependent test failures: `returnsNilForUnknownModel` raced the live LiteLLM pricing map (which now legitimately prices `gpt-4`) and asserts the static fallback instead; `initialStateIsCorrect` leaked the real app's cached usage snapshot from the shared UserDefaults domain and now stashes and restores it.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.2/ClaudeMeter.zip"
+                length="2044910"
+                type="application/octet-stream"
+                sparkle:edSignature="93U8+bwrsVhLVa7SH30ynTa9+M3MYZV53PE3VJu59zIp0leWh5oq4HrFpXxIgekCL073WIcMmbuflkPIbuGNCg==" />
+        </item>
+        <item>
+            <title>Version 0.14.1</title>
+            <pubDate>Wed, 10 Jun 2026 03:21:02 +0000</pubDate>
+            <sparkle:version>48</sparkle:version>
+            <sparkle:shortVersionString>0.14.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Use LiteLLM pricing data as the source of truth for token cost calculations, preferring a configured LiteLLM proxy's `/model/info` pricing and falling back to LiteLLM's hosted model cost map.</li>
+<li>Refresh LiteLLM pricing before local token imports, zero-cost recalculation, live provider aggregation, and blog usage sync so newly released models such as Claude Mythos/Fable 5 can be priced without hardcoded app updates.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.1/ClaudeMeter.zip"
+                length="2044910"
+                type="application/octet-stream"
+                sparkle:edSignature="EsCCpIidJt78D0YP7cWzjbLgmde6M5sDLV8+sygABNetuZv5rfEC+P+QzvVMiBbyKjjg8Teqf5lclXv1wafjDQ==" />
+        </item>
+        <item>
+            <title>Version 0.14.0</title>
+            <pubDate>Mon, 08 Jun 2026 15:48:32 +0000</pubDate>
+            <sparkle:version>47</sparkle:version>
+            <sparkle:shortVersionString>0.14.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>**Per-provider service outage detection.** When a provider's usage fetch fails with an HTTP 5xx / service-unavailable error, ClaudeMeter tracks an outage and shows a "Service down" indicator on that provider's card (menu bar popover) and a banner on its detail page (menu bar + Dashboard), while continuing to show cached data. Covers Claude, Codex, and OpenCode; clears automatically on the next successful fetch.</li>
+</ul>
+
+<h3>Fixed</h3>
+<ul>
+<li>OpenCode Go dashboard usage windows never parsed due to a malformed regex, so OpenCode rate-limit windows were always missing. The parser now extracts rolling/weekly/monthly usage correctly.</li>
+<li>Manual refresh is no longer throttled — pressing refresh always fetches immediately.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.0/ClaudeMeter.zip"
+                length="2010682"
+                type="application/octet-stream"
+                sparkle:edSignature="p/wPa2JJNMZ6uxCs7//uom52BmpuVJYoS/tpkWe5wS7ki8jQyVZX7+GEOte/pSazDXHXiT8+vcj1n+0/u6TjBg==" />
+        </item>
+        <item>
+            <title>Version 0.13.5</title>
+            <pubDate>Sun, 07 Jun 2026 15:35:02 +0000</pubDate>
+            <sparkle:version>46</sparkle:version>
+            <sparkle:shortVersionString>0.13.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Stop the remaining macOS keychain authorization prompt on launch, caused by blog usage sync reading its bearer token in-process. The token is now stored and read via the `/usr/bin/security` CLI — whose stable Apple-signed binary lets the keychain "Always Allow" grant persist — instead of in-process keychain APIs that re-prompt on every launch for the unsigned app.</li>
+</ul>
+
+**After updating, re-enter your blog sync token once** in Settings (the old keychain entry was reset as part of this fix).
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.5/ClaudeMeter.zip"
+                length="1990210"
+                type="application/octet-stream"
+                sparkle:edSignature="6xV+sZTmArPitq9atg15fbEAzF48k+MSyhunZjKd8VKyueWigGX5fwRjyNouEQxcV/Ry9SQLe2XpNCTFOCnTBw==" />
+        </item>
+        <item>
+            <title>Version 0.13.4</title>
+            <pubDate>Sun, 07 Jun 2026 12:05:44 +0000</pubDate>
+            <sparkle:version>45</sparkle:version>
+            <sparkle:shortVersionString>0.13.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Stop a recurring macOS keychain authorization prompt on launch. The app no longer writes a copy of the Claude credentials into its own keychain on every refresh — that write was unused (macOS reads the token directly from Claude Code via the `security` CLI, and iCloud sync is not enabled) and was the source of the repeated "ClaudeMeter wants to use your confidential information" dialog.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.4/ClaudeMeter.zip"
+                length="1991789"
+                type="application/octet-stream"
+                sparkle:edSignature="sRoilFjLiMqpPqYHj/ik+XPL+vNNDBc/rBb9ij4ME2hdx/VqViSNO6E7il0RLZtask2eFGbUQxPtgEr0La5MBw==" />
+        </item>
+        <item>
+            <title>Version 0.13.3</title>
+            <pubDate>Sun, 07 Jun 2026 09:42:36 +0000</pubDate>
+            <sparkle:version>44</sparkle:version>
+            <sparkle:shortVersionString>0.13.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Codex 5-hour and weekly windows now read **live** usage from the ChatGPT backend (`/wham/usage`) using the `~/.codex/auth.json` token, instead of stale local rollout logs. Usage consumed via OpenCode/ChatGPT is now reflected, fixing the menu bar showing **0%** when the local Codex CLI logs were stale. On any error the Codex column is hidden rather than showing a fabricated 0%.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.3/ClaudeMeter.zip"
+                length="1995311"
+                type="application/octet-stream"
+                sparkle:edSignature="1wDNjHbyXHWjDpQ19FKnUQFnTK4ml3/LHkzFROBj/uvzTNADL3qdGr3VuTZ4+LiHQlHwWybSIwFnNvU+rUNlAQ==" />
+        </item>
+        <item>
+            <title>Version 0.13.2</title>
+            <pubDate>Sat, 06 Jun 2026 19:37:23 +0000</pubDate>
+            <sparkle:version>43</sparkle:version>
+            <sparkle:shortVersionString>0.13.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Skip Claude Code `<synthetic>` placeholder rows during blog usage sync so zero-token internal messages are not stored as Anthropic model usage.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.2/ClaudeMeter.zip"
+                length="1948213"
+                type="application/octet-stream"
+                sparkle:edSignature="3EMKw9nwtBFDdADbRZ67AgTWhrDa80HBUoGpv/mghz5b2AP5e7D0n8dga+rRcYFfyDC5lbasyNFU0fhLrSglDQ==" />
+        </item>
+        <item>
+            <title>Version 0.13.1</title>
+            <pubDate>Sat, 06 Jun 2026 18:41:19 +0000</pubDate>
+            <sparkle:version>42</sparkle:version>
+            <sparkle:shortVersionString>0.13.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Removed</h3>
+<ul>
+<li>Credentials status section from Settings (no longer needed).</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.1/ClaudeMeter.zip"
+                length="1947736"
+                type="application/octet-stream"
+                sparkle:edSignature="dGFLS/PjMIrYVhgwmXED3Y7Q4rNk5mEP0WuLMZf+rC58NDM7eaYLglvfZmQEjNZSyWbtVKa79HI7YNpevK2bCg==" />
+        </item>
+        <item>
+            <title>Version 0.13.0</title>
+            <pubDate>Sat, 06 Jun 2026 18:03:51 +0000</pubDate>
+            <sparkle:version>41</sparkle:version>
+            <sparkle:shortVersionString>0.13.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>**Multi-provider usage monitoring (macOS):** track **OpenAI Codex CLI** and **OpenCode** alongside Claude.</li>
+<li>Codex rate-limit windows (5-hour + weekly) and plan, read from local Codex rollout logs — no login required.</li>
+<li>Token usage & cost for Codex and OpenCode, computed from local logs (OpenCode via its SQLite database) using built-in pricing.</li>
+<li>**OpenUsage-style menu-bar popover:** a provider sidebar that switches between an overview and per-provider detail pages — each with Status/Console links, window status dots, Today/Yesterday/30-day cost, a usage-trend sparkline, and a per-model breakdown.</li>
+<li>Shared per-provider cards across the menu bar and Dashboard.</li>
+<li>"Codex (5h)" menu-bar display toggle in Settings.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.0/ClaudeMeter.zip"
+                length="1959609"
+                type="application/octet-stream"
+                sparkle:edSignature="uhP6HFvnAzf/nePHXPeQIsKnX4w1baz6CcYfrAAcksmlpL8i295B9eyVvhFGADAEnfarExujIjGc6f/kixiFCA==" />
+        </item>
+        <item>
+            <title>Version 0.12.2</title>
+            <pubDate>Sat, 06 Jun 2026 15:22:06 +0000</pubDate>
+            <sparkle:version>40</sparkle:version>
+            <sparkle:shortVersionString>0.12.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix synced usage pricing</li>
+<li>Align blog usage sync contract</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.2/ClaudeMeter.zip"
+                length="1822517"
+                type="application/octet-stream"
+                sparkle:edSignature="Tg6q3vRs1lHbH9GPcC7+kftNZMfka5j133mIX0prYsVFZjsoXuW9Hu8ERODUkQMRrHaDQgWE8UnSkOlnoY2pAA==" />
+        </item>
+        <item>
+            <title>Version 0.12.1</title>
+            <pubDate>Sat, 06 Jun 2026 12:38:42 +0000</pubDate>
+            <sparkle:version>39</sparkle:version>
+            <sparkle:shortVersionString>0.12.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Changed</h3>
+<ul>
+<li>Removed the ccusage backend; the native Claude JSONL parser is now the sole source of token usage and cost. Displayed totals are Claude-only and priced at Anthropic rates, fixing discrepancies caused by ccusage running unscoped across all coding agents with LiteLLM pricing.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.1/ClaudeMeter.zip"
+                length="1818751"
+                type="application/octet-stream"
+                sparkle:edSignature="HQaUq9YOqqK0eaeKq6bkZDOZkEgd9KgDMUv5kCmbpR05yf3k/AIU+OxdFXRJFKptQJJh5D90LqFFjIEuzRDwDw==" />
+        </item>
+        <item>
+            <title>Version 0.12.0</title>
+            <pubDate>Sat, 06 Jun 2026 10:12:59 +0000</pubDate>
+            <sparkle:version>38</sparkle:version>
+            <sparkle:shortVersionString>0.12.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Add passive blog usage sync for local agent usage.</li>
+<li>Add blog sync settings for endpoint URL, bearer token, manual sync, and sync status.</li>
+</ul>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix release metadata and Sparkle appcast release notes so updater notes render correctly.</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.0/ClaudeMeter.zip"
+                length="1885289"
+                type="application/octet-stream"
+                sparkle:edSignature="JUQ82zf7YKKf3pQ5zreUMMDC3fZ+J6YEvSe8jsyA1js+7SqLNW6jjcT9iWeah0idjOThCz0WTgJUpafr4rjrAg==" />
+        </item>
+        <item>
+            <title>Version 0.11.0</title>
+            <pubDate>Fri, 17 Apr 2026 19:26:29 +0000</pubDate>
+            <sparkle:version>36</sparkle:version>
+            <sparkle:shortVersionString>0.11.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Track Claude Design usage as a third weekly window (alongside All models and Sonnet)</li>
+<li>Show Claude Design in macOS menu bar icon, popover, and Dashboard; iOS Dashboard; and Medium/Large widgets</li>
+<li>Add <code>menuBarShowDesign</code> toggle in macOS Settings (Menu Bar Display)</li>
+<li>Add <code>notifyDesign</code> threshold notifications in macOS Settings (Notifications)</li>
+<li>Add Claude Design as a Live Activity metric on iOS</li>
+</ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.11.0/ClaudeMeter.zip"
+                length="1649307"
+                type="application/octet-stream"
+                sparkle:edSignature="a/qwd3zodK3IvR9Q3uVSF5OlB9gZOP0Rp6ICDLe+6/GIJc0EEntB3eYeuWdAetPiB/xRtWin95wOJRZR3lBRDQ==" />
+        </item>
+        <item>
+            <title>Version 0.10.9</title>
+            <pubDate>Wed, 18 Mar 2026 13:40:39 +0000</pubDate>
+            <sparkle:version>35</sparkle:version>
+            <sparkle:shortVersionString>0.10.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix release workflow failing on asset upload by replacing softprops/action-gh-release with gh CLI</li>
+<li>Add missing GITHUB_TOKEN for gh CLI in release workflow</li>
+</ul>
+
+See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.9/ClaudeMeter.zip"
+                length="1641900"
+                type="application/octet-stream"
+                sparkle:edSignature="Cr7DgfhgUWkeQRwkJqoOLX6Zk+pVqFhainBF/uBRkqOislCU8+TkAoxLzyUdq7qtmFGvoIKxVLYBFIYpQkkoDw==" />
+        </item>
+        <item>
+            <title>Version 0.10.5</title>
+            <pubDate>Sun, 08 Feb 2026 14:08:27 +0000</pubDate>
+            <sparkle:version>31</sparkle:version>
+            <sparkle:shortVersionString>0.10.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix repeating credential file dialog appearing on every auto-refresh cycle when credentials are missing</li>
+</ul>
+
+Previously, when Claude Code credentials were not found, the file picker dialog would appear repeatedly during every auto-refresh cycle (every 5 minutes by default). This release fixes the issue by properly handling the missing credentials case without triggering the dialog.
+
+---
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full release history.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.5/ClaudeMeter.zip"
+                length="1636630"
+                type="application/octet-stream"
+                sparkle:edSignature="PF0KZPivibF1EpUcod7WEaxfY8O7outzsX0NThcgJnH3vNc3FEUveYMcl1ce/Q2f133/7tIn6h9aI0+vVdJsBw==" />
+        </item>
+        <item>
+            <title>Version 0.10.4</title>
+            <pubDate>Sun, 08 Feb 2026 09:00:35 +0000</pubDate>
+            <sparkle:version>30</sparkle:version>
+            <sparkle:shortVersionString>0.10.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix credential loading after Claude Code moved from file to macOS Keychain</li>
+</ul>
+
+Claude Code no longer stores credentials in `~/.claude/.credentials.json`. ClaudeMeter now reads directly from Claude Code's Keychain entry, with a fallback to the file for older CLI versions.
+
+See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.4/ClaudeMeter.zip"
+                length="1636749"
+                type="application/octet-stream"
+                sparkle:edSignature="Voz/YyfLDY9sAjAjTlwEKC+4DKGFq4jp6Ecw5f7MNQFZ0XL5uj8WJEthmhtUnz6U+h2e8T9BscVoWBo3zP1VDg==" />
+        </item>
+        <item>
+            <title>Version 0.10.3</title>
+            <pubDate>Sat, 07 Feb 2026 21:21:49 +0000</pubDate>
+            <sparkle:version>29</sparkle:version>
+            <sparkle:shortVersionString>0.10.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix Opus 4.6 token usage and costs showing as $0 (add pricing support for new model)</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/v0.10.3/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.3/ClaudeMeter.zip"
+                length="1631499"
+                type="application/octet-stream"
+                sparkle:edSignature="XFmQv7qzr8sANq3AJ1qn8TVTpXQpIavwjKO5xRrP6jZeHWnf9zS/kUJCSi4Ebd3JpRXl5fEAhhvHkLlsVuTmAw==" />
+        </item>
+        <item>
+            <title>Version 0.10.2</title>
+            <pubDate>Sat, 07 Feb 2026 09:14:28 +0000</pubDate>
+            <sparkle:version>28</sparkle:version>
+            <sparkle:shortVersionString>0.10.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Display app version in menu bar popover footer</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Allow multiple app instances to run simultaneously (reverted single-instance enforcement)</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.2/ClaudeMeter.zip"
+                length="1629675"
+                type="application/octet-stream"
+                sparkle:edSignature="Gek5nx3cY7MMrCQ8RkXAlRJ3tLYdm4zy82bQKT3xuMK5TI6/0pKqD2CEiUaPg7WWhgN2vEA/Bla0ZBa8eGLdBw==" />
+        </item>
+        <item>
+            <title>Version 0.10.1</title>
+            <pubDate>Sat, 07 Feb 2026 09:06:10 +0000</pubDate>
+            <sparkle:version>27</sparkle:version>
+            <sparkle:shortVersionString>0.10.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Prevent multiple app instances from running simultaneously (activates existing instance)</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.1/ClaudeMeter.zip"
+                length="1630155"
+                type="application/octet-stream"
+                sparkle:edSignature="9R/oHZKAM+/NTJNlx4W8n8dDL54XVYQuH6Nh1Y0aJfj/mSPRtI8EVSCBTwAHx3rpoZBGSdXQkj69OlURwZAYCQ==" />
+        </item>
+        <item>
+            <title>Version 0.10.0</title>
+            <pubDate>Sat, 07 Feb 2026 08:53:11 +0000</pubDate>
+            <sparkle:version>26</sparkle:version>
+            <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>**Extra usage tracking** for paid accounts - Track cache creation and extra input tokens with cost calculations</li>
+<li>New settings to control extra usage indicators and notifications</li>
+<li>Account requirement hint for extra usage feature (requires paid plan with OAuth)</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Extra usage cost display now uses dusty plum color for better visual distinction</li>
+<li>CMD+Q now quits the app completely (restored standard macOS behavior)</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.0/ClaudeMeter.zip"
+                length="1627617"
+                type="application/octet-stream"
+                sparkle:edSignature="cGo87m+DZwVCeyTUfFthl/2uqZjHYEbMVjbv63Xu+hTsXU4uiKEXWjgmRWYfinbPJ66UA44strEo4dGK+ikUAw==" />
+        </item>
+        <item>
+            <title>Version 0.9.3</title>
+            <pubDate>Thu, 05 Feb 2026 18:47:16 +0000</pubDate>
+            <sparkle:version>25</sparkle:version>
+            <sparkle:shortVersionString>0.9.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>CMD+Q now closes main window instead of quitting app, keeping menu bar alive</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.3/ClaudeMeter.zip"
+                length="1581259"
+                type="application/octet-stream"
+                sparkle:edSignature="cGGcgzqA+hbUseMg9N6dOKDYXiS4EoFm5eDe+h5pgjOB7ZHhyyaQ8Ag5rlqxs1sjarIPOWMRieAvaG3iaM7LBg==" />
+        </item>
+        <item>
+            <title>Version 0.9.2</title>
+            <pubDate>Thu, 05 Feb 2026 18:31:47 +0000</pubDate>
+            <sparkle:version>24</sparkle:version>
+            <sparkle:shortVersionString>0.9.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix token usage and costs not updating in background when offline or between API refreshes</li>
+</ul>
+
+See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.2/ClaudeMeter.zip"
+                length="1580209"
+                type="application/octet-stream"
+                sparkle:edSignature="+zH81b7cadWA+JI/hwXoMC7JR3J8z6RizYeOxUA4zE1fN3yWhguVxbTEH+S7bW7R6kKC6p6sml5o40YIZlSlDQ==" />
+        </item>
+        <item>
+            <title>Version 0.9.1</title>
+            <pubDate>Fri, 30 Jan 2026 08:14:28 +0000</pubDate>
+            <sparkle:version>23</sparkle:version>
+            <sparkle:shortVersionString>0.9.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix background refresh not starting on app launch (broke in 0.9.0 refactor)</li>
+</ul>
+
+---
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full release history.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.1/ClaudeMeter.zip"
+                length="1580435"
+                type="application/octet-stream"
+                sparkle:edSignature="5p+THWoaOZmkunClrAlDFK7LeP2MXij0jEufQFPHpkFsyJ/m9tDMJVyG6c3Jjt4fgiPsefF9y6DeMv4ftVfxAA==" />
+        </item>
+        <item>
+            <title>Version 0.9.0</title>
+            <pubDate>Wed, 28 Jan 2026 17:16:10 +0000</pubDate>
+            <sparkle:version>22</sparkle:version>
+            <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+This release focuses on improving code architecture, testability, and error handling.
+
+<h3>Added</h3>
+<ul>
+<li>Service protocols for dependency injection and improved testability</li>
+<li>DependencyContainer for centralized service creation</li>
+<li>TokenRefreshService for automatic OAuth token refresh</li>
+<li>Shared utilities in ClaudeMeterKit (DateFormatters, UsageCalculations, WidgetDataStorage)</li>
+<li>Mock implementations for unit testing</li>
+<li>Comprehensive unit tests for utilities and edge cases (16+ new tests)</li>
+<li>Human-readable keychain error messages for better debugging</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Refactor architecture with protocol-based services</li>
+<li>Consolidate duplicated code into ClaudeMeterKit package</li>
+<li>Extract RefreshScheduler and MenuBarSettingsManager from UsageViewModel</li>
+<li>Unified WidgetDataManager between app and widget extension</li>
+</ul>
+
+<h3>Fixed</h3>
+<ul>
+<li>TokenUsageService now continues processing when individual JSONL files fail (partial success)</li>
+<li>Improved error handling with descriptive keychain status messages</li>
+</ul>
+
+See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.0/ClaudeMeter.zip"
+                length="1505159"
+                type="application/octet-stream"
+                sparkle:edSignature="FHqCXxuhAhP/lN71fzULWujWr7gAqBuo185KECqVpAq9mYLsnpgBUbHnX2znBvwh6T67TpUkKGcPM3i1XQWtCQ==" />
+        </item>
+        <item>
+            <title>Version 0.8.3</title>
+            <pubDate>Fri, 23 Jan 2026 02:22:21 +0000</pubDate>
+            <sparkle:version>21</sparkle:version>
+            <sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix Sparkle auto-update not triggering background checks for menu bar apps</li>
+<li>Add comprehensive logging for update check debugging (viewable in Console.app)</li>
+<li>Add "Last Checked" display in Settings to verify update checks are occurring</li>
+<li>Schedule automatic background check 30 seconds after app launch</li>
+</ul>
+
+<h3>Added</h3>
+<ul>
+<li>Debug tool to force background update check (DEBUG builds only)</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.3/ClaudeMeter.zip"
+                length="1478415"
+                type="application/octet-stream"
+                sparkle:edSignature="WgSeLgpa7k5AV/NyO3JWwlqh5MgbfW7GuH4ujsKGeKbh39hJ6N1zGx8lp0ts18Nrv6+9RQIe3XQlAXhyQCBFCA==" />
+        </item>
+        <item>
+            <title>Version 0.8.2</title>
+            <pubDate>Sun, 11 Jan 2026 19:23:20 +0000</pubDate>
+            <sparkle:version>20</sparkle:version>
+            <sparkle:shortVersionString>0.8.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix false usage reset notifications when at 90%+ capacity (API timestamp precision issue)</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.2/ClaudeMeter.zip"
+                length="1465701"
+                type="application/octet-stream"
+                sparkle:edSignature="ZhnyhvxIhlRe2TLqR9v4BbRmf2Vj8sjVqQ9XHIkjaNhR7awtwwhpvhwrrFCuT6Psrz7RigScKNrxBApdUlCqCQ==" />
+        </item>
+        <item>
+            <title>Version 0.8.1</title>
+            <pubDate>Sun, 11 Jan 2026 16:58:16 +0000</pubDate>
+            <sparkle:version>19</sparkle:version>
+            <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix "Check Now" button disappearing after update check (now stays visible with result text)</li>
+<li>Fix update check results not auto-dismissing for all result types</li>
+<li>Fix initial canCheckForUpdates state not syncing on app launch</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Increase automatic update check frequency from 24 hours to 4 hours</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.1/ClaudeMeter.zip"
+                length="1465697"
+                type="application/octet-stream"
+                sparkle:edSignature="j3kofVuci3Cv3IlrOiiJZEspvzw3zNw0MBsFFCfh6zjzDfqrzCG8x4EaxqmVvU6x6+LRgE2rHpkuRTEBIHBwDg==" />
+        </item>
+        <item>
+            <title>Version 0.8.0</title>
+            <pubDate>Sun, 11 Jan 2026 16:34:29 +0000</pubDate>
+            <sparkle:version>18</sparkle:version>
+            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Changed</h3>
+<ul>
+<li>Redesign menu bar display with multi-line layout showing labels above percentages</li>
+<li>Add labels (CURR, ALL, SONNET) for better usage window identification</li>
+<li>Improve rendering with Retina display support via ImageRenderer</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.0/ClaudeMeter.zip"
+                length="1465817"
+                type="application/octet-stream"
+                sparkle:edSignature="96WGm3YWZdl+8PsFVNnMhnkpZ4ARkdZeY/tlPABWsQHnYel+xw2sD4NDJnBLoziuHRwJCJ+oyIkRPPqNFqOrBA==" />
+        </item>
+        <item>
+            <title>Version 0.7.1</title>
+            <pubDate>Sat, 10 Jan 2026 15:29:22 +0000</pubDate>
+            <sparkle:version>17</sparkle:version>
+            <sparkle:shortVersionString>0.7.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Token usage errors now display to users instead of failing silently</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.7.1/ClaudeMeter.zip"
+                length="1455674"
+                type="application/octet-stream"
+                sparkle:edSignature="ZmO4egds3S3F/YibXw4TM2Kg9B4feIPSU6996osvaFWvVu3iYMizvNrP1GuHa9h3YDQ4txqiDBFRV0jSOYJgAw==" />
+        </item>
+        <item>
+            <title>Version 0.7.0</title>
+            <pubDate>Sun, 04 Jan 2026 17:44:54 +0000</pubDate>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Token usage persistence with SwiftData for faster startup and historical tracking (macOS)</li>
+<li>ClaudeMeterKit Swift Package for shared models across macOS, iOS, and widgets</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Bump iOS deployment target to iOS 18.0</li>
+<li>Refactor usage data models into shared ClaudeMeterKit package</li>
+</ul>
+
+<h3>Fixed</h3>
+<ul>
+<li>Pin GitHub Action to commit hash for improved CI security</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.7.0/ClaudeMeter.zip"
+                length="1423574"
+                type="application/octet-stream"
+                sparkle:edSignature="KCatevOk9yqt1Me/AI+ErmHKzkgbBURNzNTmIbuY+XTGPuhccHApUIldKOvzNBUAr3BAUOf+d5K9S2RwQNSkDw==" />
+        </item>
+        <item>
+            <title>Version 0.6.3</title>
+            <pubDate>Sat, 03 Jan 2026 18:31:54 +0000</pubDate>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>0.6.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Changed</h3>
+<ul>
+<li>Style subscription tier as brand badge for better visual distinction</li>
+<li>Update labels and fonts to follow Apple Human Interface Guidelines</li>
+</ul>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix Check for Updates button state not updating correctly</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.3/ClaudeMeter.zip"
+                length="1329184"
+                type="application/octet-stream"
+                sparkle:edSignature="d0O7rcx0fFGIciUVDq7kfrlJnEDOQGZFSXPz5f6D0zM+54hWlGaUUqUqnaOzsDUWy1P1C9ylYCJvtcdkb2nTAw==" />
+        </item>
+        <item>
+            <title>Version 0.6.2</title>
+            <pubDate>Sat, 03 Jan 2026 17:35:26 +0000</pubDate>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.6.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix markdown links not rendering as clickable in Sparkle update dialog</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.2/ClaudeMeter.zip"
+                length="1326451"
+                type="application/octet-stream"
+                sparkle:edSignature="tTfsgTv5M6LCjhoUuGB81d+yimmnT6iF54tAG+hO6ElJyaKl1s8R+i8M6hrBLje0n4xs9W2cd28/52rr2P1pCw==" />
+        </item>
+        <item>
+            <title>Version 0.6.1</title>
+            <pubDate>Sat, 03 Jan 2026 17:26:20 +0000</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Enable automatic update checks by default for menu bar app (fixes update prompts not appearing)</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.1/ClaudeMeter.zip"
+                length="1326452"
+                type="application/octet-stream"
+                sparkle:edSignature="OkTVDsnbhULlNzhYAD73vNOKcmooWjOTiuJNbVxT7t0tDCmgz0eePTlcwmV2tRUdhfNGbcTRbAukwldp8NSSAg==" />
+        </item>
+        <item>
+            <title>Version 0.6.0</title>
+            <pubDate>Sat, 03 Jan 2026 17:21:31 +0000</pubDate>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Launch at Login option in Settings to start ClaudeMeter automatically on login</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Load usage stats immediately on app launch instead of waiting for menu bar click</li>
+<li>Improved update checking with better feedback UI and state management</li>
+</ul>
+
+See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.0/ClaudeMeter.zip"
+                length="1326433"
+                type="application/octet-stream"
+                sparkle:edSignature="6zaNGXsjSkzszNSjjLr6DowOvbWDSjLLR2m7vQnMc3VQp9aR7k5WF4aQpev+Gb0VE5OvpiEhvpVi5nLN77zbAQ==" />
+        </item>
+        <item>
+            <title>Version 0.5.2</title>
+            <pubDate>Sat, 03 Jan 2026 16:58:58 +0000</pubDate>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Countdown timer in menu bar when usage reaches 100%</li>
+<li>Reset notifications when usage window resets after being near/at limit</li>
+<li>Keyboard shortcut tooltips on menu bar action buttons (Refresh, Settings, Quit)</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Menu bar now shows time remaining until reset when at capacity</li>
+</ul>
+
+See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.2/ClaudeMeter.zip"
+                length="1299992"
+                type="application/octet-stream"
+                sparkle:edSignature="kOkSBE/wuRxr7N9GXwXNy8TBdtmVXypS4l8UOv6pBmVudTUWWkxm8nodipNUcEgsc/kv1hAnbelBMGt6JcjJDg==" />
+        </item>
+        <item>
+            <title>Version 0.5.1</title>
+            <pubDate>Sat, 03 Jan 2026 16:26:05 +0000</pubDate>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Restore Liquid Glass effect in release builds by updating CI runner to macOS 26</li>
+</ul>
+
+See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.1/ClaudeMeter.zip"
+                length="1294718"
+                type="application/octet-stream"
+                sparkle:edSignature="FNuS01ydakaNqWTs4U2244f9QhBVoJerNa8ulG+b6i6ncF2nrOTZklWV6AIWkN+DPXQuBp4mjqpnOqa3etJ5Cg==" />
+        </item>
+        <item>
+            <title>Version 0.5.0</title>
+            <pubDate>Sat, 03 Jan 2026 16:19:48 +0000</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Usage threshold notifications with customizable alert levels</li>
+<li>Test notification button in Settings for verifying notification permissions</li>
+<li>Visual progress bar dividers at 25%, 50%, 75% markers</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Updated deployment targets to macOS 15 and iOS 17</li>
+</ul>
+
+See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.0/ClaudeMeter.zip"
+                length="1089268"
+                type="application/octet-stream"
+                sparkle:edSignature="b2VFV4l9wz5ahQFmtioaS6PKfxoJ1ouOdpquoFreZcZU/TGzOJqR5ngZmVPE1ZV08IkJbSpV3vHaj9JAK3fqBQ==" />
+        </item>
+        <item>
+            <title>Version 0.4.0</title>
+            <pubDate>Sat, 03 Jan 2026 15:42:55 +0000</pubDate>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Popover menu with quick access to Settings, About, and Quit</li>
+<li>Dynamic dock icon behavior (shows when main window is open, hides otherwise)</li>
+<li>TabView navigation for iOS and macOS platforms</li>
+</ul>
+
+<h3>Changed</h3>
+<ul>
+<li>Improved Settings and About tab layouts with better visual hierarchy</li>
+<li>Added hover effect to menu items for better interactivity</li>
+<li>Main window no longer shows on launch (menu bar-first experience)</li>
+</ul>
+
+See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.4.0/ClaudeMeter.zip"
+                length="1068072"
+                type="application/octet-stream"
+                sparkle:edSignature="TPz8jEkZSg/glPitO3qGsigITjGKae7Zu/KGoG2RiS1HAMu8+Q6TRZqfxMrfh+eXM9HLE3Rjmj8WDTN2VrB1BA==" />
+        </item>
+        <item>
+            <title>Version 0.3.0</title>
+            <pubDate>Sat, 03 Jan 2026 13:38:40 +0000</pubDate>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Added</h3>
+<ul>
+<li>Gentle reminders for Sparkle updates in menu bar apps</li>
+</ul>
+  - Orange badge dot on menu bar icon when update available
+  - "Update Available" banner in popover with View button
+  - System notification posted when scheduled update is found
+  - State resets when user engages with update or session ends
+
+See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.3.0/ClaudeMeter.zip"
+                length="1017082"
+                type="application/octet-stream"
+                sparkle:edSignature="gbH8fQiKnAkDhpW5xLHKrYbluTZIy17ze7NTBY3W1aX0fMBRhJXAm0HNPl7lVxHvuUwUNDt6IToZpsmLJpziBQ==" />
+        </item>
+        <item>
+            <title>Version 0.2.3</title>
+            <pubDate>Sat, 03 Jan 2026 09:02:12 +0000</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.2.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix invalid code signature in release builds preventing Sparkle updates</li>
+</ul>
+
+See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.3/ClaudeMeter.zip"
+                length="1009975"
+                type="application/octet-stream"
+                sparkle:edSignature="QF9grNpNlUyqgyvVEX3RPO1BXTYc2hISi9yp/dd/36QHAy2hzKXr62m59hyMByCmojhVKhpnh3PU6nDCjMbVBA==" />
+        </item>
+        <item>
+            <title>Version 0.2.2</title>
+            <pubDate>Sat, 03 Jan 2026 08:49:39 +0000</pubDate>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<h3>Fixed</h3>
+<ul>
+<li>Fix Sparkle update dialog showing raw GitHub page instead of formatted release notes</li>
+</ul>
+
+See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.2/ClaudeMeter.zip"
+                length="1011378"
+                type="application/octet-stream"
+                sparkle:edSignature="llYL6guHWfUbcT7itfQDSDbpBieuDE3BV175oUsiMPSypusbQkmEuMAWSID1d+56MwvXIjXmP6KfknGrnUxlAw==" />
+        </item>
+        <item>
+            <title>Version 0.2.1</title>
+            <pubDate>Sat, 03 Jan 2026 08:22:58 +0000</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New in 0.2.1</h2>
+<h3>Fixed</h3>
+<ul>
+<li>Fix Sparkle signature validation for auto-updates</li>
+</ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.1/ClaudeMeter.zip"
+                length="1011551"
+                type="application/octet-stream"
+                sparkle:edSignature="ntu1CPwslUxd0YdqiXPO5SgWm1uDFA7UqHl30pyR5eBinSZ8Po6ERRlGIUoqn4X8hqzialg4AvX1I4Fq+lwJCw==" />
+        </item>
+        <item>
+            <title>Version 0.1.1</title>
+            <pubDate>Sat, 03 Jan 2026 05:54:56 +0000</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.1.1</sparkle:releaseNotesLink>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.1/ClaudeMeter.zip"
+                length="1008082"
+                type="application/octet-stream"
+                sparkle:edSignature="FH3ObEzt/IFO5Bl6nU5wNgXn3axdYkSQiLLUA+hxEr4LOgVQh6eK7ysA/2JbH/mU36uBrzKSfu0vji60ESsHBA==" />
+        </item>
+        <item>
+            <title>Version 0.1.0</title>
+            <pubDate>Fri, 02 Jan 2026 08:55:34 +0000</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.0/ClaudeMeter.zip"
+                length="1006593"
+                type="application/octet-stream"
+                sparkle:edSignature="WshjqLsf/HSdm/Cjo2KRk7x3OxtmKjZKG/uXLMkdGmXZRWW9hVBLNexysmEF7vb67ntLmWn4ymssYazcyh/yBg==" />
+        </item>
     </channel>
 </rss>
