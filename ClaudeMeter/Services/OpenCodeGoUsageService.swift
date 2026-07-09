@@ -120,6 +120,14 @@ actor OpenCodeGoUsageService {
             fileManager: FileManager = .default,
             homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
         ) -> DashboardConfig? {
+            // 1. UserDefaults (primary path from Settings UI)
+            if let workspaceID = UserDefaults.standard.string(forKey: Constants.opencodeGoWorkspaceIDKey),
+               let authCookie = UserDefaults.standard.string(forKey: Constants.opencodeGoAuthCookieKey),
+               !authCookie.isEmpty {
+                return DashboardConfig(workspaceID: workspaceID, authCookie: authCookie)
+            }
+            
+            // 2. Environment variables (existing fallback)
             if let workspaceID = normalizedWorkspaceID(environment["OPENCODE_GO_WORKSPACE_ID"]),
                let authCookie = environment["OPENCODE_GO_AUTH_COOKIE"],
                !authCookie.isEmpty {

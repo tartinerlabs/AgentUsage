@@ -31,6 +31,34 @@ final class UsageViewModel {
     var isLoading = false
     var errorMessage: String?
     #if os(macOS)
+    /// OpenCode Go workspace ID and auth cookie, persisted via Settings UI.
+    var opencodeGoWorkspaceID: String {
+        get { UserDefaults.standard.string(forKey: Constants.opencodeGoWorkspaceIDKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: Constants.opencodeGoWorkspaceIDKey) }
+    }
+    
+    var opencodeGoAuthCookie: String {
+        get { UserDefaults.standard.string(forKey: Constants.opencodeGoAuthCookieKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: Constants.opencodeGoAuthCookieKey) }
+    }
+    
+    var opencodeGoStatusText: String {
+        if isLoadingTokenUsage { return "Checking..." }
+        if !opencodeGoWorkspaceID.isEmpty && !opencodeGoAuthCookie.isEmpty { return "Configured" }
+        return "Not configured"
+    }
+    
+    var opencodeGoStatusColor: Color {
+        if isLoadingTokenUsage { return .secondary }
+        if !opencodeGoWorkspaceID.isEmpty && !opencodeGoAuthCookie.isEmpty { return .green }
+        return .orange
+    }
+    
+    var isOpenCodeGoLoading: Bool {
+        isLoadingTokenUsage
+    }
+    #endif
+    #if os(macOS)
     var tokenUsageError: TokenUsageError?
     var isLoadingTokenUsage = false
     var blogUsageSyncEnabled: Bool {
