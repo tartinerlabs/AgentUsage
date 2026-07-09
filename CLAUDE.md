@@ -284,7 +284,7 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 The macOS app uses [Sparkle](https://sparkle-project.org/) framework for automatic updates:
 
 - **UpdaterController**: Wrapper around `SPUStandardUpdaterController` for SwiftUI integration
-- **Feed URL**: `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml` (in Info.plist) — served from GitHub Pages off the `gh-pages` branch. Moved off `raw.githubusercontent.com`, which structurally rate-limited (HTTP 429) the constantly-polled feed.
+- **Feed URL**: `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml` (in Info.plist) — served from GitHub Pages off the `gh-pages` branch. Moved off `raw.githubusercontent.com`, which structurally rate-limited (HTTP 429) the constantly-polled feed. The feed is **accumulating**: each release prepends its `<item>` to the existing feed, so it carries the full version history (Sparkle shows past "What's New" notes).
 - **Public Key**: EdDSA public key in Info.plist for signature verification
 - **Check for Updates**: Manual check button in Settings view, disabled when update check is already in progress
 - **Auto-check**: Sparkle automatically checks based on user preferences
@@ -311,7 +311,7 @@ Releases are **fully automated** via `.github/workflows/auto-release.yml`. Every
 4. **Bumps** `Config/Version.xcconfig`, `project.pbxproj`, and `CHANGELOG.md` (flat bullet list under the new version section), committing "Bump version to X.Y.Z"
 5. **Builds** the unsigned app and creates the zip archive
 6. **Creates the GitHub release** with the zip attached — the tag is created here, only after a successful build (`--prerelease` while < 1.0.0)
-7. **Signs** the zip with the Sparkle EdDSA key and **publishes the updated appcast.xml to the `gh-pages` branch** as the final step (the Sparkle feed is served from GitHub Pages; `appcast.xml` lives only on `gh-pages`, not main). `.github/workflows/pages.yml` then deploys `gh-pages` to Pages via `workflow_run`.
+7. **Signs** the zip with the Sparkle EdDSA key, **prepends this release's item to the existing feed** (fetched from `gh-pages`) so the appcast accumulates full version history, and **publishes the updated appcast.xml to the `gh-pages` branch** as the final step (the Sparkle feed is served from GitHub Pages; `appcast.xml` lives only on `gh-pages`, not main). `.github/workflows/pages.yml` then deploys `gh-pages` to Pages via `workflow_run`.
 
 **Do NOT manually bump versions, tag, or run `gh release create`** — just push to main.
 
