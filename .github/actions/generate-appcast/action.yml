@@ -91,6 +91,7 @@ runs:
           echo "            <sparkle:version>${BUILD}</sparkle:version>"
           echo "            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"
           echo '            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>'
+          echo "            <sparkle:fullReleaseNotesLink>https://github.com/$REPO/blob/main/CHANGELOG.md</sparkle:fullReleaseNotesLink>"
           echo '            <description><![CDATA['
           echo "${RELEASE_HTML}"
           echo '            ]]></description>'
