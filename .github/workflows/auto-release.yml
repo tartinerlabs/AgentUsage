@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths-ignore:
       - '**/*.md'
-      - 'appcast.xml'
       - 'Config/Version.xcconfig'
       - '.beads/**'
       - '.claude/**'
@@ -162,12 +161,41 @@ jobs:
             --title "${{ env.APP_NAME }} $VERSION" \
             --notes-file /tmp/release-notes.md $FLAGS
 
-      - name: Commit updated appcast
+      - name: Publish appcast to gh-pages
         if: steps.version.outputs.skip != 'true' && inputs.dry_run != true
-        uses: ./.github/actions/commit-push
-        with:
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
           # Publishing the appcast is the final, user-visible release act; the
           # zip is already downloadable, so Sparkle never sees a dead link.
-          files: appcast.xml
-          message: Update appcast for ${{ steps.version.outputs.tag }}
-          strategy: rebase
+          #
+          # appcast.xml is the Sparkle feed, served from GitHub Pages off the
+          # gh-pages branch (see .github/workflows/pages.yml). It lives only on
+          # gh-pages, not main — it is a build artifact, fully regenerated each
+          # release (one self-contained item, no history to preserve), so it is
+          # replaced wholesale. Commit server-side via createCommitOnBranch so
+          # it is signed/Verified as github-actions[bot], like the rest of the
+          # pipeline (mirrors .github/actions/commit-push). gh-pages must
+          # already exist (created during Pages setup); releases serialize
+          # (concurrency: auto-release), so expectedHeadOid never races.
+          base64 < appcast.xml | tr -d '\n' > "$RUNNER_TEMP/appcast.b64"
+          jq -n --arg path appcast.xml --rawfile contents "$RUNNER_TEMP/appcast.b64" \
+            '[{path: $path, contents: $contents}]' > "$RUNNER_TEMP/additions.json"
+
+          HEAD_OID=$(gh api "repos/$REPO/branches/gh-pages" --jq '.commit.sha')
+
+          QUERY='mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) { commit { oid } }
+          }'
+          jq -n --arg query "$QUERY" --arg repo "$REPO" \
+            --arg message "Update appcast for $TAG" --arg oid "$HEAD_OID" \
+            --slurpfile additions "$RUNNER_TEMP/additions.json" \
+            '{query: $query, variables: {input: {
+               branch: {repositoryNameWithOwner: $repo, branchName: "gh-pages"},
+               message: {headline: $message},
+               expectedHeadOid: $oid,
+               fileChanges: {additions: $additions[0]}}}}' > "$RUNNER_TEMP/payload.json"
+
+          gh api graphql --input "$RUNNER_TEMP/payload.json"
