@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Test ClaudeMeterKit package
         run: swift test --package-path ClaudeMeterKit
@@ -53,12 +53,12 @@ jobs:
   # ios:
   #   name: iOS Build
   #   runs-on: macos-26
-  #
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-  #
-  #     - name: Build iOS app
+#
+#   steps:
+#     - name: Checkout
+#       uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+#
+#     - name: Build iOS app
   #       run: |
   #         xcodebuild -project ClaudeMeter.xcodeproj \
   #           -scheme ClaudeMeter-iOS \
