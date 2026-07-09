@@ -582,6 +582,26 @@ final class UsageViewModel {
 
         providerDetails = details
     }
+
+    /// Re-fetch OpenCode Go usage after the workspace ID or auth cookie changes in
+    /// Settings. The credentials persist to `UserDefaults` via the property setters,
+    /// and `OpenCodeGoUsageService` reads them from there on each fetch, so this
+    /// simply refreshes the snapshot so the new configuration takes effect at once.
+    func syncOpenCodeGoService() async {
+        guard let openCodeGoUsageService else { return }
+        isLoadingTokenUsage = true
+        defer { isLoadingTokenUsage = false }
+        do {
+            openCodeGoUsage = try await openCodeGoUsageService.fetchSnapshot()
+            clearIncident(for: .openCode)
+        } catch {
+            if Self.isOutageError(error) {
+                recordOutage(for: .openCode, error: error)  // keep cached openCodeGoUsage
+            } else {
+                openCodeGoUsage = nil  // preserve existing hide-on-error behavior
+            }
+        }
+    }
     #endif
 
     #if os(macOS)
