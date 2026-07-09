@@ -2,8 +2,8 @@
 //  ProviderDetailView.swift
 //  ClaudeMeter
 //
-//  OpenUsage-style per-provider detail page: header + links, rate-limit
-//  windows, Today/Yesterday/30-day cost, usage-trend sparkline, per-model.
+//  Per-provider detail page: header + links, rate-limit windows,
+//  Today/Yesterday/30-day cost, usage-trend sparkline, per-model.
 //
 
 #if os(macOS)

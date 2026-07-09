@@ -2,7 +2,7 @@
 //  ProviderCardView.swift
 //  ClaudeMeter
 //
-//  Reusable per-provider usage card (OpenUsage-style "weather station").
+//  Reusable per-provider usage card.
 //  Shared by the menu-bar popover and the dashboard.
 //
 
