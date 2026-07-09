@@ -68,9 +68,14 @@ enum DependencyContainer {
         return CodexUsageService()
     }
 
-    /// Create the OpenCode Go dashboard quota service.
-    static func createOpenCodeGoUsageService() -> OpenCodeGoUsageService? {
-        return OpenCodeGoUsageService()
+    /// Create the OpenCode Go usage service, if OpenCode's local database is present.
+    /// Reconstructs quota windows from the local DB — no cookie or workspace ID.
+    static func createOpenCodeGoUsageService() -> OpenCodeGoLocalUsageService? {
+        let fm = FileManager.default
+        guard Constants.openCodeDatabaseURLs.contains(where: { fm.fileExists(atPath: $0.path) }) else {
+            return nil
+        }
+        return OpenCodeGoLocalUsageService()
     }
     #endif
 
