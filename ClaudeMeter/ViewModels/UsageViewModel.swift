@@ -21,7 +21,7 @@ final class UsageViewModel {
     var isFetchingPeriodSummaries: Bool = false
     /// Codex rate-limit windows (5h / weekly) read from Codex CLI logs.
     var codexUsage: ProviderUsageSnapshot?
-    /// OpenCode Go quota windows read from the authenticated dashboard page.
+    /// OpenCode Go quota windows reconstructed from the local OpenCode database.
     var openCodeGoUsage: ProviderUsageSnapshot?
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
     /// for all providers (Claude, Codex, OpenCode).
@@ -30,34 +30,6 @@ final class UsageViewModel {
     var planType: String = "Free"
     var isLoading = false
     var errorMessage: String?
-    #if os(macOS)
-    /// OpenCode Go workspace ID and auth cookie, persisted via Settings UI.
-    var opencodeGoWorkspaceID: String {
-        get { UserDefaults.standard.string(forKey: Constants.opencodeGoWorkspaceIDKey) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: Constants.opencodeGoWorkspaceIDKey) }
-    }
-    
-    var opencodeGoAuthCookie: String {
-        get { UserDefaults.standard.string(forKey: Constants.opencodeGoAuthCookieKey) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: Constants.opencodeGoAuthCookieKey) }
-    }
-    
-    var opencodeGoStatusText: String {
-        if isLoadingTokenUsage { return "Checking..." }
-        if !opencodeGoWorkspaceID.isEmpty && !opencodeGoAuthCookie.isEmpty { return "Configured" }
-        return "Not configured"
-    }
-    
-    var opencodeGoStatusColor: Color {
-        if isLoadingTokenUsage { return .secondary }
-        if !opencodeGoWorkspaceID.isEmpty && !opencodeGoAuthCookie.isEmpty { return .green }
-        return .orange
-    }
-    
-    var isOpenCodeGoLoading: Bool {
-        isLoadingTokenUsage
-    }
-    #endif
     #if os(macOS)
     var tokenUsageError: TokenUsageError?
     var isLoadingTokenUsage = false
@@ -147,11 +119,6 @@ final class UsageViewModel {
             case .serviceUnavailable: return 503
             case .serverError(let code) where (500...599).contains(code): return code
             default: return nil
-            }
-        }
-        if let openCodeError = error as? OpenCodeGoUsageService.OpenCodeError {
-            switch openCodeError {
-            case .serverError(let code): return (500...599).contains(code) ? code : nil
             }
         }
         #endif
@@ -301,7 +268,7 @@ final class UsageViewModel {
     private let blogUsageSyncService: BlogUsageSyncService?
     private let blogOAuthService: BlogOAuthService?
     private let codexUsageService: CodexUsageService?
-    private let openCodeGoUsageService: OpenCodeGoUsageService?
+    private let openCodeGoUsageService: OpenCodeGoLocalUsageService?
     #endif
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
@@ -321,7 +288,7 @@ final class UsageViewModel {
         blogUsageSyncService: BlogUsageSyncService? = nil,
         blogOAuthService: BlogOAuthService? = nil,
         codexUsageService: CodexUsageService? = nil,
-        openCodeGoUsageService: OpenCodeGoUsageService? = nil,
+        openCodeGoUsageService: OpenCodeGoLocalUsageService? = nil,
         usageHistoryService: UsageHistoryService? = nil,
         modelContext: ModelContext? = nil
     ) {
@@ -583,25 +550,6 @@ final class UsageViewModel {
         providerDetails = details
     }
 
-    /// Re-fetch OpenCode Go usage after the workspace ID or auth cookie changes in
-    /// Settings. The credentials persist to `UserDefaults` via the property setters,
-    /// and `OpenCodeGoUsageService` reads them from there on each fetch, so this
-    /// simply refreshes the snapshot so the new configuration takes effect at once.
-    func syncOpenCodeGoService() async {
-        guard let openCodeGoUsageService else { return }
-        isLoadingTokenUsage = true
-        defer { isLoadingTokenUsage = false }
-        do {
-            openCodeGoUsage = try await openCodeGoUsageService.fetchSnapshot()
-            clearIncident(for: .openCode)
-        } catch {
-            if Self.isOutageError(error) {
-                recordOutage(for: .openCode, error: error)  // keep cached openCodeGoUsage
-            } else {
-                openCodeGoUsage = nil  // preserve existing hide-on-error behavior
-            }
-        }
-    }
     #endif
 
     #if os(macOS)
