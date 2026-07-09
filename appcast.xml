@@ -6,6 +6,30 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
+            <title>Version 0.25.0</title>
+            <pubDate>Thu, 09 Jul 2026 11:36:08 +0000</pubDate>
+            <sparkle:version>78</sparkle:version>
+            <sparkle:shortVersionString>0.25.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Auto-detect OpenCode Go usage from local database</li>
+<li>Close ClaudeMeter-edc (appcast history accumulation + backfill)</li>
+<li>Accumulate Sparkle appcast history instead of regenerating a single-item feed</li>
+<li>chore: upgrade GitHub Actions to Node.js 24 compatible versions</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.25.0/ClaudeMeter.zip"
+                length="2280902"
+                type="application/octet-stream"
+                sparkle:edSignature="BFhEsRZArTxB1aRf9T2CGi5jEpcnzRuNB2uGMFGtEH6AcDke4zHST8zsIpYUnoP0uulVVTCHb6uy2JqwHNfiAA==" />
+        </item>
+        <item>
             <title>Version 0.24.0</title>
             <pubDate>Thu, 09 Jul 2026 10:25:02 +0000</pubDate>
             <sparkle:version>77</sparkle:version>
@@ -1693,6 +1717,5 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
                 length="1006593"
                 type="application/octet-stream"
                 sparkle:edSignature="WshjqLsf/HSdm/Cjo2KRk7x3OxtmKjZKG/uXLMkdGmXZRWW9hVBLNexysmEF7vb67ntLmWn4ymssYazcyh/yBg==" />
-        </item>
-    </channel>
+        </item>    </channel>
 </rss>
