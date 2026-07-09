@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>ClaudeMeter Updates</title>
+        <link>https://github.com/tartinerlabs/ClaudeMeter/releases</link>
+        <description>Most recent updates to ClaudeMeter</description>
+        <language>en</language>
+        <item>
+            <title>Version 0.23.0</title>
+            <pubDate>Thu, 09 Jul 2026 06:15:16 +0000</pubDate>
+            <sparkle:version>76</sparkle:version>
+            <sparkle:shortVersionString>0.23.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2>What's New</h2>
+
+<ul>
+<li>Fix unclosed Blog Usage Sync card brace and add missing syncOpenCodeGoService</li>
+<li>Fix test failures: remove @private from blogUsageSyncStatusText, resultColor, and settingsCard functions</li>
+<li>Add OpenCode Go configuration UI and settings</li>
+</ul>
+
+See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
+            ]]></description>
+            <enclosure
+                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.23.0/ClaudeMeter.zip"
+                length="2297142"
+                type="application/octet-stream"
+                sparkle:edSignature="Hh8vFYnEbI6ADMW4I0fW0aKoCpECZaM7bGfmQqmiiMZQCvtFlUXim7yobGwiEwflB5dOd2mlXz7nEVbCkL4BDA==" />
+        </item>
+    </channel>
+</rss>
