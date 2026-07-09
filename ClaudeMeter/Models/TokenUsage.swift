@@ -647,7 +647,7 @@ struct DailyTokenPoint: Sendable {
     let tokens: Int
 }
 
-/// Full per-provider detail for the OpenUsage-style detail page.
+/// Full per-provider detail for the detail page.
 struct ProviderDetail: Sendable {
     let today: TokenUsageSummary
     let yesterday: TokenUsageSummary
