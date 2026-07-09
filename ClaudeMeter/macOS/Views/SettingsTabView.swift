@@ -488,7 +488,7 @@ struct SettingsTabView: View {
     }
 
 
-    private var blogUsageSyncStatusText: String {
+    var blogUsageSyncStatusText: String {
         let status = viewModel.blogUsageSyncStatus
         var parts = [status.message]
         if let lastAttemptAt = status.lastAttemptAt {
@@ -500,7 +500,7 @@ struct SettingsTabView: View {
         return parts.joined(separator: " • ")
     }
 
-    private func resultColor(for result: UpdateCheckResult) -> Color {
+    func resultColor(for result: UpdateCheckResult) -> Color {
         switch result {
         case .upToDate:
             return .green
@@ -511,7 +511,7 @@ struct SettingsTabView: View {
         }
     }
 
-    private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.headline)
