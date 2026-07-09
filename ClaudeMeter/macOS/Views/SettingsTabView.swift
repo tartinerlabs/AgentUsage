@@ -255,6 +255,7 @@ struct SettingsTabView: View {
                             .disabled(viewModel.isBlogUsageSyncing)
                         }
                     }
+                }
 
                 // OpenCode Go Settings Section
                 settingsCard(title: "OpenCode Go") {
@@ -488,7 +489,7 @@ struct SettingsTabView: View {
     }
 
 
-    var blogUsageSyncStatusText: String {
+    private var blogUsageSyncStatusText: String {
         let status = viewModel.blogUsageSyncStatus
         var parts = [status.message]
         if let lastAttemptAt = status.lastAttemptAt {
@@ -500,7 +501,7 @@ struct SettingsTabView: View {
         return parts.joined(separator: " • ")
     }
 
-    func resultColor(for result: UpdateCheckResult) -> Color {
+    private func resultColor(for result: UpdateCheckResult) -> Color {
         switch result {
         case .upToDate:
             return .green
@@ -511,7 +512,7 @@ struct SettingsTabView: View {
         }
     }
 
-    func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.headline)
