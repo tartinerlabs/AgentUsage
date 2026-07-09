@@ -138,5 +138,13 @@ enum Constants {
         urls.append(home.appendingPathComponent(".local/share/opencode/opencode.db"))
         return urls
     }
+    
+    /// OpenCode Go authentication token (cookie) + workspace ID, persisted via Settings UI.
+    nonisolated static var opencodeGoAuthCookieKey: String {
+        "opencodeGoAuthCookie"
+    }
+    nonisolated static var opencodeGoWorkspaceIDKey: String {
+        "opencodeGoWorkspaceID"
+    }
     #endif
 }
