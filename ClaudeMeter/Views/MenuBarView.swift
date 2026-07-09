@@ -164,11 +164,37 @@ struct MenuBarView: View {
             }
         } else {
             VStack(spacing: 12) {
+                // Surface a fetch error that's currently masked by cached cards, so
+                // stale data is never shown as if it were live (e.g. a Claude token
+                // that expired and couldn't be refreshed).
+                if viewModel.isUsingCachedData, let error = viewModel.errorMessage {
+                    staleDataBanner(error: error)
+                }
                 ForEach(providers, id: \.self) { provider in
                     overviewCard(provider)
                 }
             }
         }
+    }
+
+    private func staleDataBanner(error: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Showing cached usage")
+                    .font(.footnote)
+                    .fontWeight(.medium)
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.12)))
     }
 
     private func overviewCard(_ provider: Provider) -> some View {

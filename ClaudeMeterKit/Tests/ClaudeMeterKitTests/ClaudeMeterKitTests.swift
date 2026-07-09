@@ -435,6 +435,28 @@ struct UsageSnapshotTests {
         #expect(snapshot.allWindowsExpired == false, "future sonnet window should keep snapshot fresh")
     }
 
+    // MARK: - UsageWindow.isExpired
+
+    @Test func usageWindowIsExpiredTrueForPastReset() {
+        let now = Date()
+        let window = UsageWindow(
+            utilization: 97,
+            resetsAt: now.addingTimeInterval(-60),
+            windowType: .session
+        )
+        #expect(window.isExpired(from: now) == true)
+    }
+
+    @Test func usageWindowIsExpiredFalseForFutureReset() {
+        let now = Date()
+        let window = UsageWindow(
+            utilization: 42,
+            resetsAt: now.addingTimeInterval(3600),
+            windowType: .session
+        )
+        #expect(window.isExpired(from: now) == false)
+    }
+
     @Test func extraUsageCostPercentUsed() {
         let cost = ExtraUsageCost(used: 25.0, limit: 50.0, currencyCode: "USD")
         #expect(cost.percentUsed == 50.0)

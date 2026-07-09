@@ -113,6 +113,18 @@ public struct UsageWindow: Sendable, Codable {
         utilization >= 100
     }
 
+    /// Whether this window's reset time has passed. A stale cached window whose
+    /// reset has elapsed no longer reflects live usage (its percentage is from the
+    /// previous, now-reset period), so callers can render it as awaiting a new period
+    /// instead of showing the old percentage.
+    public var isExpired: Bool {
+        isExpired(from: Date())
+    }
+
+    public func isExpired(from now: Date) -> Bool {
+        resetsAt < now
+    }
+
     /// Whether this window is in extra usage territory (billed at API rates)
     public var isUsingExtraUsage: Bool {
         utilization > 100
@@ -317,9 +329,10 @@ public struct UsageSnapshot: Sendable, Codable {
     /// are all expired, the cached data is stale (from before a reset) and is
     /// dropped in favor of a "No usage data" state.
     public var allWindowsExpired: Bool {
+        let now = Date()
         let allWindows = [session, opus, sonnet, design, fable].compactMap { $0 }
         guard !allWindows.isEmpty else { return true }
-        return allWindows.allSatisfy { $0.resetsAt < Date() }
+        return allWindows.allSatisfy { $0.isExpired(from: now) }
     }
 
     /// Whether extra usage is enabled (has cost data from the API)

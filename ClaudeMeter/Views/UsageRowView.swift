@@ -11,7 +11,7 @@ struct UsageRowView: View {
     let usage: UsageWindow
     var now: Date = Date()
     var showExtraUsage: Bool = true
-    /// Show a small colored status dot before the title (OpenUsage style).
+    /// Show a small colored status dot before the title.
     var showStatusDot: Bool = false
 
     var body: some View {
