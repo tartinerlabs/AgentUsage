@@ -1,9 +1,9 @@
 name: "Compute Version"
-description: "Compute the next release version and release notes from git history since the last v* tag"
+description: "Compute or resume the next release version and notes from Git history"
 
 inputs:
   bump:
-    description: "Version bump type (auto, patch, minor, major). auto defaults to minor; a [patch] marker on every commit downgrades to patch, and any [major] marker escalates to major."
+    description: "Version bump type (auto, patch, minor, major)"
     required: false
     default: "auto"
 
@@ -12,7 +12,7 @@ outputs:
     description: "true when there is nothing to release"
     value: ${{ steps.compute.outputs.skip }}
   resume:
-    description: "true when a previous run already pushed the bump commit"
+    description: "true when an untagged version already exists in the version file"
     value: ${{ steps.compute.outputs.resume }}
   version:
     description: "Next marketing version (X.Y.Z)"
@@ -21,14 +21,17 @@ outputs:
     description: "Next release tag (vX.Y.Z)"
     value: ${{ steps.compute.outputs.tag }}
   build-number:
-    description: "Next build number (CURRENT_PROJECT_VERSION)"
+    description: "Next CURRENT_PROJECT_VERSION"
     value: ${{ steps.compute.outputs.build_number }}
   last-tag:
-    description: "The tag the version was computed from"
+    description: "Previous release tag"
     value: ${{ steps.compute.outputs.last_tag }}
   notes:
-    description: "Release notes bullet list generated from commit subjects"
+    description: "Release notes generated from commit subjects"
     value: ${{ steps.compute.outputs.notes }}
+  bump:
+    description: "Resolved bump type, or resume"
+    value: ${{ steps.compute.outputs.bump }}
 
 runs:
   using: "composite"
@@ -38,81 +41,6 @@ runs:
       shell: bash
       env:
         BUMP_INPUT: ${{ inputs.bump }}
-      run: |
-        LAST_TAG=$(git describe --tags --abbrev=0 --match 'v*')
-        RANGE="$LAST_TAG..HEAD"
-
-        if git log -1 --format='%B' | grep -qF '[skip release]'; then
-          echo "Head commit requests [skip release]; skipping."
-          echo "skip=true" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-
-        NOTES=$(git log "$RANGE" --no-merges --format='%s' \
-          | grep -vE '^(Update appcast for v|Bump version to |Update beads)' \
-          | grep -vF '[skip release]' \
-          | sed -E 's/ *\[(minor|major|patch)\]//g' \
-          | sed 's/^/- /')
-        if [ -z "$NOTES" ]; then
-          echo "No release-worthy commits since $LAST_TAG; skipping."
-          echo "skip=true" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-
-        BUMP="$BUMP_INPUT"
-        if [ "$BUMP" = "auto" ]; then
-          # Default to minor: a release adds something user-facing, and plain
-          # commit subjects carry no type to infer from. Under-bumping (a
-          # feature shipped as patch) is the harmful case; over-bumping is not.
-          # release-worthy subjects only (same noise filter as NOTES)
-          SUBJECTS=$(git log "$RANGE" --no-merges --format='%s' \
-            | grep -vE '^(Update appcast for v|Bump version to |Update beads)')
-          BODY=$(git log "$RANGE" --no-merges --format='%b')
-          if printf '%s\n%s' "$SUBJECTS" "$BODY" | grep -qiF '[major]'; then
-            BUMP=major
-          # patch only when EVERY release-worthy subject carries [patch]
-          elif [ -n "$SUBJECTS" ] && ! printf '%s' "$SUBJECTS" | grep -qivF '[patch]'; then
-            BUMP=patch
-          else
-            BUMP=minor
-          fi
-        fi
-
-        IFS=. read -r MAJ MIN PAT <<<"${LAST_TAG#v}"
-        case "$BUMP" in
-          major) VERSION="$((MAJ + 1)).0.0" ;;
-          minor) VERSION="$MAJ.$((MIN + 1)).0" ;;
-          patch) VERSION="$MAJ.$MIN.$((PAT + 1))" ;;
-        esac
-
-        if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
-          echo "::error::Tag v$VERSION already exists"
-          exit 1
-        fi
-
-        # Resume guard: a previous run pushed the bump commit but failed
-        # before creating the release. Reuse the committed version.
-        CURRENT_MARKETING=$(grep 'MARKETING_VERSION' Config/Version.xcconfig | cut -d'=' -f2 | tr -d ' ')
-        RESUME=false
-        if [ "$CURRENT_MARKETING" = "$VERSION" ]; then
-          echo "xcconfig already at $VERSION with no tag; resuming a previously failed release."
-          RESUME=true
-          BUILD=$(grep 'CURRENT_PROJECT_VERSION' Config/Version.xcconfig | cut -d'=' -f2 | tr -d ' ')
-        else
-          BUILD=$(($(grep 'CURRENT_PROJECT_VERSION' Config/Version.xcconfig | cut -d'=' -f2 | tr -d ' ') + 1))
-        fi
-
-        {
-          echo "skip=false"
-          echo "resume=$RESUME"
-          echo "version=$VERSION"
-          echo "tag=v$VERSION"
-          echo "build_number=$BUILD"
-          echo "last_tag=$LAST_TAG"
-          echo "notes<<NOTES_EOF"
-          echo "$NOTES"
-          echo "NOTES_EOF"
-        } >> "$GITHUB_OUTPUT"
-
-        echo "Releasing $VERSION (build $BUILD, $BUMP bump from $LAST_TAG):"
-        echo "$NOTES"
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+      run: "$GITHUB_ACTION_PATH/../../scripts/release/compute-version.sh"

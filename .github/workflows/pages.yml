@@ -8,20 +8,15 @@
 #
 # Why appcast.xml lives on gh-pages and not main: it is a build artifact kept
 # out of main's source tree. It is an accumulating feed — each release prepends
-# its item to the existing feed (full version history). auto-release.yml
+# its item to the existing feed (full version history). release.yml
 # publishes it to gh-pages.
 #
-# Why workflow_run and not `on: push`: auto-release pushes to gh-pages via the
-# createCommitOnBranch mutation using GITHUB_TOKEN, and GitHub suppresses
-# workflow triggers from GITHUB_TOKEN pushes. workflow_run on Auto Release's
-# completion is the reliable signal — and it requires this file on the default
-# branch, which also makes manual dispatch work.
+# The release workflow dispatches this workflow explicitly after it publishes
+# a validated appcast. A normal push to main and a release dry-run never deploy
+# the feed.
 name: Deploy appcast to Pages
 
 on:
-  workflow_run:
-    workflows: ["Auto Release"]
-    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -35,9 +30,6 @@ concurrency:
 
 jobs:
   deploy:
-    # Deploy on a successful release or a manual dispatch; a failed release
-    # never pushed a new appcast, so there is nothing to publish.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
