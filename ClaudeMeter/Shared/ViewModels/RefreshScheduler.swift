@@ -13,7 +13,7 @@ final class RefreshScheduler {
     /// Current refresh interval setting
     var refreshInterval: RefreshFrequency {
         didSet {
-            UserDefaults.standard.set(refreshInterval.rawValue, forKey: "refreshInterval")
+            defaults.set(refreshInterval.rawValue, forKey: Self.refreshIntervalKey)
             restartAutoRefresh()
         }
     }
@@ -21,10 +21,13 @@ final class RefreshScheduler {
     /// Callback to execute on each refresh
     var onRefresh: (() async -> Void)?
 
+    private static let refreshIntervalKey = "refreshInterval"
+    private let defaults: UserDefaults
     private var refreshTask: Task<Void, Never>?
 
-    init() {
-        let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let savedInterval = defaults.string(forKey: Self.refreshIntervalKey)
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
     }
 
@@ -40,7 +43,7 @@ final class RefreshScheduler {
     }
 
     /// Restart the auto-refresh schedule with current interval
-    func restartAutoRefresh() {
+    private func restartAutoRefresh() {
         refreshTask?.cancel()
 
         guard let interval = refreshInterval.timeInterval else { return }

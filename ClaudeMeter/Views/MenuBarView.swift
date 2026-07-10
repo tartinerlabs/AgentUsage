@@ -41,13 +41,7 @@ struct MenuBarView: View {
 
     // MARK: - Available providers
 
-    private var availableProviders: [Provider] {
-        var list: [Provider] = []
-        if viewModel.snapshot != nil || viewModel.isNoUsageData { list.append(.claude) }
-        if viewModel.codexUsage != nil { list.append(.codex) }
-        if viewModel.providerDetails[.openCode] != nil || viewModel.openCodeGoUsage != nil { list.append(.openCode) }
-        return list
-    }
+    private var availableProviders: [Provider] { viewModel.availableProviders }
 
     // MARK: - Rail
 
@@ -143,12 +137,12 @@ struct MenuBarView: View {
         case .provider(let provider):
             ProviderDetailView(
                 provider: provider,
-                planName: planName(for: provider),
-                windows: windows(for: provider),
+                planName: viewModel.usageSnapshot(for: provider)?.planName,
+                windows: viewModel.usageSnapshot(for: provider)?.windows ?? [],
                 detail: viewModel.providerDetails[provider],
                 now: now,
                 isServiceDown: viewModel.isServiceDown(provider),
-                rateLimitResetCredits: resetCredits(for: provider)
+                rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits
             )
         }
     }
@@ -200,42 +194,19 @@ struct MenuBarView: View {
     private func overviewCard(_ provider: Provider) -> some View {
         ProviderCardView(
             provider: provider,
-            planName: planName(for: provider),
-            windows: windows(for: provider),
+            planName: viewModel.usageSnapshot(for: provider)?.planName,
+            windows: viewModel.usageSnapshot(for: provider)?.windows ?? [],
             extraUsage: provider == .claude && viewModel.showExtraUsageIndicators ? viewModel.snapshot?.extraUsage : nil,
             costLines: costLines(for: provider),
             now: now,
             showExtraUsage: provider == .claude && viewModel.showExtraUsageIndicators,
             compact: true,
             isServiceDown: viewModel.isServiceDown(provider),
-            rateLimitResetCredits: resetCredits(for: provider)
+            rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits
         )
     }
 
     // MARK: - Per-provider data
-
-    private func windows(for provider: Provider) -> [UsageWindow] {
-        switch provider {
-        case .claude: return viewModel.snapshot.map { ProviderUsageSnapshot(claude: $0).windows } ?? []
-        case .codex: return viewModel.codexUsage?.windows ?? []
-        case .openCode: return viewModel.openCodeGoUsage?.windows ?? []
-        }
-    }
-
-    private func planName(for provider: Provider) -> String? {
-        switch provider {
-        case .claude: return viewModel.planType
-        case .codex: return viewModel.codexUsage?.planName
-        case .openCode: return viewModel.openCodeGoUsage?.planName
-        }
-    }
-
-    private func resetCredits(for provider: Provider) -> RateLimitResetCredits? {
-        switch provider {
-        case .codex: return viewModel.codexUsage?.rateLimitResetCredits
-        default: return nil
-        }
-    }
 
     private func costLines(for provider: Provider) -> [ProviderCostLine] {
         guard let detail = viewModel.providerDetails[provider] else { return [] }

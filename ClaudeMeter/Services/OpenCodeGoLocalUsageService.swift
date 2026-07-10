@@ -24,7 +24,7 @@ import SQLite3
 /// Each window's percentage is the summed spend over that window against a fixed
 /// plan spend limit. This is an approximation of the exact percentages the
 /// authenticated dashboard reports, but requires no credentials.
-actor OpenCodeGoLocalUsageService {
+actor OpenCodeGoLocalUsageService: ProviderUsageServiceProtocol {
     nonisolated let provider: Provider = .openCode
 
     /// OpenCode Go plan spend limits, in USD, per window. These track the plan and

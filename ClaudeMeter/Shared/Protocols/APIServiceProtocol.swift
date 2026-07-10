@@ -15,3 +15,13 @@ protocol APIServiceProtocol: Actor {
     /// - Throws: APIError on failure
     func fetchUsage(token: String) async throws -> UsageSnapshot
 }
+
+#if os(macOS)
+/// A provider-specific source of rate-limit windows.
+///
+/// Claude has its own cached `UsageSnapshot` path, while optional macOS
+/// providers expose the provider-neutral representation directly.
+protocol ProviderUsageServiceProtocol: Actor {
+    func fetchSnapshot() async throws -> ProviderUsageSnapshot?
+}
+#endif
