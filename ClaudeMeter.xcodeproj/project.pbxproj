@@ -113,6 +113,7 @@
 				Shared/Services/KeychainHelper.swift,
 				Shared/Services/NetworkMonitor.swift,
 				Shared/Services/TokenRefreshService.swift,
+				Shared/Services/UsageSnapshotStore.swift,
 				Shared/Services/WidgetDataManager.swift,
 				Shared/Utilities/Logger.swift,
 				Shared/ViewModels/RefreshScheduler.swift,

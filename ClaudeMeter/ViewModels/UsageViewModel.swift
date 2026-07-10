@@ -7,9 +7,6 @@ import Foundation
 import ClaudeMeterKit
 import SwiftUI
 import OSLog
-#if os(macOS)
-import SwiftData
-#endif
 
 @MainActor @Observable
 final class UsageViewModel {
@@ -18,11 +15,10 @@ final class UsageViewModel {
     var selectedPeriodSummary: TokenUsageSummary?
     #if os(macOS)
     var periodSummaries: [UsagePeriod: TokenUsageSummary] = [:]
-    var isFetchingPeriodSummaries: Bool = false
-    /// Codex rate-limit windows (5h / weekly) read from Codex CLI logs.
-    var codexUsage: ProviderUsageSnapshot?
-    /// OpenCode Go quota windows reconstructed from the local OpenCode database.
-    var openCodeGoUsage: ProviderUsageSnapshot?
+    /// Rate-limit windows for optional macOS providers. Claude remains backed by
+    /// its cached `UsageSnapshot` because its API model is richer and shared with
+    /// iOS and WidgetKit.
+    private(set) var providerUsage: [Provider: ProviderUsageSnapshot] = [:]
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
     /// for all providers (Claude, Codex, OpenCode).
     var providerDetails: [Provider: ProviderDetail] = [:]
@@ -143,7 +139,7 @@ final class UsageViewModel {
 
     /// Time since last successful fetch (for "Last updated X ago" display)
     var timeSinceLastUpdate: String? {
-        guard let lastUpdate = lastSuccessfulFetchTime else { return nil }
+        guard let lastUpdate = snapshotStore.lastSuccessfulFetchTime else { return nil }
         let interval = Date().timeIntervalSince(lastUpdate)
 
         if interval < 60 {
@@ -165,46 +161,21 @@ final class UsageViewModel {
         !NetworkMonitor.shared.isConnected
     }
 
-    private var lastSuccessfulFetchTime: Date? {
-        get {
-            let timestamp = UserDefaults.standard.double(forKey: cacheTimeKey)
-            return timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil
-        }
-        set {
-            if let newValue {
-                UserDefaults.standard.set(newValue.timeIntervalSince1970, forKey: cacheTimeKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: cacheTimeKey)
-            }
-        }
-    }
-
-    private let cacheKey = "cachedUsageSnapshot"
-    private let cacheTimeKey = "cachedUsageSnapshotTime"
-    /// Tracks the cost-model version that persisted history was last re-priced against.
-    fileprivate static let costModelRepricedVersionKey = "costModelRepricedVersion"
-    private let cachePlanKey = "cachedPlanType"
-    /// Epoch-seconds timestamps gating once-per-day maintenance passes.
-    private static let lastCleanupDateKey = "lastTokenCleanupDate"
-    private static let lastZeroCostRecalcDateKey = "lastZeroCostRecalcDate"
-
     var refreshInterval: RefreshFrequency {
-        didSet {
-            UserDefaults.standard.set(refreshInterval.rawValue, forKey: "refreshInterval")
-            restartAutoRefresh()
-        }
+        get { refreshScheduler.refreshInterval }
+        set { refreshScheduler.refreshInterval = newValue }
     }
 
     var showExtraUsageIndicators: Bool {
         didSet {
-            UserDefaults.standard.set(showExtraUsageIndicators, forKey: "showExtraUsageIndicators")
+            defaults.set(showExtraUsageIndicators, forKey: "showExtraUsageIndicators")
         }
     }
 
     #if os(macOS)
     var notificationsEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
+            defaults.set(notificationsEnabled, forKey: "notificationsEnabled")
             if notificationsEnabled {
                 Task { await NotificationService.shared.requestPermission() }
             }
@@ -212,45 +183,38 @@ final class UsageViewModel {
     }
 
     var menuBarShowSession: Bool {
-        didSet {
-            UserDefaults.standard.set(menuBarShowSession, forKey: "menuBarShowSession")
-        }
+        get { menuBarSettingsManager.menuBarShowSession }
+        set { menuBarSettingsManager.menuBarShowSession = newValue }
     }
 
     var menuBarShowAllModels: Bool {
-        didSet {
-            UserDefaults.standard.set(menuBarShowAllModels, forKey: "menuBarShowAllModels")
-        }
+        get { menuBarSettingsManager.menuBarShowAllModels }
+        set { menuBarSettingsManager.menuBarShowAllModels = newValue }
     }
 
     var menuBarShowSonnet: Bool {
-        didSet {
-            UserDefaults.standard.set(menuBarShowSonnet, forKey: "menuBarShowSonnet")
-        }
+        get { menuBarSettingsManager.menuBarShowSonnet }
+        set { menuBarSettingsManager.menuBarShowSonnet = newValue }
     }
 
     var menuBarShowDesign: Bool {
-        didSet {
-            UserDefaults.standard.set(menuBarShowDesign, forKey: "menuBarShowDesign")
-        }
+        get { menuBarSettingsManager.menuBarShowDesign }
+        set { menuBarSettingsManager.menuBarShowDesign = newValue }
     }
 
     var menuBarShowFable: Bool {
-        didSet {
-            UserDefaults.standard.set(menuBarShowFable, forKey: "menuBarShowFable")
-        }
+        get { menuBarSettingsManager.menuBarShowFable }
+        set { menuBarSettingsManager.menuBarShowFable = newValue }
     }
 
     var menuBarShowCodex: Bool {
-        didSet {
-            UserDefaults.standard.set(menuBarShowCodex, forKey: "menuBarShowCodex")
-        }
+        get { menuBarSettingsManager.menuBarShowCodex }
+        set { menuBarSettingsManager.menuBarShowCodex = newValue }
     }
 
     var menuBarShowExtraUsage: Bool {
-        didSet {
-            UserDefaults.standard.set(menuBarShowExtraUsage, forKey: "menuBarShowExtraUsage")
-        }
+        get { menuBarSettingsManager.menuBarShowExtraUsage }
+        set { menuBarSettingsManager.menuBarShowExtraUsage = newValue }
     }
 
     #if DEBUG
@@ -261,16 +225,16 @@ final class UsageViewModel {
     private let credentialProvider: any CredentialProvider
     private let apiService: any APIServiceProtocol
     private let usageHistoryService: UsageHistoryService
+    private let defaults: UserDefaults
+    private let snapshotStore: UsageSnapshotStore
+    private let refreshScheduler: RefreshScheduler
     #if os(macOS)
-    private let tokenService: TokenUsageService?
-    private let tokenRepository: TokenUsageRepository?
-    private let tokenQuerier: TokenUsageQuerier?
+    private let tokenUsageCoordinator: any TokenUsageCoordinating
+    private let menuBarSettingsManager: MenuBarSettingsManager
     private let blogUsageSyncService: BlogUsageSyncService?
     private let blogOAuthService: BlogOAuthService?
-    private let codexUsageService: CodexUsageService?
-    private let openCodeGoUsageService: OpenCodeGoLocalUsageService?
+    private let providerUsageServices: [Provider: any ProviderUsageServiceProtocol]
     #endif
-    private var refreshTask: Task<Void, Never>?
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
     private var hasInitialized = false
@@ -284,81 +248,77 @@ final class UsageViewModel {
     init(
         credentialProvider: any CredentialProvider,
         apiService: (any APIServiceProtocol)? = nil,
-        tokenService: TokenUsageService? = nil,
+        tokenUsageCoordinator: (any TokenUsageCoordinating)? = nil,
         blogUsageSyncService: BlogUsageSyncService? = nil,
         blogOAuthService: BlogOAuthService? = nil,
-        codexUsageService: CodexUsageService? = nil,
-        openCodeGoUsageService: OpenCodeGoLocalUsageService? = nil,
+        providerUsageServices: [Provider: any ProviderUsageServiceProtocol] = [:],
         usageHistoryService: UsageHistoryService? = nil,
-        modelContext: ModelContext? = nil
+        defaults: UserDefaults = .standard
     ) {
         self.credentialProvider = credentialProvider
         self.apiService = apiService ?? ClaudeAPIService()
-        self.tokenService = tokenService
-        self.tokenRepository = modelContext.map { TokenUsageRepository(modelContext: $0) }
-        self.tokenQuerier = modelContext.map { TokenUsageQuerier(modelContainer: $0.container) }
-        self.usageHistoryService = usageHistoryService
-            ?? modelContext.map { UsageHistoryService(repository: UsageHistoryRepository(modelContainer: $0.container)) }
-            ?? UsageHistoryService.shared
+        self.usageHistoryService = usageHistoryService ?? UsageHistoryService(defaults: defaults)
+        self.defaults = defaults
+        self.snapshotStore = UsageSnapshotStore(defaults: defaults)
+        self.refreshScheduler = RefreshScheduler(defaults: defaults)
+        self.tokenUsageCoordinator = tokenUsageCoordinator
+            ?? TokenUsageCoordinator(tokenService: nil, defaults: defaults)
+        self.menuBarSettingsManager = MenuBarSettingsManager(defaults: defaults)
         self.blogUsageSyncService = blogUsageSyncService
         self.blogOAuthService = blogOAuthService
-        self.codexUsageService = codexUsageService
-        self.openCodeGoUsageService = openCodeGoUsageService
-        let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
-        self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
-        self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
-        self.notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
-        self.blogUsageSyncEnabled = UserDefaults.standard.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
-        self.blogUsageSyncEndpointURLString = UserDefaults.standard.string(forKey: "blogUsageSyncEndpointURL") ?? BlogUsageSyncService.defaultEndpointURLString
+        self.providerUsageServices = providerUsageServices
+        self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
+        self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
+        self.blogUsageSyncEnabled = defaults.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
+        self.blogUsageSyncEndpointURLString = defaults.string(forKey: "blogUsageSyncEndpointURL")
+            ?? BlogUsageSyncService.defaultEndpointURLString
 
-        // Menu bar display settings - default to showing session only
-        let defaults = UserDefaults.standard
-        self.menuBarShowSession = defaults.object(forKey: "menuBarShowSession") as? Bool ?? true
-        self.menuBarShowAllModels = defaults.object(forKey: "menuBarShowAllModels") as? Bool ?? false
-        self.menuBarShowSonnet = defaults.object(forKey: "menuBarShowSonnet") as? Bool ?? false
-        self.menuBarShowDesign = defaults.object(forKey: "menuBarShowDesign") as? Bool ?? false
-        self.menuBarShowFable = defaults.object(forKey: "menuBarShowFable") as? Bool ?? false
-        self.menuBarShowCodex = defaults.object(forKey: "menuBarShowCodex") as? Bool ?? false
-        self.menuBarShowExtraUsage = defaults.object(forKey: "menuBarShowExtraUsage") as? Bool ?? true
-
-        // Load cached data on init
         loadCachedSnapshot()
+        refreshScheduler.onRefresh = { [weak self] in
+            await self?.refresh()
+        }
     }
     #else
-    init(credentialProvider: any CredentialProvider, apiService: (any APIServiceProtocol)? = nil) {
+    init(
+        credentialProvider: any CredentialProvider,
+        apiService: (any APIServiceProtocol)? = nil,
+        usageHistoryService: UsageHistoryService? = nil,
+        defaults: UserDefaults = .standard
+    ) {
         self.credentialProvider = credentialProvider
         self.apiService = apiService ?? ClaudeAPIService()
-        self.usageHistoryService = UsageHistoryService.shared
-        let savedInterval = UserDefaults.standard.string(forKey: "refreshInterval")
-        self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
-        self.showExtraUsageIndicators = UserDefaults.standard.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
+        self.usageHistoryService = usageHistoryService ?? UsageHistoryService(defaults: defaults)
+        self.defaults = defaults
+        self.snapshotStore = UsageSnapshotStore(defaults: defaults)
+        self.refreshScheduler = RefreshScheduler(defaults: defaults)
+        self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
 
-        // Load cached data on init
         loadCachedSnapshot()
+        refreshScheduler.onRefresh = { [weak self] in
+            await self?.refresh()
+        }
     }
     #endif
 
     // MARK: - Cache Management
 
     private func loadCachedSnapshot() {
-        guard let data = UserDefaults.standard.data(forKey: cacheKey),
-              let cached = try? JSONDecoder().decode(UsageSnapshot.self, from: data) else {
-            return
-        }
-        snapshot = cached
-        planType = UserDefaults.standard.string(forKey: cachePlanKey) ?? "Free"
+        guard let cached = snapshotStore.load() else { return }
+        snapshot = cached.snapshot
+        planType = cached.planType
         isUsingCachedData = true
         Logger.viewModel.debug("Loaded cached snapshot from \(self.timeSinceLastUpdate ?? "unknown time")")
     }
 
     private func cacheSnapshot(_ snapshot: UsageSnapshot, planType: String) {
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        UserDefaults.standard.set(data, forKey: cacheKey)
-        UserDefaults.standard.set(planType, forKey: cachePlanKey)
-        lastSuccessfulFetchTime = Date()
+        snapshotStore.save(snapshot: snapshot, planType: planType, fetchedAt: Date())
         Logger.viewModel.debug("Cached snapshot successfully")
     }
+}
 
+// MARK: - Refresh Orchestration
+
+extension UsageViewModel {
     func refresh(force: Bool = false) async {
         // Rate limit auto-refresh; a forced refresh (manual) always proceeds.
         if !force,
@@ -387,6 +347,32 @@ final class UsageViewModel {
     }
 
     #if os(macOS)
+    /// Returns the provider-neutral usage snapshot used by macOS surfaces.
+    /// Claude is bridged from its existing cached snapshot; other providers are
+    /// populated by their optional local service.
+    func usageSnapshot(for provider: Provider) -> ProviderUsageSnapshot? {
+        if provider == .claude {
+            return snapshot.map { ProviderUsageSnapshot(claude: $0, planName: planType) }
+        }
+        return providerUsage[provider]
+    }
+
+    /// Providers that have rate-limit data or token-cost detail to present.
+    var availableProviders: [Provider] {
+        var providers: [Provider] = []
+        if snapshot != nil || isNoUsageData {
+            providers.append(.claude)
+        }
+        providers.append(contentsOf: Provider.allCases.filter {
+            $0 != .claude && (usageSnapshot(for: $0) != nil || providerDetails[$0] != nil)
+        })
+        return providers
+    }
+
+    func hasProviderData(_ provider: Provider) -> Bool {
+        availableProviders.contains(provider)
+    }
+
     /// Extra-provider arm: local token usage then Codex/OpenCode rate windows.
     private func refreshExtraProviders() async {
         await refreshTokenUsage()
@@ -494,60 +480,20 @@ final class UsageViewModel {
     /// Refresh per-provider detail: Codex rate-limit windows + Claude/Codex/OpenCode
     /// token detail (today/yesterday/30-day, per-model, daily trend).
     private func refreshProviderUsage() async {
-        if let codexUsageService {
+        for (provider, service) in providerUsageServices {
             do {
-                codexUsage = try await codexUsageService.fetchSnapshot()
-                clearIncident(for: .codex)
+                providerUsage[provider] = try await service.fetchSnapshot()
+                clearIncident(for: provider)
             } catch {
                 if Self.isOutageError(error) {
-                    recordOutage(for: .codex, error: error)  // keep cached codexUsage
+                    recordOutage(for: provider, error: error) // Keep cached usage during outages.
                 } else {
-                    codexUsage = nil  // preserve existing hide-on-error behavior
-                }
-            }
-        }
-        if let openCodeGoUsageService {
-            do {
-                openCodeGoUsage = try await openCodeGoUsageService.fetchSnapshot()
-                clearIncident(for: .openCode)
-            } catch {
-                if Self.isOutageError(error) {
-                    recordOutage(for: .openCode, error: error)  // keep cached openCodeGoUsage
-                } else {
-                    openCodeGoUsage = nil  // preserve existing hide-on-error behavior
+                    providerUsage[provider] = nil // Preserve hide-on-error behavior.
                 }
             }
         }
 
-        var details: [Provider: ProviderDetail] = [:]
-
-        // Codex + OpenCode from local-log sources
-        if let tokenService {
-            let since = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-            details = await tokenService.fetchExtraProviderDetails(since: since)
-        }
-
-        // Claude from the SwiftData path + live snapshot
-        if let snapshot = tokenSnapshot {
-            var points: [DailyTokenPoint] = []
-            if let querier = tokenQuerier {
-                points = (try? await querier.fetchDailyTokenPoints(days: 30)) ?? []
-            }
-            let yesterdayPoint = points.count >= 2 ? points[points.count - 2] : nil
-            details[.claude] = ProviderDetail(
-                today: snapshot.today,
-                yesterday: TokenUsageSummary(
-                    tokens: TokenCount(inputTokens: yesterdayPoint?.tokens ?? 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0),
-                    costUSD: yesterdayPoint?.costUSD ?? 0,
-                    period: .today
-                ),
-                last30Days: snapshot.last30Days,
-                byModel: snapshot.byModel,
-                dailyCosts: points.map(\.costUSD)
-            )
-        }
-
-        providerDetails = details
+        providerDetails = await tokenUsageCoordinator.providerDetails(using: tokenSnapshot)
     }
 
     #endif
@@ -622,116 +568,22 @@ final class UsageViewModel {
         blogUsageSyncStatus = status
     }
 
-    /// True if ≥24h have elapsed since the epoch-seconds timestamp stored at `key`
-    /// (or it was never set). Does not update the stored value.
-    private static func shouldRunMaintenance(key: String) -> Bool {
-        let last = UserDefaults.standard.double(forKey: key)
-        guard last > 0 else { return true }
-        return Date().timeIntervalSince1970 - last >= 24 * 60 * 60
-    }
-
-    /// Refresh token usage from SwiftData repository (with incremental import)
+    /// Refresh token usage through the macOS persistence coordinator.
     private func refreshTokenUsage() async {
         isLoadingTokenUsage = true
         tokenUsageError = nil
-
         defer { isLoadingTokenUsage = false }
 
         do {
-            // If repository available, import new entries and query from SwiftData
-            if let repository = tokenRepository, let service = tokenService {
-                // Get current file states for incremental reading
-                let fileStates: [String: TokenUsageService.FileState]
-                do {
-                    fileStates = try repository.getAllFileStates()
-                } catch {
-                    throw TokenUsageError.swiftDataError(error)
-                }
-
-                // Get parsed entries from service (incremental - only new content)
-                let parsedResults: [URL: TokenUsageService.IncrementalParseResult]
-                do {
-                    parsedResults = try await service.fetchParsedEntries(fileStates: fileStates)
-                } catch {
-                    throw TokenUsageError.fileReadError(error)
-                }
-
-                // Import new entries and update file states
-                for (fileURL, result) in parsedResults {
-                    do {
-                        try await repository.importEntries(
-                            result.entries,
-                            forFile: fileURL,
-                            newByteOffset: result.newByteOffset,
-                            newFileSize: result.newFileSize,
-                            newModified: result.newModified
-                        )
-                    } catch {
-                        throw TokenUsageError.swiftDataError(error)
-                    }
-                }
-
-                // Trim entries past the 13-month retention window at most once per day.
-                // This is a menu-bar app that can run for weeks, so gate on elapsed
-                // time, not launch count.
-                if Self.shouldRunMaintenance(key: Self.lastCleanupDateKey) {
-                    try? await repository.cleanupOldEntries()
-                    UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCleanupDateKey)
-                }
-
-                // Reprice $0 rows only when the LiteLLM pricing cache may have changed
-                // (~24h TTL), instead of a full-table scan on every refresh.
-                if Self.shouldRunMaintenance(key: Self.lastZeroCostRecalcDateKey) {
-                    _ = try? await repository.recalculateZeroCostEntries()
-                    UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastZeroCostRecalcDateKey)
-                }
-
-                // One-time re-price of all persisted history after a cost-model change.
-                // Runs once per cost-model version. v3 reverts the 200k tiered
-                // pricing that was wrongly applied to daily aggregates (aeea0f7),
-                // re-pricing any rows imported during that window at the flat rate.
-                let costModelVersion = 3
-                if UserDefaults.standard.integer(forKey: Self.costModelRepricedVersionKey) < costModelVersion {
-                    _ = try? await repository.recalculateAllCosts()
-                    UserDefaults.standard.set(costModelVersion, forKey: Self.costModelRepricedVersionKey)
-                }
-
-                // Query snapshot via background actor (prefer querier to avoid main-actor hops)
-                do {
-                    if let querier = tokenQuerier {
-                        tokenSnapshot = try await querier.fetchSnapshot()
-                    } else {
-                        tokenSnapshot = try await repository.fetchSnapshot()
-                    }
-                } catch {
-                    throw TokenUsageError.swiftDataError(error)
-                }
-
-                // Seed the two periods fetchSnapshot already computed; fetch only the
-                // visible period if it isn't one of them. Longer periods (90/180/365d)
-                // load on demand via DashboardTabView's .task(id: selectedTokenPeriod).
-                periodSummaries[.today] = tokenSnapshot?.today
-                periodSummaries[.last30Days] = tokenSnapshot?.last30Days
-                if selectedTokenPeriod != .today && selectedTokenPeriod != .last30Days {
-                    await refreshSelectedPeriodSummary()
-                } else {
-                    selectedPeriodSummary = periodSummaries[selectedTokenPeriod]
-                }
-
-            } else if let service = tokenService {
-                // Fallback to direct service query (no persistence)
-                do {
-                    tokenSnapshot = try await service.fetchUsage()
-                } catch {
-                    throw TokenUsageError.fileReadError(error)
-                }
-            } else {
-                throw TokenUsageError.repositoryUnavailable
+            let update = try await tokenUsageCoordinator.refresh(selectedPeriod: selectedTokenPeriod)
+            tokenSnapshot = update.snapshot
+            for (period, summary) in update.periodSummaries {
+                periodSummaries[period] = summary
             }
-
-            // Success - clear any previous error
+            if let selectedSummary = update.selectedPeriodSummary {
+                selectedPeriodSummary = selectedSummary
+            }
             tokenUsageError = nil
-
         } catch let error as TokenUsageError {
             tokenUsageError = error
             Logger.tokenUsage.error("Token usage error: \(error.localizedDescription)")
@@ -744,15 +596,11 @@ final class UsageViewModel {
     /// Refresh the summary for the currently selected period (async, non-blocking)
     func refreshSelectedPeriodSummary() async {
         do {
-            if let querier = tokenQuerier {
-                let summary = try await querier.fetchSummary(for: selectedTokenPeriod)
-                periodSummaries[selectedTokenPeriod] = summary
-                selectedPeriodSummary = summary
-            } else if let repository = tokenRepository {
-                let summary = try await repository.fetchSummary(for: selectedTokenPeriod)
-                periodSummaries[selectedTokenPeriod] = summary
-                selectedPeriodSummary = summary
-            }
+            let summary = try await tokenUsageCoordinator.summary(for: selectedTokenPeriod)
+            periodSummaries[selectedTokenPeriod] = summary
+            selectedPeriodSummary = summary
+        } catch TokenUsageError.repositoryUnavailable {
+            return
         } catch {
             // Set error but don't override existing tokenSnapshot
             if tokenUsageError == nil {
@@ -760,50 +608,6 @@ final class UsageViewModel {
             }
             Logger.tokenUsage.error("Failed to fetch period summary: \(error)")
         }
-    }
-
-    /// Prefetch and cache summaries for all periods to make Picker selection instant
-    private func prefetchAllPeriodSummaries() async {
-        let querier = tokenQuerier
-        let repository = tokenRepository
-        if querier == nil && repository == nil { return }
-        isFetchingPeriodSummaries = true
-        defer { isFetchingPeriodSummaries = false }
-
-        // Fetch all periods in parallel
-        let periods = UsagePeriod.allCases
-        // Build a dictionary by fetching each period concurrently
-        var results: [UsagePeriod: TokenUsageSummary] = [:]
-
-        await withTaskGroup(of: (UsagePeriod, TokenUsageSummary)?.self) { group in
-            for period in periods {
-                group.addTask {
-                    do {
-                        if let querier {
-                            let summary = try await querier.fetchSummary(for: period)
-                            return (period, summary)
-                        } else if let repository {
-                            let summary = try await repository.fetchSummary(for: period)
-                            return (period, summary)
-                        } else {
-                            return nil
-                        }
-                    } catch {
-                        Logger.tokenUsage.error("Failed to prefetch summary for \(period.rawValue): \(error)")
-                        return nil
-                    }
-                }
-            }
-
-            for await pair in group {
-                if let (period, summary) = pair {
-                    results[period] = summary
-                }
-            }
-        }
-
-        // Update cache on main actor (we're @MainActor already)
-        periodSummaries = results
     }
     #endif
 
@@ -818,29 +622,10 @@ final class UsageViewModel {
     }
 
     func startAutoRefresh() {
-        restartAutoRefresh()
+        refreshScheduler.startAutoRefresh()
     }
 
     func stopAutoRefresh() {
-        refreshTask?.cancel()
-        refreshTask = nil
-    }
-
-    private func restartAutoRefresh() {
-        refreshTask?.cancel()
-
-        guard let interval = refreshInterval.timeInterval else { return }
-
-        refreshTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(interval))
-                if !Task.isCancelled {
-                    await refresh()
-                }
-            }
-        }
+        refreshScheduler.stopAutoRefresh()
     }
 }
-
-// Note: RefreshFrequency enum is now in Shared/ViewModels/RefreshScheduler.swift
-// Note: MenuBarDisplayWindow enum is now in macOS/ViewModels/MenuBarSettingsManager.swift

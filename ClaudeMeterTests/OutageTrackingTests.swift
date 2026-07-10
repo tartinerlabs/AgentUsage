@@ -10,6 +10,21 @@ import Foundation
 @testable import ClaudeMeter
 @testable import ClaudeMeterKit
 
+@MainActor
+private final class OutageViewModelTestContext {
+    let viewModel: UsageViewModel
+
+    private let testDefaults = TestUserDefaults()
+
+    init(credentialProvider: MockCredentialProvider, apiService: MockAPIService) {
+        viewModel = UsageViewModel(
+            credentialProvider: credentialProvider,
+            apiService: apiService,
+            defaults: testDefaults.defaults
+        )
+    }
+}
+
 // MARK: - Outage Classification Tests
 
 @Suite("Outage Error Classification")
@@ -93,7 +108,8 @@ struct OutageIncidentLifecycleTests {
     @Test @MainActor func noIncidentInitially() async {
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         #expect(viewModel.activeClaudeIncident == nil)
         #expect(viewModel.isClaudeServiceDown == false)
@@ -105,7 +121,8 @@ struct OutageIncidentLifecycleTests {
 
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         await viewModel.refresh(force: true)
 
@@ -118,7 +135,8 @@ struct OutageIncidentLifecycleTests {
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         // First outage
         await mockAPI.setMockError(ClaudeAPIService.APIError.serviceUnavailable)
@@ -141,7 +159,8 @@ struct OutageIncidentLifecycleTests {
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         // Create an outage
         await mockAPI.setMockError(ClaudeAPIService.APIError.serviceUnavailable)
@@ -163,7 +182,8 @@ struct OutageIncidentLifecycleTests {
 
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         await viewModel.refresh(force: true)
 
@@ -177,7 +197,8 @@ struct OutageIncidentLifecycleTests {
 
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         await viewModel.refresh(force: true)
 
@@ -190,7 +211,8 @@ struct OutageIncidentLifecycleTests {
 
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         await viewModel.refresh(force: true)
 
@@ -218,7 +240,8 @@ struct OutageRegressionTests {
 
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         await viewModel.refresh(force: true)
 
@@ -230,7 +253,8 @@ struct OutageRegressionTests {
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         // First, load valid data
         let snapshot = makeSnapshot()
@@ -254,7 +278,8 @@ struct OutageRegressionTests {
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let context = OutageViewModelTestContext(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = context.viewModel
 
         // Create an outage
         await mockAPI.setMockError(ClaudeAPIService.APIError.serviceUnavailable)
