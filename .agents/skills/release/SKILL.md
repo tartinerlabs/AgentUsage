@@ -1,110 +1,99 @@
 ---
 name: release
-description: Create a new release for ClaudeMeter. Bumps version in Config/Version.xcconfig, updates CHANGELOG.md, commits, tags, pushes, and creates a GitHub release with detailed notes. Use when releasing a new version.
+description: Operate ClaudeMeter's manual signed release workflow. Use for dry runs, signed publication, bump selection, or Sparkle appcast repair.
 allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 ---
 
 # Release Skill
 
-Create a new release for ClaudeMeter following Apple versioning standards.
+ClaudeMeter releases are explicitly triggered through `.github/workflows/release.yml`. A normal push to `main` runs CI only and never publishes a release.
 
-## Prerequisites
+## Safety model
 
-- Working tree must be clean (no uncommitted changes)
-- Must be on the `main` branch
+- `dry-run` is the default operation and has read-only GitHub permissions.
+- `publish` and `repair-appcast` use the protected `release` environment.
+- Publishing is blocked unless `SIGNED_RELEASES_ENABLED=true` and all Developer ID, notarization, and Sparkle secrets are present.
+- Do not manually edit versions, create tags, push release commits, or run `gh release create`. The workflow owns those operations.
+- Versions below `1.0.0` are published as GitHub prereleases.
 
-## Workflow
+## Before running anything
 
-### Step 1: Validate State
-
-1. Check git status - must be clean
-2. Verify on `main` branch
-3. Read current version from `Config/Version.xcconfig`
-
-### Step 2: Determine New Version
-
-Ask the user what type of release:
-- **patch**: 0.1.0 → 0.1.1 (bug fixes)
-- **minor**: 0.1.0 → 0.2.0 (new features)
-- **major**: 0.1.0 → 1.0.0 (breaking changes)
-
-Or accept a specific version if provided.
-
-### Step 3: Update Version Files
-
-**IMPORTANT**: All platforms (macOS, iOS, widgets, tests) must have the same version numbers.
-
-1. Update `Config/Version.xcconfig` (source of truth):
-   - Increment `MARKETING_VERSION` to new version
-   - Increment `CURRENT_PROJECT_VERSION` by 1
-
-2. Update `ClaudeMeter.xcodeproj/project.pbxproj` to sync ALL targets:
-   - Replace all `MARKETING_VERSION = X.Y.Z;` with the new version
-   - Replace all `CURRENT_PROJECT_VERSION = N;` with the new build number
-   - This includes: ClaudeMeter (macOS), ClaudeMeter-iOS, ClaudeMeterWidgetsExtension, and all test targets
-   - Use the Edit tool with `replace_all: true` to update all occurrences
-
-### Step 4: Update CHANGELOG.md
-
-1. Read current `CHANGELOG.md`
-2. Ask user for release notes (what was added, fixed, changed)
-3. Add new version section under `[Unreleased]`:
-   ```markdown
-   ## [X.Y.Z] - YYYY-MM-DD
-
-   ### Added
-   - New features here
-
-   ### Fixed
-   - Bug fixes here
-
-   ### Changed
-   - Changes here
-   ```
-4. Update comparison links at bottom of file
-
-### Step 5: Commit and Tag
+1. Ensure the working tree is clean and `main` is current.
+2. Read `Config/Version.xcconfig` and the latest `v*` tag.
+3. Check the release gate without exposing values:
 
 ```bash
-git add Config/Version.xcconfig ClaudeMeter.xcodeproj/project.pbxproj CHANGELOG.md
-git commit -m "Bump version to X.Y.Z"
-git tag vX.Y.Z
+gh variable list --env release
+gh secret list --env release
 ```
 
-### Step 6: Push and Create Release
+If signed releases are not enabled, only run a dry run.
+
+## Dry run
+
+Use `auto` unless the user selected a specific semantic bump:
 
 ```bash
-git push origin main
-git push origin vX.Y.Z
+gh workflow run release.yml \
+  -f operation=dry-run \
+  -f bump=auto
 ```
 
-Create GitHub release with detailed notes:
+The dry run computes or resumes the version, runs tests, simulates version and changelog changes, and builds an unsigned validation artifact. It cannot commit, tag, release, or update the appcast.
+
+## Publish
+
+Only run this after the release environment is fully configured:
+
 ```bash
-gh release create vX.Y.Z --title "ClaudeMeter X.Y.Z" --notes-file - --prerelease <<'EOF'
-## What's New
-
-[Extract from CHANGELOG.md for this version]
-
-See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
-EOF
+gh workflow run release.yml \
+  -f operation=publish \
+  -f bump=auto
 ```
 
-Use `--prerelease` flag for versions < 1.0.0.
+The workflow:
 
-### Step 7: Verify
+1. Validates the release gate and secrets before mutation.
+2. Computes the next version or resumes a committed untagged version.
+3. Runs tests and prepares version/changelog changes.
+4. Developer ID-signs, notarizes, staples, packages, and Gatekeeper-validates the app.
+5. Generates and verifies the accumulating feed with Sparkle `generate_appcast`.
+6. Commits the version bump using a compare-and-swap on `main`.
+7. Creates the tag and GitHub prerelease.
+8. Publishes `appcast.xml` to `gh-pages` and dispatches the Pages deployment.
 
-1. Confirm GitHub Actions workflow started
-2. Provide link to the release
+## Repair an appcast
 
-## Version Format
+Use this only when a signed GitHub release exists but its feed item is missing or stale:
 
-- **MARKETING_VERSION**: X.Y.Z (semantic versioning)
-- **CURRENT_PROJECT_VERSION**: Integer, always increments (never decreases)
-
-## Example
-
+```bash
+gh workflow run release.yml \
+  -f operation=repair-appcast \
+  -f tag=vX.Y.Z
 ```
-Current: 0.1.0 (build 1)
-User requests: minor release with "Added dark mode support"
-Result: 0.2.0 (build 2)
+
+Repair downloads and validates the existing release archive, reads its version/build metadata, regenerates the feed idempotently, and deploys Pages. It does not create or modify a tag, release, version file, or changelog entry.
+
+## Bump rules
+
+- `auto`: minor by default.
+- `patch`: increment the patch component.
+- `minor`: increment the minor component.
+- `major`: increment the major component.
+- If `Config/Version.xcconfig` contains an untagged version newer than the latest tag, that version and build are resumed and the requested bump is ignored.
+- `[major]` in a release-worthy commit escalates `auto` to major.
+- `[patch]` on every release-worthy commit changes `auto` to patch.
+- A head commit containing `[skip release]` skips computation.
+
+## Verification
+
+After dispatching:
+
+```bash
+gh run list --workflow release.yml --limit 5
+gh run watch
 ```
+
+For a successful publish, verify the GitHub release, its `ClaudeMeter.zip` asset, and the live feed at `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml`.
+
+See `RELEASING.md` for credential setup and beginner-oriented explanations.

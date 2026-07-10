@@ -20,6 +20,22 @@ changing SwiftUI views, widgets, menu bar UI, or Live Activities, consult it and
 preserve its color, typography, spacing, material, icon, and status-system
 rules.
 
+## Release Workflow
+
+Releases use the manually triggered `.github/workflows/release.yml`; a normal push to `main` runs CI only. The default `dry-run` operation has read-only permissions. `publish` and `repair-appcast` require the `release` environment, `SIGNED_RELEASES_ENABLED=true`, and the relevant Developer ID, Apple notarization, and Sparkle secrets.
+
+The publish path tests, computes or resumes the version, prepares the changelog, Developer ID-signs, notarizes, staples, packages, validates with Gatekeeper, generates the accumulating feed with Sparkle's official `generate_appcast`, commits the version with compare-and-swap protection, creates the tag/prerelease, publishes `appcast.xml` to `gh-pages`, and explicitly dispatches `pages.yml`.
+
+Do not manually edit versions, tag, or call `gh release create`. Use:
+
+```bash
+gh workflow run release.yml -f operation=dry-run -f bump=auto
+gh workflow run release.yml -f operation=publish -f bump=auto
+gh workflow run release.yml -f operation=repair-appcast -f tag=vX.Y.Z
+```
+
+Public releases remain paused until Developer ID credentials are configured. The committed `0.26.0` build `79` is the next release candidate and is resumed regardless of the requested bump. See `RELEASING.md` and `.agents/skills/release/SKILL.md` for setup and recovery.
+
 ## Quick Reference
 
 ```bash
