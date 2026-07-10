@@ -46,7 +46,9 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 **macOS:**
 1. Download `ClaudeMeter.zip` from [Releases](https://github.com/tartinerlabs/ClaudeMeter/releases)
 2. Move `ClaudeMeter.app` to Applications
-3. Launch - appears in menu bar
+3. Open ClaudeMeter. Because current releases are ad-hoc signed, macOS will initially block the app as coming from an unidentified developer.
+4. Open **System Settings → Privacy & Security**, scroll to the security message for ClaudeMeter, click **Open Anyway**, then confirm **Open**. See [Apple's guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
+5. ClaudeMeter appears in the menu bar.
 
 **iOS:** Currently in development. Build from source (see below).
 
@@ -114,6 +116,8 @@ MVVM with Swift Actors for thread safety, @Observable for reactive UI, and async
 
 **App not in menu bar:** Check Activity Monitor for "ClaudeMeter" and restart if needed
 
+**macOS cannot verify the developer:** Follow the **Open Anyway** steps under Installation. Do not disable Gatekeeper globally.
+
 **Token usage zero:** Verify logs exist at `~/.claude/projects/` (created when using Claude Code)
 
 ## Development
@@ -138,7 +142,7 @@ No data collection or transmission. All processing is local. Reads credentials f
 
 **Data:** Anthropic OAuth API for rate limits, local JSONL logs for tokens, [Anthropic pricing](https://anthropic.com/pricing)
 
-**Releases:** Manually triggered and automated through the signed GitHub Actions pipeline. Public releases are paused until Developer ID credentials are configured. See [RELEASING.md](RELEASING.md) and [releases](https://github.com/tartinerlabs/ClaudeMeter/releases).
+**Releases:** Manually triggered through GitHub Actions. Current archives are ad-hoc code signed and Sparkle EdDSA signed; the Developer ID-signed and notarised path remains available for future use. See [RELEASING.md](RELEASING.md) and [releases](https://github.com/tartinerlabs/ClaudeMeter/releases).
 
 ## Support
 

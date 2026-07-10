@@ -1,6 +1,6 @@
 ---
 name: release
-description: Operate ClaudeMeter's manual signed release workflow. Use for dry runs, signed publication, bump selection, or Sparkle appcast repair.
+description: Operate ClaudeMeter's manual release workflow. Use for dry runs, explicit unsigned or Developer ID publication, bump selection, or Sparkle appcast repair.
 allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 ---
 
@@ -11,8 +11,9 @@ ClaudeMeter releases are explicitly triggered through `.github/workflows/release
 ## Safety model
 
 - `dry-run` is the default operation and has read-only GitHub permissions.
-- `publish` and `repair-appcast` use the protected `release` environment.
-- Publishing is blocked unless `SIGNED_RELEASES_ENABLED=true` and all Developer ID, notarization, and Sparkle secrets are present.
+- `publish`, `publish-unsigned`, and `repair-appcast` use the protected `release` environment.
+- `publish-unsigned` requires `UNSIGNED_RELEASES_ENABLED=true` and the Sparkle private key. It creates an ad-hoc signature and is not accepted by Gatekeeper without user approval.
+- `publish` requires `SIGNED_RELEASES_ENABLED=true` plus all Developer ID, notarization, and Sparkle secrets.
 - Do not manually edit versions, create tags, push release commits, or run `gh release create`. The workflow owns those operations.
 - Versions below `1.0.0` are published as GitHub prereleases.
 
@@ -27,7 +28,7 @@ gh variable list --env release
 gh secret list --env release
 ```
 
-If signed releases are not enabled, only run a dry run.
+Only dispatch a publication mode whose corresponding gate is enabled.
 
 ## Dry run
 
@@ -39,9 +40,21 @@ gh workflow run release.yml \
   -f bump=auto
 ```
 
-The dry run computes or resumes the version, runs tests, simulates version and changelog changes, and builds an unsigned validation artifact. It cannot commit, tag, release, or update the appcast.
+The dry run computes or resumes the version, runs tests, simulates version and changelog changes, then builds, ad-hoc signs, packages, extracts, and verifies the unsigned archive. It cannot commit, tag, release, or update the appcast.
 
-## Publish
+## Publish unsigned
+
+Use the current no-membership distribution path only after the unsigned gate is enabled and the dry run passes:
+
+```bash
+gh workflow run release.yml \
+  -f operation=publish-unsigned \
+  -f bump=auto
+```
+
+This path uses strict ad-hoc code-signature validation and Sparkle EdDSA signing, but it does not notarize or pass Gatekeeper. Installation instructions must use Apple's **Open Anyway** flow and must not disable Gatekeeper globally.
+
+## Publish signed
 
 Only run this after the release environment is fully configured:
 
@@ -64,7 +77,7 @@ The workflow:
 
 ## Repair an appcast
 
-Use this only when a signed GitHub release exists but its feed item is missing or stale:
+Use this when an existing signed or ad-hoc-signed GitHub release has a missing or stale feed item:
 
 ```bash
 gh workflow run release.yml \
@@ -72,7 +85,7 @@ gh workflow run release.yml \
   -f tag=vX.Y.Z
 ```
 
-Repair downloads and validates the existing release archive, reads its version/build metadata, regenerates the feed idempotently, and deploys Pages. It does not create or modify a tag, release, version file, or changelog entry.
+Repair detects the archive signature. Developer ID archives must pass Gatekeeper and stapler checks; ad-hoc archives require the unsigned gate and strict `codesign` validation. It then reads version/build metadata, regenerates the feed idempotently, and deploys Pages without changing the release or source.
 
 ## Bump rules
 
@@ -94,6 +107,6 @@ gh run list --workflow release.yml --limit 5
 gh run watch
 ```
 
-For a successful publish, verify the GitHub release, its `ClaudeMeter.zip` asset, and the live feed at `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml`.
+For a successful publish, verify the GitHub release, its `ClaudeMeter.zip` asset, signature mode, and the live feed at `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml`. Gatekeeper rejection is expected only for `publish-unsigned`.
 
 See `RELEASING.md` for credential setup and beginner-oriented explanations.
