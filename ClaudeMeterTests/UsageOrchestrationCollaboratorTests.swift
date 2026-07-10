@@ -3,6 +3,7 @@
 //  ClaudeMeterTests
 //
 
+import AppKit
 import Foundation
 import SwiftData
 import Testing
@@ -27,38 +28,209 @@ struct RefreshSchedulerTests {
 
 @Suite("MenuBarSettingsManager")
 struct MenuBarSettingsManagerTests {
-    @Test @MainActor func usesExistingDefaults() {
+    @Test @MainActor func untouchedInstallUsesPrimaryClaudeAndCodexPairs() {
         let testDefaults = TestUserDefaults()
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
 
-        #expect(settings.menuBarShowSession)
-        #expect(!settings.menuBarShowAllModels)
-        #expect(!settings.menuBarShowSonnet)
-        #expect(!settings.menuBarShowDesign)
-        #expect(!settings.menuBarShowFable)
-        #expect(!settings.menuBarShowCodex)
-        #expect(settings.menuBarShowExtraUsage)
+        #expect(settings.pinnedWindows(for: .claude) == [.session, .opus])
+        #expect(settings.pinnedWindows(for: .codex) == [.codexFiveHour, .codexWeekly])
+        #expect(testDefaults.defaults.integer(forKey: "menuBarPinnedWindowsSchemaVersion") == 1)
     }
 
-    @Test @MainActor func persistsEveryMenuBarSetting() {
+    @Test @MainActor func migratesLegacySelectionsInCanonicalOrderAndCapsAtTwo() {
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(false, forKey: "menuBarShowSession")
+        testDefaults.defaults.set(true, forKey: "menuBarShowAllModels")
+        testDefaults.defaults.set(true, forKey: "menuBarShowSonnet")
+        testDefaults.defaults.set(true, forKey: "menuBarShowDesign")
+        testDefaults.defaults.set(false, forKey: "menuBarShowCodex")
+
+        let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
+
+        #expect(settings.pinnedWindows(for: .claude) == [.opus, .sonnet])
+        #expect(settings.pinnedWindows(for: .codex).isEmpty)
+    }
+
+    @Test @MainActor func explicitEmptyLegacyClaudeSelectionRetainsSessionFallback() {
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(false, forKey: "menuBarShowSession")
+        testDefaults.defaults.set(false, forKey: "menuBarShowAllModels")
+        testDefaults.defaults.set(false, forKey: "menuBarShowSonnet")
+        testDefaults.defaults.set(false, forKey: "menuBarShowDesign")
+        testDefaults.defaults.set(false, forKey: "menuBarShowFable")
+
+        let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
+
+        #expect(settings.pinnedWindows(for: .claude) == [.session])
+    }
+
+    @Test @MainActor func explicitLegacyCodexEnableMigratesBothCodexWindows() {
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(true, forKey: "menuBarShowCodex")
+
+        let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
+
+        #expect(settings.pinnedWindows(for: .codex) == [.codexFiveHour, .codexWeekly])
+    }
+
+    @Test @MainActor func enforcesTwoPinsAndPersistsOrderedChanges() {
         let testDefaults = TestUserDefaults()
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
 
-        settings.menuBarShowSession = false
-        settings.menuBarShowAllModels = true
-        settings.menuBarShowSonnet = true
-        settings.menuBarShowDesign = true
-        settings.menuBarShowFable = true
-        settings.menuBarShowCodex = true
-        settings.menuBarShowExtraUsage = false
+        #expect(!settings.canPin(.sonnet, for: .claude))
+        settings.setPinned(.sonnet, for: .claude, isPinned: true)
+        #expect(settings.pinnedWindows(for: .claude) == [.session, .opus])
 
-        #expect(!testDefaults.defaults.bool(forKey: "menuBarShowSession"))
-        #expect(testDefaults.defaults.bool(forKey: "menuBarShowAllModels"))
-        #expect(testDefaults.defaults.bool(forKey: "menuBarShowSonnet"))
-        #expect(testDefaults.defaults.bool(forKey: "menuBarShowDesign"))
-        #expect(testDefaults.defaults.bool(forKey: "menuBarShowFable"))
-        #expect(testDefaults.defaults.bool(forKey: "menuBarShowCodex"))
-        #expect(!testDefaults.defaults.bool(forKey: "menuBarShowExtraUsage"))
+        settings.setPinned(.opus, for: .claude, isPinned: false)
+        #expect(settings.canPin(.sonnet, for: .claude))
+        settings.setPinned(.sonnet, for: .claude, isPinned: true)
+        #expect(settings.pinnedWindows(for: .claude) == [.session, .sonnet])
+
+        let reloaded = MenuBarSettingsManager(defaults: testDefaults.defaults)
+        #expect(reloaded.pinnedWindows(for: .claude) == [.session, .sonnet])
+    }
+
+    @Test @MainActor func allowsProviderToHaveNoPins() {
+        let testDefaults = TestUserDefaults()
+        let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
+
+        settings.setPinned(.codexFiveHour, for: .codex, isPinned: false)
+        settings.setPinned(.codexWeekly, for: .codex, isPinned: false)
+
+        #expect(settings.pinnedWindows(for: .codex).isEmpty)
+        #expect(MenuBarSettingsManager(defaults: testDefaults.defaults).pinnedWindows(for: .codex).isEmpty)
+    }
+}
+
+@Suite("MenuBarStatusContent")
+struct MenuBarStatusContentTests {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    @Test @MainActor func buildsClaudeThenCodexAndHonorsPinOrderAndLimit() {
+        let content = MenuBarStatusContentBuilder.build(
+            snapshots: [
+                .claude: snapshot(
+                    provider: .claude,
+                    windows: [
+                        window(12.4, type: .session),
+                        window(15.6, type: .opus),
+                        window(99, type: .sonnet),
+                    ]
+                ),
+                .codex: snapshot(
+                    provider: .codex,
+                    windows: [
+                        window(2.1, type: .codexFiveHour),
+                        window(0, type: .codexWeekly),
+                    ]
+                ),
+                .openCode: snapshot(
+                    provider: .openCode,
+                    windows: [window(77, type: .openCodeGoFiveHour)]
+                ),
+            ],
+            pinnedWindows: [
+                .claude: [.opus, .session, .sonnet],
+                .codex: [.codexFiveHour, .codexWeekly],
+                .openCode: [.openCodeGoFiveHour],
+            ],
+            now: now
+        )
+
+        #expect(content.groups.map(\.id) == ["claude", "codex"])
+        #expect(content.groups[0].metrics.map(\.id) == ["opus", "session"])
+        #expect(content.groups[0].metrics.map(\.percentUsed) == [16, 12])
+        #expect(content.groups[1].metrics.map(\.percentUsed) == [2, 0])
+    }
+
+    @Test @MainActor func keepsLiveZeroAndOmitsExpiredMissingAndEmptyProviders() {
+        let content = MenuBarStatusContentBuilder.build(
+            snapshots: [
+                .claude: snapshot(
+                    provider: .claude,
+                    windows: [
+                        window(0, type: .session),
+                        window(42, type: .opus, isExpired: true),
+                    ]
+                ),
+                .codex: snapshot(provider: .codex, windows: []),
+            ],
+            pinnedWindows: [
+                .claude: [.session, .opus],
+                .codex: [.codexWeekly],
+            ],
+            now: now
+        )
+
+        #expect(content.groups.count == 1)
+        #expect(content.groups[0].metrics.map(\.percentUsed) == [0])
+    }
+
+    @Test @MainActor func formatsOverLimitUsageAndBuildsVoiceOverSummary() {
+        let content = MenuBarStatusContentBuilder.build(
+            snapshots: [
+                .claude: snapshot(
+                    provider: .claude,
+                    windows: [window(115.7, type: .session)]
+                ),
+            ],
+            pinnedWindows: [.claude: [.session]],
+            now: now
+        )
+
+        #expect(content.groups[0].metrics[0].value == "116%")
+        #expect(content.accessibilityText == "Claude, Current session 116 percent used")
+    }
+
+    @Test @MainActor func returnsEmptyContentWhenNothingIsRenderable() {
+        let content = MenuBarStatusContentBuilder.build(
+            snapshots: [:],
+            pinnedWindows: [.claude: [.session]],
+            now: now
+        )
+
+        #expect(content.isEmpty)
+    }
+
+    @Test @MainActor func rendersTemplateImageWithAccessibilityDescription() throws {
+        let content = MenuBarStatusContent(
+            groups: [
+                .init(
+                    id: "claude",
+                    displayName: "Claude",
+                    metrics: [
+                        .init(id: "session", label: "Current session", percentUsed: 12),
+                        .init(id: "opus", label: "All models", percentUsed: 15),
+                    ]
+                ),
+            ]
+        )
+
+        let image = try #require(MenuBarStatusRenderer.image(for: content, scale: 2))
+
+        #expect(image.isTemplate)
+        #expect(image.size.width > 0)
+        #expect(image.size.height > 0)
+        #expect(image.accessibilityDescription == content.accessibilityText)
+    }
+
+    private func snapshot(
+        provider: Provider,
+        windows: [UsageWindow]
+    ) -> ProviderUsageSnapshot {
+        ProviderUsageSnapshot(provider: provider, windows: windows, fetchedAt: now)
+    }
+
+    private func window(
+        _ utilization: Double,
+        type: UsageWindowType,
+        isExpired: Bool = false
+    ) -> UsageWindow {
+        UsageWindow(
+            utilization: utilization,
+            resetsAt: now.addingTimeInterval(isExpired ? -60 : 3_600),
+            windowType: type
+        )
     }
 }
 
