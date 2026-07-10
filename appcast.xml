@@ -1,10 +1,31 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
     <channel>
         <title>ClaudeMeter Updates</title>
         <link>https://github.com/tartinerlabs/ClaudeMeter/releases</link>
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
+        <item>
+            <title>0.26.0</title>
+            <pubDate>Fri, 10 Jul 2026 20:44:50 +0000</pubDate>
+            <link>https://github.com/tartinerlabs/ClaudeMeter/releases</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md</sparkle:fullReleaseNotesLink>
+            <sparkle:version>79</sparkle:version>
+            <sparkle:shortVersionString>0.26.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What&#x27;s New</h2>
+<ul>
+<li>Add explicit unsigned release mode</li>
+<li>Add hybrid product analytics and diagnostics</li>
+<li>Refactor menu bar to compact provider-pinned groups</li>
+<li>Revise release skill for manual signed workflow</li>
+<li>refactor provider usage orchestration</li>
+<li>Add Sparkle fullReleaseNotesLink for Version History button</li>
+</ul>
+<p>See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.</p>
+]]></description>
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.26.0/ClaudeMeter.zip" length="2311414" type="application/octet-stream" sparkle:edSignature="Y8cF9+CO3UvlWt7g5t+RVWGqrLNHgeXzHobJ/QrlO7xPyUxArxX2mMJmWkKbsOaTmScnoKvn0EsrzB4r7RcFBg=="/>
+        </item>
         <item>
             <title>Version 0.25.0</title>
             <pubDate>Thu, 09 Jul 2026 11:36:08 +0000</pubDate>
@@ -23,11 +44,7 @@
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.25.0/ClaudeMeter.zip"
-                length="2280902"
-                type="application/octet-stream"
-                sparkle:edSignature="BFhEsRZArTxB1aRf9T2CGi5jEpcnzRuNB2uGMFGtEH6AcDke4zHST8zsIpYUnoP0uulVVTCHb6uy2JqwHNfiAA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.25.0/ClaudeMeter.zip" length="2280902" type="application/octet-stream" sparkle:edSignature="BFhEsRZArTxB1aRf9T2CGi5jEpcnzRuNB2uGMFGtEH6AcDke4zHST8zsIpYUnoP0uulVVTCHb6uy2JqwHNfiAA=="/>
         </item>
         <item>
             <title>Version 0.24.0</title>
@@ -44,11 +61,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.24.0/ClaudeMeter.zip"
-                length="2297130"
-                type="application/octet-stream"
-                sparkle:edSignature="Lm4Z4Wrcg3Z1pFmFD24Jex9jfFdAAMxQq+tbphMQGgvPjLYo1nkW9Bdt74NBBwNdwvV7sL5xbfoLRb3Dmn+gCA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.24.0/ClaudeMeter.zip" length="2297130" type="application/octet-stream" sparkle:edSignature="Lm4Z4Wrcg3Z1pFmFD24Jex9jfFdAAMxQq+tbphMQGgvPjLYo1nkW9Bdt74NBBwNdwvV7sL5xbfoLRb3Dmn+gCA=="/>
         </item>
         <item>
             <title>Version 0.23.0</title>
@@ -67,11 +80,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.23.0/ClaudeMeter.zip"
-                length="2297142"
-                type="application/octet-stream"
-                sparkle:edSignature="Hh8vFYnEbI6ADMW4I0fW0aKoCpECZaM7bGfmQqmiiMZQCvtFlUXim7yobGwiEwflB5dOd2mlXz7nEVbCkL4BDA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.23.0/ClaudeMeter.zip" length="2297142" type="application/octet-stream" sparkle:edSignature="Hh8vFYnEbI6ADMW4I0fW0aKoCpECZaM7bGfmQqmiiMZQCvtFlUXim7yobGwiEwflB5dOd2mlXz7nEVbCkL4BDA=="/>
         </item>
         <item>
             <title>Version 0.22.0</title>
@@ -88,11 +97,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.22.0/ClaudeMeter.zip"
-                length="2277728"
-                type="application/octet-stream"
-                sparkle:edSignature="bXGLGZEzxH5U4tcKtYkh/T02iMjCH9VhYz8fM/2Kbtul/iihm8pRqfaq8xD3M3azTgVqCjtu+IwfAr+Bs22SAQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.22.0/ClaudeMeter.zip" length="2277728" type="application/octet-stream" sparkle:edSignature="bXGLGZEzxH5U4tcKtYkh/T02iMjCH9VhYz8fM/2Kbtul/iihm8pRqfaq8xD3M3azTgVqCjtu+IwfAr+Bs22SAQ=="/>
         </item>
         <item>
             <title>Version 0.21.0</title>
@@ -109,11 +114,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.21.0/ClaudeMeter.zip"
-                length="2271510"
-                type="application/octet-stream"
-                sparkle:edSignature="uE0shgs3Psxewq8L435jGsHDYZCsAlyupaoTxegfWGAhFDaBzTa3U2GymmZn4QeeUVmzmrIqGoO7b8nMJeJqAA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.21.0/ClaudeMeter.zip" length="2271510" type="application/octet-stream" sparkle:edSignature="uE0shgs3Psxewq8L435jGsHDYZCsAlyupaoTxegfWGAhFDaBzTa3U2GymmZn4QeeUVmzmrIqGoO7b8nMJeJqAA=="/>
         </item>
         <item>
             <title>Version 0.20.0</title>
@@ -131,11 +132,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.20.0/ClaudeMeter.zip"
-                length="2271510"
-                type="application/octet-stream"
-                sparkle:edSignature="RvMqcM/PMqgf9vEvrCwsyd0TFiZCUUiUlLw3x3QeqUlSUxeSyoWIZH1zeFpFoJVYvjODlrXhWI3hOCkWGYV4Cw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.20.0/ClaudeMeter.zip" length="2271510" type="application/octet-stream" sparkle:edSignature="RvMqcM/PMqgf9vEvrCwsyd0TFiZCUUiUlLw3x3QeqUlSUxeSyoWIZH1zeFpFoJVYvjODlrXhWI3hOCkWGYV4Cw=="/>
         </item>
         <item>
             <title>Version 0.19.0</title>
@@ -152,11 +149,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.19.0/ClaudeMeter.zip"
-                length="2258952"
-                type="application/octet-stream"
-                sparkle:edSignature="UnWhv2pA1FmpfkIbR9iNbRIG/WN6GtVyX5iVPnHpainjDUqirGSHFrE0m1Wkn7HANIF2Ns9qeXxXCUGupCugBQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.19.0/ClaudeMeter.zip" length="2258952" type="application/octet-stream" sparkle:edSignature="UnWhv2pA1FmpfkIbR9iNbRIG/WN6GtVyX5iVPnHpainjDUqirGSHFrE0m1Wkn7HANIF2Ns9qeXxXCUGupCugBQ=="/>
         </item>
         <item>
             <title>Version 0.18.0</title>
@@ -174,11 +167,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.18.0/ClaudeMeter.zip"
-                length="2257024"
-                type="application/octet-stream"
-                sparkle:edSignature="3nk9F2xJvjjmpu3Q5DVh8kZvQmqvvrwSD6CXiXWX5Z0PstaVnrd1eVontfC6heGubprQ6fZ5BHeqmUV7ypLhBw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.18.0/ClaudeMeter.zip" length="2257024" type="application/octet-stream" sparkle:edSignature="3nk9F2xJvjjmpu3Q5DVh8kZvQmqvvrwSD6CXiXWX5Z0PstaVnrd1eVontfC6heGubprQ6fZ5BHeqmUV7ypLhBw=="/>
         </item>
         <item>
             <title>Version 0.17.0</title>
@@ -195,11 +184,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.17.0/ClaudeMeter.zip"
-                length="2256778"
-                type="application/octet-stream"
-                sparkle:edSignature="j5R9Dck5ClWfvk/2ADWk1simsN/rt0HKWEOq2M+d7JMwEDf+aM+mGIge2fECJ0idiDhg4Rom+/6GF1KV3W+NAw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.17.0/ClaudeMeter.zip" length="2256778" type="application/octet-stream" sparkle:edSignature="j5R9Dck5ClWfvk/2ADWk1simsN/rt0HKWEOq2M+d7JMwEDf+aM+mGIge2fECJ0idiDhg4Rom+/6GF1KV3W+NAw=="/>
         </item>
         <item>
             <title>Version 0.16.0</title>
@@ -216,11 +201,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.16.0/ClaudeMeter.zip"
-                length="2235998"
-                type="application/octet-stream"
-                sparkle:edSignature="URF67p4ngz8VlkgwgVSQWyDzj3I0ge/tYCXYMwpZburDzubzudVFHITl73DHQXlXnSX3viUSzcn8UcjQ3j30Dw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.16.0/ClaudeMeter.zip" length="2235998" type="application/octet-stream" sparkle:edSignature="URF67p4ngz8VlkgwgVSQWyDzj3I0ge/tYCXYMwpZburDzubzudVFHITl73DHQXlXnSX3viUSzcn8UcjQ3j30Dw=="/>
         </item>
         <item>
             <title>Version 0.15.0</title>
@@ -238,11 +219,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.15.0/ClaudeMeter.zip"
-                length="2233667"
-                type="application/octet-stream"
-                sparkle:edSignature="ErlXU/rVu7N3amcca+gRkUm3jzU2d7xXFOIL7cAvxeeheTLQJaweekUpXAlj7X6Nm8zUaWWQ2iczUk8O222YBA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.15.0/ClaudeMeter.zip" length="2233667" type="application/octet-stream" sparkle:edSignature="ErlXU/rVu7N3amcca+gRkUm3jzU2d7xXFOIL7cAvxeeheTLQJaweekUpXAlj7X6Nm8zUaWWQ2iczUk8O222YBA=="/>
         </item>
         <item>
             <title>Version 0.14.20</title>
@@ -259,11 +236,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.20/ClaudeMeter.zip"
-                length="2227977"
-                type="application/octet-stream"
-                sparkle:edSignature="bgK3TQOQPO5Pl0SX5D8K7yHsxz28loRk9oiO+Z//qXieq5ab/kLqiLOUPcMP+hdg8BkzRq+IgUK6k/wVwfD4Ag==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.20/ClaudeMeter.zip" length="2227977" type="application/octet-stream" sparkle:edSignature="bgK3TQOQPO5Pl0SX5D8K7yHsxz28loRk9oiO+Z//qXieq5ab/kLqiLOUPcMP+hdg8BkzRq+IgUK6k/wVwfD4Ag=="/>
         </item>
         <item>
             <title>Version 0.14.19</title>
@@ -280,11 +253,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.19/ClaudeMeter.zip"
-                length="2216354"
-                type="application/octet-stream"
-                sparkle:edSignature="AdGE/8jkBZ3YHMfSzMedxWWXUL3ZD4bqBMdhg+GXPuNbAUAJBZwCMqX920KNFuzHMP+ymRV+C9zm9ckWau05AA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.19/ClaudeMeter.zip" length="2216354" type="application/octet-stream" sparkle:edSignature="AdGE/8jkBZ3YHMfSzMedxWWXUL3ZD4bqBMdhg+GXPuNbAUAJBZwCMqX920KNFuzHMP+ymRV+C9zm9ckWau05AA=="/>
         </item>
         <item>
             <title>Version 0.14.18</title>
@@ -301,11 +270,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.18/ClaudeMeter.zip"
-                length="2182202"
-                type="application/octet-stream"
-                sparkle:edSignature="v7K5Fnl7Dfc4LpD2TyMfprvSRyRLC2eRGXQQawJopxO0nMk8N0dSHoqUherXlb/PhNyfCwaxPnD4MrT2iOvuDg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.18/ClaudeMeter.zip" length="2182202" type="application/octet-stream" sparkle:edSignature="v7K5Fnl7Dfc4LpD2TyMfprvSRyRLC2eRGXQQawJopxO0nMk8N0dSHoqUherXlb/PhNyfCwaxPnD4MrT2iOvuDg=="/>
         </item>
         <item>
             <title>Version 0.14.17</title>
@@ -322,11 +287,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.17/ClaudeMeter.zip"
-                length="2181415"
-                type="application/octet-stream"
-                sparkle:edSignature="CTkqeronSRu/+JlA16y2A9o3iK6AeGI34H7F4BDo1ODoGmRh+AlSdwsdwfNz1iKy2G78NJp6WMVGGy5OYkpDBg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.17/ClaudeMeter.zip" length="2181415" type="application/octet-stream" sparkle:edSignature="CTkqeronSRu/+JlA16y2A9o3iK6AeGI34H7F4BDo1ODoGmRh+AlSdwsdwfNz1iKy2G78NJp6WMVGGy5OYkpDBg=="/>
         </item>
         <item>
             <title>Version 0.14.16</title>
@@ -343,11 +304,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.16/ClaudeMeter.zip"
-                length="2181074"
-                type="application/octet-stream"
-                sparkle:edSignature="8apjjL27PeNAbF4dw3hbKF5y2aroSi8SBiQTGj7HZ/8DzgEYMGCd6M2NGNvWEQyWLTwqbTZgLNB/3tRs9GzaBA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.16/ClaudeMeter.zip" length="2181074" type="application/octet-stream" sparkle:edSignature="8apjjL27PeNAbF4dw3hbKF5y2aroSi8SBiQTGj7HZ/8DzgEYMGCd6M2NGNvWEQyWLTwqbTZgLNB/3tRs9GzaBA=="/>
         </item>
         <item>
             <title>Version 0.14.15</title>
@@ -365,11 +322,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.15/ClaudeMeter.zip"
-                length="2181427"
-                type="application/octet-stream"
-                sparkle:edSignature="0IsuutgujZ01VG/PVj+SMK/15wy/5frPfqAHcWHcI1XvnGWOG2O0iPt4oqlORGCmRAg8CPJB5s7fCd9vSi5kBQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.15/ClaudeMeter.zip" length="2181427" type="application/octet-stream" sparkle:edSignature="0IsuutgujZ01VG/PVj+SMK/15wy/5frPfqAHcWHcI1XvnGWOG2O0iPt4oqlORGCmRAg8CPJB5s7fCd9vSi5kBQ=="/>
         </item>
         <item>
             <title>Version 0.14.14</title>
@@ -386,11 +339,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.14/ClaudeMeter.zip"
-                length="2181058"
-                type="application/octet-stream"
-                sparkle:edSignature="Wq9wqvgqcx3/dn7qs+niaRdt0Q+mBGkHbrJk9SCEWOGMEZvRilydRU0e9jVKQymXkSPg9WjKxJH94N1h2scpAA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.14/ClaudeMeter.zip" length="2181058" type="application/octet-stream" sparkle:edSignature="Wq9wqvgqcx3/dn7qs+niaRdt0Q+mBGkHbrJk9SCEWOGMEZvRilydRU0e9jVKQymXkSPg9WjKxJH94N1h2scpAA=="/>
         </item>
         <item>
             <title>Version 0.14.13</title>
@@ -407,11 +356,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.13/ClaudeMeter.zip"
-                length="2172754"
-                type="application/octet-stream"
-                sparkle:edSignature="3DVKv0DdvW1tGvZELaiovJ0IKufi5zzvo2efNY5bO6qHpp5NAHfbLtCoJiEJ9SjGy4r3We9ZGJu/0xomwg2TAA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.13/ClaudeMeter.zip" length="2172754" type="application/octet-stream" sparkle:edSignature="3DVKv0DdvW1tGvZELaiovJ0IKufi5zzvo2efNY5bO6qHpp5NAHfbLtCoJiEJ9SjGy4r3We9ZGJu/0xomwg2TAA=="/>
         </item>
         <item>
             <title>Version 0.14.12</title>
@@ -428,11 +373,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.12/ClaudeMeter.zip"
-                length="2172661"
-                type="application/octet-stream"
-                sparkle:edSignature="NhAnfoYBPOo6SFlRPOoSycHWatN2I7iw8/6kCdMFQu44b+LBRfoabKDZ5z6xv32CYBQZorJWXm+sweMM5IuJCw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.12/ClaudeMeter.zip" length="2172661" type="application/octet-stream" sparkle:edSignature="NhAnfoYBPOo6SFlRPOoSycHWatN2I7iw8/6kCdMFQu44b+LBRfoabKDZ5z6xv32CYBQZorJWXm+sweMM5IuJCw=="/>
         </item>
         <item>
             <title>Version 0.14.11</title>
@@ -450,11 +391,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.11/ClaudeMeter.zip"
-                length="2172640"
-                type="application/octet-stream"
-                sparkle:edSignature="1+YjUpevsvi8hZbbW+jYJAtZqrVhWNfzp7BsYatcDzj+eiErOLetIukTW0bjJRv88XPUvpKa4fwmmyrJUVZeDQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.11/ClaudeMeter.zip" length="2172640" type="application/octet-stream" sparkle:edSignature="1+YjUpevsvi8hZbbW+jYJAtZqrVhWNfzp7BsYatcDzj+eiErOLetIukTW0bjJRv88XPUvpKa4fwmmyrJUVZeDQ=="/>
         </item>
         <item>
             <title>Version 0.14.10</title>
@@ -473,11 +410,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.10/ClaudeMeter.zip"
-                length="2204429"
-                type="application/octet-stream"
-                sparkle:edSignature="TXBaPcIMXJrO+eGAqlqF1IkMvMwB26qtgHTl48300zav/wTzZBz2CBrl9bHUL1HnOIMzjjLBxqjW3JlhPiDXCg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.10/ClaudeMeter.zip" length="2204429" type="application/octet-stream" sparkle:edSignature="TXBaPcIMXJrO+eGAqlqF1IkMvMwB26qtgHTl48300zav/wTzZBz2CBrl9bHUL1HnOIMzjjLBxqjW3JlhPiDXCg=="/>
         </item>
         <item>
             <title>Version 0.14.9</title>
@@ -494,11 +427,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.9/ClaudeMeter.zip"
-                length="2140526"
-                type="application/octet-stream"
-                sparkle:edSignature="sCtnj4x9wnqvhO6m/mcCwomf/PX3A1g34hKCiOfcPZhnEeqJE8UANi1JMW5QVvaWwJIlXRekIoJknzzuidS+DQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.9/ClaudeMeter.zip" length="2140526" type="application/octet-stream" sparkle:edSignature="sCtnj4x9wnqvhO6m/mcCwomf/PX3A1g34hKCiOfcPZhnEeqJE8UANi1JMW5QVvaWwJIlXRekIoJknzzuidS+DQ=="/>
         </item>
         <item>
             <title>Version 0.14.8</title>
@@ -515,11 +444,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.8/ClaudeMeter.zip"
-                length="2140523"
-                type="application/octet-stream"
-                sparkle:edSignature="oeHKyhXEmjGAEajxOdM3krmbvgyR1J1WTaK1JiPfzkVz8d7DxAuFnuB022Hye4MXQuDgN3KwCOHY10NI6jOiDg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.8/ClaudeMeter.zip" length="2140523" type="application/octet-stream" sparkle:edSignature="oeHKyhXEmjGAEajxOdM3krmbvgyR1J1WTaK1JiPfzkVz8d7DxAuFnuB022Hye4MXQuDgN3KwCOHY10NI6jOiDg=="/>
         </item>
         <item>
             <title>Version 0.14.7</title>
@@ -538,11 +463,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.7/ClaudeMeter.zip"
-                length="2139035"
-                type="application/octet-stream"
-                sparkle:edSignature="wUQNH9PtCOdAXHyZj1147VewVezzz03EzLgX/JJUNcbC1/GssZcmVAIwjsfJjhzY6cayHDg1eBhj63i7tuV8Ag==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.7/ClaudeMeter.zip" length="2139035" type="application/octet-stream" sparkle:edSignature="wUQNH9PtCOdAXHyZj1147VewVezzz03EzLgX/JJUNcbC1/GssZcmVAIwjsfJjhzY6cayHDg1eBhj63i7tuV8Ag=="/>
         </item>
         <item>
             <title>Version 0.14.6</title>
@@ -559,11 +480,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.6/ClaudeMeter.zip"
-                length="2044906"
-                type="application/octet-stream"
-                sparkle:edSignature="fdWlkRn3z4h2eUc0mBSSTfCtrbjD81zvkiWvLlB7vjIHGYibeQ/JNJPiW2y9ZdP5tDws18yNgFn+2RkZBTYHDg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.6/ClaudeMeter.zip" length="2044906" type="application/octet-stream" sparkle:edSignature="fdWlkRn3z4h2eUc0mBSSTfCtrbjD81zvkiWvLlB7vjIHGYibeQ/JNJPiW2y9ZdP5tDws18yNgFn+2RkZBTYHDg=="/>
         </item>
         <item>
             <title>Version 0.14.5</title>
@@ -580,11 +497,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.5/ClaudeMeter.zip"
-                length="2044835"
-                type="application/octet-stream"
-                sparkle:edSignature="c7VhJZ7KGdaHdteOcE4/lZ6S5g9hqRCt2YkxoEefWCWBbQKMW9WrM5e6qqynS+dJO8exrMPVfF7irYUnjgg4AQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.5/ClaudeMeter.zip" length="2044835" type="application/octet-stream" sparkle:edSignature="c7VhJZ7KGdaHdteOcE4/lZ6S5g9hqRCt2YkxoEefWCWBbQKMW9WrM5e6qqynS+dJO8exrMPVfF7irYUnjgg4AQ=="/>
         </item>
         <item>
             <title>Version 0.14.4</title>
@@ -601,11 +514,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.4/ClaudeMeter.zip"
-                length="2044907"
-                type="application/octet-stream"
-                sparkle:edSignature="Ss3pTHwwUB6xVbuEjFvyw+SOUFbDwT7JGqY1fK/PuIYwzQKm/UCx9HYv77yEoZfEqWva4XSDa+blcn1p20P/Dw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.4/ClaudeMeter.zip" length="2044907" type="application/octet-stream" sparkle:edSignature="Ss3pTHwwUB6xVbuEjFvyw+SOUFbDwT7JGqY1fK/PuIYwzQKm/UCx9HYv77yEoZfEqWva4XSDa+blcn1p20P/Dw=="/>
         </item>
         <item>
             <title>Version 0.14.3</title>
@@ -626,11 +535,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.3/ClaudeMeter.zip"
-                length="2044907"
-                type="application/octet-stream"
-                sparkle:edSignature="YB76Cd0KMXi1SL7KKeEg5UeyO2M+JVdf88Jn5TXRaGHuANzJdBd9I1JSunqUMGJ139ANiKS2pNCZXq3M+6RHBA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.3/ClaudeMeter.zip" length="2044907" type="application/octet-stream" sparkle:edSignature="YB76Cd0KMXi1SL7KKeEg5UeyO2M+JVdf88Jn5TXRaGHuANzJdBd9I1JSunqUMGJ139ANiKS2pNCZXq3M+6RHBA=="/>
         </item>
         <item>
             <title>Version 0.14.2</title>
@@ -653,11 +558,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.2/ClaudeMeter.zip"
-                length="2044910"
-                type="application/octet-stream"
-                sparkle:edSignature="93U8+bwrsVhLVa7SH30ynTa9+M3MYZV53PE3VJu59zIp0leWh5oq4HrFpXxIgekCL073WIcMmbuflkPIbuGNCg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.2/ClaudeMeter.zip" length="2044910" type="application/octet-stream" sparkle:edSignature="93U8+bwrsVhLVa7SH30ynTa9+M3MYZV53PE3VJu59zIp0leWh5oq4HrFpXxIgekCL073WIcMmbuflkPIbuGNCg=="/>
         </item>
         <item>
             <title>Version 0.14.1</title>
@@ -676,11 +577,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.1/ClaudeMeter.zip"
-                length="2044910"
-                type="application/octet-stream"
-                sparkle:edSignature="EsCCpIidJt78D0YP7cWzjbLgmde6M5sDLV8+sygABNetuZv5rfEC+P+QzvVMiBbyKjjg8Teqf5lclXv1wafjDQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.1/ClaudeMeter.zip" length="2044910" type="application/octet-stream" sparkle:edSignature="EsCCpIidJt78D0YP7cWzjbLgmde6M5sDLV8+sygABNetuZv5rfEC+P+QzvVMiBbyKjjg8Teqf5lclXv1wafjDQ=="/>
         </item>
         <item>
             <title>Version 0.14.0</title>
@@ -704,11 +601,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.0/ClaudeMeter.zip"
-                length="2010682"
-                type="application/octet-stream"
-                sparkle:edSignature="p/wPa2JJNMZ6uxCs7//uom52BmpuVJYoS/tpkWe5wS7ki8jQyVZX7+GEOte/pSazDXHXiT8+vcj1n+0/u6TjBg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.14.0/ClaudeMeter.zip" length="2010682" type="application/octet-stream" sparkle:edSignature="p/wPa2JJNMZ6uxCs7//uom52BmpuVJYoS/tpkWe5wS7ki8jQyVZX7+GEOte/pSazDXHXiT8+vcj1n+0/u6TjBg=="/>
         </item>
         <item>
             <title>Version 0.13.5</title>
@@ -728,11 +621,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.5/ClaudeMeter.zip"
-                length="1990210"
-                type="application/octet-stream"
-                sparkle:edSignature="6xV+sZTmArPitq9atg15fbEAzF48k+MSyhunZjKd8VKyueWigGX5fwRjyNouEQxcV/Ry9SQLe2XpNCTFOCnTBw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.5/ClaudeMeter.zip" length="1990210" type="application/octet-stream" sparkle:edSignature="6xV+sZTmArPitq9atg15fbEAzF48k+MSyhunZjKd8VKyueWigGX5fwRjyNouEQxcV/Ry9SQLe2XpNCTFOCnTBw=="/>
         </item>
         <item>
             <title>Version 0.13.4</title>
@@ -750,11 +639,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.4/ClaudeMeter.zip"
-                length="1991789"
-                type="application/octet-stream"
-                sparkle:edSignature="sRoilFjLiMqpPqYHj/ik+XPL+vNNDBc/rBb9ij4ME2hdx/VqViSNO6E7il0RLZtask2eFGbUQxPtgEr0La5MBw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.4/ClaudeMeter.zip" length="1991789" type="application/octet-stream" sparkle:edSignature="sRoilFjLiMqpPqYHj/ik+XPL+vNNDBc/rBb9ij4ME2hdx/VqViSNO6E7il0RLZtask2eFGbUQxPtgEr0La5MBw=="/>
         </item>
         <item>
             <title>Version 0.13.3</title>
@@ -772,11 +657,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.3/ClaudeMeter.zip"
-                length="1995311"
-                type="application/octet-stream"
-                sparkle:edSignature="1wDNjHbyXHWjDpQ19FKnUQFnTK4ml3/LHkzFROBj/uvzTNADL3qdGr3VuTZ4+LiHQlHwWybSIwFnNvU+rUNlAQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.3/ClaudeMeter.zip" length="1995311" type="application/octet-stream" sparkle:edSignature="1wDNjHbyXHWjDpQ19FKnUQFnTK4ml3/LHkzFROBj/uvzTNADL3qdGr3VuTZ4+LiHQlHwWybSIwFnNvU+rUNlAQ=="/>
         </item>
         <item>
             <title>Version 0.13.2</title>
@@ -794,11 +675,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.2/ClaudeMeter.zip"
-                length="1948213"
-                type="application/octet-stream"
-                sparkle:edSignature="3EMKw9nwtBFDdADbRZ67AgTWhrDa80HBUoGpv/mghz5b2AP5e7D0n8dga+rRcYFfyDC5lbasyNFU0fhLrSglDQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.2/ClaudeMeter.zip" length="1948213" type="application/octet-stream" sparkle:edSignature="3EMKw9nwtBFDdADbRZ67AgTWhrDa80HBUoGpv/mghz5b2AP5e7D0n8dga+rRcYFfyDC5lbasyNFU0fhLrSglDQ=="/>
         </item>
         <item>
             <title>Version 0.13.1</title>
@@ -816,11 +693,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.1/ClaudeMeter.zip"
-                length="1947736"
-                type="application/octet-stream"
-                sparkle:edSignature="dGFLS/PjMIrYVhgwmXED3Y7Q4rNk5mEP0WuLMZf+rC58NDM7eaYLglvfZmQEjNZSyWbtVKa79HI7YNpevK2bCg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.1/ClaudeMeter.zip" length="1947736" type="application/octet-stream" sparkle:edSignature="dGFLS/PjMIrYVhgwmXED3Y7Q4rNk5mEP0WuLMZf+rC58NDM7eaYLglvfZmQEjNZSyWbtVKa79HI7YNpevK2bCg=="/>
         </item>
         <item>
             <title>Version 0.13.0</title>
@@ -843,11 +716,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.0/ClaudeMeter.zip"
-                length="1959609"
-                type="application/octet-stream"
-                sparkle:edSignature="uhP6HFvnAzf/nePHXPeQIsKnX4w1baz6CcYfrAAcksmlpL8i295B9eyVvhFGADAEnfarExujIjGc6f/kixiFCA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.13.0/ClaudeMeter.zip" length="1959609" type="application/octet-stream" sparkle:edSignature="uhP6HFvnAzf/nePHXPeQIsKnX4w1baz6CcYfrAAcksmlpL8i295B9eyVvhFGADAEnfarExujIjGc6f/kixiFCA=="/>
         </item>
         <item>
             <title>Version 0.12.2</title>
@@ -866,11 +735,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.2/ClaudeMeter.zip"
-                length="1822517"
-                type="application/octet-stream"
-                sparkle:edSignature="Tg6q3vRs1lHbH9GPcC7+kftNZMfka5j133mIX0prYsVFZjsoXuW9Hu8ERODUkQMRrHaDQgWE8UnSkOlnoY2pAA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.2/ClaudeMeter.zip" length="1822517" type="application/octet-stream" sparkle:edSignature="Tg6q3vRs1lHbH9GPcC7+kftNZMfka5j133mIX0prYsVFZjsoXuW9Hu8ERODUkQMRrHaDQgWE8UnSkOlnoY2pAA=="/>
         </item>
         <item>
             <title>Version 0.12.1</title>
@@ -888,11 +753,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.1/ClaudeMeter.zip"
-                length="1818751"
-                type="application/octet-stream"
-                sparkle:edSignature="HQaUq9YOqqK0eaeKq6bkZDOZkEgd9KgDMUv5kCmbpR05yf3k/AIU+OxdFXRJFKptQJJh5D90LqFFjIEuzRDwDw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.1/ClaudeMeter.zip" length="1818751" type="application/octet-stream" sparkle:edSignature="HQaUq9YOqqK0eaeKq6bkZDOZkEgd9KgDMUv5kCmbpR05yf3k/AIU+OxdFXRJFKptQJJh5D90LqFFjIEuzRDwDw=="/>
         </item>
         <item>
             <title>Version 0.12.0</title>
@@ -916,11 +777,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.0/ClaudeMeter.zip"
-                length="1885289"
-                type="application/octet-stream"
-                sparkle:edSignature="JUQ82zf7YKKf3pQ5zreUMMDC3fZ+J6YEvSe8jsyA1js+7SqLNW6jjcT9iWeah0idjOThCz0WTgJUpafr4rjrAg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.12.0/ClaudeMeter.zip" length="1885289" type="application/octet-stream" sparkle:edSignature="JUQ82zf7YKKf3pQ5zreUMMDC3fZ+J6YEvSe8jsyA1js+7SqLNW6jjcT9iWeah0idjOThCz0WTgJUpafr4rjrAg=="/>
         </item>
         <item>
             <title>Version 0.11.0</title>
@@ -940,11 +797,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 <li>Add Claude Design as a Live Activity metric on iOS</li>
 </ul>
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.11.0/ClaudeMeter.zip"
-                length="1649307"
-                type="application/octet-stream"
-                sparkle:edSignature="a/qwd3zodK3IvR9Q3uVSF5OlB9gZOP0Rp6ICDLe+6/GIJc0EEntB3eYeuWdAetPiB/xRtWin95wOJRZR3lBRDQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.11.0/ClaudeMeter.zip" length="1649307" type="application/octet-stream" sparkle:edSignature="a/qwd3zodK3IvR9Q3uVSF5OlB9gZOP0Rp6ICDLe+6/GIJc0EEntB3eYeuWdAetPiB/xRtWin95wOJRZR3lBRDQ=="/>
         </item>
         <item>
             <title>Version 0.10.9</title>
@@ -963,11 +816,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.9/ClaudeMeter.zip"
-                length="1641900"
-                type="application/octet-stream"
-                sparkle:edSignature="Cr7DgfhgUWkeQRwkJqoOLX6Zk+pVqFhainBF/uBRkqOislCU8+TkAoxLzyUdq7qtmFGvoIKxVLYBFIYpQkkoDw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.9/ClaudeMeter.zip" length="1641900" type="application/octet-stream" sparkle:edSignature="Cr7DgfhgUWkeQRwkJqoOLX6Zk+pVqFhainBF/uBRkqOislCU8+TkAoxLzyUdq7qtmFGvoIKxVLYBFIYpQkkoDw=="/>
         </item>
         <item>
             <title>Version 0.10.5</title>
@@ -989,11 +838,7 @@ Previously, when Claude Code credentials were not found, the file picker dialog 
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full release history.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.5/ClaudeMeter.zip"
-                length="1636630"
-                type="application/octet-stream"
-                sparkle:edSignature="PF0KZPivibF1EpUcod7WEaxfY8O7outzsX0NThcgJnH3vNc3FEUveYMcl1ce/Q2f133/7tIn6h9aI0+vVdJsBw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.5/ClaudeMeter.zip" length="1636630" type="application/octet-stream" sparkle:edSignature="PF0KZPivibF1EpUcod7WEaxfY8O7outzsX0NThcgJnH3vNc3FEUveYMcl1ce/Q2f133/7tIn6h9aI0+vVdJsBw=="/>
         </item>
         <item>
             <title>Version 0.10.4</title>
@@ -1013,11 +858,7 @@ Claude Code no longer stores credentials in `~/.claude/.credentials.json`. Claud
 
 See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.4/ClaudeMeter.zip"
-                length="1636749"
-                type="application/octet-stream"
-                sparkle:edSignature="Voz/YyfLDY9sAjAjTlwEKC+4DKGFq4jp6Ecw5f7MNQFZ0XL5uj8WJEthmhtUnz6U+h2e8T9BscVoWBo3zP1VDg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.4/ClaudeMeter.zip" length="1636749" type="application/octet-stream" sparkle:edSignature="Voz/YyfLDY9sAjAjTlwEKC+4DKGFq4jp6Ecw5f7MNQFZ0XL5uj8WJEthmhtUnz6U+h2e8T9BscVoWBo3zP1VDg=="/>
         </item>
         <item>
             <title>Version 0.10.3</title>
@@ -1035,11 +876,7 @@ See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/v0.10.3/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.3/ClaudeMeter.zip"
-                length="1631499"
-                type="application/octet-stream"
-                sparkle:edSignature="XFmQv7qzr8sANq3AJ1qn8TVTpXQpIavwjKO5xRrP6jZeHWnf9zS/kUJCSi4Ebd3JpRXl5fEAhhvHkLlsVuTmAw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.3/ClaudeMeter.zip" length="1631499" type="application/octet-stream" sparkle:edSignature="XFmQv7qzr8sANq3AJ1qn8TVTpXQpIavwjKO5xRrP6jZeHWnf9zS/kUJCSi4Ebd3JpRXl5fEAhhvHkLlsVuTmAw=="/>
         </item>
         <item>
             <title>Version 0.10.2</title>
@@ -1062,11 +899,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/v0.10.3/CHANGELOG.
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.2/ClaudeMeter.zip"
-                length="1629675"
-                type="application/octet-stream"
-                sparkle:edSignature="Gek5nx3cY7MMrCQ8RkXAlRJ3tLYdm4zy82bQKT3xuMK5TI6/0pKqD2CEiUaPg7WWhgN2vEA/Bla0ZBa8eGLdBw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.2/ClaudeMeter.zip" length="1629675" type="application/octet-stream" sparkle:edSignature="Gek5nx3cY7MMrCQ8RkXAlRJ3tLYdm4zy82bQKT3xuMK5TI6/0pKqD2CEiUaPg7WWhgN2vEA/Bla0ZBa8eGLdBw=="/>
         </item>
         <item>
             <title>Version 0.10.1</title>
@@ -1084,11 +917,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.1/ClaudeMeter.zip"
-                length="1630155"
-                type="application/octet-stream"
-                sparkle:edSignature="9R/oHZKAM+/NTJNlx4W8n8dDL54XVYQuH6Nh1Y0aJfj/mSPRtI8EVSCBTwAHx3rpoZBGSdXQkj69OlURwZAYCQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.1/ClaudeMeter.zip" length="1630155" type="application/octet-stream" sparkle:edSignature="9R/oHZKAM+/NTJNlx4W8n8dDL54XVYQuH6Nh1Y0aJfj/mSPRtI8EVSCBTwAHx3rpoZBGSdXQkj69OlURwZAYCQ=="/>
         </item>
         <item>
             <title>Version 0.10.0</title>
@@ -1114,11 +943,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.0/ClaudeMeter.zip"
-                length="1627617"
-                type="application/octet-stream"
-                sparkle:edSignature="cGo87m+DZwVCeyTUfFthl/2uqZjHYEbMVjbv63Xu+hTsXU4uiKEXWjgmRWYfinbPJ66UA44strEo4dGK+ikUAw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.10.0/ClaudeMeter.zip" length="1627617" type="application/octet-stream" sparkle:edSignature="cGo87m+DZwVCeyTUfFthl/2uqZjHYEbMVjbv63Xu+hTsXU4uiKEXWjgmRWYfinbPJ66UA44strEo4dGK+ikUAw=="/>
         </item>
         <item>
             <title>Version 0.9.3</title>
@@ -1136,11 +961,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.3/ClaudeMeter.zip"
-                length="1581259"
-                type="application/octet-stream"
-                sparkle:edSignature="cGGcgzqA+hbUseMg9N6dOKDYXiS4EoFm5eDe+h5pgjOB7ZHhyyaQ8Ag5rlqxs1sjarIPOWMRieAvaG3iaM7LBg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.3/ClaudeMeter.zip" length="1581259" type="application/octet-stream" sparkle:edSignature="cGGcgzqA+hbUseMg9N6dOKDYXiS4EoFm5eDe+h5pgjOB7ZHhyyaQ8Ag5rlqxs1sjarIPOWMRieAvaG3iaM7LBg=="/>
         </item>
         <item>
             <title>Version 0.9.2</title>
@@ -1158,11 +979,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.2/ClaudeMeter.zip"
-                length="1580209"
-                type="application/octet-stream"
-                sparkle:edSignature="+zH81b7cadWA+JI/hwXoMC7JR3J8z6RizYeOxUA4zE1fN3yWhguVxbTEH+S7bW7R6kKC6p6sml5o40YIZlSlDQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.2/ClaudeMeter.zip" length="1580209" type="application/octet-stream" sparkle:edSignature="+zH81b7cadWA+JI/hwXoMC7JR3J8z6RizYeOxUA4zE1fN3yWhguVxbTEH+S7bW7R6kKC6p6sml5o40YIZlSlDQ=="/>
         </item>
         <item>
             <title>Version 0.9.1</title>
@@ -1182,11 +999,7 @@ See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full release history.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.1/ClaudeMeter.zip"
-                length="1580435"
-                type="application/octet-stream"
-                sparkle:edSignature="5p+THWoaOZmkunClrAlDFK7LeP2MXij0jEufQFPHpkFsyJ/m9tDMJVyG6c3Jjt4fgiPsefF9y6DeMv4ftVfxAA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.1/ClaudeMeter.zip" length="1580435" type="application/octet-stream" sparkle:edSignature="5p+THWoaOZmkunClrAlDFK7LeP2MXij0jEufQFPHpkFsyJ/m9tDMJVyG6c3Jjt4fgiPsefF9y6DeMv4ftVfxAA=="/>
         </item>
         <item>
             <title>Version 0.9.0</title>
@@ -1226,11 +1039,7 @@ This release focuses on improving code architecture, testability, and error hand
 
 See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.0/ClaudeMeter.zip"
-                length="1505159"
-                type="application/octet-stream"
-                sparkle:edSignature="FHqCXxuhAhP/lN71fzULWujWr7gAqBuo185KECqVpAq9mYLsnpgBUbHnX2znBvwh6T67TpUkKGcPM3i1XQWtCQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.9.0/ClaudeMeter.zip" length="1505159" type="application/octet-stream" sparkle:edSignature="FHqCXxuhAhP/lN71fzULWujWr7gAqBuo185KECqVpAq9mYLsnpgBUbHnX2znBvwh6T67TpUkKGcPM3i1XQWtCQ=="/>
         </item>
         <item>
             <title>Version 0.8.3</title>
@@ -1256,11 +1065,7 @@ See <a href="CHANGELOG.md">CHANGELOG.md</a> for full details.
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.3/ClaudeMeter.zip"
-                length="1478415"
-                type="application/octet-stream"
-                sparkle:edSignature="WgSeLgpa7k5AV/NyO3JWwlqh5MgbfW7GuH4ujsKGeKbh39hJ6N1zGx8lp0ts18Nrv6+9RQIe3XQlAXhyQCBFCA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.3/ClaudeMeter.zip" length="1478415" type="application/octet-stream" sparkle:edSignature="WgSeLgpa7k5AV/NyO3JWwlqh5MgbfW7GuH4ujsKGeKbh39hJ6N1zGx8lp0ts18Nrv6+9RQIe3XQlAXhyQCBFCA=="/>
         </item>
         <item>
             <title>Version 0.8.2</title>
@@ -1278,11 +1083,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.2/ClaudeMeter.zip"
-                length="1465701"
-                type="application/octet-stream"
-                sparkle:edSignature="ZhnyhvxIhlRe2TLqR9v4BbRmf2Vj8sjVqQ9XHIkjaNhR7awtwwhpvhwrrFCuT6Psrz7RigScKNrxBApdUlCqCQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.2/ClaudeMeter.zip" length="1465701" type="application/octet-stream" sparkle:edSignature="ZhnyhvxIhlRe2TLqR9v4BbRmf2Vj8sjVqQ9XHIkjaNhR7awtwwhpvhwrrFCuT6Psrz7RigScKNrxBApdUlCqCQ=="/>
         </item>
         <item>
             <title>Version 0.8.1</title>
@@ -1307,11 +1108,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.1/ClaudeMeter.zip"
-                length="1465697"
-                type="application/octet-stream"
-                sparkle:edSignature="j3kofVuci3Cv3IlrOiiJZEspvzw3zNw0MBsFFCfh6zjzDfqrzCG8x4EaxqmVvU6x6+LRgE2rHpkuRTEBIHBwDg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.1/ClaudeMeter.zip" length="1465697" type="application/octet-stream" sparkle:edSignature="j3kofVuci3Cv3IlrOiiJZEspvzw3zNw0MBsFFCfh6zjzDfqrzCG8x4EaxqmVvU6x6+LRgE2rHpkuRTEBIHBwDg=="/>
         </item>
         <item>
             <title>Version 0.8.0</title>
@@ -1331,11 +1128,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.0/ClaudeMeter.zip"
-                length="1465817"
-                type="application/octet-stream"
-                sparkle:edSignature="96WGm3YWZdl+8PsFVNnMhnkpZ4ARkdZeY/tlPABWsQHnYel+xw2sD4NDJnBLoziuHRwJCJ+oyIkRPPqNFqOrBA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.8.0/ClaudeMeter.zip" length="1465817" type="application/octet-stream" sparkle:edSignature="96WGm3YWZdl+8PsFVNnMhnkpZ4ARkdZeY/tlPABWsQHnYel+xw2sD4NDJnBLoziuHRwJCJ+oyIkRPPqNFqOrBA=="/>
         </item>
         <item>
             <title>Version 0.7.1</title>
@@ -1353,11 +1146,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.7.1/ClaudeMeter.zip"
-                length="1455674"
-                type="application/octet-stream"
-                sparkle:edSignature="ZmO4egds3S3F/YibXw4TM2Kg9B4feIPSU6996osvaFWvVu3iYMizvNrP1GuHa9h3YDQ4txqiDBFRV0jSOYJgAw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.7.1/ClaudeMeter.zip" length="1455674" type="application/octet-stream" sparkle:edSignature="ZmO4egds3S3F/YibXw4TM2Kg9B4feIPSU6996osvaFWvVu3iYMizvNrP1GuHa9h3YDQ4txqiDBFRV0jSOYJgAw=="/>
         </item>
         <item>
             <title>Version 0.7.0</title>
@@ -1387,11 +1176,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.7.0/ClaudeMeter.zip"
-                length="1423574"
-                type="application/octet-stream"
-                sparkle:edSignature="KCatevOk9yqt1Me/AI+ErmHKzkgbBURNzNTmIbuY+XTGPuhccHApUIldKOvzNBUAr3BAUOf+d5K9S2RwQNSkDw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.7.0/ClaudeMeter.zip" length="1423574" type="application/octet-stream" sparkle:edSignature="KCatevOk9yqt1Me/AI+ErmHKzkgbBURNzNTmIbuY+XTGPuhccHApUIldKOvzNBUAr3BAUOf+d5K9S2RwQNSkDw=="/>
         </item>
         <item>
             <title>Version 0.6.3</title>
@@ -1415,11 +1200,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.3/ClaudeMeter.zip"
-                length="1329184"
-                type="application/octet-stream"
-                sparkle:edSignature="d0O7rcx0fFGIciUVDq7kfrlJnEDOQGZFSXPz5f6D0zM+54hWlGaUUqUqnaOzsDUWy1P1C9ylYCJvtcdkb2nTAw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.3/ClaudeMeter.zip" length="1329184" type="application/octet-stream" sparkle:edSignature="d0O7rcx0fFGIciUVDq7kfrlJnEDOQGZFSXPz5f6D0zM+54hWlGaUUqUqnaOzsDUWy1P1C9ylYCJvtcdkb2nTAw=="/>
         </item>
         <item>
             <title>Version 0.6.2</title>
@@ -1437,11 +1218,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.2/ClaudeMeter.zip"
-                length="1326451"
-                type="application/octet-stream"
-                sparkle:edSignature="tTfsgTv5M6LCjhoUuGB81d+yimmnT6iF54tAG+hO6ElJyaKl1s8R+i8M6hrBLje0n4xs9W2cd28/52rr2P1pCw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.2/ClaudeMeter.zip" length="1326451" type="application/octet-stream" sparkle:edSignature="tTfsgTv5M6LCjhoUuGB81d+yimmnT6iF54tAG+hO6ElJyaKl1s8R+i8M6hrBLje0n4xs9W2cd28/52rr2P1pCw=="/>
         </item>
         <item>
             <title>Version 0.6.1</title>
@@ -1459,11 +1236,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.1/ClaudeMeter.zip"
-                length="1326452"
-                type="application/octet-stream"
-                sparkle:edSignature="OkTVDsnbhULlNzhYAD73vNOKcmooWjOTiuJNbVxT7t0tDCmgz0eePTlcwmV2tRUdhfNGbcTRbAukwldp8NSSAg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.1/ClaudeMeter.zip" length="1326452" type="application/octet-stream" sparkle:edSignature="OkTVDsnbhULlNzhYAD73vNOKcmooWjOTiuJNbVxT7t0tDCmgz0eePTlcwmV2tRUdhfNGbcTRbAukwldp8NSSAg=="/>
         </item>
         <item>
             <title>Version 0.6.0</title>
@@ -1487,11 +1260,7 @@ See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md"
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.0/ClaudeMeter.zip"
-                length="1326433"
-                type="application/octet-stream"
-                sparkle:edSignature="6zaNGXsjSkzszNSjjLr6DowOvbWDSjLLR2m7vQnMc3VQp9aR7k5WF4aQpev+Gb0VE5OvpiEhvpVi5nLN77zbAQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.6.0/ClaudeMeter.zip" length="1326433" type="application/octet-stream" sparkle:edSignature="6zaNGXsjSkzszNSjjLr6DowOvbWDSjLLR2m7vQnMc3VQp9aR7k5WF4aQpev+Gb0VE5OvpiEhvpVi5nLN77zbAQ=="/>
         </item>
         <item>
             <title>Version 0.5.2</title>
@@ -1516,11 +1285,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.2/ClaudeMeter.zip"
-                length="1299992"
-                type="application/octet-stream"
-                sparkle:edSignature="kOkSBE/wuRxr7N9GXwXNy8TBdtmVXypS4l8UOv6pBmVudTUWWkxm8nodipNUcEgsc/kv1hAnbelBMGt6JcjJDg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.2/ClaudeMeter.zip" length="1299992" type="application/octet-stream" sparkle:edSignature="kOkSBE/wuRxr7N9GXwXNy8TBdtmVXypS4l8UOv6pBmVudTUWWkxm8nodipNUcEgsc/kv1hAnbelBMGt6JcjJDg=="/>
         </item>
         <item>
             <title>Version 0.5.1</title>
@@ -1538,11 +1303,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.1/ClaudeMeter.zip"
-                length="1294718"
-                type="application/octet-stream"
-                sparkle:edSignature="FNuS01ydakaNqWTs4U2244f9QhBVoJerNa8ulG+b6i6ncF2nrOTZklWV6AIWkN+DPXQuBp4mjqpnOqa3etJ5Cg==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.1/ClaudeMeter.zip" length="1294718" type="application/octet-stream" sparkle:edSignature="FNuS01ydakaNqWTs4U2244f9QhBVoJerNa8ulG+b6i6ncF2nrOTZklWV6AIWkN+DPXQuBp4mjqpnOqa3etJ5Cg=="/>
         </item>
         <item>
             <title>Version 0.5.0</title>
@@ -1567,11 +1328,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.0/ClaudeMeter.zip"
-                length="1089268"
-                type="application/octet-stream"
-                sparkle:edSignature="b2VFV4l9wz5ahQFmtioaS6PKfxoJ1ouOdpquoFreZcZU/TGzOJqR5ngZmVPE1ZV08IkJbSpV3vHaj9JAK3fqBQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.5.0/ClaudeMeter.zip" length="1089268" type="application/octet-stream" sparkle:edSignature="b2VFV4l9wz5ahQFmtioaS6PKfxoJ1ouOdpquoFreZcZU/TGzOJqR5ngZmVPE1ZV08IkJbSpV3vHaj9JAK3fqBQ=="/>
         </item>
         <item>
             <title>Version 0.4.0</title>
@@ -1598,11 +1355,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.4.0/ClaudeMeter.zip"
-                length="1068072"
-                type="application/octet-stream"
-                sparkle:edSignature="TPz8jEkZSg/glPitO3qGsigITjGKae7Zu/KGoG2RiS1HAMu8+Q6TRZqfxMrfh+eXM9HLE3Rjmj8WDTN2VrB1BA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.4.0/ClaudeMeter.zip" length="1068072" type="application/octet-stream" sparkle:edSignature="TPz8jEkZSg/glPitO3qGsigITjGKae7Zu/KGoG2RiS1HAMu8+Q6TRZqfxMrfh+eXM9HLE3Rjmj8WDTN2VrB1BA=="/>
         </item>
         <item>
             <title>Version 0.3.0</title>
@@ -1624,11 +1377,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.3.0/ClaudeMeter.zip"
-                length="1017082"
-                type="application/octet-stream"
-                sparkle:edSignature="gbH8fQiKnAkDhpW5xLHKrYbluTZIy17ze7NTBY3W1aX0fMBRhJXAm0HNPl7lVxHvuUwUNDt6IToZpsmLJpziBQ==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.3.0/ClaudeMeter.zip" length="1017082" type="application/octet-stream" sparkle:edSignature="gbH8fQiKnAkDhpW5xLHKrYbluTZIy17ze7NTBY3W1aX0fMBRhJXAm0HNPl7lVxHvuUwUNDt6IToZpsmLJpziBQ=="/>
         </item>
         <item>
             <title>Version 0.2.3</title>
@@ -1646,11 +1395,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.3/ClaudeMeter.zip"
-                length="1009975"
-                type="application/octet-stream"
-                sparkle:edSignature="QF9grNpNlUyqgyvVEX3RPO1BXTYc2hISi9yp/dd/36QHAy2hzKXr62m59hyMByCmojhVKhpnh3PU6nDCjMbVBA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.3/ClaudeMeter.zip" length="1009975" type="application/octet-stream" sparkle:edSignature="QF9grNpNlUyqgyvVEX3RPO1BXTYc2hISi9yp/dd/36QHAy2hzKXr62m59hyMByCmojhVKhpnh3PU6nDCjMbVBA=="/>
         </item>
         <item>
             <title>Version 0.2.2</title>
@@ -1668,11 +1413,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
 
 See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md) for full details.
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.2/ClaudeMeter.zip"
-                length="1011378"
-                type="application/octet-stream"
-                sparkle:edSignature="llYL6guHWfUbcT7itfQDSDbpBieuDE3BV175oUsiMPSypusbQkmEuMAWSID1d+56MwvXIjXmP6KfknGrnUxlAw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.2/ClaudeMeter.zip" length="1011378" type="application/octet-stream" sparkle:edSignature="llYL6guHWfUbcT7itfQDSDbpBieuDE3BV175oUsiMPSypusbQkmEuMAWSID1d+56MwvXIjXmP6KfknGrnUxlAw=="/>
         </item>
         <item>
             <title>Version 0.2.1</title>
@@ -1687,11 +1428,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
 <li>Fix Sparkle signature validation for auto-updates</li>
 </ul>
             ]]></description>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.1/ClaudeMeter.zip"
-                length="1011551"
-                type="application/octet-stream"
-                sparkle:edSignature="ntu1CPwslUxd0YdqiXPO5SgWm1uDFA7UqHl30pyR5eBinSZ8Po6ERRlGIUoqn4X8hqzialg4AvX1I4Fq+lwJCw==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.2.1/ClaudeMeter.zip" length="1011551" type="application/octet-stream" sparkle:edSignature="ntu1CPwslUxd0YdqiXPO5SgWm1uDFA7UqHl30pyR5eBinSZ8Po6ERRlGIUoqn4X8hqzialg4AvX1I4Fq+lwJCw=="/>
         </item>
         <item>
             <title>Version 0.1.1</title>
@@ -1700,11 +1437,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
             <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:releaseNotesLink>https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.1.1</sparkle:releaseNotesLink>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.1/ClaudeMeter.zip"
-                length="1008082"
-                type="application/octet-stream"
-                sparkle:edSignature="FH3ObEzt/IFO5Bl6nU5wNgXn3axdYkSQiLLUA+hxEr4LOgVQh6eK7ysA/2JbH/mU36uBrzKSfu0vji60ESsHBA==" />
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.1/ClaudeMeter.zip" length="1008082" type="application/octet-stream" sparkle:edSignature="FH3ObEzt/IFO5Bl6nU5wNgXn3axdYkSQiLLUA+hxEr4LOgVQh6eK7ysA/2JbH/mU36uBrzKSfu0vji60ESsHBA=="/>
         </item>
         <item>
             <title>Version 0.1.0</title>
@@ -1712,10 +1445,7 @@ See [CHANGELOG.md](https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGEL
             <sparkle:version>1</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure
-                url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.0/ClaudeMeter.zip"
-                length="1006593"
-                type="application/octet-stream"
-                sparkle:edSignature="WshjqLsf/HSdm/Cjo2KRk7x3OxtmKjZKG/uXLMkdGmXZRWW9hVBLNexysmEF7vb67ntLmWn4ymssYazcyh/yBg==" />
-        </item>    </channel>
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.1.0/ClaudeMeter.zip" length="1006593" type="application/octet-stream" sparkle:edSignature="WshjqLsf/HSdm/Cjo2KRk7x3OxtmKjZKG/uXLMkdGmXZRWW9hVBLNexysmEF7vb67ntLmWn4ymssYazcyh/yBg=="/>
+        </item>
+    </channel>
 </rss>
