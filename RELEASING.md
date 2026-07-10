@@ -5,15 +5,19 @@ means a person chooses when a release starts; the workflow still handles the
 version, tests, signing, notarization, packaging, Sparkle feed, tag, and GitHub
 release.
 
-Public releases are currently paused until a Developer ID certificate and
-Apple notarization credentials are available. The committed `0.26.0` build
-`79` remains the next release candidate and must not be published unsigned.
+ClaudeMeter currently publishes explicitly selected ad-hoc-signed releases
+because the project does not have paid Apple Developer Program membership.
+The Developer ID-signed and notarized path remains available for future use.
+The committed `0.26.0` build `79` is the next release candidate.
 
 ## The moving pieces
 
 - **CI** builds and tests ordinary pushes and pull requests. It never publishes.
 - **Developer ID signing** gives the app a stable identity that Gatekeeper can
   trust when it is downloaded outside the Mac App Store.
+- **Ad-hoc signing** makes the bundle internally self-consistent without
+  identifying the developer to Gatekeeper. Users must explicitly approve the
+  first launch in System Settings.
 - **Notarization** submits the signed app to Apple for automated security
   checks. The resulting ticket is stapled to the app before the final ZIP is
   created.
@@ -22,8 +26,10 @@ Apple notarization credentials are available. The committed `0.26.0` build
 - **GitHub Pages** serves the appcast at
   `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml`.
 
-Developer ID and Sparkle signatures solve different problems. A production
-release requires both.
+Developer ID and Sparkle signatures solve different problems. Sparkle's EdDSA
+signature authenticates updates delivered to existing users. Developer ID and
+notarization are unavailable without paid programme membership, so unsigned
+distribution retains the Sparkle signature but cannot satisfy Gatekeeper.
 
 ## Running a dry run
 
@@ -36,14 +42,54 @@ gh workflow run release.yml \
 ```
 
 It calculates the version and notes, runs the macOS tests, simulates changes to
-the version files and changelog, and creates an unsigned validation build. Its
-job token is read-only, and it contains no publishing steps.
+the version files and changelog, then builds, ad-hoc signs, packages, extracts,
+and verifies the same archive shape used by unsigned publication. Its job token
+is read-only, and it contains no publishing steps.
 
 Use `patch`, `minor`, or `major` instead of `auto` to force a bump. An untagged
 configured version, such as the current `0.26.0` build `79`, is always resumed
 instead of bumped again.
 
-## One-time Apple setup
+## One-time unsigned-release setup
+
+Unsigned publication is fail-closed even though it does not use Apple
+credentials. The `release` environment must opt in explicitly, and the
+repository-level `SPARKLE_PRIVATE_KEY` secret must remain configured:
+
+```bash
+gh variable set UNSIGNED_RELEASES_ENABLED --env release --body true
+gh secret list --repo tartinerlabs/ClaudeMeter
+```
+
+Do not print, rotate, or duplicate the existing Sparkle private key merely to
+enable this mode. Keep `SIGNED_RELEASES_ENABLED` unset until all Apple
+credentials are available.
+
+## Publishing an unsigned release
+
+Always run the dry run first. After it succeeds:
+
+```bash
+gh workflow run release.yml \
+  -f operation=publish-unsigned \
+  -f bump=auto
+```
+
+The workflow validates the unsigned gate and Sparkle key, tests, prepares the
+version and changelog, creates and verifies an ad-hoc-signed ZIP, signs the ZIP
+with Sparkle EdDSA, commits the version, creates the tag and GitHub prerelease,
+publishes the feed, and deploys Pages.
+
+### Gatekeeper behaviour
+
+An ad-hoc signature is not a Developer ID identity, and the archive is not
+notarized. On first launch, macOS blocks the app as coming from an unidentified
+developer. Users should attempt to open ClaudeMeter once, then open **System
+Settings → Privacy & Security**, click **Open Anyway** for ClaudeMeter, and
+confirm **Open**. Do not instruct users to disable Gatekeeper globally. See
+[Apple's current guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
+
+## Future Apple setup
 
 After joining the Apple Developer Program:
 
@@ -58,8 +104,8 @@ After joining the Apple Developer Program:
    base64 -i AuthKey_KEYID.p8 -o notary-key.p8.base64
    ```
 
-4. Create a GitHub environment named `release` in **Settings → Environments**.
-5. Add these environment secrets:
+4. Reuse the GitHub environment named `release` in **Settings → Environments**.
+5. Add these Apple environment secrets:
 
    - `DEVELOPER_ID_APPLICATION_P12_BASE64`
    - `DEVELOPER_ID_APPLICATION_PASSWORD`
@@ -67,7 +113,9 @@ After joining the Apple Developer Program:
    - `APPLE_NOTARY_KEY_ID`
    - `APPLE_NOTARY_ISSUER_ID`
    - `APPLE_TEAM_ID`
-   - `SPARKLE_PRIVATE_KEY` (set it again from the original secure Sparkle key export; GitHub cannot reveal an existing secret)
+
+   The workflow continues to inherit the existing repository-level
+   `SPARKLE_PRIVATE_KEY`; do not duplicate it into the environment.
 
    The GitHub CLI can set them without placing values on the command line:
 
@@ -78,19 +126,18 @@ After joining the Apple Developer Program:
    gh secret set APPLE_NOTARY_KEY_ID --env release
    gh secret set APPLE_NOTARY_ISSUER_ID --env release
    gh secret set APPLE_TEAM_ID --env release
-   gh secret set SPARKLE_PRIVATE_KEY --env release
    ```
 
-6. Run a dry run and confirm it passes. Only then enable publishing:
+6. Run a dry run and confirm it passes. Only then enable signed publishing:
 
    ```bash
    gh variable set SIGNED_RELEASES_ENABLED --env release --body true
    ```
 
-Until that variable is exactly `true`, publish and repair operations stop at
-their first preflight step, before version files or GitHub state can change.
+Until that variable is exactly `true`, Developer ID publication stops at its
+first preflight step, before version files or GitHub state can change.
 
-## Publishing
+## Publishing a signed release
 
 ```bash
 gh workflow run release.yml \
@@ -111,7 +158,7 @@ not tested.
 
 ## Repairing the Sparkle feed
 
-If a signed GitHub release exists but publishing or deploying its feed failed:
+If a GitHub release exists but publishing or deploying its feed failed:
 
 ```bash
 gh workflow run release.yml \
@@ -119,10 +166,12 @@ gh workflow run release.yml \
   -f tag=v0.26.0
 ```
 
-Repair downloads the existing ZIP, verifies its Developer ID signature and
-Gatekeeper acceptance, reads its version/build information, regenerates the
-accumulating feed, and dispatches Pages. It does not create another release or
-change source files.
+Repair downloads the existing ZIP and detects its signature mode. Developer ID
+archives must pass strict code-signature, Gatekeeper, and stapler checks;
+ad-hoc-signed archives must pass strict code-signature validation and require
+`UNSIGNED_RELEASES_ENABLED=true`. Repair then reads the version/build,
+regenerates the accumulating feed, and dispatches Pages. It does not create
+another release or change source files.
 
 ## Checking a run
 

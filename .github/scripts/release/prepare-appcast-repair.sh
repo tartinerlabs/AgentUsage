@@ -21,9 +21,23 @@ archive_path="$repair_dir/$APP_NAME.zip"
 /usr/bin/ditto -x -k "$archive_path" "$extract_dir"
 info_plist="$extract_dir/$APP_NAME.app/Contents/Info.plist"
 [[ -f "$info_plist" ]] || { echo "::error::Release archive does not contain $APP_NAME.app"; exit 1; }
-codesign --verify --deep --strict --verbose=4 "$extract_dir/$APP_NAME.app"
-spctl --assess --type execute --verbose=4 "$extract_dir/$APP_NAME.app"
-xcrun stapler validate "$extract_dir/$APP_NAME.app"
+app_path="$extract_dir/$APP_NAME.app"
+codesign --verify --deep --strict --verbose=4 "$app_path"
+
+signature_details=$(codesign -dv --verbose=4 "$app_path" 2>&1)
+if grep -Fq "Signature=adhoc" <<< "$signature_details"; then
+  [[ "${UNSIGNED_RELEASES_ENABLED:-}" == "true" ]] || { echo "::error::Release archive is ad-hoc signed, but unsigned releases are disabled"; exit 1; }
+  release_mode="unsigned"
+  echo "Validated ad-hoc code signature for $TAG; Gatekeeper and notarization checks do not apply."
+elif grep -Fq "Authority=Developer ID Application" <<< "$signature_details"; then
+  [[ "${SIGNED_RELEASES_ENABLED:-}" == "true" ]] || { echo "::error::Release archive uses Developer ID, but signed releases are disabled"; exit 1; }
+  release_mode="signed"
+  spctl --assess --type execute --verbose=4 "$app_path"
+  xcrun stapler validate "$app_path"
+else
+  echo "::error::Release archive has neither an ad-hoc nor Developer ID Application signature"
+  exit 1
+fi
 
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$info_plist")
 build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$info_plist")
@@ -34,6 +48,7 @@ gh release view "$TAG" --json body --jq '.body' > "$RUNNER_TEMP/repair-release-b
 {
   echo "version=$version"
   echo "build=$build"
+  echo "release_mode=$release_mode"
   echo "archive_path=$archive_path"
   echo "notes_path=$RUNNER_TEMP/repair-release-body.txt"
 } >> "$GITHUB_OUTPUT"
