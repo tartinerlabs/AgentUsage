@@ -85,7 +85,12 @@ struct MenuBarIconView: View {
                 }
 
                 // Fallback if nothing is enabled
-                if !viewModel.menuBarShowSession && !viewModel.menuBarShowAllModels && !viewModel.menuBarShowSonnet && !viewModel.menuBarShowDesign && !viewModel.menuBarShowFable && !viewModel.menuBarShowCodex {
+                if !viewModel.menuBarShowSession,
+                   !viewModel.menuBarShowAllModels,
+                   !viewModel.menuBarShowSonnet,
+                   !viewModel.menuBarShowDesign,
+                   !viewModel.menuBarShowFable,
+                   !viewModel.menuBarShowCodex {
                     usageColumn(label: "CURR", usage: snapshot.session)
                 }
             } else if viewModel.menuBarShowCodex, let codexWindow = codexMenuBarWindow {
@@ -112,7 +117,7 @@ struct MenuBarIconView: View {
     }
 
     private var codexMenuBarWindow: UsageWindow? {
-        guard let windows = viewModel.codexUsage?.windows else { return nil }
+        guard let windows = viewModel.usageSnapshot(for: .codex)?.windows else { return nil }
         return windows.first { $0.windowType == .codexFiveHour } ?? windows.first
     }
 

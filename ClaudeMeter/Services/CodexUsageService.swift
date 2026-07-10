@@ -21,7 +21,7 @@ import OSLog
 /// the token is refreshed once via `auth.openai.com/oauth/token`. The refreshed
 /// token is kept in memory only — `auth.json` is owned by the Codex CLI and is
 /// never written back, so there is no torn-write race.
-actor CodexUsageService {
+actor CodexUsageService: ProviderUsageServiceProtocol {
     nonisolated let provider: Provider = .codex
 
     enum CodexError: LocalizedError {
@@ -127,7 +127,12 @@ actor CodexUsageService {
 
                 if attempt < Constants.maxRetryAttempts - 1 {
                     let delay = calculateRetryDelay(attempt: attempt)
-                    Logger.codex.info("Codex usage request failed (attempt \(attempt + 1)/\(Constants.maxRetryAttempts)). Retrying in \(String(format: "%.1f", delay))s...")
+                    let attemptNumber = attempt + 1
+                    let maxAttempts = Constants.maxRetryAttempts
+                    let formattedDelay = String(format: "%.1f", delay)
+                    Logger.codex.info(
+                        "Codex usage request failed (attempt \(attemptNumber)/\(maxAttempts)). Retrying in \(formattedDelay)s..."
+                    )
                     try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 }
             }
