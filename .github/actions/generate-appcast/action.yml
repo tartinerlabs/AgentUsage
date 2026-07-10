@@ -1,147 +1,54 @@
 name: "Generate Appcast"
-description: "EdDSA-sign the release zip with Sparkle's sign_update and prepend a new item to the accumulating Sparkle appcast.xml (full version history)"
+description: "Generate and validate the accumulating feed with Sparkle's official generate_appcast tool"
 
 inputs:
   version:
     description: "Marketing version (X.Y.Z)"
     required: true
   build-number:
-    description: "Build number (sparkle:version)"
+    description: "Build number used by Sparkle"
     required: true
   tag:
-    description: "Release tag the download URL points at (vX.Y.Z)"
+    description: "Release tag used in the download URL"
     required: true
   notes-file:
-    description: "Path to the markdown release notes to embed"
+    description: "Path to HTML release notes"
     required: true
   sparkle-private-key:
-    description: "Sparkle EdDSA private key. When empty, signing and appcast generation are skipped with a warning."
-    required: false
-    default: ""
+    description: "Sparkle EdDSA private key"
+    required: true
   sparkle-version:
-    description: "Sparkle release to download sign_update from"
+    description: "Sparkle tools release"
     required: false
     default: "2.8.1"
+  sparkle-sha256:
+    description: "SHA-256 digest of the Sparkle distribution archive"
+    required: false
+    default: "5cddb7695674ef7704268f38eccaee80e3accbf19e61c1689efff5b6116d85be"
   app-name:
-    description: "App name (zip is expected at build/<app-name>.zip)"
+    description: "Application and archive base name"
     required: false
     default: "ClaudeMeter"
+  archive-path:
+    description: "Path to the signed release archive"
+    required: false
+    default: "build/ClaudeMeter.zip"
 
 runs:
   using: "composite"
   steps:
-    - name: Download Sparkle
+    - name: Generate and validate appcast
       shell: bash
       env:
-        SPARKLE_VERSION: ${{ inputs.sparkle-version }}
-      run: |
-        curl -L -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
-        mkdir -p sparkle
-        tar -xf sparkle.tar.xz -C sparkle
-
-    - name: Sign update and generate appcast
-      shell: bash
-      env:
-        SPARKLE_PRIVATE_KEY: ${{ inputs.sparkle-private-key }}
         VERSION: ${{ inputs.version }}
         BUILD: ${{ inputs.build-number }}
         TAG: ${{ inputs.tag }}
-        NOTES_FILE: ${{ inputs.notes-file }}
+        NOTES_HTML: ${{ inputs.notes-file }}
+        SPARKLE_PRIVATE_KEY: ${{ inputs.sparkle-private-key }}
+        SPARKLE_VERSION: ${{ inputs.sparkle-version }}
+        SPARKLE_SHA256: ${{ inputs.sparkle-sha256 }}
         APP_NAME: ${{ inputs.app-name }}
+        ARCHIVE_PATH: ${{ inputs.archive-path }}
         REPO: ${{ github.repository }}
         GH_TOKEN: ${{ github.token }}
-      run: |
-        if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
-          echo "::warning::SPARKLE_PRIVATE_KEY secret not set. Skipping signing."
-          exit 0
-        fi
-
-        # Sign the zip with EdDSA and build this release's appcast item by
-        # hand: generate_appcast expects all archives in one directory, which
-        # doesn't fit per-tag GitHub release download URLs.
-        # The appcast is an ACCUMULATING feed: we prepend this item to the
-        # existing feed (fetched from gh-pages) so Sparkle shows the full
-        # version history, rather than regenerating a single-item feed.
-        # sign_update outputs: sparkle:edSignature="..." length="..."
-        SIGN_OUTPUT=$(echo "$SPARKLE_PRIVATE_KEY" | ./sparkle/bin/sign_update "build/$APP_NAME.zip" --ed-key-file -)
-        echo "sign_update output: $SIGN_OUTPUT"
-        SIGNATURE=$(echo "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
-        if [ -z "$SIGNATURE" ]; then
-          echo "::error::Failed to extract signature from sign_update output"
-          exit 1
-        fi
-        echo "Extracted signature: $SIGNATURE"
-        FILE_SIZE=$(stat -f%z "build/$APP_NAME.zip")
-        DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/$APP_NAME.zip"
-        PUB_DATE=$(date -R)
-
-        # Convert the release notes markdown to basic HTML for Sparkle display
-        RELEASE_HTML=$(cat "$NOTES_FILE" | sed \
-          -e 's/^## \(.*\)/<h2>\1<\/h2>/' \
-          -e 's/^### \(.*\)/<h3>\1<\/h3>/' \
-          -e 's/^- \(.*\)/<li>\1<\/li>/' \
-          -e 's/\[\([^]]*\)\](\([^)]*\))/<a href="\2">\1<\/a>/g' \
-          | awk 'BEGIN{in_list=0} /<li>/{if(!in_list){print "<ul>"; in_list=1}} !/<li>/&&in_list{print "</ul>"; in_list=0} {print} END{if(in_list)print "</ul>"}')
-
-        # Build this release's <item> on its own.
-        {
-          echo '        <item>'
-          echo "            <title>Version ${VERSION}</title>"
-          echo "            <pubDate>${PUB_DATE}</pubDate>"
-          echo "            <sparkle:version>${BUILD}</sparkle:version>"
-          echo "            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"
-          echo '            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>'
-          echo "            <sparkle:fullReleaseNotesLink>https://github.com/$REPO/blob/main/CHANGELOG.md</sparkle:fullReleaseNotesLink>"
-          echo '            <description><![CDATA['
-          echo "${RELEASE_HTML}"
-          echo '            ]]></description>'
-          echo '            <enclosure'
-          echo "                url=\"${DOWNLOAD_URL}\""
-          echo "                length=\"${FILE_SIZE}\""
-          echo '                type="application/octet-stream"'
-          echo "                sparkle:edSignature=\"${SIGNATURE}\" />"
-          echo '        </item>'
-        } > "$RUNNER_TEMP/new-item.xml"
-
-        # Fetch the existing feed from gh-pages (the prior release's complete
-        # feed — this action runs before the publish-to-gh-pages step, so
-        # gh-pages still holds the previous release's appcast). The raw media
-        # type returns the file contents directly, no base64 decode needed.
-        EXISTING_FEED=$(gh api "repos/$REPO/contents/appcast.xml?ref=gh-pages" \
-          -H "Accept: application/vnd.github.raw" 2>/dev/null || true)
-
-        # Prior items, minus any whose build == this build (keeps re-runs idempotent).
-        EXISTING_ITEMS=""
-        if [ -n "$EXISTING_FEED" ]; then
-          EXISTING_ITEMS=$(printf '%s\n' "$EXISTING_FEED" \
-            | sed -n '/<item>/,/<\/item>/p' \
-            | awk -v build="$BUILD" '
-                /<item>/ { buf=""; skip=0 }
-                { buf = buf $0 "\n" }
-                $0 ~ ("<sparkle:version>" build "</sparkle:version>") { skip=1 }
-                /<\/item>/ { if (!skip) printf "%s", buf }
-              ')
-        else
-          echo "::warning::Could not fetch existing appcast from gh-pages; writing a single-item feed"
-        fi
-
-        # Assemble the accumulating feed: header, new item first, then prior items.
-        {
-          echo '<?xml version="1.0" encoding="utf-8"?>'
-          echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">'
-          echo '    <channel>'
-          echo "        <title>${APP_NAME} Updates</title>"
-          echo "        <link>https://github.com/$REPO/releases</link>"
-          echo "        <description>Most recent updates to ${APP_NAME}</description>"
-          echo '        <language>en</language>'
-          cat "$RUNNER_TEMP/new-item.xml"
-          if [ -n "$EXISTING_ITEMS" ]; then
-            printf '%s' "$EXISTING_ITEMS"
-          fi
-          echo '    </channel>'
-          echo '</rss>'
-        } > appcast.xml
-
-        # Fail loudly if the merged feed isn't well-formed XML.
-        xmllint --noout appcast.xml
-        echo "appcast.xml now contains $(grep -c '<item>' appcast.xml) item(s)"
+      run: "$GITHUB_ACTION_PATH/../../scripts/release/generate-appcast.sh"

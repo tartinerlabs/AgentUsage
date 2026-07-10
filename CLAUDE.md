@@ -303,28 +303,19 @@ CURRENT_PROJECT_VERSION = 1
 
 ### Release Workflow
 
-Releases are **fully automated** via `.github/workflows/auto-release.yml`. Every code push to `main`:
+Releases use the manually triggered `.github/workflows/release.yml`; a normal push to `main` runs CI only. The default `dry-run` operation has read-only permissions. `publish` and `repair-appcast` require the `release` environment, `SIGNED_RELEASES_ENABLED=true`, and the relevant Developer ID, Apple notarization, and Sparkle secrets.
 
-1. **Computes the next version** from the latest `v*` tag — minor by default; a `[patch]` token on every release-worthy commit downgrades to patch (a pure bug-fix release), and any `[major]` token escalates to major (highest wins, markers stripped from notes)
-2. **Generates release notes** from commit subjects since the last tag (noise commits like appcast/version-bump/beads updates are filtered out)
-3. **Runs the macOS test suite** — failure aborts before anything is pushed
-4. **Bumps** `Config/Version.xcconfig`, `project.pbxproj`, and `CHANGELOG.md` (flat bullet list under the new version section), committing "Bump version to X.Y.Z"
-5. **Builds** the unsigned app and creates the zip archive
-6. **Creates the GitHub release** with the zip attached — the tag is created here, only after a successful build (`--prerelease` while < 1.0.0)
-7. **Signs** the zip with the Sparkle EdDSA key, **prepends this release's item to the existing feed** (fetched from `gh-pages`) so the appcast accumulates full version history, and **publishes the updated appcast.xml to the `gh-pages` branch** as the final step (the Sparkle feed is served from GitHub Pages; `appcast.xml` lives only on `gh-pages`, not main). `.github/workflows/pages.yml` then deploys `gh-pages` to Pages via `workflow_run`.
+The publish path tests, computes or resumes the version, prepares the changelog, Developer ID-signs, notarizes, staples, packages, validates with Gatekeeper, generates the accumulating feed with Sparkle's official `generate_appcast`, commits the version with compare-and-swap protection, creates the tag/prerelease, publishes `appcast.xml` to `gh-pages`, and explicitly dispatches `pages.yml`.
 
-**Do NOT manually bump versions, tag, or run `gh release create`** — just push to main.
-
-A push does not release when it only touches non-code paths (`**/*.md`, `Config/Version.xcconfig`, `.beads/**`, `.claude/**`, `.github/**`, `.gitignore`), when the head commit contains `[skip release]`, or when no release-worthy commits exist since the last tag. Each release produces one `github-actions[bot]` commit on main ("Bump version to X.Y.Z") plus an "Update appcast for vX.Y.Z" commit on the `gh-pages` branch; neither retriggers the workflow.
-
-**Manual controls:**
+Do not manually edit versions, tag, or call `gh release create`. Use:
 
 ```bash
-gh workflow run auto-release.yml -f bump=minor    # force a bump type
-gh workflow run auto-release.yml -f dry_run=true  # compute version/notes + run tests, release nothing
+gh workflow run release.yml -f operation=dry-run -f bump=auto
+gh workflow run release.yml -f operation=publish -f bump=auto
+gh workflow run release.yml -f operation=repair-appcast -f tag=vX.Y.Z
 ```
 
-See `.claude/skills/release/SKILL.md` for failure recovery.
+Public releases remain paused until Developer ID credentials are configured. The committed `0.26.0` build `79` is the next release candidate and is resumed regardless of the requested bump. See `RELEASING.md` and `.claude/skills/release/SKILL.md` for setup and recovery.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
