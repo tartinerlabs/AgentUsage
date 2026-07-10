@@ -303,19 +303,20 @@ CURRENT_PROJECT_VERSION = 1
 
 ### Release Workflow
 
-Releases use the manually triggered `.github/workflows/release.yml`; a normal push to `main` runs CI only. The default `dry-run` operation has read-only permissions. `publish` and `repair-appcast` require the `release` environment, `SIGNED_RELEASES_ENABLED=true`, and the relevant Developer ID, Apple notarization, and Sparkle secrets.
+Releases use the manually triggered `.github/workflows/release.yml`; a normal push to `main` runs CI only. The default `dry-run` operation has read-only permissions and builds a fully validated ad-hoc-signed archive. Publishing always uses the protected `release` environment and requires the Sparkle private key.
 
-The publish path tests, computes or resumes the version, prepares the changelog, Developer ID-signs, notarizes, staples, packages, validates with Gatekeeper, generates the accumulating feed with Sparkle's official `generate_appcast`, commits the version with compare-and-swap protection, creates the tag/prerelease, publishes `appcast.xml` to `gh-pages`, and explicitly dispatches `pages.yml`.
+`publish-unsigned` requires `UNSIGNED_RELEASES_ENABLED=true`, creates an ad-hoc code signature, and does not use Apple notarization. `publish` remains the future Developer ID path and requires `SIGNED_RELEASES_ENABLED=true` plus the Apple signing and notarization secrets. Both paths test, compute or resume the version, prepare the changelog, generate and verify the accumulating feed with Sparkle's official `generate_appcast`, commit with compare-and-swap protection, create the tag/prerelease, publish `appcast.xml` to `gh-pages`, and dispatch `pages.yml`.
 
 Do not manually edit versions, tag, or call `gh release create`. Use:
 
 ```bash
 gh workflow run release.yml -f operation=dry-run -f bump=auto
+gh workflow run release.yml -f operation=publish-unsigned -f bump=auto
 gh workflow run release.yml -f operation=publish -f bump=auto
 gh workflow run release.yml -f operation=repair-appcast -f tag=vX.Y.Z
 ```
 
-Public releases remain paused until Developer ID credentials are configured. The committed `0.26.0` build `79` is the next release candidate and is resumed regardless of the requested bump. See `RELEASING.md` and `.claude/skills/release/SKILL.md` for setup and recovery.
+Unsigned releases are the current distribution mode until Developer ID credentials are available. The committed `0.26.0` build `79` is the next release candidate and is resumed regardless of the requested bump. See `RELEASING.md` and `.claude/skills/release/SKILL.md` for setup, Gatekeeper behaviour, and recovery.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
