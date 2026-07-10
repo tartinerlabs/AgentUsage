@@ -138,7 +138,7 @@ No data collection or transmission. All processing is local. Reads credentials f
 
 **Data:** Anthropic OAuth API for rate limits, local JSONL logs for tokens, [Anthropic pricing](https://anthropic.com/pricing)
 
-**Releases:** Automated via GitHub Actions. See [releases](https://github.com/tartinerlabs/ClaudeMeter/releases).
+**Releases:** Manually triggered and automated through the signed GitHub Actions pipeline. Public releases are paused until Developer ID credentials are configured. See [RELEASING.md](RELEASING.md) and [releases](https://github.com/tartinerlabs/ClaudeMeter/releases).
 
 ## Support
 
