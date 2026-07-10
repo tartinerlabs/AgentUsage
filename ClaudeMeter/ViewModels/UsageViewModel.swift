@@ -182,39 +182,32 @@ final class UsageViewModel {
         }
     }
 
-    var menuBarShowSession: Bool {
-        get { menuBarSettingsManager.menuBarShowSession }
-        set { menuBarSettingsManager.menuBarShowSession = newValue }
+    var menuBarProviders: [Provider] {
+        MenuBarSettingsManager.supportedProviders
     }
 
-    var menuBarShowAllModels: Bool {
-        get { menuBarSettingsManager.menuBarShowAllModels }
-        set { menuBarSettingsManager.menuBarShowAllModels = newValue }
+    func menuBarSupportedWindows(for provider: Provider) -> [UsageWindowType] {
+        MenuBarSettingsManager.supportedWindows(for: provider)
     }
 
-    var menuBarShowSonnet: Bool {
-        get { menuBarSettingsManager.menuBarShowSonnet }
-        set { menuBarSettingsManager.menuBarShowSonnet = newValue }
+    func menuBarPinnedWindows(for provider: Provider) -> [UsageWindowType] {
+        menuBarSettingsManager.pinnedWindows(for: provider)
     }
 
-    var menuBarShowDesign: Bool {
-        get { menuBarSettingsManager.menuBarShowDesign }
-        set { menuBarSettingsManager.menuBarShowDesign = newValue }
+    func isMenuBarWindowPinned(_ window: UsageWindowType, for provider: Provider) -> Bool {
+        menuBarSettingsManager.isPinned(window, for: provider)
     }
 
-    var menuBarShowFable: Bool {
-        get { menuBarSettingsManager.menuBarShowFable }
-        set { menuBarSettingsManager.menuBarShowFable = newValue }
+    func canPinMenuBarWindow(_ window: UsageWindowType, for provider: Provider) -> Bool {
+        menuBarSettingsManager.canPin(window, for: provider)
     }
 
-    var menuBarShowCodex: Bool {
-        get { menuBarSettingsManager.menuBarShowCodex }
-        set { menuBarSettingsManager.menuBarShowCodex = newValue }
-    }
-
-    var menuBarShowExtraUsage: Bool {
-        get { menuBarSettingsManager.menuBarShowExtraUsage }
-        set { menuBarSettingsManager.menuBarShowExtraUsage = newValue }
+    func setMenuBarWindowPinned(
+        _ window: UsageWindowType,
+        for provider: Provider,
+        isPinned: Bool
+    ) {
+        menuBarSettingsManager.setPinned(window, for: provider, isPinned: isPinned)
     }
 
     #if DEBUG

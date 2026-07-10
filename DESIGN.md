@@ -43,9 +43,9 @@ typography:
     design: rounded         # .system(size: 20, weight: .bold, design: .rounded)
   menubar-numeric:
     font: SF Mono
-    fontSize: 10            # points (labels 8, arrows 6, fallback 11)
-    fontWeight: 500
-    design: monospaced      # .system(size: 10, weight: .medium, design: .monospaced)
+    fontSize: 9             # points (11 for a single pinned value)
+    fontWeight: 600
+    design: monospaced      # .system(size: 9, weight: .semibold, design: .monospaced)
   cost-label:
     font: SF Pro Text
     style: caption2
@@ -207,14 +207,17 @@ Corner radius is assigned by component scale:
   over `.regularMaterial` at radius 16.
 - **`SparklineView`** (macOS) — Canvas-drawn line/bar sparkline (30×10, lineWidth 1); drawn at
   `white` @ 0.8, empty state at `color` @ 0.25.
-- **`MenuBarIconView`** (macOS) — the menu-bar status rendered to an `NSImage`: multi-column
-  layout (CURR/ALL/SONNET/DESIGN/FABLE/CODEX), each a label + trend arrow + percentage, with a
-  `$` marker for extra usage.
+- **`MenuBarIconView`** (macOS) — an adaptive monochrome template `NSImage`. Claude and Codex
+  render in that order as a 16pt provider mark plus one 11pt percentage or two tightly stacked
+  9pt percentages. Up to two windows are pinned per provider; missing and expired values consume
+  no space. Visible labels, trend arrows, reset countdowns, and extra-usage cost stay in the
+  popover rather than the status strip.
 - **Widget & Live Activity gauges** — lock-screen uses SwiftUI `Gauge` (`.accessoryCircular` /
   `.accessoryLinear`) colored by `status.color` with matching `.keylineTint`.
 
-Across every one of these, color and icon are driven by the same `UsageStatus` value — the
-status system below is the single source of truth for "how bad is it."
+Status-bearing components use `UsageStatus` as the single source of truth for "how bad is it."
+The menu-bar strip is intentionally neutral: macOS applies the template tint, while its values
+and VoiceOver description communicate usage without squeezing severity decoration into 22pt.
 
 ## Status System
 
@@ -238,8 +241,10 @@ stable, `arrow.down.right` (green) decreasing.
 **Overall status** is the **worst** across all windows (`critical > warning > onTrack`),
 defaulting to on-track when there is no data.
 
-Provider glyphs: Claude `sparkles`, Codex `chevron.left.forwardslash.chevron.right`, opencode
-`curlybraces`.
+Provider glyphs: the compact menu-bar strip uses the official Claude spark and OpenAI Blossom as
+unchanged monochrome template marks. Other surfaces retain Claude `sparkles`, Codex
+`chevron.left.forwardslash.chevron.right`, and opencode `curlybraces` until the broader
+provider-logo work is completed; those SF Symbols are also the menu-bar fallbacks.
 
 ## Do's and Don'ts
 
@@ -255,3 +260,4 @@ Provider glyphs: Claude `sparkles`, Codex `chevron.left.forwardslash.chevron.rig
 - **Do** build depth from `.regularMaterial` and tinted fills/borders. **Don't** add drop shadows
   or gradients — the system has none, and adding them breaks the flat, translucent look.
 - **Do** pair every status color with its matching SF Symbol; never show one without the other.
+  A neutral component such as the template-tinted menu-bar strip may omit both.
