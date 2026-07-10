@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import ClaudeMeterKit
 #if os(macOS)
 import SwiftData
 #endif
@@ -48,6 +49,21 @@ enum DependencyContainer {
         return TokenUsageService(extraSources: sources)
     }
 
+    /// Create the macOS token import/query coordinator at the composition root.
+    static func createTokenUsageCoordinator(modelContext: ModelContext) -> TokenUsageCoordinator {
+        TokenUsageCoordinator(
+            tokenService: createTokenUsageService(),
+            modelContext: modelContext
+        )
+    }
+
+    /// Create usage-history persistence backed by the app's SwiftData container.
+    static func createUsageHistoryService(modelContext: ModelContext) -> UsageHistoryService {
+        UsageHistoryService(
+            repository: UsageHistoryRepository(modelContainer: modelContext.container)
+        )
+    }
+
     /// Create the blog usage sync service for passive local usage ingestion
     static func createBlogUsageSyncService() -> BlogUsageSyncService {
         BlogUsageSyncService.shared
@@ -58,24 +74,18 @@ enum DependencyContainer {
         BlogOAuthService.shared
     }
 
-    /// Create the Codex rate-limit window service, if Codex OAuth credentials are present.
-    /// Gated on `auth.json` (the live `/wham/usage` token source), not the rollout logs.
-    static func createCodexUsageService() -> CodexUsageService? {
+    /// Create rate-window services for optional macOS providers that have local
+    /// credentials or data available.
+    static func createProviderUsageServices() -> [Provider: any ProviderUsageServiceProtocol] {
         let fm = FileManager.default
-        guard Constants.codexAuthFileURLs.contains(where: { fm.fileExists(atPath: $0.path) }) else {
-            return nil
+        var services: [Provider: any ProviderUsageServiceProtocol] = [:]
+        if Constants.codexAuthFileURLs.contains(where: { fm.fileExists(atPath: $0.path) }) {
+            services[.codex] = CodexUsageService()
         }
-        return CodexUsageService()
-    }
-
-    /// Create the OpenCode Go usage service, if OpenCode's local database is present.
-    /// Reconstructs quota windows from the local DB — no cookie or workspace ID.
-    static func createOpenCodeGoUsageService() -> OpenCodeGoLocalUsageService? {
-        let fm = FileManager.default
-        guard Constants.openCodeDatabaseURLs.contains(where: { fm.fileExists(atPath: $0.path) }) else {
-            return nil
+        if Constants.openCodeDatabaseURLs.contains(where: { fm.fileExists(atPath: $0.path) }) {
+            services[.openCode] = OpenCodeGoLocalUsageService()
         }
-        return OpenCodeGoLocalUsageService()
+        return services
     }
     #endif
 
@@ -87,19 +97,18 @@ enum DependencyContainer {
     /// - Returns: Configured UsageViewModel
     static func createUsageViewModel(modelContext: ModelContext) -> UsageViewModel {
         let credentialProvider = createCredentialProvider()
-        let tokenService = createTokenUsageService()
+        let tokenUsageCoordinator = createTokenUsageCoordinator(modelContext: modelContext)
+        let usageHistoryService = createUsageHistoryService(modelContext: modelContext)
         let blogUsageSyncService = createBlogUsageSyncService()
         let blogOAuthService = createBlogOAuthService()
-        let codexUsageService = createCodexUsageService()
-        let openCodeGoUsageService = createOpenCodeGoUsageService()
+        let providerUsageServices = createProviderUsageServices()
         return UsageViewModel(
             credentialProvider: credentialProvider,
-            tokenService: tokenService,
+            tokenUsageCoordinator: tokenUsageCoordinator,
             blogUsageSyncService: blogUsageSyncService,
             blogOAuthService: blogOAuthService,
-            codexUsageService: codexUsageService,
-            openCodeGoUsageService: openCodeGoUsageService,
-            modelContext: modelContext
+            providerUsageServices: providerUsageServices,
+            usageHistoryService: usageHistoryService
         )
     }
     #else

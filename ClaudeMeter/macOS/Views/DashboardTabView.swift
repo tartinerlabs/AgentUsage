@@ -33,16 +33,16 @@ struct DashboardTabView: View {
                 }
 
                 // Provider detail pages (weather station): Claude / Codex / OpenCode
-                if let snapshot = viewModel.snapshot {
+                if let usage = viewModel.usageSnapshot(for: .claude) {
                     ProviderDetailView(
                         provider: .claude,
-                        planName: viewModel.planType,
-                        windows: ProviderUsageSnapshot(claude: snapshot).windows,
+                        planName: usage.planName,
+                        windows: usage.windows,
                         detail: viewModel.providerDetails[.claude],
                         now: now,
                         isServiceDown: viewModel.isServiceDown(.claude)
                     )
-                    if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
+                    if viewModel.showExtraUsageIndicators, let extraUsage = usage.extraUsage {
                         extraUsageCostSection(extraUsage)
                     }
                 } else if viewModel.isNoUsageData {
@@ -53,7 +53,7 @@ struct DashboardTabView: View {
                     loadingSection
                 }
 
-                if let codex = viewModel.codexUsage {
+                if let codex = viewModel.usageSnapshot(for: .codex) {
                     Divider()
                     ProviderDetailView(
                         provider: .codex,
@@ -66,12 +66,13 @@ struct DashboardTabView: View {
                     )
                 }
 
-                if viewModel.providerDetails[.openCode] != nil || viewModel.openCodeGoUsage != nil {
+                if viewModel.hasProviderData(.openCode) {
+                    let openCodeUsage = viewModel.usageSnapshot(for: .openCode)
                     Divider()
                     ProviderDetailView(
                         provider: .openCode,
-                        planName: viewModel.openCodeGoUsage?.planName,
-                        windows: viewModel.openCodeGoUsage?.windows ?? [],
+                        planName: openCodeUsage?.planName,
+                        windows: openCodeUsage?.windows ?? [],
                         detail: viewModel.providerDetails[.openCode],
                         now: now,
                         isServiceDown: viewModel.isServiceDown(.openCode)
@@ -151,11 +152,6 @@ struct DashboardTabView: View {
                 .pickerStyle(.menu)
                 .labelsHidden()
                 .frame(width: 100)
-
-                if viewModel.isFetchingPeriodSummaries {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                }
             }
 
             HStack(spacing: 16) {

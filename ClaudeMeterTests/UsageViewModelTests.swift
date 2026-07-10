@@ -16,21 +16,12 @@ import Foundation
 struct UsageViewModelInitialStateTests {
 
     @Test @MainActor func initialStateIsCorrect() async {
-        // The view model loads any cached snapshot from UserDefaults on init,
-        // and the test host shares the real app's defaults domain. Stash and
-        // restore the cache so the test sees a true first-launch state.
-        let defaults = UserDefaults.standard
-        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
-        let savedPlan = defaults.string(forKey: "cachedPlanType")
-        defaults.removeObject(forKey: "cachedUsageSnapshot")
-        defaults.removeObject(forKey: "cachedPlanType")
-        defer {
-            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
-            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
-        }
-
+        let testDefaults = TestUserDefaults()
         let mockCredentials = MockCredentialProvider()
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            defaults: testDefaults.defaults
+        )
 
         #expect(viewModel.snapshot == nil)
         #expect(viewModel.isLoading == false)
@@ -39,25 +30,58 @@ struct UsageViewModelInitialStateTests {
     }
 
     @Test @MainActor func defaultRefreshIntervalIsFiveMinutes() async {
-        // Clear any saved preference
-        UserDefaults.standard.removeObject(forKey: "refreshInterval")
-
+        let testDefaults = TestUserDefaults()
         let mockCredentials = MockCredentialProvider()
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            defaults: testDefaults.defaults
+        )
 
         #expect(viewModel.refreshInterval == .fiveMinutes)
     }
 
     @Test @MainActor func loadsRefreshIntervalFromUserDefaults() async {
-        UserDefaults.standard.set("1min", forKey: "refreshInterval")
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set("1min", forKey: "refreshInterval")
 
         let mockCredentials = MockCredentialProvider()
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            defaults: testDefaults.defaults
+        )
 
         #expect(viewModel.refreshInterval == .oneMinute)
+    }
 
-        // Cleanup
-        UserDefaults.standard.removeObject(forKey: "refreshInterval")
+    @Test @MainActor func claudeUsageSnapshotUsesTheUnifiedProviderRepresentation() async {
+        let testDefaults = TestUserDefaults()
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            defaults: testDefaults.defaults
+        )
+        let session = UsageWindow(
+            utilization: 42,
+            resetsAt: Date().addingTimeInterval(3600),
+            windowType: .session
+        )
+        let opus = UsageWindow(
+            utilization: 18,
+            resetsAt: Date().addingTimeInterval(7200),
+            windowType: .opus
+        )
+        viewModel.snapshot = UsageSnapshot(
+            session: session,
+            opus: opus,
+            sonnet: nil,
+            fetchedAt: Date()
+        )
+        viewModel.planType = "Pro"
+
+        let providerSnapshot = viewModel.usageSnapshot(for: .claude)
+
+        #expect(providerSnapshot?.provider == .claude)
+        #expect(providerSnapshot?.planName == "Pro")
+        #expect(providerSnapshot?.windows.map(\.windowType) == [.session, .opus])
     }
 }
 
@@ -67,26 +91,24 @@ struct UsageViewModelInitialStateTests {
 struct UsageViewModelStatusTests {
 
     @Test @MainActor func overallStatusIsOnTrackWhenNoSnapshot() async {
-        // The view model loads any cached snapshot from UserDefaults on init,
-        // and concurrent tests write to the shared defaults domain. Stash and
-        // restore the cache so this test truly starts with no snapshot.
-        let defaults = UserDefaults.standard
-        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
-        defaults.removeObject(forKey: "cachedUsageSnapshot")
-        defer {
-            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
-        }
-
+        let testDefaults = TestUserDefaults()
         let mockCredentials = MockCredentialProvider()
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            defaults: testDefaults.defaults
+        )
 
         // No snapshot means on track (default state)
         #expect(viewModel.overallStatus == .onTrack)
     }
 
     @Test @MainActor func overallStatusReflectsWorstWindow() async {
+        let testDefaults = TestUserDefaults()
         let mockCredentials = MockCredentialProvider()
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            defaults: testDefaults.defaults
+        )
 
         // Create a snapshot with mixed statuses
         let sessionWindow = UsageWindow(
@@ -117,12 +139,12 @@ struct UsageViewModelStatusTests {
 struct UsageViewModelOfflineModeTests {
 
     @Test @MainActor func isUsingCachedDataDefaultsToFalse() async {
-        // Clear cache
-        UserDefaults.standard.removeObject(forKey: "cachedUsageSnapshot")
-        UserDefaults.standard.removeObject(forKey: "cachedUsageSnapshotTime")
-
+        let testDefaults = TestUserDefaults()
         let mockCredentials = MockCredentialProvider()
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            defaults: testDefaults.defaults
+        )
 
         // With no cache, should not be using cached data initially
         #expect(viewModel.isUsingCachedData == false || viewModel.snapshot != nil)
@@ -149,21 +171,15 @@ struct UsageViewModelRefreshGateTests {
     /// failed cycle still advances the timestamp, so a non-forced refresh right after
     /// is debounced.
     @Test @MainActor func gateAdvancesEvenWhenClaudeFetchFails() async {
-        // Isolate from any cached snapshot in the shared defaults domain.
-        let defaults = UserDefaults.standard
-        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
-        let savedPlan = defaults.string(forKey: "cachedPlanType")
-        defaults.removeObject(forKey: "cachedUsageSnapshot")
-        defaults.removeObject(forKey: "cachedPlanType")
-        defer {
-            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
-            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
-        }
-
+        let testDefaults = TestUserDefaults()
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
 
         // First cycle fails. The gate timestamp advances because the cycle ran.
         await mockAPI.setMockError(ClaudeAPIService.APIError.rateLimited(retryAfter: 30))
@@ -203,20 +219,15 @@ struct UsageViewModelNoUsageDataTests {
     /// cached snapshot and show "No usage data" — not hold onto pre-reset
     /// percentages.
     @Test @MainActor func noUsageDataErrorDropsStaleSnapshot() async {
-        let defaults = UserDefaults.standard
-        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
-        let savedPlan = defaults.string(forKey: "cachedPlanType")
-        defaults.removeObject(forKey: "cachedUsageSnapshot")
-        defaults.removeObject(forKey: "cachedPlanType")
-        defer {
-            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
-            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
-        }
-
+        let testDefaults = TestUserDefaults()
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
 
         // Seed a cached snapshot, then have the next fetch report no usage data.
         await mockAPI.setMockSnapshot(makeSnapshot(resetsAt: Date().addingTimeInterval(3600)))
@@ -237,20 +248,15 @@ struct UsageViewModelNoUsageDataTests {
     /// Safety net: any API error (not just noUsageData) with an all-expired
     /// cached snapshot should also drop the stale data and show "No usage data".
     @Test @MainActor func staleExpiredCacheDroppedOnAnyError() async {
-        let defaults = UserDefaults.standard
-        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
-        let savedPlan = defaults.string(forKey: "cachedPlanType")
-        defaults.removeObject(forKey: "cachedUsageSnapshot")
-        defaults.removeObject(forKey: "cachedPlanType")
-        defer {
-            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
-            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
-        }
-
+        let testDefaults = TestUserDefaults()
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
 
         // Seed a snapshot whose windows all expired in the past.
         let stale = makeSnapshot(resetsAt: Date().addingTimeInterval(-3600))
@@ -271,20 +277,15 @@ struct UsageViewModelNoUsageDataTests {
     /// No regression: a non-expired cached snapshot is kept on API error, and a
     /// successful fetch clears the no-usage-data flag.
     @Test @MainActor func freshCacheKeptOnErrorAndSuccessClearsFlag() async {
-        let defaults = UserDefaults.standard
-        let savedSnapshot = defaults.data(forKey: "cachedUsageSnapshot")
-        let savedPlan = defaults.string(forKey: "cachedPlanType")
-        defaults.removeObject(forKey: "cachedUsageSnapshot")
-        defaults.removeObject(forKey: "cachedPlanType")
-        defer {
-            savedSnapshot.map { defaults.set($0, forKey: "cachedUsageSnapshot") }
-            savedPlan.map { defaults.set($0, forKey: "cachedPlanType") }
-        }
-
+        let testDefaults = TestUserDefaults()
         let mockAPI = MockAPIService()
         let mockCredentials = MockCredentialProvider()
         await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
-        let viewModel = UsageViewModel(credentialProvider: mockCredentials, apiService: mockAPI)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
 
         // Fresh (unexpired) cache.
         let fresh = makeSnapshot(resetsAt: Date().addingTimeInterval(3600))
