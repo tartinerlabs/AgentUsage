@@ -10,12 +10,37 @@ if OPERATION=publish "$gate" >/dev/null 2>&1; then
   exit 1
 fi
 
+if OPERATION=publish-unsigned SPARKLE_PRIVATE_KEY=test "$gate" >/dev/null 2>&1; then
+  echo "FAIL: unsigned publish passed while unsigned releases were disabled" >&2
+  exit 1
+fi
+
+if UNSIGNED_RELEASES_ENABLED=true OPERATION=publish-unsigned "$gate" >/dev/null 2>&1; then
+  echo "FAIL: unsigned publish passed without a Sparkle key" >&2
+  exit 1
+fi
+
+UNSIGNED_RELEASES_ENABLED=true \
+OPERATION=publish-unsigned \
+SPARKLE_PRIVATE_KEY=test \
+  "$gate" >/dev/null
+
 if SIGNED_RELEASES_ENABLED=true OPERATION=publish SPARKLE_PRIVATE_KEY=test "$gate" >/dev/null 2>&1; then
   echo "FAIL: publish passed with missing Apple credentials" >&2
   exit 1
 fi
 
+if OPERATION=repair-appcast SPARKLE_PRIVATE_KEY=test "$gate" >/dev/null 2>&1; then
+  echo "FAIL: repair passed while all release modes were disabled" >&2
+  exit 1
+fi
+
 SIGNED_RELEASES_ENABLED=true \
+OPERATION=repair-appcast \
+SPARKLE_PRIVATE_KEY=test \
+  "$gate" >/dev/null
+
+UNSIGNED_RELEASES_ENABLED=true \
 OPERATION=repair-appcast \
 SPARKLE_PRIVATE_KEY=test \
   "$gate" >/dev/null
@@ -30,6 +55,12 @@ APPLE_NOTARY_KEY_ID=test \
 APPLE_NOTARY_ISSUER_ID=test \
 APPLE_TEAM_ID=test \
   "$gate" >/dev/null
+
+if SIGNED_RELEASES_ENABLED=true UNSIGNED_RELEASES_ENABLED=true OPERATION=unknown SPARKLE_PRIVATE_KEY=test \
+  "$gate" >/dev/null 2>&1; then
+  echo "FAIL: release gate accepted an unsupported operation" >&2
+  exit 1
+fi
 
 repair="$repo_root/.github/scripts/release/prepare-appcast-repair.sh"
 if TAG=v01.2.3 APP_NAME=ClaudeMeter GH_TOKEN=test RUNNER_TEMP="${TMPDIR:-/tmp}" GITHUB_OUTPUT=/dev/null \

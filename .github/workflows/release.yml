@@ -6,7 +6,7 @@ on:
       operation:
         description: "Release operation"
         type: choice
-        options: [dry-run, publish, repair-appcast]
+        options: [dry-run, publish, publish-unsigned, repair-appcast]
         default: dry-run
       bump:
         description: "Version bump type (ignored when resuming an untagged version)"
@@ -69,16 +69,9 @@ jobs:
           notes: ${{ steps.version.outputs.notes }}
           app-name: ${{ env.APP_NAME }}
 
-      - name: Build unsigned validation artifact
+      - name: Build and validate ad-hoc-signed archive
         if: steps.version.outputs.skip != 'true'
-        run: |
-          xcodebuild -project "${APP_NAME}.xcodeproj" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -derivedDataPath build/DryRunDerivedData \
-            build \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO
+        run: .github/scripts/release/build-unsigned-release.sh
 
       - name: Report dry run
         if: steps.version.outputs.skip != 'true'
@@ -100,8 +93,8 @@ jobs:
           git diff -- Config/Version.xcconfig "${APP_NAME}.xcodeproj/project.pbxproj" CHANGELOG.md
 
   publish:
-    name: Publish signed release
-    if: inputs.operation == 'publish'
+    name: Publish release
+    if: inputs.operation == 'publish' || inputs.operation == 'publish-unsigned'
     runs-on: macos-26
     environment: release
     permissions:
@@ -115,10 +108,11 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Validate signed-release gate
+      - name: Validate release gate
         env:
-          OPERATION: publish
+          OPERATION: ${{ inputs.operation }}
           SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
+          UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
           DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
           DEVELOPER_ID_APPLICATION_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
           APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
@@ -165,7 +159,7 @@ jobs:
             --repository "$GITHUB_REPOSITORY"
 
       - name: Configure Developer ID signing
-        if: steps.version.outputs.skip != 'true'
+        if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish'
         env:
           DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
           DEVELOPER_ID_APPLICATION_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
@@ -174,12 +168,16 @@ jobs:
         run: .github/scripts/release/configure-signing.sh
 
       - name: Build, sign, and notarize
-        if: steps.version.outputs.skip != 'true'
+        if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish'
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
         run: .github/scripts/release/build-signed-release.sh
+
+      - name: Build and ad-hoc sign
+        if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish-unsigned'
+        run: .github/scripts/release/build-unsigned-release.sh
 
       - name: Generate and validate appcast
         if: steps.version.outputs.skip != 'true'
@@ -233,7 +231,7 @@ jobs:
         run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
 
       - name: Clean up signing material
-        if: always() && steps.checkout.outcome == 'success'
+        if: always() && steps.checkout.outcome == 'success' && inputs.operation == 'publish'
         run: .github/scripts/release/cleanup-signing.sh
 
   repair-appcast:
@@ -251,10 +249,11 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Validate signed-release gate
+      - name: Validate release gate
         env:
           OPERATION: repair-appcast
           SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
+          UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: .github/scripts/release/check-release-gate.sh
 
@@ -263,6 +262,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
+          SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
+          UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
         run: .github/scripts/release/prepare-appcast-repair.sh
 
       - name: Compose repair release notes
