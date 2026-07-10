@@ -26,7 +26,7 @@ struct AboutTabView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
-                        Text("Monitor your Claude API usage directly from the menu bar.")
+                        Text("Monitor AI coding usage directly from the menu bar.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -90,6 +90,12 @@ struct AboutTabView: View {
                 }
 
                 Spacer(minLength: 0)
+
+                Text("Claude and its mark belong to Anthropic PBC. OpenAI, Codex, and the OpenAI mark belong to OpenAI. ClaudeMeter is not affiliated with or endorsed by either provider.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
 
                 // Copyright
                 Text("\u{00A9} 2025 Ru Chern Chong. All rights reserved.")

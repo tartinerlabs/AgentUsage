@@ -4,6 +4,7 @@
 //
 
 #if os(macOS)
+import ClaudeMeterKit
 import SwiftUI
 
 /// Settings content for the main window tab
@@ -60,18 +61,44 @@ struct SettingsTabView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Menu Bar Display")
                                 .font(.body)
-                            Text("Which usage windows to show in the menu bar")
+                            Text("Pin up to two quota windows per provider. Providers without live pinned data take no space.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
-                            VStack(alignment: .leading, spacing: 6) {
-                                Toggle("Session (5h)", isOn: $viewModel.menuBarShowSession)
-                                Toggle("All Models (7d)", isOn: $viewModel.menuBarShowAllModels)
-                                Toggle("Sonnet (7d)", isOn: $viewModel.menuBarShowSonnet)
-                                Toggle("Claude Design (7d)", isOn: $viewModel.menuBarShowDesign)
-                                Toggle("Fable (7d)", isOn: $viewModel.menuBarShowFable)
-                                Toggle("Codex (5h)", isOn: $viewModel.menuBarShowCodex)
-                                Toggle("Extra Usage Cost", isOn: $viewModel.menuBarShowExtraUsage)
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(viewModel.menuBarProviders) { provider in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack {
+                                            Label(provider.displayName, systemImage: provider.iconName)
+                                                .font(.caption.weight(.semibold))
+                                            Spacer()
+                                            Text("\(viewModel.menuBarPinnedWindows(for: provider).count)/\(MenuBarSettingsManager.maximumPinsPerProvider)")
+                                                .font(.caption2.monospacedDigit())
+                                                .foregroundStyle(.tertiary)
+                                        }
+
+                                        ForEach(
+                                            viewModel.menuBarSupportedWindows(for: provider),
+                                            id: \.rawValue
+                                        ) { window in
+                                            let isPinned = viewModel.isMenuBarWindowPinned(
+                                                window,
+                                                for: provider
+                                            )
+                                            Toggle(
+                                                window.displayName,
+                                                isOn: menuBarPinBinding(window, provider: provider)
+                                            )
+                                            .disabled(
+                                                !isPinned
+                                                    && !viewModel.canPinMenuBarWindow(
+                                                        window,
+                                                        for: provider
+                                                    )
+                                            )
+                                        }
+                                    }
+                                }
                             }
                             .toggleStyle(.checkbox)
                             .padding(.top, 4)
@@ -410,6 +437,15 @@ struct SettingsTabView: View {
         }
     }
 
+    private func menuBarPinBinding(
+        _ window: UsageWindowType,
+        provider: Provider
+    ) -> Binding<Bool> {
+        Binding(
+            get: { viewModel.isMenuBarWindowPinned(window, for: provider) },
+            set: { viewModel.setMenuBarWindowPinned(window, for: provider, isPinned: $0) }
+        )
+    }
 
     private var blogUsageSyncStatusText: String {
         let status = viewModel.blogUsageSyncStatus
