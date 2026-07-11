@@ -6,6 +6,23 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
+            <title>0.27.0</title>
+            <pubDate>Sat, 11 Jul 2026 10:42:33 +0000</pubDate>
+            <link>https://github.com/tartinerlabs/AgentUsage/releases</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/tartinerlabs/AgentUsage/blob/main/CHANGELOG.md</sparkle:fullReleaseNotesLink>
+            <sparkle:version>81</sparkle:version>
+            <sparkle:shortVersionString>0.27.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What&#x27;s New</h2>
+<ul>
+<li>Remove xcode-skills. Not used</li>
+<li>rebrand ClaudeMeter as AgentUsage</li>
+</ul>
+<p>See <a href="https://github.com/tartinerlabs/AgentUsage/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.</p>
+]]></description>
+            <enclosure url="https://github.com/tartinerlabs/AgentUsage/releases/download/v0.27.0/AgentUsage.zip" length="2314366" type="application/octet-stream" sparkle:edSignature="H2tg0DAdJSqIDN8ufLtCN4xgg2cXPO0/r6Jf/u+lqU3Ld/xc8Q8IFltDP1pHYxmyY1KBpPRhuj0efJOcwVHKBw=="/>
+        </item>
+        <item>
             <title>0.26.1</title>
             <pubDate>Sat, 11 Jul 2026 04:38:56 +0000</pubDate>
             <link>https://github.com/tartinerlabs/ClaudeMeter/releases</link>
