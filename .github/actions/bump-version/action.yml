@@ -17,7 +17,7 @@ inputs:
   app-name:
     description: "Xcode project name"
     required: false
-    default: "ClaudeMeter"
+    default: "AgentUsage"
 
 runs:
   using: "composite"

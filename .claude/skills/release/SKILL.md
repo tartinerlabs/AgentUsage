@@ -1,12 +1,12 @@
 ---
 name: release
-description: Operate ClaudeMeter's manual release workflow. Use for dry runs, explicit unsigned or Developer ID publication, bump selection, or Sparkle appcast repair.
+description: Operate AgentUsage's manual release workflow. Use for dry runs, explicit unsigned or Developer ID publication, bump selection, or Sparkle appcast repair.
 allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 ---
 
 # Release Skill
 
-ClaudeMeter releases are explicitly triggered through `.github/workflows/release.yml`. A normal push to `main` runs CI only and never publishes a release.
+AgentUsage releases are explicitly triggered through `.github/workflows/release.yml`. A normal push to `main` runs CI only and never publishes a release.
 
 ## Safety model
 
@@ -107,6 +107,6 @@ gh run list --workflow release.yml --limit 5
 gh run watch
 ```
 
-For a successful publish, verify the GitHub release, its `ClaudeMeter.zip` asset, signature mode, and the live feed at `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml`. Gatekeeper rejection is expected only for `publish-unsigned`.
+For a successful publish, verify the GitHub release, its `AgentUsage.zip` asset, signature mode, and the live feed at `https://tartinerlabs.github.io/AgentUsage/appcast.xml`. Gatekeeper rejection is expected only for `publish-unsigned`.
 
 See `RELEASING.md` for credential setup and beginner-oriented explanations.

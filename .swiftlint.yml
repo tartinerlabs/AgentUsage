@@ -1,23 +1,23 @@
-# SwiftLint configuration for ClaudeMeter
+# SwiftLint configuration for AgentUsage
 # https://github.com/realm/SwiftLint
 
 # Paths to include
 included:
-  - ClaudeMeter
-  - ClaudeMeter-iOS
-  - ClaudeMeterWidgets
-  - ClaudeMeterKit/Sources
-  - ClaudeMeterTests
-  - ClaudeMeter-iOSTests
+  - AgentUsage
+  - AgentUsage-iOS
+  - AgentUsageWidgets
+  - AgentUsageKit/Sources
+  - AgentUsageTests
+  - AgentUsage-iOSTests
 
 # Paths to exclude
 excluded:
   - build
   - .build
   - DerivedData
-  - ClaudeMeterKit/.build
-  - ClaudeMeterUITests
-  - ClaudeMeter-iOSUITests
+  - AgentUsageKit/.build
+  - AgentUsageUITests
+  - AgentUsage-iOSUITests
 
 # Rules to disable (conflict with SwiftUI patterns)
 disabled_rules:

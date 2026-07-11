@@ -63,7 +63,7 @@ if SIGNED_RELEASES_ENABLED=true UNSIGNED_RELEASES_ENABLED=true OPERATION=unknown
 fi
 
 repair="$repo_root/.github/scripts/release/prepare-appcast-repair.sh"
-if TAG=v01.2.3 APP_NAME=ClaudeMeter GH_TOKEN=test RUNNER_TEMP="${TMPDIR:-/tmp}" GITHUB_OUTPUT=/dev/null \
+if TAG=v01.2.3 APP_NAME=AgentUsage GH_TOKEN=test RUNNER_TEMP="${TMPDIR:-/tmp}" GITHUB_OUTPUT=/dev/null \
   "$repair" >/dev/null 2>&1; then
   echo "FAIL: repair accepted a non-semver tag" >&2
   exit 1
