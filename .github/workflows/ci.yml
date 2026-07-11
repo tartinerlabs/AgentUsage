@@ -27,8 +27,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Test ClaudeMeterKit package
-        run: swift test --package-path ClaudeMeterKit
+      - name: Test AgentUsageKit package
+        run: swift test --package-path AgentUsageKit
 
       - name: Test release tooling
         run: |
@@ -38,8 +38,8 @@ jobs:
 
       - name: Build macOS app
         run: |
-          xcodebuild -project ClaudeMeter.xcodeproj \
-            -scheme ClaudeMeter \
+          xcodebuild -project AgentUsage.xcodeproj \
+            -scheme AgentUsage \
             -configuration Debug \
             -derivedDataPath build/DerivedData \
             build \
@@ -48,8 +48,8 @@ jobs:
 
       - name: Test macOS app
         run: |
-          xcodebuild -project ClaudeMeter.xcodeproj \
-            -scheme ClaudeMeter \
+          xcodebuild -project AgentUsage.xcodeproj \
+            -scheme AgentUsage \
             -configuration Debug \
             -derivedDataPath build/DerivedData \
             test \
@@ -66,8 +66,8 @@ jobs:
 #
 #     - name: Build iOS app
   #       run: |
-  #         xcodebuild -project ClaudeMeter.xcodeproj \
-  #           -scheme ClaudeMeter-iOS \
+  #         xcodebuild -project AgentUsage.xcodeproj \
+  #           -scheme AgentUsage-iOS \
   #           -configuration Debug \
   #           -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   #           -derivedDataPath build/DerivedData \
@@ -77,8 +77,8 @@ jobs:
   #
   #     - name: Build widgets
   #       run: |
-  #         xcodebuild -project ClaudeMeter.xcodeproj \
-  #           -scheme ClaudeMeterWidgetsExtension \
+  #         xcodebuild -project AgentUsage.xcodeproj \
+  #           -scheme AgentUsageWidgetsExtension \
   #           -configuration Debug \
   #           -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   #           -derivedDataPath build/DerivedData \

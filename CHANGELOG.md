@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to ClaudeMeter will be documented in this file.
+All notable changes to AgentUsage will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.21.0] - 2026-07-08
 
-- Add allWindowsExpired tests to ClaudeMeterKit
+- Add allWindowsExpired tests to AgentUsageKit
 
 ## [0.20.0] - 2026-07-08
 
@@ -168,7 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.14.0] - 2026-06-08
 
 ### Added
-- Per-provider service outage detection. When a provider's usage fetch fails with an HTTP 5xx / service-unavailable error, ClaudeMeter now tracks an outage and shows a "Service down" indicator on that provider's card (menu bar popover) and a banner on its detail page (menu bar + Dashboard), while continuing to show cached data. Covers Claude, Codex, and OpenCode; the indicator clears automatically on the next successful fetch.
+- Per-provider service outage detection. When a provider's usage fetch fails with an HTTP 5xx / service-unavailable error, AgentUsage now tracks an outage and shows a "Service down" indicator on that provider's card (menu bar popover) and a banner on its detail page (menu bar + Dashboard), while continuing to show cached data. Covers Claude, Codex, and OpenCode; the indicator clears automatically on the next successful fetch.
 
 ### Fixed
 - OpenCode Go dashboard usage windows never parsed due to a malformed regex (raw-string delimiter bug), so OpenCode rate-limit windows were always missing. The parser now extracts rolling/weekly/monthly usage correctly.
@@ -182,7 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.13.4] - 2026-06-07
 
 ### Fixed
-- Stop a recurring macOS keychain authorization prompt on launch. The app no longer writes a copy of the Claude credentials into its own keychain on every refresh — that write was unused (macOS reads the token directly from Claude Code via the `security` CLI, and iCloud sync is not enabled) and was the source of the repeated "ClaudeMeter wants to use your confidential information" dialog.
+- Stop a recurring macOS keychain authorization prompt on launch. The app no longer writes a copy of the Claude credentials into its own keychain on every refresh — that write was unused (macOS reads the token directly from Claude Code via the `security` CLI, and iCloud sync is not enabled) and was the source of the repeated "AgentUsage wants to use your confidential information" dialog.
 
 ## [0.13.3] - 2026-06-07
 
@@ -330,14 +330,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Service protocols for dependency injection and improved testability
 - DependencyContainer for centralized service creation
 - TokenRefreshService for automatic OAuth token refresh
-- Shared utilities in ClaudeMeterKit (DateFormatters, UsageCalculations, WidgetDataStorage)
+- Shared utilities in AgentUsageKit (DateFormatters, UsageCalculations, WidgetDataStorage)
 - Mock implementations for unit testing (MockAPIService, MockCredentialProvider, MockNotificationService)
 - Comprehensive unit tests for utilities and edge cases (16+ new tests)
 - Human-readable keychain error messages for better debugging
 
 ### Changed
 - Refactor architecture with protocol-based services
-- Consolidate duplicated code into ClaudeMeterKit package
+- Consolidate duplicated code into AgentUsageKit package
 - Extract RefreshScheduler and MenuBarSettingsManager from UsageViewModel
 - Unified WidgetDataManager between app and widget extension
 
@@ -387,11 +387,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Token usage persistence with SwiftData for faster startup and historical tracking (macOS)
-- ClaudeMeterKit Swift Package for shared models across macOS, iOS, and widgets
+- AgentUsageKit Swift Package for shared models across macOS, iOS, and widgets
 
 ### Changed
 - Bump iOS deployment target to iOS 18.0
-- Refactor usage data models into shared ClaudeMeterKit package
+- Refactor usage data models into shared AgentUsageKit package
 
 ### Fixed
 - Pin GitHub Action to commit hash for improved CI security
@@ -418,7 +418,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0] - 2026-01-04
 
 ### Added
-- Launch at Login option in Settings to start ClaudeMeter automatically on login
+- Launch at Login option in Settings to start AgentUsage automatically on login
 
 ### Changed
 - Load usage stats immediately on app launch instead of waiting for menu bar click
@@ -525,83 +525,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.26.1...HEAD
-[0.26.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.26.0...v0.26.1
-[0.26.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.25.0...v0.26.0
-[0.25.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.24.0...v0.25.0
-[0.24.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.23.0...v0.24.0
-[0.23.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.22.0...v0.23.0
-[0.22.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.21.0...v0.22.0
-[0.21.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.20.0...v0.21.0
-[0.20.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.19.0...v0.20.0
-[0.19.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.18.0...v0.19.0
-[0.18.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.17.0...v0.18.0
-[0.17.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.16.0...v0.17.0
-[0.16.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.15.0...v0.16.0
-[0.15.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.20...v0.15.0
-[0.14.20]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.19...v0.14.20
-[0.14.19]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.18...v0.14.19
-[0.14.18]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.17...v0.14.18
-[0.14.17]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.16...v0.14.17
-[0.14.16]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.15...v0.14.16
-[0.14.15]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.14...v0.14.15
-[0.14.14]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.13...v0.14.14
-[0.14.13]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.12...v0.14.13
-[0.14.12]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.11...v0.14.12
-[0.14.11]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.10...v0.14.11
-[0.14.10]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.9...v0.14.10
-[0.14.9]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.8...v0.14.9
-[0.14.8]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.7...v0.14.8
-[0.14.7]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.6...v0.14.7
-[0.14.6]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.5...v0.14.6
-[0.14.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.4...v0.14.5
-[0.14.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.3...v0.14.4
-[0.14.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.2...v0.14.3
-[0.14.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.1...v0.14.2
-[0.14.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.14.0...v0.14.1
-[0.14.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.5...v0.14.0
-[0.13.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.4...v0.13.5
-[0.13.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.3...v0.13.4
-[0.13.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.2...v0.13.3
-[0.13.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.1...v0.13.2
-[0.13.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.13.0...v0.13.1
-[0.13.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.2...v0.13.0
-[0.12.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.1...v0.12.2
-[0.12.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.12.0...v0.12.1
-[0.12.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.11.0...v0.12.0
-[0.11.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.9...v0.11.0
-[0.10.9]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.8...v0.10.9
-[0.10.8]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.7...v0.10.8
-[0.10.7]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.6...v0.10.7
-[0.10.6]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.5...v0.10.6
-[0.10.5]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.4...v0.10.5
-[0.10.4]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.3...v0.10.4
-[0.10.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.2...v0.10.3
-[0.10.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.1...v0.10.2
-[0.10.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.10.0...v0.10.1
-[0.10.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.3...v0.10.0
-[0.9.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.2...v0.9.3
-[0.9.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.1...v0.9.2
-[0.9.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.9.0...v0.9.1
-[0.9.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.3...v0.9.0
-[0.8.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.2...v0.8.3
-[0.8.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.1...v0.8.2
-[0.8.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.8.0...v0.8.1
-[0.8.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.7.1...v0.8.0
-[0.7.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.7.0...v0.7.1
-[0.7.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.3...v0.7.0
-[0.6.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.2...v0.6.3
-[0.6.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.2...v0.6.0
-[0.5.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.1...v0.5.2
-[0.5.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.3...v0.3.0
-[0.2.3]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.2...v0.2.3
-[0.2.2]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.1.1...v0.2.0
-[0.1.1]: https://github.com/tartinerlabs/ClaudeMeter/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/tartinerlabs/ClaudeMeter/releases/tag/v0.1.0
+[Unreleased]: https://github.com/tartinerlabs/AgentUsage/compare/v0.26.1...HEAD
+[0.26.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.26.0...v0.26.1
+[0.26.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.25.0...v0.26.0
+[0.25.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.24.0...v0.25.0
+[0.24.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.23.0...v0.24.0
+[0.23.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.22.0...v0.23.0
+[0.22.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.21.0...v0.22.0
+[0.21.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.19.0...v0.20.0
+[0.19.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.16.0...v0.17.0
+[0.16.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.20...v0.15.0
+[0.14.20]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.19...v0.14.20
+[0.14.19]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.18...v0.14.19
+[0.14.18]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.17...v0.14.18
+[0.14.17]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.16...v0.14.17
+[0.14.16]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.15...v0.14.16
+[0.14.15]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.14...v0.14.15
+[0.14.14]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.13...v0.14.14
+[0.14.13]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.12...v0.14.13
+[0.14.12]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.11...v0.14.12
+[0.14.11]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.10...v0.14.11
+[0.14.10]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.9...v0.14.10
+[0.14.9]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.8...v0.14.9
+[0.14.8]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.7...v0.14.8
+[0.14.7]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.6...v0.14.7
+[0.14.6]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.5...v0.14.6
+[0.14.5]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.4...v0.14.5
+[0.14.4]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.3...v0.14.4
+[0.14.3]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.2...v0.14.3
+[0.14.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.1...v0.14.2
+[0.14.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.14.0...v0.14.1
+[0.14.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.13.5...v0.14.0
+[0.13.5]: https://github.com/tartinerlabs/AgentUsage/compare/v0.13.4...v0.13.5
+[0.13.4]: https://github.com/tartinerlabs/AgentUsage/compare/v0.13.3...v0.13.4
+[0.13.3]: https://github.com/tartinerlabs/AgentUsage/compare/v0.13.2...v0.13.3
+[0.13.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.13.1...v0.13.2
+[0.13.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.13.0...v0.13.1
+[0.13.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.12.2...v0.13.0
+[0.12.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.12.1...v0.12.2
+[0.12.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.12.0...v0.12.1
+[0.12.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.9...v0.11.0
+[0.10.9]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.8...v0.10.9
+[0.10.8]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.7...v0.10.8
+[0.10.7]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.6...v0.10.7
+[0.10.6]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.5...v0.10.6
+[0.10.5]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.4...v0.10.5
+[0.10.4]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.3...v0.10.4
+[0.10.3]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.2...v0.10.3
+[0.10.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.1...v0.10.2
+[0.10.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.9.3...v0.10.0
+[0.9.3]: https://github.com/tartinerlabs/AgentUsage/compare/v0.9.2...v0.9.3
+[0.9.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.8.3...v0.9.0
+[0.8.3]: https://github.com/tartinerlabs/AgentUsage/compare/v0.8.2...v0.8.3
+[0.8.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.7.1...v0.8.0
+[0.7.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.6.3...v0.7.0
+[0.6.3]: https://github.com/tartinerlabs/AgentUsage/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.2.3...v0.3.0
+[0.2.3]: https://github.com/tartinerlabs/AgentUsage/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/tartinerlabs/AgentUsage/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/tartinerlabs/AgentUsage/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/tartinerlabs/AgentUsage/releases/tag/v0.1.0

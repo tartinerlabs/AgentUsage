@@ -1,4 +1,4 @@
-# ClaudeMeter
+# AgentUsage
 
 A multi-platform app (macOS + iOS) that monitors your Claude Code API usage in real-time.
 
@@ -44,11 +44,11 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 ## Installation
 
 **macOS:**
-1. Download `ClaudeMeter.zip` from [Releases](https://github.com/tartinerlabs/ClaudeMeter/releases)
-2. Move `ClaudeMeter.app` to Applications
-3. Open ClaudeMeter. Because current releases are ad-hoc signed, macOS will initially block the app as coming from an unidentified developer.
-4. Open **System Settings → Privacy & Security**, scroll to the security message for ClaudeMeter, click **Open Anyway**, then confirm **Open**. See [Apple's guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
-5. ClaudeMeter appears in the menu bar.
+1. Download `AgentUsage.zip` from [Releases](https://github.com/tartinerlabs/AgentUsage/releases)
+2. Move `AgentUsage.app` to Applications
+3. Open AgentUsage. Because current releases are ad-hoc signed, macOS will initially block the app as coming from an unidentified developer.
+4. Open **System Settings → Privacy & Security**, scroll to the security message for AgentUsage, click **Open Anyway**, then confirm **Open**. See [Apple's guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
+5. AgentUsage appears in the menu bar.
 
 **iOS:** Currently in development. Build from source (see below).
 
@@ -60,14 +60,14 @@ claude auth login
 
 **Building from Source:**
 ```bash
-git clone https://github.com/tartinerlabs/ClaudeMeter.git
-cd ClaudeMeter
-open ClaudeMeter.xcodeproj
-# Select scheme: ClaudeMeter (macOS), ClaudeMeter-iOS, or ClaudeMeterWidgetsExtension
+git clone https://github.com/tartinerlabs/AgentUsage.git
+cd AgentUsage
+open AgentUsage.xcodeproj
+# Select scheme: AgentUsage (macOS), AgentUsage-iOS, or AgentUsageWidgetsExtension
 # Press ⌘B to build, ⌘R to run
 
 # Or via command line:
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Release build
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Release build
 ```
 
 ## Usage
@@ -79,7 +79,7 @@ xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Rel
 
 **iOS:**
 - Dashboard tab shows usage stats
-- Add widgets: Long-press Home Screen → "+" → "ClaudeMeter"
+- Add widgets: Long-press Home Screen → "+" → "AgentUsage"
 - Lock Screen widget: Customize Lock Screen → widget area
 
 **Token Usage:**
@@ -114,7 +114,7 @@ MVVM with Swift Actors for thread safety, @Observable for reactive UI, and async
 
 **Unauthorized error:** Re-authenticate with `claude auth login`
 
-**App not in menu bar:** Check Activity Monitor for "ClaudeMeter" and restart if needed
+**App not in menu bar:** Check Activity Monitor for "AgentUsage" and restart if needed
 
 **macOS cannot verify the developer:** Follow the **Open Anyway** steps under Installation. Do not disable Gatekeeper globally.
 
@@ -122,12 +122,12 @@ MVVM with Swift Actors for thread safety, @Observable for reactive UI, and async
 
 ## Development
 
-**Structure:** ClaudeMeter/ (macOS), ClaudeMeter-iOS/, ClaudeMeterWidgets/, ClaudeMeterKit/ (shared package), with Models, Services, ViewModels, Views
+**Structure:** AgentUsage/ (macOS), AgentUsage-iOS/, AgentUsageWidgets/, AgentUsageKit/ (shared package), with Models, Services, ViewModels, Views
 
 **Build:**
 ```bash
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Release build
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter test
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Release build
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test
 ```
 
 ## Privacy & Security
@@ -142,10 +142,10 @@ No data collection or transmission. All processing is local. Reads credentials f
 
 **Data:** Anthropic OAuth API for rate limits, local JSONL logs for tokens, [Anthropic pricing](https://anthropic.com/pricing)
 
-**Releases:** Manually triggered through GitHub Actions. Current archives are ad-hoc code signed and Sparkle EdDSA signed; the Developer ID-signed and notarised path remains available for future use. See [RELEASING.md](RELEASING.md) and [releases](https://github.com/tartinerlabs/ClaudeMeter/releases).
+**Releases:** Manually triggered through GitHub Actions. Current archives are ad-hoc code signed and Sparkle EdDSA signed; the Developer ID-signed and notarised path remains available for future use. See [RELEASING.md](RELEASING.md) and [releases](https://github.com/tartinerlabs/AgentUsage/releases).
 
 ## Support
 
 This project is archived and no longer accepts support requests. Existing issues and releases remain available for reference.
 
-**Releases:** https://github.com/tartinerlabs/ClaudeMeter/releases
+**Releases:** https://github.com/tartinerlabs/AgentUsage/releases
