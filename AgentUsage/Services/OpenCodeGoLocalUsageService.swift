@@ -25,7 +25,7 @@ import SQLite3
 /// plan spend limit. This is an approximation of the exact percentages the
 /// authenticated dashboard reports, but requires no credentials.
 actor OpenCodeGoLocalUsageService: ProviderUsageServiceProtocol {
-    nonisolated let provider: Provider = .openCode
+    nonisolated let provider: Provider = .openCodeGo
 
     /// OpenCode Go plan spend limits, in USD, per window. These track the plan and
     /// may need updating if OpenCode changes the Go tier's limits.
@@ -220,7 +220,7 @@ actor OpenCodeGoLocalUsageService: ProviderUsageServiceProtocol {
         ]
 
         return ProviderUsageSnapshot(
-            provider: .openCode,
+            provider: .openCodeGo,
             windows: windows,
             planName: "Go",
             fetchedAt: now

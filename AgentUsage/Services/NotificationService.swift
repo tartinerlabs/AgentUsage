@@ -75,7 +75,7 @@ actor NotificationService: NotificationServiceProtocol {
         // Check each usage window based on settings
         if currentSettings.notifySession {
             await checkWindow(
-                name: newSnapshot.session.windowType.displayName,
+                name: newSnapshot.session.displayName,
                 oldUsage: oldSnapshot?.session,
                 newUsage: newSnapshot.session,
                 settings: currentSettings
@@ -84,7 +84,7 @@ actor NotificationService: NotificationServiceProtocol {
 
         if currentSettings.notifyOpus {
             await checkWindow(
-                name: newSnapshot.opus.windowType.displayName,
+                name: newSnapshot.opus.displayName,
                 oldUsage: oldSnapshot?.opus,
                 newUsage: newSnapshot.opus,
                 settings: currentSettings
@@ -93,7 +93,7 @@ actor NotificationService: NotificationServiceProtocol {
 
         if let newSonnet = newSnapshot.sonnet, currentSettings.notifySonnet {
             await checkWindow(
-                name: newSonnet.windowType.displayName,
+                name: newSonnet.displayName,
                 oldUsage: oldSnapshot?.sonnet,
                 newUsage: newSonnet,
                 settings: currentSettings
@@ -102,7 +102,7 @@ actor NotificationService: NotificationServiceProtocol {
 
         if let newDesign = newSnapshot.design, currentSettings.notifyDesign {
             await checkWindow(
-                name: newDesign.windowType.displayName,
+                name: newDesign.displayName,
                 oldUsage: oldSnapshot?.design,
                 newUsage: newDesign,
                 settings: currentSettings
@@ -111,7 +111,7 @@ actor NotificationService: NotificationServiceProtocol {
 
         if let newFable = newSnapshot.fable, currentSettings.notifyFable {
             await checkWindow(
-                name: newFable.windowType.displayName,
+                name: newFable.displayName,
                 oldUsage: oldSnapshot?.fable,
                 newUsage: newFable,
                 settings: currentSettings
@@ -252,6 +252,8 @@ actor NotificationService: NotificationServiceProtocol {
             windowDescription = "weekly"
         case .openCodeGoMonthly:
             windowDescription = "monthly"
+        case .custom:
+            windowDescription = usage.displayName.lowercased()
         }
 
         if threshold == 100 {

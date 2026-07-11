@@ -37,7 +37,7 @@ struct ProviderDetailView: View {
             if !windows.isEmpty {
                 VStack(spacing: 14) {
                     ForEach(Array(windows.enumerated()), id: \.offset) { _, window in
-                        UsageRowView(title: window.windowType.displayName, usage: window, now: now, showStatusDot: true)
+                        UsageRowView(title: window.displayName, usage: window, now: now, showStatusDot: true)
                     }
                 }
             }
@@ -225,7 +225,7 @@ struct ProviderDetailView: View {
             return [("Status", Constants.anthropicStatusURL), ("Usage", Constants.anthropicConsoleURL)]
         case .codex:
             return [("Status", Constants.openaiStatusURL), ("Usage", Constants.openaiPlatformURL)]
-        case .openCode:
+        case .openCode, .openCodeGo:
             return []
         }
     }
