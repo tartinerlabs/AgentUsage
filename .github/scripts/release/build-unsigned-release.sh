@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-: "${APP_NAME:=ClaudeMeter}"
-: "${SCHEME:=ClaudeMeter}"
+: "${APP_NAME:=AgentUsage}"
+: "${SCHEME:=AgentUsage}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 
 ARCHIVE_PATH="build/$APP_NAME.xcarchive"

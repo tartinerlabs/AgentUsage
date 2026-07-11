@@ -3,7 +3,7 @@
 set -euo pipefail
 
 : "${TAG:?TAG is required}"
-: "${APP_NAME:=ClaudeMeter}"
+: "${APP_NAME:=AgentUsage}"
 : "${GH_TOKEN:?GH_TOKEN is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 : "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"

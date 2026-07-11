@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Design System
 
-`DESIGN.md` is the source of truth for ClaudeMeter's SwiftUI visual system. When
+`DESIGN.md` is the source of truth for AgentUsage's SwiftUI visual system. When
 changing SwiftUI views, widgets, menu bar UI, or Live Activities, consult it and
 preserve its color, typography, spacing, material, icon, and status-system
 rules.
@@ -14,47 +14,47 @@ rules.
 Multi-platform SwiftUI app (macOS + iOS) built with Xcode (no npm/yarn/package managers).
 
 **Available schemes:**
-- `ClaudeMeter` - macOS menu bar app
-- `ClaudeMeter-iOS` - iOS app with Dashboard
-- `ClaudeMeterWidgetsExtension` - iOS Widgets and Live Activities
-- `ClaudeMeterKit` - Shared Swift Package (data models)
+- `AgentUsage` - macOS menu bar app
+- `AgentUsage-iOS` - iOS app with Dashboard
+- `AgentUsageWidgetsExtension` - iOS Widgets and Live Activities
+- `AgentUsageKit` - Shared Swift Package (data models)
 
 ```bash
 # Build macOS app
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Debug build
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug build
 
 # Build iOS app (iPhone 17 Pro)
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS -configuration Debug \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage-iOS -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 
 # Build iPadOS app (iPad Air 11-inch M3)
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS -configuration Debug \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage-iOS -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M3)' build
 
 # Build iOS widgets
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeterWidgetsExtension -configuration Debug \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsageWidgetsExtension -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 
 # Build for release (macOS)
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter -configuration Release build
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Release build
 
 # Run tests (macOS)
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter test
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test
 
 # Run tests (iOS - iPhone 17 Pro)
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage-iOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 
 # Run tests (iPadOS - iPad Air 11-inch M3)
-xcodebuild -project ClaudeMeter.xcodeproj -scheme ClaudeMeter-iOS \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage-iOS \
   -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M3)' test
 ```
 
-Or open `ClaudeMeter.xcodeproj` in Xcode: ⌘B to build, ⌘R to run.
+Or open `AgentUsage.xcodeproj` in Xcode: ⌘B to build, ⌘R to run.
 
-## ClaudeMeterKit (Shared Package)
+## AgentUsageKit (Shared Package)
 
-**Location:** `ClaudeMeterKit/` - Swift Package for cross-platform shared code
+**Location:** `AgentUsageKit/` - Swift Package for cross-platform shared code
 
 **Purpose:** Provides shared data models and utilities used across macOS app, iOS app, and widget extensions. Eliminates code duplication and ensures consistency.
 
@@ -64,12 +64,12 @@ Or open `ClaudeMeter.xcodeproj` in Xcode: ⌘B to build, ⌘R to run.
 
 **Package Structure:**
 ```
-ClaudeMeterKit/
+AgentUsageKit/
 ├── Package.swift          # Swift Package manifest
-├── Sources/ClaudeMeterKit/
+├── Sources/AgentUsageKit/
 │   └── Models/
 │       └── UsageData.swift  # Shared usage models (UsageSnapshot, UsageWindow, etc.)
-└── Tests/ClaudeMeterKitTests/
+└── Tests/AgentUsageKitTests/
 ```
 
 **Shared Models:**
@@ -80,7 +80,7 @@ ClaudeMeterKit/
 | `UsageWindowType` | Enum for window types (`.session`, `.opus`, `.sonnet`) with display names and durations |
 | `UsageStatus` | Usage status enum (`.onTrack`, `.warning`, `.critical`) with colors and icons |
 
-**Integration:** Imported via `import ClaudeMeterKit` in app targets, widgets, and extensions. Xcode automatically links the package.
+**Integration:** Imported via `import AgentUsageKit` in app targets, widgets, and extensions. Xcode automatically links the package.
 
 ## Architecture
 
@@ -88,7 +88,7 @@ MVVM with Swift Actors for thread safety. Multi-platform architecture with share
 
 **macOS:**
 ```
-ClaudeMeterApp (@main) + SwiftData ModelContainer
+AgentUsageApp (@main) + SwiftData ModelContainer
     ↓
 MenuBarExtra + MainWindow (TabView: Dashboard, Settings, About)
     ↓ (.environment injection)
@@ -98,12 +98,12 @@ MacOSCredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageServic
     +  TokenUsageRepository (@ModelActor)  +  NotificationService (actor)
     +  LaunchAtLoginService  +  Sparkle
     ↓ (imports)
-ClaudeMeterKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
+AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
 
 **iOS:**
 ```
-ClaudeMeter_iOSApp (@main)
+AgentUsage_iOSApp (@main)
     ↓
 MainTabView (TabView: Dashboard, Settings, About)
     ↓ (.environment injection)
@@ -112,18 +112,18 @@ UsageViewModel (@Observable, @MainActor)
 iOSCredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (actor)
     +  LiveActivityManager  +  WidgetDataManager
     ↓ (imports)
-ClaudeMeterKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
+AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
 
 **Widgets:**
 ```
-ClaudeMeterWidgetsBundle
+AgentUsageWidgetsBundle
     ↓
 Home Screen Widgets (Small, Medium, Large) + Lock Screen Widget + Live Activity
     ↓
 TimelineProvider  +  Shared WidgetDataManager
     ↓ (imports)
-ClaudeMeterKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
+AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
 
 ### Key Components
@@ -144,7 +144,7 @@ ClaudeMeterKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 
 ### Data Models
 
-**Shared Models (ClaudeMeterKit package):**
+**Shared Models (AgentUsageKit package):**
 
 | Model | Purpose |
 |-------|---------|
@@ -192,7 +192,7 @@ ClaudeMeterKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ### Data Persistence (macOS only)
 
 **SwiftData Integration:**
-- `ModelContainer` configured in `ClaudeMeterApp` for token usage persistence
+- `ModelContainer` configured in `AgentUsageApp` for token usage persistence
 - `@Model` classes: `TokenLogEntry` and `ImportedFile` for tracking parsed JSONL logs
 - `@ModelActor` (`TokenUsageQuerier`) for non-blocking background queries
 - Automatic deduplication via `@Attribute(.unique)` on composite ID
@@ -284,7 +284,7 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 The macOS app uses [Sparkle](https://sparkle-project.org/) framework for automatic updates:
 
 - **UpdaterController**: Wrapper around `SPUStandardUpdaterController` for SwiftUI integration
-- **Feed URL**: `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml` (in Info.plist) — served from GitHub Pages off the `gh-pages` branch. Moved off `raw.githubusercontent.com`, which structurally rate-limited (HTTP 429) the constantly-polled feed. The feed is **accumulating**: each release prepends its `<item>` to the existing feed, so it carries the full version history (Sparkle shows past "What's New" notes).
+- **Feed URL**: `https://tartinerlabs.github.io/AgentUsage/appcast.xml` (in Info.plist) — served from GitHub Pages off the `gh-pages` branch. Moved off `raw.githubusercontent.com`, which structurally rate-limited (HTTP 429) the constantly-polled feed. The feed is **accumulating**: each release prepends its `<item>` to the existing feed, so it carries the full version history (Sparkle shows past "What's New" notes).
 - **Public Key**: EdDSA public key in Info.plist for signature verification
 - **Check for Updates**: Manual check button in Settings view, disabled when update check is already in progress
 - **Auto-check**: Sparkle automatically checks based on user preferences

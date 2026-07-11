@@ -28,11 +28,11 @@ inputs:
   app-name:
     description: "Application and archive base name"
     required: false
-    default: "ClaudeMeter"
+    default: "AgentUsage"
   archive-path:
     description: "Path to the signed release archive"
     required: false
-    default: "build/ClaudeMeter.zip"
+    default: "build/AgentUsage.zip"
 
 runs:
   using: "composite"

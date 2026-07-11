@@ -15,7 +15,7 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 
 ## Design System
 
-`DESIGN.md` is the source of truth for ClaudeMeter's SwiftUI visual system. When
+`DESIGN.md` is the source of truth for AgentUsage's SwiftUI visual system. When
 changing SwiftUI views, widgets, menu bar UI, or Live Activities, consult it and
 preserve its color, typography, spacing, material, icon, and status-system
 rules.

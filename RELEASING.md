@@ -1,11 +1,11 @@
-# Releasing ClaudeMeter
+# Releasing AgentUsage
 
-ClaudeMeter uses a manually triggered GitHub Actions workflow. “Manual” only
+AgentUsage uses a manually triggered GitHub Actions workflow. “Manual” only
 means a person chooses when a release starts; the workflow still handles the
 version, tests, signing, notarization, packaging, Sparkle feed, tag, and GitHub
 release.
 
-ClaudeMeter currently publishes explicitly selected ad-hoc-signed releases
+AgentUsage currently publishes explicitly selected ad-hoc-signed releases
 because the project does not have paid Apple Developer Program membership.
 The Developer ID-signed and notarized path remains available for future use.
 The committed `0.26.0` build `79` is the next release candidate.
@@ -24,7 +24,7 @@ The committed `0.26.0` build `79` is the next release candidate.
 - **Sparkle** signs the ZIP with a separate EdDSA key and maintains
   `appcast.xml`, which tells installed copies that an update exists.
 - **GitHub Pages** serves the appcast at
-  `https://tartinerlabs.github.io/ClaudeMeter/appcast.xml`.
+  `https://tartinerlabs.github.io/AgentUsage/appcast.xml`.
 
 Developer ID and Sparkle signatures solve different problems. Sparkle's EdDSA
 signature authenticates updates delivered to existing users. Developer ID and
@@ -58,7 +58,7 @@ repository-level `SPARKLE_PRIVATE_KEY` secret must remain configured:
 
 ```bash
 gh variable set UNSIGNED_RELEASES_ENABLED --env release --body true
-gh secret list --repo tartinerlabs/ClaudeMeter
+gh secret list --repo tartinerlabs/AgentUsage
 ```
 
 Do not print, rotate, or duplicate the existing Sparkle private key merely to
@@ -84,8 +84,8 @@ publishes the feed, and deploys Pages.
 
 An ad-hoc signature is not a Developer ID identity, and the archive is not
 notarized. On first launch, macOS blocks the app as coming from an unidentified
-developer. Users should attempt to open ClaudeMeter once, then open **System
-Settings → Privacy & Security**, click **Open Anyway** for ClaudeMeter, and
+developer. Users should attempt to open AgentUsage once, then open **System
+Settings → Privacy & Security**, click **Open Anyway** for AgentUsage, and
 confirm **Open**. Do not instruct users to disable Gatekeeper globally. See
 [Apple's current guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
 

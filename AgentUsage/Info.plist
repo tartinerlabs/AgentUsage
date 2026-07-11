@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LSUIElement</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>14400</integer>
+	<key>SUFeedURL</key>
+	<string>https://tartinerlabs.github.io/AgentUsage/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>pX1LB6RuvVq8WZPQv181rs1Aq0eoR0w/87lMlf4xg/s=</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.tartinerlabs.AgentUsage.oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>agentusage</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

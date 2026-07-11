@@ -10,11 +10,11 @@ Developers who use Claude Code, Codex, and other coding agents throughout the da
 
 ## Product Purpose
 
-ClaudeMeter is a local-first usage weather station for AI coding tools. It turns provider quota windows, reset timing, token activity, and estimated cost into an accurate at-a-glance view so developers can pace work and avoid unexpected limits.
+AgentUsage is a local-first usage weather station for AI coding tools. It turns provider quota windows, reset timing, token activity, and estimated cost into an accurate at-a-glance view so developers can pace work and avoid unexpected limits.
 
 ## Brand Personality
 
-Calm, native, precise. ClaudeMeter should feel like a trustworthy macOS utility that stays quiet until its data needs attention.
+Calm, native, precise. AgentUsage should feel like a trustworthy macOS utility that stays quiet until its data needs attention.
 
 ## Anti-references
 

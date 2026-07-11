@@ -1,7 +1,7 @@
 ---
 version: alpha
-name: ClaudeMeter
-description: Visual identity for ClaudeMeter — a multi-platform SwiftUI usage "weather station" (macOS menu bar + iOS + widgets) for Claude/Codex/opencode usage.
+name: AgentUsage
+description: Visual identity for AgentUsage — a multi-platform SwiftUI usage "weather station" (macOS menu bar + iOS + widgets) for Claude/Codex/opencode usage.
 
 colors:
   # Brand — defined in code, not in Assets.xcassets. See Utilities/Constants.swift:13-17
@@ -102,25 +102,25 @@ components:
     size: "60px"
 ---
 
-# ClaudeMeter Design System
+# AgentUsage Design System
 
 ## Overview
 
-ClaudeMeter is a **usage "weather station"**: at a glance, a color tells you whether your
+AgentUsage is a **usage "weather station"**: at a glance, a color tells you whether your
 Claude/Codex/opencode usage is on-track (green), warming up (orange), or about to hit the wall
 (red). The identity is calm and utilitarian — a menu-bar glyph and a stack of quiet cards, with
 color and a single accent doing all the signalling. Nothing shouts until it needs to.
 
 **This is a SwiftUI system, documented in the DESIGN.md format.** The
 [DESIGN.md spec](https://github.com/google-labs-code/design.md) is web/CSS-oriented
-(px, hex, `fontFamily`). ClaudeMeter is native SwiftUI across macOS, iOS, and WidgetKit, so this
+(px, hex, `fontFamily`). AgentUsage is native SwiftUI across macOS, iOS, and WidgetKit, so this
 file adapts the format: colors stay as hex (they are CSS-valid and lint cleanly), spacing and
 radii are **points**, and typography/iconography use **SF Pro Dynamic Type styles** and **SF
 Symbol names** rather than web font stacks. Read `font`/`design`/`style` values as SwiftUI
 `Font` parameters, not CSS.
 
 All brand colors live in Swift code (`Utilities/Constants.swift`,
-`ClaudeMeterKit/Sources/ClaudeMeterKit/Models/`), not in `Assets.xcassets` — the accent-color
+`AgentUsageKit/Sources/AgentUsageKit/Models/`), not in `Assets.xcassets` — the accent-color
 asset sets are intentionally left at system default.
 
 ## Colors
@@ -139,7 +139,7 @@ Three families, each with a distinct job:
 - **Extra-usage accent (Dusty Plum `#8B5E83`).** The single non-brand, non-status accent,
   reserved **exclusively** for over-limit / billed usage indicators. Its scarcity is what makes
   it meaningful — do not reuse it for decoration. Mirrored publicly as
-  `extraUsageAccentColor` in ClaudeMeterKit so widgets can reference it.
+  `extraUsageAccentColor` in AgentUsageKit so widgets can reference it.
 
 > **Known duplication:** `brand-secondary` `#DA7756` and `provider-claude` `#D97757` are two
 > nearly-identical clay tones that coexist. Treat `provider-claude` as authoritative for Claude
@@ -221,7 +221,7 @@ and VoiceOver description communicate usage without squeezing severity decoratio
 
 ## Status System
 
-`UsageStatus` (`ClaudeMeterKit/.../UsageData.swift`) has three cases, each pairing a color, an SF
+`UsageStatus` (`AgentUsageKit/.../UsageData.swift`) has three cases, each pairing a color, an SF
 Symbol, and a label:
 
 | Status | Color | SF Symbol | Label |
