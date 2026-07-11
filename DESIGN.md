@@ -4,7 +4,15 @@ name: AgentUsage
 description: Visual identity for AgentUsage — a multi-platform SwiftUI usage "weather station" (macOS menu bar + iOS + widgets) for Claude/Codex/opencode usage.
 
 colors:
-  # Brand — defined in code, not in Assets.xcassets. See Utilities/Constants.swift:13-17
+  # Provider-neutral identity — approved app-icon color anchors.
+  # These sample the dimensional artwork; they are not instructions to flatten its gradients.
+  icon-pacific-blue: "#7197D4"  # upper timefold surface
+  icon-graphite: "#373A41"      # lower timefold surface
+  icon-ice: "#F5F6F8"           # inner fold highlight
+  icon-background: "#FAF4EF"    # warm off-white app-icon field
+
+  # Application UI — defined in code, not in Assets.xcassets. See Utilities/Constants.swift:13-17
+  # This existing palette remains in scope for the interface until a separate recoloring project.
   primary: "#C15F3C"             # Crail — the app's primary brand color; usage progress-bar fill
   brand-secondary: "#DA7756"     # warm clay accent (near-duplicate of provider-claude)
   brand-background: "#F4F3EE"    # Pampas — light-mode neutral ground
@@ -111,6 +119,12 @@ Claude/Codex/opencode usage is on-track (green), warming up (orange), or about t
 (red). The identity is calm and utilitarian — a menu-bar glyph and a stack of quiet cards, with
 color and a single accent doing all the signalling. Nothing shouts until it needs to.
 
+The provider-neutral product mark is the **timefold**: one continuous interval folding through
+itself, with an open reset notch on the right. Its Pacific-blue upper surface and graphite lower
+surface represent measured usage over time without borrowing the identity of any provider. The
+mark is deliberately dimensional; its overlap, inner ice highlight, and restrained material
+depth are part of the identity rather than optional decoration.
+
 **This is a SwiftUI system, documented in the DESIGN.md format.** The
 [DESIGN.md spec](https://github.com/google-labs-code/design.md) is web/CSS-oriented
 (px, hex, `fontFamily`). AgentUsage is native SwiftUI across macOS, iOS, and WidgetKit, so this
@@ -119,17 +133,26 @@ radii are **points**, and typography/iconography use **SF Pro Dynamic Type style
 Symbol names** rather than web font stacks. Read `font`/`design`/`style` values as SwiftUI
 `Font` parameters, not CSS.
 
-All brand colors live in Swift code (`Utilities/Constants.swift`,
+Application UI colors live in Swift code (`Utilities/Constants.swift`,
 `AgentUsageKit/Sources/AgentUsageKit/Models/`), not in `Assets.xcassets` — the accent-color
-asset sets are intentionally left at system default.
+asset sets are intentionally left at system default. App-icon artwork lives separately under
+`Design/AppIcon/`; do not infer its production colors from the application accent tokens.
 
 ## Colors
 
-Three families, each with a distinct job:
+Five families, each with a distinct job:
 
-- **Brand (Crail + Pampas).** `primary` `#C15F3C` (Crail) is the usage progress-bar fill — the one
+- **Provider-neutral identity (Pacific blue + graphite + ice).** The approved timefold artwork
+  uses Pacific blue `#7197D4` as the upper-surface anchor, graphite `#373A41` as the lower-surface
+  anchor, and ice `#F5F6F8` for the inner highlight, on warm off-white `#FAF4EF`. These values are
+  representative points within dimensional gradients, not flat-fill replacements. They govern
+  the app icon and product-level identity, not usage severity or provider attribution.
+
+- **Application accent (Crail + Pampas).** `primary` `#C15F3C` (Crail) is the usage progress-bar fill — the one
   place the app's own warm clay appears prominently. `brand-background` `#F4F3EE` (Pampas) is the
-  light neutral ground. These are fixed sRGB values and do **not** adapt to dark mode.
+  light neutral ground. These existing interface colors remain until a separately scoped
+  application recoloring; they are not the app-icon palette. They are fixed sRGB values and do
+  **not** adapt to dark mode.
 - **Status (system-semantic).** On-track/warning/critical map to SwiftUI `.green` / `.orange` /
   `.red`. Because they are system colors, they adapt automatically to light/dark and
   accessibility settings. This is deliberate: usage severity must remain legible in every
@@ -144,6 +167,31 @@ Three families, each with a distinct job:
 > **Known duplication:** `brand-secondary` `#DA7756` and `provider-claude` `#D97757` are two
 > nearly-identical clay tones that coexist. Treat `provider-claude` as authoritative for Claude
 > provider UI; prefer consolidating if you touch both.
+
+## App Icon & Brand Mark
+
+`Design/AppIcon/approved-timefold-mockup.png` is the authoritative visual target. The timefold
+must read as a single continuous measured interval: a blue upper fold passes over a graphite
+lower fold, an ice-lit inner turn preserves the sense of material thickness, and the small open
+notch at the right suggests a reset boundary. Preserve this topology in every appearance.
+
+Production requirements:
+
+- Keep the mark provider-neutral. Do not add provider logos or colors, Claude-like sparks,
+  initials, robots, chat bubbles, code brackets, or model-specific motifs.
+- Do not use red, orange, or green status colors in the product mark. Those colors remain
+  reserved for live usage severity in the interface.
+- Do not flatten the mark. Preserve the overlapping surfaces, inner fold, restrained gradients,
+  edge highlights, and subtle depth visible in the approved mockup. Avoid text and excessive
+  detail.
+- A transparent source must keep all mark pixels fully opaque; only the exterior background may
+  be transparent. Background removal must not convert the blue or graphite surfaces into
+  semi-transparent pixels.
+- Icon Composer may add a subtle Liquid Glass treatment, with no more than four groups, but its
+  translucency or appearance processing must not materially wash out or recolor the approved
+  Pacific-blue and graphite anchors. Compare every export directly with the approved mockup.
+- Validate Default, Dark, Mono, and iOS tinted appearances at 1024, 128, 32, and 16 points. At
+  small sizes, the outer loop, central opening, and reset notch must remain unmistakable.
 
 ## Typography
 
@@ -180,10 +228,12 @@ Opacity is a structural tool with fixed conventions:
 
 ## Elevation & Depth
 
-Depth comes from **material translucency, not shadows.** `.regularMaterial` is the standard card
+In application surfaces, depth comes from **material translucency, not shadows.** `.regularMaterial` is the standard card
 and panel background; `.bar` material appears in a few places. There are **no drop shadows and no
-gradients** anywhere in the app — layering reads through translucency and the subtle
-tinted-fill/border pairing on cards.
+gradients** in the interface — layering reads through translucency and the subtle
+tinted-fill/border pairing on cards. The dimensional timefold app icon is the deliberate
+exception: its gradients, edge highlights, inner fold, and restrained shadowing are required to
+communicate its layered form.
 
 ## Shapes
 
@@ -245,6 +295,8 @@ Provider glyphs: the compact menu-bar strip uses the official Claude spark and O
 unchanged monochrome template marks. Other surfaces retain Claude `sparkles`, Codex
 `chevron.left.forwardslash.chevron.right`, and opencode `curlybraces` until the broader
 provider-logo work is completed; those SF Symbols are also the menu-bar fallbacks.
+Provider marks are attribution inside provider-specific UI only; they must never become the
+AgentUsage app icon or product-level brand mark.
 
 ## Do's and Don'ts
 
