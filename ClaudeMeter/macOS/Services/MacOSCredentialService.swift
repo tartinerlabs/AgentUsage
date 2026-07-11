@@ -8,6 +8,21 @@ import Foundation
 import OSLog
 import Security
 
+enum ClaudeTokenRefreshPolicy {
+    nonisolated static func isEnabled(in defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: Constants.autoRefreshClaudeTokenKey)
+    }
+
+    nonisolated static func shouldAttemptRefresh(
+        for credentials: ClaudeOAuthCredentials,
+        defaults: UserDefaults
+    ) -> Bool {
+        isEnabled(in: defaults)
+            && credentials.refreshToken != nil
+            && (credentials.isExpired || credentials.isAboutToExpire)
+    }
+}
+
 /// macOS credential service that reads from Claude Code's Keychain entry
 /// via `/usr/bin/security` CLI (avoids repeated keychain access prompts).
 actor MacOSCredentialService: CredentialProvider {
@@ -19,12 +34,13 @@ actor MacOSCredentialService: CredentialProvider {
             throw CredentialError.missingScope
         }
 
-        // Refresh proactively (or on expiry) whenever we have a refresh token, so the
-        // app recovers on its own instead of waiting for the Claude CLI to rewrite the
-        // Keychain. Persisting the rotated token can race Claude Code's own refresh, so
-        // the write-back is best-effort (see refreshAndPersist).
+        // Refresh proactively (or on expiry) only when the user has opted in, since
+        // Anthropic rotates refresh tokens and writing back can race Claude Code.
         if credentials.isExpired || credentials.isAboutToExpire {
-            if let refreshToken = credentials.refreshToken {
+            if ClaudeTokenRefreshPolicy.shouldAttemptRefresh(
+                for: credentials,
+                defaults: .standard
+            ), let refreshToken = credentials.refreshToken {
                 do {
                     return try await refreshAndPersist(
                         current: credentials,
@@ -61,21 +77,14 @@ actor MacOSCredentialService: CredentialProvider {
         let newRefreshToken = tokens.refreshToken ?? refreshToken
         let newScopes = tokens.scopes ?? current.scopes
 
-        // Best-effort write-back: if persisting to the Keychain fails (e.g. a race with
-        // Claude Code's own refresh), still use the freshly refreshed token for this
-        // fetch. A later refresh — or the Claude CLI — will reconcile the Keychain.
-        do {
-            try writeBack(
-                rawData: rawData,
-                accessToken: tokens.accessToken,
-                refreshToken: newRefreshToken,
-                expiresAtMs: expiresAtMs,
-                scopes: newScopes
-            )
-            Logger.credentials.info("Refreshed and persisted Claude token")
-        } catch {
-            Logger.credentials.warning("Refreshed Claude token but Keychain write-back failed: \(error.localizedDescription)")
-        }
+        try writeBack(
+            rawData: rawData,
+            accessToken: tokens.accessToken,
+            refreshToken: newRefreshToken,
+            expiresAtMs: expiresAtMs,
+            scopes: newScopes
+        )
+        Logger.credentials.info("Refreshed and persisted Claude token")
 
         return ClaudeOAuthCredentials(
             accessToken: tokens.accessToken,

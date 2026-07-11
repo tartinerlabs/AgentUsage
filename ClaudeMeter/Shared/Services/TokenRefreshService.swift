@@ -10,9 +10,9 @@ import Foundation
 /// Refreshes Claude OAuth tokens against Anthropic's token endpoint, mirroring
 /// Claude Code's own flow (endpoint + client_id + scope from `Constants`).
 ///
-/// This only fetches new tokens; persisting them (and the best-effort keychain
-/// write-back that keeps Claude Code working, since refresh tokens rotate) is the
-/// caller's job — see `MacOSCredentialService`.
+/// This only fetches new tokens; persisting them (and the keychain write-back that
+/// keeps Claude Code working, since refresh tokens rotate) is the caller's job — see
+/// `MacOSCredentialService`. Gated behind the opt-in `autoRefreshClaudeTokenKey`.
 actor TokenRefreshService {
     static let shared = TokenRefreshService()
 
