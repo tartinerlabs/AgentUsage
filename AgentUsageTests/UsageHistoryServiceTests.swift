@@ -60,7 +60,10 @@ struct UsageHistoryServiceTests {
     }
 
     private func makeService(defaults: UserDefaults = .standard) throws -> UsageHistoryService {
-        let schema = Schema([DailyUsageRecordEntity.self])
+        let schema = Schema([
+            DailyUsageRecordEntity.self,
+            ProviderWindowDailyPeakEntity.self,
+        ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let repository = UsageHistoryRepository(modelContainer: container)

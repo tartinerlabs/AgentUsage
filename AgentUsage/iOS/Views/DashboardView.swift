@@ -201,7 +201,7 @@ struct DashboardView: View {
 
     @ViewBuilder
     private func usageCardsSection(snapshot: UsageSnapshot) -> some View {
-        UsageCardView(title: snapshot.session.windowType.displayName, usage: snapshot.session, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+        UsageCardView(title: snapshot.session.displayName, usage: snapshot.session, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
 
         // Weekly limits group
         VStack(alignment: .leading, spacing: 12) {
@@ -212,15 +212,15 @@ struct DashboardView: View {
                 .padding(.top, 4)
                 .accessibilityAddTraits(.isHeader)
 
-            UsageCardView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+            UsageCardView(title: snapshot.opus.displayName, usage: snapshot.opus, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             if let sonnet = snapshot.sonnet {
-                UsageCardView(title: sonnet.windowType.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+                UsageCardView(title: sonnet.displayName, usage: sonnet, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             }
             if let design = snapshot.design {
-                UsageCardView(title: design.windowType.displayName, usage: design, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+                UsageCardView(title: design.displayName, usage: design, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             }
             if let fable = snapshot.fable {
-                UsageCardView(title: fable.windowType.displayName, usage: fable, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
+                UsageCardView(title: fable.displayName, usage: fable, now: now, showExtraUsage: viewModel.showExtraUsageIndicators)
             }
         }
 

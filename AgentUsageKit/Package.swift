@@ -14,14 +14,32 @@ let package = Package(
             name: "AgentUsageKit",
             targets: ["AgentUsageKit"]
         ),
+        .library(
+            name: "AgentUsageProviderCore",
+            targets: ["AgentUsageProviderCore"]
+        ),
     ],
     targets: [
         .target(
             name: "AgentUsageKit"
         ),
+        .target(
+            name: "AgentUsageProviderCore",
+            dependencies: ["AgentUsageKit"],
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency")
+            ]
+        ),
         .testTarget(
             name: "AgentUsageKitTests",
             dependencies: ["AgentUsageKit"]
+        ),
+        .testTarget(
+            name: "AgentUsageProviderCoreTests",
+            dependencies: ["AgentUsageProviderCore", "AgentUsageKit"],
+            swiftSettings: [
+                .enableExperimentalFeature("SwiftTesting")
+            ]
         ),
     ]
 )

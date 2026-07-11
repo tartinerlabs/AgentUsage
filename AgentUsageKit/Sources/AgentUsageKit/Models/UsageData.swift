@@ -60,6 +60,8 @@ public enum UsageWindowType: String, Sendable, Codable {
     case openCodeGoFiveHour
     case openCodeGoWeekly
     case openCodeGoMonthly
+    /// Compatibility value for provider-defined windows unknown to older clients.
+    case custom
 
     public var displayName: String {
         switch self {
@@ -73,6 +75,7 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .openCodeGoFiveHour: "Rolling Usage"
         case .openCodeGoWeekly: "Weekly Usage"
         case .openCodeGoMonthly: "Monthly Usage"
+        case .custom: "Usage"
         }
     }
 
@@ -88,7 +91,30 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .openCodeGoFiveHour: 5 * 60 * 60
         case .openCodeGoWeekly: 7 * 24 * 60 * 60
         case .openCodeGoMonthly: 30 * 24 * 60 * 60
+        case .custom: 0
         }
+    }
+}
+
+/// Stable, provider-defined identifier for a rate-limit window.
+public struct UsageWindowID: RawRepresentable, Hashable, Codable, Sendable, ExpressibleByStringLiteral {
+    public let rawValue: String
+
+    public init(rawValue: String) {
+        self.rawValue = rawValue
+    }
+
+    public init(stringLiteral value: String) {
+        self.rawValue = value
+    }
+}
+
+/// Optional scope metadata for provider-defined windows.
+public struct UsageWindowScope: Hashable, Codable, Sendable {
+    public let model: String?
+
+    public init(model: String? = nil) {
+        self.model = model
     }
 }
 
@@ -97,12 +123,74 @@ public enum UsageWindowType: String, Sendable, Codable {
 public struct UsageWindow: Sendable, Codable {
     public let utilization: Double  // API returns percentage (0-100), not decimal (0-1)
     public let resetsAt: Date
+    public let windowID: UsageWindowID
+    public let displayName: String
+    public let totalDuration: TimeInterval
+    public let scope: UsageWindowScope?
+    /// Legacy compatibility for existing menu-pin and notification code.
     public let windowType: UsageWindowType
 
     public init(utilization: Double, resetsAt: Date, windowType: UsageWindowType) {
         self.utilization = utilization
         self.resetsAt = resetsAt
+        self.windowID = UsageWindowID(rawValue: windowType.rawValue)
+        self.displayName = windowType.displayName
+        self.totalDuration = windowType.totalDuration
+        self.scope = nil
         self.windowType = windowType
+    }
+
+    public init(
+        utilization: Double,
+        resetsAt: Date,
+        windowID: UsageWindowID,
+        displayName: String,
+        totalDuration: TimeInterval,
+        scope: UsageWindowScope? = nil
+    ) {
+        self.utilization = utilization
+        self.resetsAt = resetsAt
+        self.windowID = windowID
+        self.displayName = displayName
+        self.totalDuration = max(0, totalDuration)
+        self.scope = scope
+        self.windowType = UsageWindowType(rawValue: windowID.rawValue) ?? .custom
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case utilization
+        case resetsAt
+        case windowID
+        case displayName
+        case totalDuration
+        case scope
+        case windowType
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        utilization = try container.decode(Double.self, forKey: .utilization)
+        resetsAt = try container.decode(Date.self, forKey: .resetsAt)
+        let legacy = try container.decodeIfPresent(UsageWindowType.self, forKey: .windowType)
+        let decodedID = try container.decodeIfPresent(UsageWindowID.self, forKey: .windowID)
+        let resolvedID = decodedID ?? UsageWindowID(rawValue: legacy?.rawValue ?? UsageWindowType.custom.rawValue)
+        windowID = resolvedID
+        windowType = legacy ?? UsageWindowType(rawValue: resolvedID.rawValue) ?? .custom
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? windowType.displayName
+        totalDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .totalDuration)
+            ?? windowType.totalDuration
+        scope = try container.decodeIfPresent(UsageWindowScope.self, forKey: .scope)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(utilization, forKey: .utilization)
+        try container.encode(resetsAt, forKey: .resetsAt)
+        try container.encode(windowID, forKey: .windowID)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encode(totalDuration, forKey: .totalDuration)
+        try container.encodeIfPresent(scope, forKey: .scope)
+        try container.encode(windowType, forKey: .windowType)
     }
 
     public var percentUsed: Int {
@@ -173,7 +261,7 @@ public struct UsageWindow: Sendable, Codable {
         }
 
         // Then check pace relative to time elapsed
-        let totalDuration = windowType.totalDuration
+        guard totalDuration > 0 else { return .onTrack }
         let timeElapsed = totalDuration - timeRemaining
         let timeElapsedRatio = timeElapsed / totalDuration
 
@@ -221,7 +309,7 @@ public struct UsageWindow: Sendable, Codable {
         let timeRemaining = resetsAt.timeIntervalSinceNow
         guard timeRemaining > 0 else { return .stable }
 
-        let totalDuration = windowType.totalDuration
+        guard totalDuration > 0 else { return .stable }
         let timeElapsed = totalDuration - timeRemaining
         guard timeElapsed > 0 else { return .stable }
 

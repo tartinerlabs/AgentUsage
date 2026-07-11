@@ -24,7 +24,7 @@ struct OpenCodeGoLocalUsageServiceTests {
 
         let snapshot = OpenCodeGoLocalUsageService.makeSnapshot(rows: rows, now: now)
 
-        #expect(snapshot.provider == .openCode)
+        #expect(snapshot.provider == .openCodeGo)
         #expect(snapshot.planName == "Go")
         #expect(snapshot.fetchedAt == now)
         #expect(snapshot.windows.map(\.windowType) == [.openCodeGoFiveHour, .openCodeGoWeekly, .openCodeGoMonthly])
@@ -109,7 +109,7 @@ struct OpenCodeGoLocalUsageServiceTests {
         let service = OpenCodeGoLocalUsageService(databaseURLs: [db], authURL: auth)
         let snapshot = try #require(try await service.fetchSnapshot())
 
-        #expect(snapshot.provider == .openCode)
+        #expect(snapshot.provider == .openCodeGo)
         #expect(snapshot.windows.count == 3)
         #expect(snapshot.windows[0].utilization == 50.0)  // 6 / 12, noise excluded
     }

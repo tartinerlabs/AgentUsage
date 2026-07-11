@@ -20,7 +20,12 @@ struct AgentUsageApp: App {
 
     init() {
         // Initialize SwiftData container
-        let schema = Schema([TokenLogEntry.self, ImportedFile.self, DailyUsageRecordEntity.self])
+        let schema = Schema([
+            TokenLogEntry.self,
+            ImportedFile.self,
+            DailyUsageRecordEntity.self,
+            ProviderWindowDailyPeakEntity.self,
+        ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
