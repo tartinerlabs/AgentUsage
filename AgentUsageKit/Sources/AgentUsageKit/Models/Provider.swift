@@ -15,6 +15,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
     case claude
     case codex
     case openCode
+    case openCodeGo
 
     public var id: String { rawValue }
 
@@ -24,6 +25,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .claude: "Claude"
         case .codex: "Codex"
         case .openCode: "OpenCode"
+        case .openCodeGo: "OpenCode Go"
         }
     }
 
@@ -32,7 +34,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         switch self {
         case .claude: "sparkles"
         case .codex: "chevron.left.forwardslash.chevron.right"
-        case .openCode: "curlybraces"
+        case .openCode, .openCodeGo: "curlybraces"
         }
     }
 
@@ -41,7 +43,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         switch self {
         case .claude: Color(red: 217/255, green: 119/255, blue: 87/255)   // Claude clay
         case .codex: Color(red: 16/255, green: 163/255, blue: 127/255)    // OpenAI green
-        case .openCode: Color(red: 99/255, green: 102/255, blue: 241/255) // Indigo
+        case .openCode, .openCodeGo: Color(red: 99/255, green: 102/255, blue: 241/255) // Indigo
         }
     }
 
@@ -60,6 +62,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .claude: [.rateWindows, .tokenCost]
         case .codex: [.rateWindows, .tokenCost]
         case .openCode: [.rateWindows, .tokenCost]
+        case .openCodeGo: [.rateWindows, .tokenCost]
         }
     }
 
@@ -75,7 +78,15 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         switch self {
         case .claude: "anthropic"
         case .codex: "openai"
-        case .openCode: "openai"
+        case .openCode, .openCodeGo: "openai"
+        }
+    }
+
+    /// Visual family used to group related offerings without merging their quota state.
+    public var family: Provider {
+        switch self {
+        case .openCodeGo: .openCode
+        default: self
         }
     }
 }

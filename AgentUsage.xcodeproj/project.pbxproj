@@ -16,6 +16,7 @@
 		D8AB30E12F0AB1E800A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E02F0AB1E800A4BD39 /* AgentUsageKit */; };
 		D8AB30E32F0AB29700A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E22F0AB29700A4BD39 /* AgentUsageKit */; };
 		D8AB30E52F0AB2B800A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E42F0AB2B800A4BD39 /* AgentUsageKit */; };
+		D8AFC0012F0D000000000001 /* AgentUsageProviderCore in Frameworks */ = {isa = PBXBuildFile; productRef = D8AFC0022F0D000000000002 /* AgentUsageProviderCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 				"iOS/Views/SettingsView+iOS.swift",
 				Models/ClaudeCredentials.swift,
 				Models/DailyUsageRecordEntity.swift,
+				Models/ProviderWindowDailyPeakEntity.swift,
 				Models/TokenUsage.swift,
 				Services/ClaudeAPIService.swift,
 				Services/TokenUsageService.swift,
@@ -232,6 +234,7 @@
 			files = (
 				D835E7BC2F06B812001A996A /* Sparkle in Frameworks */,
 				D8AB30E12F0AB1E800A4BD39 /* AgentUsageKit in Frameworks */,
+				D8AFC0012F0D000000000001 /* AgentUsageProviderCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -407,6 +410,7 @@
 			packageProductDependencies = (
 				D8EFFFC12F05CD75006A2183 /* Sparkle */,
 				D8AB30E02F0AB1E800A4BD39 /* AgentUsageKit */,
+				D8AFC0022F0D000000000002 /* AgentUsageProviderCore */,
 			);
 			productName = AgentUsage;
 			productReference = D8EFFF722F05796A006A2183 /* AgentUsage.app */;
@@ -1332,6 +1336,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "AgentUsageKit" */;
 			productName = AgentUsageKit;
+		};
+		D8AFC0022F0D000000000002 /* AgentUsageProviderCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "AgentUsageKit" */;
+			productName = AgentUsageProviderCore;
 		};
 		D8EFFFC12F05CD75006A2183 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;

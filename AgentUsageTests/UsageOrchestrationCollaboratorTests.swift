@@ -28,6 +28,18 @@ struct RefreshSchedulerTests {
 
 @Suite("MenuBarSettingsManager")
 struct MenuBarSettingsManagerTests {
+    @Test @MainActor func openCodeOfferingsExposeQuotaWindows() {
+        let expected: [UsageWindowType] = [
+            .openCodeGoFiveHour,
+            .openCodeGoWeekly,
+            .openCodeGoMonthly,
+        ]
+
+        #expect(MenuBarSettingsManager.supportedWindows(for: .openCode) == expected)
+        #expect(MenuBarSettingsManager.supportedWindows(for: .openCodeGo) == expected)
+        #expect(Provider.openCode.supports(.rateWindows))
+    }
+
     @Test @MainActor func untouchedInstallUsesPrimaryClaudeAndCodexPairs() {
         let testDefaults = TestUserDefaults()
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)

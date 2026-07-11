@@ -47,6 +47,16 @@ actor UsageHistoryService {
         Self.logger.debug("Recorded usage snapshot to history")
     }
 
+    func record(providerSnapshot: ProviderUsageSnapshot) async {
+        guard let repository else { return }
+        do {
+            try await ensureMigrated(repository)
+            try await repository.record(providerSnapshot: providerSnapshot)
+        } catch {
+            Self.logger.error("Failed to save provider history: \(error.localizedDescription)")
+        }
+    }
+
     /// Get the current usage history
     func getHistory() async -> UsageHistory {
         if let repository {
