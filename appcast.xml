@@ -6,6 +6,23 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
+            <title>0.26.1</title>
+            <pubDate>Sat, 11 Jul 2026 04:38:56 +0000</pubDate>
+            <link>https://github.com/tartinerlabs/ClaudeMeter/releases</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md</sparkle:fullReleaseNotesLink>
+            <sparkle:version>80</sparkle:version>
+            <sparkle:shortVersionString>0.26.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What&#x27;s New</h2>
+<ul>
+<li>Restore opt-in Claude token refresh</li>
+<li>Close unsigned release task</li>
+</ul>
+<p>See <a href="https://github.com/tartinerlabs/ClaudeMeter/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.</p>
+]]></description>
+            <enclosure url="https://github.com/tartinerlabs/ClaudeMeter/releases/download/v0.26.1/ClaudeMeter.zip" length="2314829" type="application/octet-stream" sparkle:edSignature="zHurO4ZAmEEZPo7fWyld/Jz6if1hA06qtpihnNBlUFyQZ+ELOt1oWtYU+6IjD9l8QT4CPmhmt32eBCv/9YZlDg=="/>
+        </item>
+        <item>
             <title>0.26.0</title>
             <pubDate>Fri, 10 Jul 2026 20:44:50 +0000</pubDate>
             <link>https://github.com/tartinerlabs/ClaudeMeter/releases</link>
