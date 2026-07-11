@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D8A11C022F0C000000000002 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D8A11C012F0C000000000001 /* AppIcon.icon */; };
+		D8A11C032F0C000000000003 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D8A11C012F0C000000000001 /* AppIcon.icon */; };
 		D835E7BC2F06B812001A996A /* Sparkle in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = D8EFFFC12F05CD75006A2183 /* Sparkle */; };
 		D835E8532F06D377001A996A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8522F06D377001A996A /* WidgetKit.framework */; };
 		D835E8552F06D377001A996A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8542F06D377001A996A /* SwiftUI.framework */; };
@@ -69,6 +71,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D8A11C012F0C000000000001 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Design/AppIcon/AppIcon.icon; sourceTree = "<group>"; };
 		D835E80A2F06B9AE001A996A /* AgentUsage-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AgentUsage-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D835E81A2F06B9B0001A996A /* AgentUsage-iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AgentUsage-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D835E8242F06B9B0001A996A /* AgentUsage-iOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AgentUsage-iOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -261,6 +264,7 @@
 		D8EFFF692F05796A006A2183 = {
 			isa = PBXGroup;
 			children = (
+				D8A11C012F0C000000000001 /* AppIcon.icon */,
 				D8EFFF742F05796A006A2183 /* AgentUsage */,
 				D8EFFF862F05796C006A2183 /* AgentUsageTests */,
 				D8EFFF902F05796C006A2183 /* AgentUsageUITests */,
@@ -525,6 +529,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D8A11C032F0C000000000003 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -553,6 +558,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D8A11C022F0C000000000002 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
