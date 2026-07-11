@@ -99,11 +99,11 @@ struct UsageCardView: View {
 
     return VStack(spacing: 16) {
         UsageCardView(
-            title: sessionUsage.windowType.displayName,
+            title: sessionUsage.displayName,
             usage: sessionUsage
         )
         UsageCardView(
-            title: opusUsage.windowType.displayName,
+            title: opusUsage.displayName,
             usage: opusUsage
         )
     }

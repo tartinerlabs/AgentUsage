@@ -37,22 +37,26 @@ enum DependencyContainer {
     #if os(macOS)
     /// Create the token usage service for local JSONL log parsing.
     /// Auto-detects additional providers (Codex, OpenCode) by probing their data paths.
-    static func createTokenUsageService() -> TokenUsageService {
+    static func createTokenUsageService(defaults: UserDefaults = .standard) -> TokenUsageService {
         let fm = FileManager.default
         var sources: [any UsageLogSource] = []
         if Constants.codexSessionsDirectories.contains(where: { fm.fileExists(atPath: $0.path) }) {
             sources.append(CodexLogSource())
         }
-        if Constants.openCodeDatabaseURLs.contains(where: { fm.fileExists(atPath: $0.path) }) {
+        if defaults.bool(forKey: "experimentalOpenCodeProviders"),
+           Constants.openCodeDatabaseURLs.contains(where: { fm.fileExists(atPath: $0.path) }) {
             sources.append(OpenCodeLogSource())
         }
         return TokenUsageService(extraSources: sources)
     }
 
     /// Create the macOS token import/query coordinator at the composition root.
-    static func createTokenUsageCoordinator(modelContext: ModelContext) -> TokenUsageCoordinator {
+    static func createTokenUsageCoordinator(
+        modelContext: ModelContext,
+        defaults: UserDefaults = .standard
+    ) -> TokenUsageCoordinator {
         TokenUsageCoordinator(
-            tokenService: createTokenUsageService(),
+            tokenService: createTokenUsageService(defaults: defaults),
             modelContext: modelContext
         )
     }
@@ -76,14 +80,15 @@ enum DependencyContainer {
 
     /// Create rate-window services for optional macOS providers that have local
     /// credentials or data available.
-    static func createProviderUsageServices() -> [Provider: any ProviderUsageServiceProtocol] {
+    static func createProviderUsageServices(defaults: UserDefaults = .standard) -> [Provider: any ProviderUsageServiceProtocol] {
         let fm = FileManager.default
         var services: [Provider: any ProviderUsageServiceProtocol] = [:]
         if Constants.codexAuthFileURLs.contains(where: { fm.fileExists(atPath: $0.path) }) {
             services[.codex] = CodexUsageService()
         }
-        if Constants.openCodeDatabaseURLs.contains(where: { fm.fileExists(atPath: $0.path) }) {
-            services[.openCode] = OpenCodeGoLocalUsageService()
+        if defaults.bool(forKey: "experimentalOpenCodeProviders"),
+           Constants.openCodeDatabaseURLs.contains(where: { fm.fileExists(atPath: $0.path) }) {
+            services[.openCodeGo] = OpenCodeGoLocalUsageService()
         }
         return services
     }

@@ -61,6 +61,7 @@ final class RefreshScheduler {
 
 /// Refresh frequency options
 enum RefreshFrequency: String, CaseIterable, Identifiable, Sendable {
+    case adaptive = "adaptive"
     case manual = "manual"
     case oneMinute = "1min"
     case twoMinutes = "2min"
@@ -71,6 +72,7 @@ enum RefreshFrequency: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
+        case .adaptive: return "Adaptive"
         case .manual: return "Manual"
         case .oneMinute: return "1 minute"
         case .twoMinutes: return "2 minutes"
@@ -81,6 +83,12 @@ enum RefreshFrequency: String, CaseIterable, Identifiable, Sendable {
 
     var timeInterval: TimeInterval? {
         switch self {
+        case .adaptive:
+            #if os(macOS)
+            return ProcessInfo.processInfo.isLowPowerModeEnabled ? 900 : 300
+            #else
+            return 300
+            #endif
         case .manual: return nil
         case .oneMinute: return 60
         case .twoMinutes: return 120

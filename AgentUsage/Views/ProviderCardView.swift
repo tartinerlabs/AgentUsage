@@ -39,7 +39,7 @@ struct ProviderCardView: View {
                 VStack(spacing: compact ? 10 : 14) {
                     ForEach(Array(windows.enumerated()), id: \.offset) { _, window in
                         UsageRowView(
-                            title: window.windowType.displayName,
+                            title: window.displayName,
                             usage: window,
                             now: now,
                             showExtraUsage: showExtraUsage

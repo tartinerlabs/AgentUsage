@@ -55,7 +55,7 @@ enum MenuBarStatusContentBuilder {
                 .prefix(MenuBarSettingsManager.maximumPinsPerProvider)
                 .compactMap { windowType -> MenuBarStatusContent.Metric? in
                     guard let window = snapshot.windows.first(where: {
-                        $0.windowType == windowType && !$0.isExpired(from: now)
+                        $0.windowID.rawValue == windowType.rawValue && !$0.isExpired(from: now)
                     }),
                     window.utilization.isFinite,
                     window.utilization >= Double(Int.min),

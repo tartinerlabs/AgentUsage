@@ -112,15 +112,15 @@ struct UsageRowView: View {
 
     return VStack(spacing: 20) {
         UsageRowView(
-            title: sessionUsage.windowType.displayName,
+            title: sessionUsage.displayName,
             usage: sessionUsage
         )
         UsageRowView(
-            title: opusUsage.windowType.displayName,
+            title: opusUsage.displayName,
             usage: opusUsage
         )
         UsageRowView(
-            title: sonnetUsage.windowType.displayName,
+            title: sonnetUsage.displayName,
             usage: sonnetUsage
         )
     }

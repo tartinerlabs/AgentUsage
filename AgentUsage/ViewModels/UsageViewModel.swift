@@ -7,6 +7,9 @@ import Foundation
 import AgentUsageKit
 import SwiftUI
 import OSLog
+#if os(macOS)
+import AgentUsageProviderCore
+#endif
 
 @MainActor @Observable
 final class UsageViewModel {
@@ -173,6 +176,18 @@ final class UsageViewModel {
     }
 
     #if os(macOS)
+    var experimentalOpenCodeProviders: Bool {
+        didSet {
+            defaults.set(experimentalOpenCodeProviders, forKey: "experimentalOpenCodeProviders")
+            if !experimentalOpenCodeProviders {
+                providerUsage[.openCode] = nil
+                providerUsage[.openCodeGo] = nil
+                providerDetails[.openCode] = nil
+                providerDetails[.openCodeGo] = nil
+            }
+        }
+    }
+
     var notificationsEnabled: Bool {
         didSet {
             defaults.set(notificationsEnabled, forKey: "notificationsEnabled")
@@ -227,6 +242,7 @@ final class UsageViewModel {
     private let blogUsageSyncService: BlogUsageSyncService?
     private let blogOAuthService: BlogOAuthService?
     private let providerUsageServices: [Provider: any ProviderUsageServiceProtocol]
+    private var reliabilityCoordinator: ProviderReliabilityCoordinator?
     #endif
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
@@ -262,11 +278,19 @@ final class UsageViewModel {
         self.providerUsageServices = providerUsageServices
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
+        self.experimentalOpenCodeProviders = defaults.bool(forKey: "experimentalOpenCodeProviders")
         self.blogUsageSyncEnabled = defaults.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
         self.blogUsageSyncEndpointURLString = defaults.string(forKey: "blogUsageSyncEndpointURL")
             ?? BlogUsageSyncService.defaultEndpointURLString
 
         loadCachedSnapshot()
+        self.reliabilityCoordinator = ProviderReliabilityCoordinator(
+            credentialProvider: credentialProvider,
+            claudeService: self.apiService,
+            providerServices: providerUsageServices,
+            legacySnapshot: snapshot,
+            legacyPlanName: planType
+        )
         refreshScheduler.onRefresh = { [weak self] in
             await self?.refresh()
         }
@@ -333,6 +357,7 @@ extension UsageViewModel {
         // inside it are already independent of the Claude API.
         async let providersArm: Void = refreshExtraProviders()
         _ = await (claudeArm, providersArm)
+        await runShadowValidation(policy: force ? .replace : .coalesce)
         Task { await runPassiveBlogUsageSync() }
         #else
         await refreshClaude()
@@ -357,7 +382,9 @@ extension UsageViewModel {
             providers.append(.claude)
         }
         providers.append(contentsOf: Provider.allCases.filter {
-            $0 != .claude && (usageSnapshot(for: $0) != nil || providerDetails[$0] != nil)
+            $0 != .claude
+                && (experimentalOpenCodeProviders || ($0 != .openCode && $0 != .openCodeGo))
+                && (usageSnapshot(for: $0) != nil || providerDetails[$0] != nil)
         })
         return providers
     }
@@ -370,6 +397,21 @@ extension UsageViewModel {
     private func refreshExtraProviders() async {
         await refreshTokenUsage()
         await refreshProviderUsage()
+    }
+
+    private func runShadowValidation(policy: ProviderRefreshPolicy) async {
+        guard !isOffline, !ProcessInfo.processInfo.isLowPowerModeEnabled,
+              let reliabilityCoordinator else { return }
+        var authoritative: [Provider: ProviderUsageSnapshot] = providerUsage
+        if let snapshot {
+            authoritative[.claude] = ProviderUsageSnapshot(claude: snapshot, planName: planType)
+        }
+        await reliabilityCoordinator.validate(authoritative: authoritative, policy: policy)
+    }
+
+    func exportReliabilityDiagnostics(to destination: URL) async throws {
+        guard let reliabilityCoordinator else { return }
+        try await reliabilityCoordinator.exportDiagnostics(to: destination)
     }
     #endif
 
@@ -474,6 +516,7 @@ extension UsageViewModel {
     /// token detail (today/yesterday/30-day, per-model, daily trend).
     private func refreshProviderUsage() async {
         for (provider, service) in providerUsageServices {
+            if !experimentalOpenCodeProviders, provider.family == .openCode { continue }
             do {
                 providerUsage[provider] = try await service.fetchSnapshot()
                 clearIncident(for: provider)
