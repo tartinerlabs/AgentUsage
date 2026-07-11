@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-: "${APP_NAME:=ClaudeMeter}"
+: "${APP_NAME:=AgentUsage}"
 : "${VERSION:?VERSION is required}"
 : "${BUILD:?BUILD is required}"
 : "${TAG:?TAG is required}"

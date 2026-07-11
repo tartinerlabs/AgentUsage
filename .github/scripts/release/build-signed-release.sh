@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-: "${APP_NAME:=ClaudeMeter}"
-: "${SCHEME:=ClaudeMeter}"
+: "${APP_NAME:=AgentUsage}"
+: "${SCHEME:=AgentUsage}"
 : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required}"
 : "${APPLE_NOTARY_KEY_ID:?APPLE_NOTARY_KEY_ID is required}"
 : "${APPLE_NOTARY_ISSUER_ID:?APPLE_NOTARY_ISSUER_ID is required}"
