@@ -233,22 +233,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             return []
         }
 
-        var parsed: [ParsedFields] = []
-        var isFirstLine = offset > 0  // Skip first line only if we seeked
-
-        for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
-            // Skip first incomplete line after seeking
-            if isFirstLine {
-                isFirstLine = false
-                continue
-            }
-
-            guard let lineData = line.data(using: .utf8),
-                  let fields = parseCommonFields(data: lineData) else {
-                continue
-            }
-            parsed.append(fields)
-        }
+        let isFirstLine = offset > 0  // Skip first line only if we seeked
+        let parsed = parseJSONLines(content, skippingFirstLine: isFirstLine)
 
         return Self.deduplicate(parsed).map(idTuple(from:))
     }
@@ -258,15 +244,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let data = try Data(contentsOf: url)
         guard let content = String(data: data, encoding: .utf8) else { return [] }
 
-        var parsed: [ParsedFields] = []
-
-        for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
-            guard let lineData = line.data(using: .utf8),
-                  let fields = parseCommonFields(data: lineData) else {
-                continue
-            }
-            parsed.append(fields)
-        }
+        let parsed = parseJSONLines(content)
 
         return Self.deduplicate(parsed).map(idTuple(from:))
     }
@@ -288,6 +266,31 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let isSidechain: Bool
         /// SHA-based synthetic id for entries missing message/request ids (keeps SwiftData ids unique).
         let fallbackId: String
+    }
+
+    /// Parse all valid assistant records from JSONL content while ignoring malformed
+    /// and unrelated lines. Internal for deterministic regression coverage.
+    func parseJSONLines(
+        _ content: String,
+        skippingFirstLine: Bool = false,
+        cutoff: Date? = nil
+    ) -> [ParsedFields] {
+        var parsed: [ParsedFields] = []
+        var shouldSkipLine = skippingFirstLine
+
+        for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
+            if shouldSkipLine {
+                shouldSkipLine = false
+                continue
+            }
+            guard let lineData = line.data(using: .utf8),
+                  let fields = parseCommonFields(data: lineData),
+                  cutoff.map({ fields.entry.timestamp >= $0 }) ?? true else {
+                continue
+            }
+            parsed.append(fields)
+        }
+        return parsed
     }
 
     /// Parse a single assistant log line into common fields (tokens incl. 1h cache, fast mode, sidechain).
@@ -558,18 +561,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let data = try Data(contentsOf: url)
         guard let content = String(data: data, encoding: .utf8) else { return [] }
 
-        var parsed: [ParsedFields] = []
-
-        for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
-            guard let lineData = line.data(using: .utf8),
-                  let fields = parseCommonFields(data: lineData) else {
-                continue
-            }
-            if let cutoff, fields.entry.timestamp < cutoff {
-                continue
-            }
-            parsed.append(fields)
-        }
+        let parsed = parseJSONLines(content, cutoff: cutoff)
 
         // Sidechain-aware dedup (ccusage approach): collapse streaming duplicates and sidechain replays.
         return Self.deduplicate(parsed).map(\.entry)

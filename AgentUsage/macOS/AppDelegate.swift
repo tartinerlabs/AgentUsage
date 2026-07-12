@@ -5,6 +5,7 @@
 //  Created by Ru Chern Chong on 3/1/26.
 //
 
+#if os(macOS)
 import AppKit
 import UserNotifications
 
@@ -82,3 +83,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         false
     }
 }
+#endif
