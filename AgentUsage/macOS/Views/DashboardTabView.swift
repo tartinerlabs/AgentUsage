@@ -14,78 +14,37 @@ struct DashboardTabView: View {
     @EnvironmentObject private var updaterController: UpdaterController
     @State private var now = Date()
 
+    private let contentWidth: CGFloat = 760
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Update banner (if available)
+            VStack(alignment: .leading, spacing: 24) {
+                overviewHeader
+
                 if updaterController.updateAvailable {
                     updateBanner
                 }
 
-                // Header
-                headerSection
-
-                Divider()
-
-                // Extra usage banner
                 if viewModel.showExtraUsageIndicators, viewModel.snapshot?.isExtraUsageActive == true {
                     extraUsageBanner
                 }
 
-                // Provider detail pages (weather station): Claude / Codex / OpenCode
-                if let usage = viewModel.usageSnapshot(for: .claude) {
-                    ProviderDetailView(
-                        provider: .claude,
-                        planName: usage.planName,
-                        windows: usage.windows,
-                        detail: viewModel.providerDetails[.claude],
-                        now: now,
-                        isServiceDown: viewModel.isServiceDown(.claude)
-                    )
-                    if viewModel.showExtraUsageIndicators, let extraUsage = usage.extraUsage {
-                        extraUsageCostSection(extraUsage)
-                    }
-                } else if viewModel.isNoUsageData {
-                    noUsageDataSection
-                } else if let error = viewModel.errorMessage {
-                    errorSection(error: error)
-                } else {
-                    loadingSection
-                }
+                providerSections
 
-                if let codex = viewModel.usageSnapshot(for: .codex) {
-                    Divider()
-                    ProviderDetailView(
-                        provider: .codex,
-                        planName: codex.planName,
-                        windows: codex.windows,
-                        detail: viewModel.providerDetails[.codex],
-                        now: now,
-                        isServiceDown: viewModel.isServiceDown(.codex),
-                        rateLimitResetCredits: codex.rateLimitResetCredits
-                    )
-                }
-
-                if viewModel.hasProviderData(.openCode) {
-                    let openCodeUsage = viewModel.usageSnapshot(for: .openCode)
-                    Divider()
-                    ProviderDetailView(
-                        provider: .openCode,
-                        planName: openCodeUsage?.planName,
-                        windows: openCodeUsage?.windows ?? [],
-                        detail: viewModel.providerDetails[.openCode],
-                        now: now,
-                        isServiceDown: viewModel.isServiceDown(.openCode)
-                    )
-                }
-
-                // Claude token-cost drill-down (more periods: 7/90/180/year)
                 if viewModel.snapshot != nil {
-                    Divider()
-                    tokenUsageSectionWithStates
+                    dashboardSection(
+                        title: "Token Usage & Cost",
+                        subtitle: "Local Claude token activity and estimated spend.",
+                        systemImage: "square.stack.3d.up"
+                    ) {
+                        tokenUsageSectionWithStates
+                    }
                 }
             }
-            .padding(24)
+            .frame(maxWidth: contentWidth, alignment: .leading)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 28)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(Color(NSColor.windowBackgroundColor))
         .toolbar {
@@ -97,6 +56,7 @@ struct DashboardTabView: View {
                 }
                 .disabled(viewModel.isLoading)
                 .keyboardShortcut("r", modifiers: .command)
+                .help("Refresh usage data")
             }
         }
         .task {
@@ -109,27 +69,170 @@ struct DashboardTabView: View {
 
     // MARK: - Header
 
-    private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private var overviewHeader: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Usage Overview")
+                        .font(.title2.weight(.semibold))
+                    Text("Live quota windows and local token cost, arranged by provider.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 16)
+
+                statusBadge
+            }
+
             HStack(spacing: 8) {
-                Text("Usage")
-                    .font(.title2)
-                    .fontWeight(.bold)
                 if viewModel.isLoading || viewModel.isLoadingTokenUsage {
                     ProgressView()
-                        .scaleEffect(0.7)
+                        .controlSize(.small)
+                    Text("Refreshing")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if let snapshot = viewModel.snapshot {
+                    LastUpdatedLabel(
+                        relativeText: relativeDescription(from: snapshot.fetchedAt, to: now),
+                        isCached: viewModel.isUsingCachedData,
+                        isOffline: viewModel.isOffline,
+                        font: .caption,
+                        neutralStyle: AnyShapeStyle(.secondary)
+                    )
+                } else {
+                    Text("Waiting for provider data")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            if let snapshot = viewModel.snapshot {
-                LastUpdatedLabel(
-                    relativeText: relativeDescription(from: snapshot.fetchedAt, to: now),
-                    isCached: viewModel.isUsingCachedData,
-                    isOffline: viewModel.isOffline,
-                    font: .caption,
-                    neutralStyle: AnyShapeStyle(.secondary)
+        }
+    }
+
+    private var statusBadge: some View {
+        let status = viewModel.overallStatus
+        return Label(status.label, systemImage: status.icon)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(status.color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(status.color.opacity(0.12))
+            )
+            .accessibilityLabel("Overall usage pressure: \(status.label)")
+    }
+
+    // MARK: - Provider Sections
+
+    @ViewBuilder
+    private var providerSections: some View {
+        if let usage = viewModel.usageSnapshot(for: .claude) {
+            dashboardSection(
+                title: Provider.claude.displayName,
+                subtitle: "Subscription windows and local cost detail.",
+                systemImage: Provider.claude.iconName,
+                tint: Provider.claude.accentColor
+            ) {
+                ProviderDetailView(
+                    provider: .claude,
+                    planName: usage.planName,
+                    windows: usage.windows,
+                    detail: viewModel.providerDetails[.claude],
+                    now: now,
+                    isServiceDown: viewModel.isServiceDown(.claude)
+                )
+
+                if viewModel.showExtraUsageIndicators, let extraUsage = usage.extraUsage {
+                    Divider()
+                    extraUsageCostSection(extraUsage)
+                }
+            }
+        } else if viewModel.isNoUsageData {
+            noUsageDataSection
+        } else if let error = viewModel.errorMessage {
+            errorSection(error: error)
+        } else {
+            loadingSection
+        }
+
+        if let codex = viewModel.usageSnapshot(for: .codex) {
+            dashboardSection(
+                title: Provider.codex.displayName,
+                subtitle: "ChatGPT subscription rate-limit windows.",
+                systemImage: Provider.codex.iconName,
+                tint: Provider.codex.accentColor
+            ) {
+                ProviderDetailView(
+                    provider: .codex,
+                    planName: codex.planName,
+                    windows: codex.windows,
+                    detail: viewModel.providerDetails[.codex],
+                    now: now,
+                    isServiceDown: viewModel.isServiceDown(.codex),
+                    rateLimitResetCredits: codex.rateLimitResetCredits
                 )
             }
         }
+
+        if viewModel.hasProviderData(.openCode) {
+            let openCodeUsage = viewModel.usageSnapshot(for: .openCode)
+            dashboardSection(
+                title: Provider.openCode.displayName,
+                subtitle: "Local OpenCode activity and optional quota data.",
+                systemImage: Provider.openCode.iconName,
+                tint: Provider.openCode.accentColor
+            ) {
+                ProviderDetailView(
+                    provider: .openCode,
+                    planName: openCodeUsage?.planName,
+                    windows: openCodeUsage?.windows ?? [],
+                    detail: viewModel.providerDetails[.openCode],
+                    now: now,
+                    isServiceDown: viewModel.isServiceDown(.openCode)
+                )
+            }
+        }
+    }
+
+    private func dashboardSection<Content: View>(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        tint: Color = Constants.brandPrimary,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.headline)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
+            }
+
+            Divider()
+
+            content()
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.regularMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 1)
+        )
     }
 
     // MARK: - Token Cost Section
@@ -137,10 +240,11 @@ struct DashboardTabView: View {
     private func tokenCostSection(tokenSnapshot: TokenUsageSnapshot) -> some View {
         @Bindable var viewModel = viewModel
 
-        return VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Token Usage & Cost")
-                    .font(.headline)
+                Text("Cost summary")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
 
                 Spacer()
 
@@ -151,18 +255,16 @@ struct DashboardTabView: View {
                 }
                 .pickerStyle(.menu)
                 .labelsHidden()
-                .frame(width: 100)
+                .frame(width: 112)
             }
 
-            HStack(spacing: 16) {
-                // Today's usage (always shown)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
                 tokenCard(
                     title: "Today",
                     cost: tokenSnapshot.today.formattedCost,
                     tokens: tokenSnapshot.today.formattedTokens
                 )
 
-                // Selected period usage (prefer cached summary)
                 let summary = viewModel.selectedPeriodSummary
                 let title = viewModel.selectedTokenPeriod.rawValue
                 if let summary {
@@ -183,7 +285,7 @@ struct DashboardTabView: View {
     }
 
     private func tokenCard(title: String, cost: String, tokens: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -194,21 +296,19 @@ struct DashboardTabView: View {
                 Text(cost)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(Constants.brandPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 Spacer()
-
-                HStack(spacing: 4) {
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.caption)
-                    Text(tokens)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
-                .foregroundStyle(.secondary)
             }
+
+            Label(tokens, systemImage: "square.stack.3d.up")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
         .padding(16)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Constants.brandPrimary.opacity(0.08))
@@ -229,28 +329,17 @@ struct DashboardTabView: View {
         } else if let error = viewModel.tokenUsageError {
             tokenErrorSection(error: error)
         }
-        // If no snapshot, not loading, and no error - silently hide (first load case)
     }
 
     private var tokenLoadingSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Token Usage & Cost")
-                    .font(.headline)
-                Spacer()
-                ProgressView()
-                    .scaleEffect(0.8)
-            }
-
-            HStack(spacing: 16) {
-                tokenLoadingCard(title: "Today")
-                tokenLoadingCard(title: "30 Days")
-            }
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
+            tokenLoadingCard(title: "Today")
+            tokenLoadingCard(title: "30 Days")
         }
     }
 
     private func tokenLoadingCard(title: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -259,10 +348,10 @@ struct DashboardTabView: View {
 
             HStack {
                 ProgressView()
-                    .scaleEffect(0.8)
+                    .controlSize(.small)
                 Spacer()
             }
-            .frame(height: 32)
+            .frame(height: 40)
         }
         .padding(16)
         .frame(maxWidth: .infinity)
@@ -273,56 +362,52 @@ struct DashboardTabView: View {
     }
 
     private func tokenErrorSection(error: TokenUsageError) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Token Usage & Cost")
-                    .font(.headline)
-                Spacer()
-                Button {
-                    Task { await viewModel.refresh(force: true) }
-                } label: {
-                    Label("Retry", systemImage: "arrow.clockwise")
-                        .font(.caption)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(viewModel.isLoadingTokenUsage)
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Unable to load token data")
+                    .font(.subheadline.weight(.semibold))
+                Text(error.errorDescription ?? "Unknown error")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.title3)
+            Spacer()
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Unable to load token data")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    Text(error.errorDescription ?? "Unknown error")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            Button {
+                Task { await viewModel.refresh(force: true) }
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(.caption)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.orange.opacity(0.1))
-            )
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(viewModel.isLoadingTokenUsage)
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.orange.opacity(0.1))
+        )
     }
 
     // MARK: - Update Banner
 
     private var updateBanner: some View {
-        HStack {
+        HStack(spacing: 10) {
             Image(systemName: "arrow.down.circle.fill")
-                .foregroundStyle(.white)
-            Text("Update Available")
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.white)
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Update available")
+                    .font(.subheadline.weight(.semibold))
+                Text("Open the updater to review the latest AgentUsage release.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Spacer()
             Button("View") {
                 updaterController.checkForUpdates()
@@ -330,10 +415,10 @@ struct DashboardTabView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
-        .padding(12)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.orange)
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.orange.opacity(0.1))
         )
     }
 
@@ -341,11 +426,10 @@ struct DashboardTabView: View {
 
     private func extraUsageCostSection(_ extraUsage: ExtraUsageCost) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Extra Usage")
-                .font(.headline)
+            Text("Extra usage")
+                .font(.subheadline.weight(.semibold))
 
             VStack(alignment: .leading, spacing: 8) {
-                // Progress bar
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 4)
@@ -358,7 +442,6 @@ struct DashboardTabView: View {
                 }
                 .frame(height: 8)
 
-                // Spend line
                 HStack {
                     Text("Monthly: \(extraUsage.formattedUsed) / \(extraUsage.formattedLimit)")
                         .font(.footnote)
@@ -375,70 +458,69 @@ struct DashboardTabView: View {
     // MARK: - Extra Usage Banner
 
     private var extraUsageBanner: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Image(systemName: "dollarsign.circle.fill")
                 .foregroundStyle(Constants.extraUsageAccent)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Extra Usage Active")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text("You've exceeded your plan limit. API rates apply.")
+                Text("Extra usage active")
+                    .font(.subheadline.weight(.semibold))
+                Text("Plan limit exceeded. API rates apply while this window is active.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
         }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Constants.extraUsageAccent.opacity(0.1)))
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Constants.extraUsageAccent.opacity(0.1))
+        )
     }
 
     // MARK: - Error & Loading
 
     private var noUsageDataSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("No usage data", systemImage: "chart.bar.xaxis")
-                .foregroundStyle(.secondary)
-                .font(.headline)
-            Text("Your usage limits will appear after your next Claude prompt.")
+        dashboardSection(
+            title: "No usage data",
+            subtitle: "Your usage limits will appear after your next Claude prompt.",
+            systemImage: "chart.bar.xaxis"
+        ) {
+            Text("AgentUsage has not received an active provider window yet.")
                 .font(.body)
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.secondary.opacity(0.08))
-        )
     }
 
     private func errorSection(error: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Error", systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
-                .font(.headline)
+        dashboardSection(
+            title: "Unable to refresh usage",
+            subtitle: "The latest provider request failed.",
+            systemImage: "exclamationmark.triangle.fill",
+            tint: .red
+        ) {
             Text(error)
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.red.opacity(0.1))
-        )
     }
 
     private var loadingSection: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .scaleEffect(1.2)
-            Text("Loading...")
-                .foregroundStyle(.secondary)
+        dashboardSection(
+            title: "Loading usage data",
+            subtitle: "Fetching provider windows and local token history.",
+            systemImage: "arrow.clockwise"
+        ) {
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Checking current usage")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
     }
 
     private func relativeDescription(from past: Date, to current: Date) -> String {
@@ -454,6 +536,6 @@ struct DashboardTabView: View {
     DashboardTabView()
         .environment(UsageViewModel(credentialProvider: MacOSCredentialService()))
         .environmentObject(UpdaterController())
-        .frame(width: 500, height: 400)
+        .frame(width: 760, height: 640)
 }
 #endif

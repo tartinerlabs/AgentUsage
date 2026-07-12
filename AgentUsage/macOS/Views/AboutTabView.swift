@@ -8,66 +8,39 @@ import SwiftUI
 
 /// About content for the main window tab
 struct AboutTabView: View {
+    private let contentWidth: CGFloat = 720
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // App Header
-                HStack(spacing: 16) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
-                        .frame(width: 72, height: 72)
+            VStack(alignment: .leading, spacing: 24) {
+                appHeader
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("AgentUsage")
-                            .font(.title)
-                            .fontWeight(.bold)
-
-                        Text("Version \(Bundle.main.appVersion)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        Text("Monitor AI coding usage directly from the menu bar.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Divider()
-
-                // Features Section
-                aboutCard(title: "Features") {
+                aboutCard(title: "What AgentUsage Tracks", systemImage: "gauge.with.dots.needle.bottom.50percent") {
                     VStack(alignment: .leading, spacing: 12) {
                         featureRow(
                             icon: "chart.bar.fill",
-                            title: "Usage Tracking",
-                            description: "Monitor session, Opus, Sonnet, and Fable usage limits"
+                            title: "Provider quota windows",
+                            description: "Monitor Claude, Codex, and OpenCode usage pressure without opening provider dashboards."
                         )
                         Divider()
                         featureRow(
-                            icon: "dollarsign.circle.fill",
-                            title: "Cost Analysis",
-                            description: "Track token usage and estimated costs"
+                            icon: "square.stack.3d.up.fill",
+                            title: "Local token cost",
+                            description: "Estimate token usage and spend from local coding-agent activity."
                         )
                         Divider()
                         featureRow(
-                            icon: "menubar.rectangle",
-                            title: "Menu Bar App",
-                            description: "Quick access from your menu bar"
-                        )
-                        Divider()
-                        featureRow(
-                            icon: "arrow.clockwise",
-                            title: "Auto Refresh",
-                            description: "Automatic updates at configurable intervals"
+                            icon: "bell.badge.fill",
+                            title: "Usage alerts",
+                            description: "Receive threshold notifications when quota pressure changes."
                         )
                     }
                 }
 
-                // Links Section
-                aboutCard(title: "Links") {
+                aboutCard(title: "Project", systemImage: "link") {
                     VStack(spacing: 12) {
                         linkRow(
-                            icon: "link",
+                            icon: "curlybraces",
                             title: "GitHub Repository",
                             description: "View source code and documentation",
                             url: "https://github.com/tartinerlabs/AgentUsage"
@@ -76,41 +49,81 @@ struct AboutTabView: View {
                         linkRow(
                             icon: "ladybug.fill",
                             title: "Report Issue",
-                            description: "Found a bug? Let us know",
+                            description: "Found a bug or rough edge? Open an issue",
                             url: "https://github.com/tartinerlabs/AgentUsage/issues"
                         )
                         Divider()
                         linkRow(
                             icon: "star.fill",
                             title: "Star on GitHub",
-                            description: "Show your support",
+                            description: "Follow development and releases",
                             url: "https://github.com/tartinerlabs/AgentUsage"
                         )
                     }
                 }
 
-                Spacer(minLength: 0)
-
-                Text("Claude and its mark belong to Anthropic PBC. OpenAI, Codex, and the OpenAI mark belong to OpenAI. AgentUsage is not affiliated with or endorsed by either provider.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-
-                // Copyright
-                Text("\u{00A9} 2025 Ru Chern Chong. All rights reserved.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                footer
             }
-            .padding(24)
+            .frame(maxWidth: contentWidth, alignment: .leading)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 28)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(Color(NSColor.windowBackgroundColor))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var appHeader: some View {
+        HStack(alignment: .center, spacing: 18) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 76, height: 76)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("AgentUsage")
+                    .font(.title2.weight(.semibold))
+
+                Text("Version \(Bundle.main.appVersion)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Text("A local-first usage monitor for AI coding tools.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.regularMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var footer: some View {
+        VStack(spacing: 8) {
+            Text("Claude and its mark belong to Anthropic PBC. OpenAI, Codex, and the OpenAI mark belong to OpenAI. AgentUsage is not affiliated with or endorsed by either provider.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("\u{00A9} 2025 Ru Chern Chong. All rights reserved.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 4)
+    }
+
     private func featureRow(icon: String, title: String, description: String) -> some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
                 .foregroundStyle(Constants.brandPrimary)
@@ -118,46 +131,67 @@ struct AboutTabView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.body)
+                    .font(.body.weight(.medium))
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+        }
+    }
+
+    private func linkRow(icon: String, title: String, description: String, url: String) -> some View {
+        Group {
+            if let destination = URL(string: url) {
+                Link(destination: destination) {
+                    linkRowContent(icon: icon, title: title, description: description)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func linkRowContent(icon: String, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(Constants.brandPrimary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body.weight(.medium))
                 Text(description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            Spacer(minLength: 12)
+
+            Image(systemName: "arrow.up.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
         }
+        .contentShape(Rectangle())
     }
 
-    private func linkRow(icon: String, title: String, description: String, url: String) -> some View {
-        Link(destination: URL(string: url)!) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.title3)
-                    .foregroundStyle(.blue)
-                    .frame(width: 24)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.body)
-                    Text(description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
+    private func aboutCard<Content: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Constants.brandPrimary)
+                    .frame(width: 20)
+                Text(title)
+                    .font(.headline)
                 Spacer()
-
-                Image(systemName: "arrow.up.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func aboutCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
 
             VStack(alignment: .leading, spacing: 0) {
                 content()
@@ -166,7 +200,11 @@ struct AboutTabView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(NSColor.controlBackgroundColor))
+                    .fill(.regularMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 1)
             )
         }
     }
@@ -174,6 +212,6 @@ struct AboutTabView: View {
 
 #Preview {
     AboutTabView()
-        .frame(width: 500, height: 400)
+        .frame(width: 720, height: 560)
 }
 #endif
