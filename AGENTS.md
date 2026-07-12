@@ -20,6 +20,12 @@ changing SwiftUI views, widgets, menu bar UI, or Live Activities, consult it and
 preserve its color, typography, spacing, material, icon, and status-system
 rules.
 
+## Build Targets
+
+`AgentUsage` is the single destination-aware app and test scheme for macOS,
+iOS, and iPadOS. `AgentUsageWidgetsExtension` remains the separate iOS widget
+and Live Activity extension.
+
 ## Release Workflow
 
 Releases use the manually triggered `.github/workflows/release.yml`; a normal push to `main` runs CI only. The default `dry-run` operation has read-only permissions and builds a fully validated ad-hoc-signed archive. Publishing always uses the protected `release` environment and requires the Sparkle private key.

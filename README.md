@@ -63,7 +63,7 @@ claude auth login
 git clone https://github.com/tartinerlabs/AgentUsage.git
 cd AgentUsage
 open AgentUsage.xcodeproj
-# Select scheme: AgentUsage (macOS), AgentUsage-iOS, or AgentUsageWidgetsExtension
+# Select AgentUsage for macOS/iOS/iPadOS, or AgentUsageWidgetsExtension for widgets
 # Press ⌘B to build, ⌘R to run
 
 # Or via command line:
@@ -122,7 +122,7 @@ MVVM with Swift Actors for thread safety, @Observable for reactive UI, and async
 
 ## Development
 
-**Structure:** AgentUsage/ (macOS), AgentUsage-iOS/, AgentUsageWidgets/, AgentUsageKit/ (shared package), with Models, Services, ViewModels, Views
+**Structure:** AgentUsage/ (multiplatform app), AgentUsageWidgets/ (iOS widgets and Live Activity), AgentUsageTests/ and AgentUsageUITests/ (multiplatform tests), AgentUsageKit/ (shared package)
 
 **Build:**
 ```bash

@@ -14,8 +14,7 @@ rules.
 Multi-platform SwiftUI app (macOS + iOS) built with Xcode (no npm/yarn/package managers).
 
 **Available schemes:**
-- `AgentUsage` - macOS menu bar app
-- `AgentUsage-iOS` - iOS app with Dashboard
+- `AgentUsage` - multiplatform macOS menu bar and iOS/iPadOS dashboard app
 - `AgentUsageWidgetsExtension` - iOS Widgets and Live Activities
 - `AgentUsageKit` - Shared Swift Package (data models)
 
@@ -24,11 +23,11 @@ Multi-platform SwiftUI app (macOS + iOS) built with Xcode (no npm/yarn/package m
 xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug build
 
 # Build iOS app (iPhone 17 Pro)
-xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage-iOS -configuration Debug \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 
 # Build iPadOS app (iPad Air 11-inch M3)
-xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage-iOS -configuration Debug \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M3)' build
 
 # Build iOS widgets
@@ -42,11 +41,11 @@ xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Relea
 xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test
 
 # Run tests (iOS - iPhone 17 Pro)
-xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage-iOS \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 
 # Run tests (iPadOS - iPad Air 11-inch M3)
-xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage-iOS \
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage \
   -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M3)' test
 ```
 
