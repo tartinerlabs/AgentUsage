@@ -3,6 +3,7 @@
 //  AgentUsageTests
 //
 
+#if os(macOS)
 import Foundation
 import Testing
 @testable import AgentUsage
@@ -80,3 +81,4 @@ struct ClaudeTokenRefreshPolicyTests {
         )
     }
 }
+#endif

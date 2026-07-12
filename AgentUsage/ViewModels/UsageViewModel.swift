@@ -335,13 +335,25 @@ final class UsageViewModel {
 
 // MARK: - Refresh Orchestration
 
+enum ClaudeRefreshOutcome: Equatable, Sendable {
+    case updated
+    case noUsageData
+    case skipped
+    case failed
+
+    var completedSuccessfully: Bool {
+        self == .updated || self == .noUsageData
+    }
+}
+
 extension UsageViewModel {
-    func refresh(force: Bool = false) async {
+    @discardableResult
+    func refresh(force: Bool = false) async -> ClaudeRefreshOutcome {
         // Rate limit auto-refresh; a forced refresh (manual) always proceeds.
         if !force,
            let lastRefresh = lastRefreshTime,
            Date().timeIntervalSince(lastRefresh) < minRefreshInterval {
-            return
+            return .skipped
         }
         // Gate the batch on when it last RAN, not on Claude's success. This keeps the
         // debounce while ensuring Claude's outcome never decides whether the other
@@ -351,16 +363,17 @@ extension UsageViewModel {
         // Fetch each provider concurrently and independently so a slow, retrying, or
         // failing Claude fetch can never delay or block Codex/OpenCode. iOS is Claude-only.
         #if os(macOS)
-        async let claudeArm: Void = refreshClaude()
+        async let claudeArm = refreshClaude()
         // Extra providers share one arm because refreshProviderUsage() reads the
         // tokenSnapshot produced by refreshTokenUsage(); the Codex/OpenCode API fetches
         // inside it are already independent of the Claude API.
         async let providersArm: Void = refreshExtraProviders()
-        _ = await (claudeArm, providersArm)
+        let (outcome, _) = await (claudeArm, providersArm)
         await runShadowValidation(policy: force ? .replace : .coalesce)
         Task { await runPassiveBlogUsageSync() }
+        return outcome
         #else
-        await refreshClaude()
+        return await refreshClaude()
         #endif
     }
 
@@ -417,7 +430,7 @@ extension UsageViewModel {
 
     /// Fetch the Claude rate-window usage snapshot. Runs as an independent arm of
     /// `refresh()`; its success/failure no longer gates the shared rate-limit timestamp.
-    private func refreshClaude() async {
+    private func refreshClaude() async -> ClaudeRefreshOutcome {
         // API usage fetch (requires network)
         if isOffline {
             if snapshot != nil {
@@ -427,10 +440,11 @@ extension UsageViewModel {
             } else {
                 errorMessage = "No internet connection and no cached data available."
             }
-            return
+            return .failed
         }
 
         isLoading = true
+        defer { isLoading = false }
         errorMessage = nil
         isNoUsageData = false  // Reset on each online fetch attempt
 
@@ -471,6 +485,7 @@ extension UsageViewModel {
                 await LiveActivityManager.shared.update(snapshot: snapshot)
             }
             #endif
+            return .updated
         } catch {
             // "No usage data" is not an error — the usage windows have reset but
             // no prompt has been sent yet. Drop any cached snapshot (it is stale
@@ -483,8 +498,7 @@ extension UsageViewModel {
                 isUsingCachedData = false
                 errorMessage = nil
                 clearIncident(for: .claude)
-                isLoading = false
-                return
+                return .noUsageData
             }
 
             errorMessage = error.localizedDescription
@@ -506,9 +520,8 @@ extension UsageViewModel {
                 isUsingCachedData = true
                 Logger.viewModel.warning("API fetch failed, using cached data: \(error.localizedDescription)")
             }
+            return .failed
         }
-
-        isLoading = false
     }
 
     #if os(macOS)

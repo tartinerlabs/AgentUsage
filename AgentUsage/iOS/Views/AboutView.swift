@@ -1,8 +1,9 @@
 //
 //  AboutView.swift
-//  AgentUsage-iOS
+//  AgentUsage
 //
 
+#if os(iOS)
 import SwiftUI
 
 /// iOS About view
@@ -112,3 +113,4 @@ extension Bundle {
         AboutView()
     }
 }
+#endif
