@@ -64,18 +64,16 @@ final class LiveActivityManager: ObservableObject {
     }
 
     /// Update the current Live Activity with new data
-    func update(snapshot: UsageSnapshot) {
+    func update(snapshot: UsageSnapshot) async {
         guard let activity = currentActivity else { return }
 
         let window = getWindow(from: snapshot, metric: selectedMetric)
         let contentState = AgentUsageLiveActivityAttributes.ContentState(from: window)
 
-        Task {
-            await activity.update(
-                ActivityContent(state: contentState, staleDate: nil)
-            )
-            Logger.liveActivity.debug("Updated Live Activity")
-        }
+        await activity.update(
+            ActivityContent(state: contentState, staleDate: nil)
+        )
+        Logger.liveActivity.debug("Updated Live Activity")
     }
 
     /// Stop the current Live Activity

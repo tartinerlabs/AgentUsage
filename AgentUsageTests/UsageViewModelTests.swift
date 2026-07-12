@@ -53,6 +53,7 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.refreshInterval == .oneMinute)
     }
 
+    #if os(macOS)
     @Test @MainActor func claudeUsageSnapshotUsesTheUnifiedProviderRepresentation() async {
         let testDefaults = TestUserDefaults()
         let viewModel = UsageViewModel(
@@ -83,6 +84,7 @@ struct UsageViewModelInitialStateTests {
         #expect(providerSnapshot?.planName == "Pro")
         #expect(providerSnapshot?.windows.map(\.windowType) == [.session, .opus])
     }
+    #endif
 }
 
 // MARK: - ViewModel Status Calculation Tests

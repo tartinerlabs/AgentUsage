@@ -6,19 +6,28 @@
 //
 
 import SwiftUI
+#if os(macOS)
 import SwiftData
+#endif
 
 @main
 struct AgentUsageApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var viewModel: UsageViewModel
+
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var updaterController = UpdaterController()
     @AppStorage("selectedMainWindowTab") private var selectedTab: MainWindowTab = .dashboard
     @Environment(\.openWindow) private var openWindow
 
     let modelContainer: ModelContainer
+    #else
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var backgroundRefreshCoordinator: BackgroundRefreshCoordinator
+    #endif
 
     init() {
+        #if os(macOS)
         // Initialize SwiftData container
         let schema = Schema([
             TokenLogEntry.self,
@@ -38,9 +47,23 @@ struct AgentUsageApp: App {
         _viewModel = State(initialValue: DependencyContainer.createUsageViewModel(
             modelContext: modelContainer.mainContext
         ))
+        #else
+        let viewModel = DependencyContainer.createUsageViewModel()
+        _viewModel = State(initialValue: viewModel)
+
+        let coordinator = BackgroundRefreshCoordinator(
+            scheduler: SystemBackgroundRefreshScheduler(),
+            refresh: { await viewModel.refresh(force: true) },
+            refreshFrequency: { viewModel.refreshInterval }
+        )
+        _backgroundRefreshCoordinator = State(initialValue: coordinator)
+        coordinator.register()
+        #endif
     }
 
+    @SceneBuilder
     var body: some Scene {
+        #if os(macOS)
         // Main window (opened from menu bar)
         Window("AgentUsage", id: Constants.mainWindowID) {
             MainWindowView()
@@ -74,5 +97,16 @@ struct AgentUsageApp: App {
                 .environment(viewModel)
         }
         .menuBarExtraStyle(.window)
+        #else
+        WindowGroup {
+            MainTabView()
+                .environment(viewModel)
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .background {
+                        backgroundRefreshCoordinator.schedule()
+                    }
+                }
+        }
+        #endif
     }
 }

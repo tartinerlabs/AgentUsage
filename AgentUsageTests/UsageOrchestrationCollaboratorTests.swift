@@ -3,6 +3,7 @@
 //  AgentUsageTests
 //
 
+#if os(macOS)
 import AppKit
 import Foundation
 import SwiftData
@@ -328,6 +329,21 @@ struct TokenUsageCoordinatorTests {
         }
     }
 
+    @Test @MainActor func malformedJSONLineDoesNotDiscardValidAssistantEntry() async {
+        let service = TokenUsageService()
+        let content = """
+        not-json
+        {"type":"assistant","timestamp":"2026-07-12T00:00:00.000Z","requestId":"req-1","message":{"id":"msg-1","model":"claude-opus-4-6","usage":{"input_tokens":10,"output_tokens":2}}}
+        {"type":"user","timestamp":"2026-07-12T00:00:01.000Z"}
+        """
+
+        let parsed = await service.parseJSONLines(content)
+
+        #expect(parsed.count == 1)
+        #expect(parsed.first?.entry.tokens.inputTokens == 10)
+        #expect(parsed.first?.entry.tokens.outputTokens == 2)
+    }
+
     @Test @MainActor func maintenancePersistsDailyGatesAndCostModelVersion() async throws {
         let testDefaults = TestUserDefaults()
         let fixedDate = Date(timeIntervalSince1970: 1_750_000_000)
@@ -471,6 +487,46 @@ struct UsageViewModelTokenCoordinationTests {
         #expect(viewModel.tokenUsageError == nil)
     }
 
+    @Test @MainActor func failureClearsLoadingAndSuccessfulRetryRestoresTokenSnapshot() async {
+        let testDefaults = TestUserDefaults()
+        let tokenSnapshot = TokenUsageCoordinatorTests.makeTokenSnapshot(inputTokens: 25)
+        let coordinator = StubTokenUsageCoordinator(
+            update: TokenUsageRefreshUpdate(
+                snapshot: tokenSnapshot,
+                periodSummaries: [.today: tokenSnapshot.today],
+                selectedPeriodSummary: tokenSnapshot.today
+            ),
+            details: [:],
+            refreshError: TokenUsageError.fileReadError(
+                NSError(domain: "TokenUsageTests", code: 1)
+            )
+        )
+        let credentials = MockCredentialProvider()
+        await credentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let apiService = MockAPIService()
+        await apiService.setMockSnapshot(Self.makeUsageSnapshot())
+        let viewModel = UsageViewModel(
+            credentialProvider: credentials,
+            apiService: apiService,
+            tokenUsageCoordinator: coordinator,
+            usageHistoryService: UsageHistoryService(defaults: testDefaults.defaults),
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.refresh(force: true)
+
+        #expect(viewModel.tokenSnapshot == nil)
+        #expect(viewModel.tokenUsageError != nil)
+        #expect(!viewModel.isLoadingTokenUsage)
+
+        coordinator.refreshError = nil
+        await viewModel.refresh(force: true)
+
+        #expect(viewModel.tokenSnapshot?.today.tokens.inputTokens == 25)
+        #expect(viewModel.tokenUsageError == nil)
+        #expect(!viewModel.isLoadingTokenUsage)
+    }
+
     private static func makeUsageSnapshot() -> UsageSnapshot {
         UsageSnapshot(
             session: UsageWindow(
@@ -493,14 +549,21 @@ struct UsageViewModelTokenCoordinationTests {
 private final class StubTokenUsageCoordinator: TokenUsageCoordinating {
     private let update: TokenUsageRefreshUpdate
     private let details: [Provider: ProviderDetail]
+    var refreshError: Error?
 
-    init(update: TokenUsageRefreshUpdate, details: [Provider: ProviderDetail]) {
+    init(
+        update: TokenUsageRefreshUpdate,
+        details: [Provider: ProviderDetail],
+        refreshError: Error? = nil
+    ) {
         self.update = update
         self.details = details
+        self.refreshError = refreshError
     }
 
     func refresh(selectedPeriod: UsagePeriod) async throws -> TokenUsageRefreshUpdate {
-        update
+        if let refreshError { throw refreshError }
+        return update
     }
 
     func summary(for period: UsagePeriod) async throws -> TokenUsageSummary {
@@ -554,3 +617,4 @@ private actor StubTokenUsageService: TokenUsageServiceProtocol {
 private enum StubTokenUsageError: Error {
     case failed
 }
+#endif

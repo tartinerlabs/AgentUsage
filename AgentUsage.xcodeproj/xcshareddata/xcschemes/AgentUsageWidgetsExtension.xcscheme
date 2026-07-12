@@ -29,9 +29,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D835E8092F06B9AE001A996A"
-               BuildableName = "AgentUsage-iOS.app"
-               BlueprintName = "AgentUsage-iOS"
+               BlueprintIdentifier = "D8EFFF712F05796A006A2183"
+               BuildableName = "AgentUsage.app"
+               BlueprintName = "AgentUsage"
                ReferencedContainer = "container:AgentUsage.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -60,9 +60,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "D835E8092F06B9AE001A996A"
-            BuildableName = "AgentUsage-iOS.app"
-            BlueprintName = "AgentUsage-iOS"
+            BlueprintIdentifier = "D8EFFF712F05796A006A2183"
+            BuildableName = "AgentUsage.app"
+            BlueprintName = "AgentUsage"
             ReferencedContainer = "container:AgentUsage.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -96,9 +96,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "D835E8092F06B9AE001A996A"
-            BuildableName = "AgentUsage-iOS.app"
-            BlueprintName = "AgentUsage-iOS"
+            BlueprintIdentifier = "D8EFFF712F05796A006A2183"
+            BuildableName = "AgentUsage.app"
+            BlueprintName = "AgentUsage"
             ReferencedContainer = "container:AgentUsage.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -56,33 +56,32 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO
 
-  # iOS and widget CI stays disabled until those surfaces are release-ready.
-  # ios:
-  #   name: iOS & Widgets Build
-  #   runs-on: macos-26
-  #
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-  #
-  #     - name: Build iOS app
-  #       run: |
-  #         xcodebuild -project AgentUsage.xcodeproj \
-  #           -scheme AgentUsage-iOS \
-  #           -configuration Debug \
-  #           -destination 'generic/platform=iOS Simulator' \
-  #           -derivedDataPath build/DerivedData-iOS \
-  #           build \
-  #           CODE_SIGN_IDENTITY="-" \
-  #           CODE_SIGNING_REQUIRED=NO
-  #
-  #     - name: Build widgets
-  #       run: |
-  #         xcodebuild -project AgentUsage.xcodeproj \
-  #           -scheme AgentUsageWidgetsExtension \
-  #           -configuration Debug \
-  #           -destination 'generic/platform=iOS Simulator' \
-  #           -derivedDataPath build/DerivedData-widgets \
-  #           build \
-  #           CODE_SIGN_IDENTITY="-" \
-  #           CODE_SIGNING_REQUIRED=NO
+  ios:
+    name: iOS & Widgets Build
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Build iOS app and test bundles
+        run: |
+          xcodebuild -project AgentUsage.xcodeproj \
+            -scheme AgentUsage \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData-iOS \
+            build-for-testing \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Build widgets
+        run: |
+          xcodebuild -project AgentUsage.xcodeproj \
+            -scheme AgentUsageWidgetsExtension \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData-widgets \
+            build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
