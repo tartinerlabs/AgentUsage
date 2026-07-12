@@ -19,13 +19,17 @@ struct SettingsTabView: View {
     @State private var blogSyncTokenDraft = ""
     @State private var diagnosticExportMessage: String?
 
+    private let contentWidth: CGFloat = 760
+
     var body: some View {
         @Bindable var viewModel = viewModel
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
+                settingsHeader
+
                 // General Section
-                settingsCard(title: "General") {
+                settingsCard(title: "General", systemImage: "gearshape") {
                     VStack(spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
@@ -164,7 +168,7 @@ struct SettingsTabView: View {
                     }
                 }
 
-                settingsCard(title: "Reliability Diagnostics") {
+                settingsCard(title: "Reliability Diagnostics", systemImage: "waveform.path.ecg") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Shadow validation stays on this Mac and stores only mismatch categories, timing buckets, strategy IDs, and failure classes.")
                             .font(.caption)
@@ -183,7 +187,7 @@ struct SettingsTabView: View {
                 }
 
                 // Notifications Section
-                settingsCard(title: "Notifications") {
+                settingsCard(title: "Notifications", systemImage: "bell.badge") {
                     VStack(spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
@@ -240,7 +244,7 @@ struct SettingsTabView: View {
                 }
 
                 // Blog Usage Sync Section
-                settingsCard(title: "Blog Usage Sync") {
+                settingsCard(title: "Blog Usage Sync", systemImage: "arrow.triangle.2.circlepath") {
                     VStack(spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
@@ -347,7 +351,7 @@ struct SettingsTabView: View {
 
                 #if DEBUG
                 // Debug Section (only in debug builds)
-                settingsCard(title: "Debug") {
+                settingsCard(title: "Debug", systemImage: "ladybug") {
                     VStack(spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
@@ -400,7 +404,7 @@ struct SettingsTabView: View {
                 #endif
 
                 // Updates Section
-                settingsCard(title: "Updates") {
+                settingsCard(title: "Updates", systemImage: "arrow.down.circle") {
                     VStack(spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
@@ -488,7 +492,10 @@ struct SettingsTabView: View {
 
                 Spacer(minLength: 0)
             }
-            .padding(24)
+            .frame(maxWidth: contentWidth, alignment: .leading)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 28)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(Color(NSColor.windowBackgroundColor))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -546,10 +553,32 @@ struct SettingsTabView: View {
         }
     }
 
-    private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
+    private var settingsHeader: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Settings")
+                .font(.title2.weight(.semibold))
+            Text("Control refresh cadence, notifications, diagnostics, syncing, and updates.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func settingsCard<Content: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Constants.brandPrimary)
+                    .frame(width: 20)
+                Text(title)
+                    .font(.headline)
+                Spacer()
+            }
 
             VStack(alignment: .leading, spacing: 0) {
                 content()
@@ -558,7 +587,11 @@ struct SettingsTabView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(NSColor.controlBackgroundColor))
+                    .fill(.regularMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 1)
             )
         }
     }
