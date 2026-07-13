@@ -18,6 +18,7 @@ mkdir -p "$EXPORT_PATH" "$VERIFICATION_DIR"
 xcodebuild -project "$APP_NAME.xcodeproj" \
   -scheme "$SCHEME" \
   -configuration Release \
+  -destination "generic/platform=macOS" \
   -archivePath "$ARCHIVE_PATH" \
   archive \
   CODE_SIGN_IDENTITY="-" \

@@ -34,6 +34,7 @@ jobs:
         run: |
           .github/scripts/tests/test-compute-version.sh
           .github/scripts/tests/test-release-gate.sh
+          .github/scripts/tests/test-release-destinations.sh
           .github/scripts/tests/test-appcast-generation.sh
 
       - name: Build macOS app
@@ -41,6 +42,7 @@ jobs:
           xcodebuild -project AgentUsage.xcodeproj \
             -scheme AgentUsage \
             -configuration Debug \
+            -destination 'platform=macOS' \
             -derivedDataPath build/DerivedData \
             build \
             CODE_SIGN_IDENTITY="-" \
@@ -51,6 +53,7 @@ jobs:
           xcodebuild -project AgentUsage.xcodeproj \
             -scheme AgentUsage \
             -configuration Debug \
+            -destination 'platform=macOS' \
             -derivedDataPath build/DerivedData \
             test \
             CODE_SIGN_IDENTITY="-" \
