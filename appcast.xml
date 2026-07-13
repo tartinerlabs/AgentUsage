@@ -6,6 +6,29 @@
         <description>Most recent updates to ClaudeMeter</description>
         <language>en</language>
         <item>
+            <title>0.29.0</title>
+            <pubDate>Mon, 13 Jul 2026 12:11:49 +0000</pubDate>
+            <link>https://github.com/tartinerlabs/AgentUsage/releases</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/tartinerlabs/AgentUsage/blob/main/CHANGELOG.md</sparkle:fullReleaseNotesLink>
+            <sparkle:version>83</sparkle:version>
+            <sparkle:shortVersionString>0.29.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What&#x27;s New</h2>
+<ul>
+<li>Pre-resolve Swift package dependencies for parallel CI builds</li>
+<li>Parallelize independent CI steps</li>
+<li>Pin macOS destinations in release and CI</li>
+<li>Fix Codex window classification by duration</li>
+<li>Redesign macOS main window</li>
+<li>Refactor usage tracking and simplify app workflows</li>
+<li>Update design docs for provider-neutral Timefold identity</li>
+<li>Record completed provider-core and shadow-engine issues</li>
+</ul>
+<p>See <a href="https://github.com/tartinerlabs/AgentUsage/blob/main/CHANGELOG.md">CHANGELOG.md</a> for full details.</p>
+]]></description>
+            <enclosure url="https://github.com/tartinerlabs/AgentUsage/releases/download/v0.29.0/AgentUsage.zip" length="5170091" type="application/octet-stream" sparkle:edSignature="QrtubeGaiTknx0L1ihDaBwymZqAL3GH6Q13SYe3UlESJkrugT2kQOVnaUIgc1eLICRCiIzvrShf8pvh+WNvFBQ=="/>
+        </item>
+        <item>
             <title>0.28.0</title>
             <pubDate>Sat, 11 Jul 2026 11:21:15 +0000</pubDate>
             <link>https://github.com/tartinerlabs/AgentUsage/releases</link>
