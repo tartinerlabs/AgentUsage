@@ -264,11 +264,13 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
         let usedPercent: Double?
         let resetAt: Double?
         let resetAfterSeconds: Double?
+        let limitWindowSeconds: Double?
 
         enum CodingKeys: String, CodingKey {
             case usedPercent = "used_percent"
             case resetAt = "reset_at"
             case resetAfterSeconds = "reset_after_seconds"
+            case limitWindowSeconds = "limit_window_seconds"
         }
     }
 
@@ -283,7 +285,7 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
         if let primary = makeWindow(
             decoded.rateLimit?.primaryWindow,
             overridePercent: headerPrimary,
-            type: .codexFiveHour,
+            fallbackType: .codexFiveHour,
             now: currentDate
         ) {
             windows.append(primary)
@@ -291,7 +293,7 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
         if let secondary = makeWindow(
             decoded.rateLimit?.secondaryWindow,
             overridePercent: headerSecondary,
-            type: .codexWeekly,
+            fallbackType: .codexWeekly,
             now: currentDate
         ) {
             windows.append(secondary)
@@ -318,10 +320,12 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
     private func makeWindow(
         _ window: Window?,
         overridePercent: Double?,
-        type: UsageWindowType,
+        fallbackType: UsageWindowType,
         now: Date
     ) -> UsageWindow? {
         guard let percent = overridePercent ?? window?.usedPercent else { return nil }
+        let type = windowType(for: window?.limitWindowSeconds, fallback: fallbackType)
+        let duration = window?.limitWindowSeconds ?? type?.totalDuration ?? fallbackType.totalDuration
 
         let resetsAt: Date
         if let resetAt = window?.resetAt {
@@ -329,10 +333,38 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
         } else if let after = window?.resetAfterSeconds {
             resetsAt = now.addingTimeInterval(after)
         } else {
-            resetsAt = now.addingTimeInterval(type.totalDuration)
+            resetsAt = now.addingTimeInterval(duration)
         }
 
-        return UsageWindow(utilization: percent, resetsAt: resetsAt, windowType: type)
+        if let type {
+            return UsageWindow(utilization: percent, resetsAt: resetsAt, windowType: type)
+        }
+
+        return UsageWindow(
+            utilization: percent,
+            resetsAt: resetsAt,
+            windowID: UsageWindowID(rawValue: "codex-custom-\(fallbackType.rawValue)"),
+            displayName: "Usage limit",
+            totalDuration: duration
+        )
+    }
+
+    /// The API's primary/secondary slots are not stable identities: while the
+    /// five-hour limit is unavailable, the weekly limit moves into primary.
+    /// Duration metadata is authoritative when present. Slot identity remains a
+    /// compatibility fallback for older and header-only responses.
+    private func windowType(
+        for duration: TimeInterval?,
+        fallback: UsageWindowType
+    ) -> UsageWindowType? {
+        guard let duration else { return fallback }
+        if duration == UsageWindowType.codexFiveHour.totalDuration {
+            return .codexFiveHour
+        }
+        if duration == UsageWindowType.codexWeekly.totalDuration {
+            return .codexWeekly
+        }
+        return nil
     }
 
     private func headerPercent(_ http: HTTPURLResponse, _ name: String) -> Double? {
