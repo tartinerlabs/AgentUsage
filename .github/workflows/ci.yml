@@ -68,6 +68,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      - name: Resolve Swift package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project AgentUsage.xcodeproj \
+            -clonedSourcePackagesDirPath build/SourcePackages
+
       - parallel:
           - name: Build iOS app and test bundles
             run: |
@@ -76,6 +82,7 @@ jobs:
                 -configuration Debug \
                 -destination 'generic/platform=iOS Simulator' \
                 -derivedDataPath build/DerivedData-iOS \
+                -clonedSourcePackagesDirPath build/SourcePackages \
                 build-for-testing \
                 CODE_SIGN_IDENTITY="-" \
                 CODE_SIGNING_REQUIRED=NO
@@ -87,6 +94,7 @@ jobs:
                 -configuration Debug \
                 -destination 'generic/platform=iOS Simulator' \
                 -derivedDataPath build/DerivedData-widgets \
+                -clonedSourcePackagesDirPath build/SourcePackages \
                 build \
                 CODE_SIGN_IDENTITY="-" \
                 CODE_SIGNING_REQUIRED=NO
