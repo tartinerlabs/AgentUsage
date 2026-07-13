@@ -179,6 +179,25 @@ struct MenuBarStatusContentTests {
         #expect(content.groups[0].metrics.map(\.percentUsed) == [0])
     }
 
+    @Test @MainActor func unavailableFiveHourPinDoesNotHideWeeklyWindow() {
+        let content = MenuBarStatusContentBuilder.build(
+            snapshots: [
+                .codex: snapshot(
+                    provider: .codex,
+                    windows: [window(16, type: .codexWeekly)]
+                ),
+            ],
+            pinnedWindows: [
+                .codex: [.codexFiveHour, .codexWeekly],
+            ],
+            now: now
+        )
+
+        #expect(content.groups.count == 1)
+        #expect(content.groups[0].metrics.map(\.id) == [UsageWindowType.codexWeekly.rawValue])
+        #expect(content.groups[0].metrics.map(\.percentUsed) == [16])
+    }
+
     @Test @MainActor func formatsOverLimitUsageAndBuildsVoiceOverSummary() {
         let content = MenuBarStatusContentBuilder.build(
             snapshots: [

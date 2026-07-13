@@ -19,7 +19,7 @@ struct CodexUsageServiceTests {
         let primaryReset = now.addingTimeInterval(8535).timeIntervalSince1970
         let weeklyReset = now.addingTimeInterval(323_863).timeIntervalSince1970
         let body = """
-        {"plan_type":"prolite","rate_limit":{"primary_window":{"used_percent":22,"reset_at":\(Int(primaryReset))},"secondary_window":{"used_percent":34,"reset_at":\(Int(weeklyReset))}}}
+        {"plan_type":"prolite","rate_limit":{"primary_window":{"used_percent":22,"reset_at":\(Int(primaryReset)),"limit_window_seconds":18000},"secondary_window":{"used_percent":34,"reset_at":\(Int(weeklyReset)),"limit_window_seconds":604800}}}
         """
 
         let service = try Self.makeService(now: now) { _ in
@@ -39,10 +39,65 @@ struct CodexUsageServiceTests {
         #expect(weekly.resetsAt == Date(timeIntervalSince1970: weeklyReset))
     }
 
+    @Test func weeklyOnlyPrimaryWindowIsClassifiedByDuration() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let weeklyReset = now.addingTimeInterval(579_800).timeIntervalSince1970
+        let body = """
+        {"plan_type":"prolite","rate_limit":{"primary_window":{"used_percent":16,"reset_at":\(Int(weeklyReset)),"limit_window_seconds":604800},"secondary_window":null}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.windows.count == 1)
+        let weekly = try #require(snapshot?.windows.first)
+        #expect(weekly.windowType == .codexWeekly)
+        #expect(weekly.displayName == "Weekly limit")
+        #expect(weekly.utilization == 16)
+        #expect(weekly.resetsAt == Date(timeIntervalSince1970: weeklyReset))
+        #expect(snapshot?.windows.contains { $0.windowType == .codexFiveHour } == false)
+    }
+
+    @Test func durationClassificationDoesNotDependOnWindowSlot() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":31,"reset_after_seconds":600,"limit_window_seconds":604800},"secondary_window":{"used_percent":42,"reset_after_seconds":1200,"limit_window_seconds":18000}}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.windows.count == 2)
+        #expect(snapshot?.windows.first { $0.windowType == .codexWeekly }?.utilization == 31)
+        #expect(snapshot?.windows.first { $0.windowType == .codexFiveHour }?.utilization == 42)
+    }
+
+    @Test func unknownDurationIsNotMisclassifiedByWindowSlot() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":9,"limit_window_seconds":86400},"secondary_window":null}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        let window = try #require(snapshot?.windows.first)
+        #expect(window.windowType == .custom)
+        #expect(window.displayName == "Usage limit")
+        #expect(window.totalDuration == 86_400)
+        #expect(window.resetsAt == now.addingTimeInterval(86_400))
+    }
+
     @Test func headerPercentsOverrideBody() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let body = """
-        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":\(Int(now.timeIntervalSince1970 + 60))},"secondary_window":{"used_percent":20,"reset_at":\(Int(now.timeIntervalSince1970 + 600))}}}
+        {"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":\(Int(now.timeIntervalSince1970 + 60)),"limit_window_seconds":604800},"secondary_window":{"used_percent":20,"reset_at":\(Int(now.timeIntervalSince1970 + 600)),"limit_window_seconds":18000}}}
         """
         let headers = [
             "x-codex-primary-used-percent": "77",
@@ -54,12 +109,12 @@ struct CodexUsageServiceTests {
         }
         let snapshot = try await service.fetchSnapshot()
 
-        #expect(snapshot?.windows.first { $0.windowType == .codexFiveHour }?.utilization == 77)
-        #expect(snapshot?.windows.first { $0.windowType == .codexWeekly }?.utilization == 88)
+        #expect(snapshot?.windows.first { $0.windowType == .codexWeekly }?.utilization == 77)
+        #expect(snapshot?.windows.first { $0.windowType == .codexFiveHour }?.utilization == 88)
         #expect(snapshot?.planName == "Pro 20x")
     }
 
-    @Test func resetAfterSecondsIsResolvedRelativeToFetchTime() async throws {
+    @Test func durationlessPayloadUsesLegacySlotMapping() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let body = """
         {"plan_type":"plus","rate_limit":{"primary_window":{"used_percent":12,"reset_after_seconds":90},"secondary_window":null}}
