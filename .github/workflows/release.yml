@@ -54,6 +54,7 @@ jobs:
         run: |
           xcodebuild -project "${APP_NAME}.xcodeproj" \
             -scheme "$SCHEME" \
+            -destination 'platform=macOS' \
             -derivedDataPath build/DryRunDerivedData \
             test \
             CODE_SIGN_IDENTITY="-" \
@@ -133,6 +134,7 @@ jobs:
         run: |
           xcodebuild -project "${APP_NAME}.xcodeproj" \
             -scheme "$SCHEME" \
+            -destination 'platform=macOS' \
             -derivedDataPath build/ReleaseDerivedData \
             test \
             CODE_SIGN_IDENTITY="-" \
