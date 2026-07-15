@@ -142,7 +142,7 @@ No data collection or transmission. All processing is local. Reads credentials f
 
 **Data:** Anthropic OAuth API for rate limits, local JSONL logs for tokens, [Anthropic pricing](https://anthropic.com/pricing)
 
-**Releases:** Manually triggered through GitHub Actions. Current archives are ad-hoc code signed and Sparkle EdDSA signed; the Developer ID-signed and notarised path remains available for future use. See [RELEASING.md](RELEASING.md) and [releases](https://github.com/tartinerlabs/AgentUsage/releases).
+**Releases:** Manually triggered through GitHub Actions. Archives are Developer ID-signed, Apple-notarised, and Sparkle EdDSA signed; an ad-hoc-signed fallback path remains available. See [RELEASING.md](RELEASING.md) and [releases](https://github.com/tartinerlabs/AgentUsage/releases).
 
 ## Support
 

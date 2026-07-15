@@ -44,7 +44,7 @@ The dry run computes or resumes the version, runs tests, simulates version and c
 
 ## Publish unsigned
 
-Use the current no-membership distribution path only after the unsigned gate is enabled and the dry run passes:
+Use this ad-hoc fallback path only after the unsigned gate is enabled and the dry run passes (the signed `publish` path is preferred once Apple credentials are configured):
 
 ```bash
 gh workflow run release.yml \
