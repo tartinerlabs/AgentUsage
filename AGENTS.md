@@ -30,7 +30,7 @@ and Live Activity extension.
 
 Releases use the manually triggered `.github/workflows/release.yml`; a normal push to `main` runs CI only. The default `dry-run` operation has read-only permissions and builds a fully validated ad-hoc-signed archive. Publishing always uses the protected `release` environment and requires the Sparkle private key.
 
-`publish-unsigned` requires `UNSIGNED_RELEASES_ENABLED=true`, creates an ad-hoc code signature, and does not use Apple notarization. `publish` remains the future Developer ID path and requires `SIGNED_RELEASES_ENABLED=true` plus the Apple signing and notarization secrets. Both paths test, compute or resume the version, prepare the changelog, generate and verify the accumulating feed with Sparkle's official `generate_appcast`, commit with compare-and-swap protection, create the tag/prerelease, publish `appcast.xml` to `gh-pages`, and dispatch `pages.yml`.
+`publish` is the Developer ID path and requires `SIGNED_RELEASES_ENABLED=true` plus the Apple signing and notarization secrets; it signs with Developer ID, notarizes, and staples. `publish-unsigned` is the ad-hoc fallback: it requires `UNSIGNED_RELEASES_ENABLED=true`, creates an ad-hoc code signature, and does not use Apple notarization. Both paths test, compute or resume the version, prepare the changelog, generate and verify the accumulating feed with Sparkle's official `generate_appcast`, commit with compare-and-swap protection, create the tag/prerelease, publish `appcast.xml` to `gh-pages`, and dispatch `pages.yml`.
 
 Do not manually edit versions, tag, or call `gh release create`. Use:
 
@@ -41,7 +41,7 @@ gh workflow run release.yml -f operation=publish -f bump=auto
 gh workflow run release.yml -f operation=repair-appcast -f tag=vX.Y.Z
 ```
 
-Unsigned releases are the current distribution mode until Developer ID credentials are available. The committed `0.26.0` build `79` is the next release candidate and is resumed regardless of the requested bump. See `RELEASING.md` and `.agents/skills/release/SKILL.md` for setup, Gatekeeper behaviour, and recovery.
+Signed, notarized Developer ID releases (`publish`) are the primary distribution mode, gated on `SIGNED_RELEASES_ENABLED=true` plus the Apple signing and notarization secrets in the `release` environment; `publish-unsigned` remains an ad-hoc fallback. An untagged version committed in `Config/Version.xcconfig` is resumed regardless of the requested bump. See `RELEASING.md` and `.agents/skills/release/SKILL.md` for setup, Gatekeeper behaviour, and recovery.
 
 ## Quick Reference
 

@@ -5,10 +5,10 @@ means a person chooses when a release starts; the workflow still handles the
 version, tests, signing, notarization, packaging, Sparkle feed, tag, and GitHub
 release.
 
-AgentUsage currently publishes explicitly selected ad-hoc-signed releases
-because the project does not have paid Apple Developer Program membership.
-The Developer ID-signed and notarized path remains available for future use.
-The committed `0.26.0` build `79` is the next release candidate.
+AgentUsage publishes Developer ID-signed, notarized releases through the
+`publish` operation, which Gatekeeper trusts on first launch. The ad-hoc-signed
+`publish-unsigned` path remains available as a fallback, but Gatekeeper blocks it
+until the user approves the app manually.
 
 ## The moving pieces
 
@@ -28,8 +28,8 @@ The committed `0.26.0` build `79` is the next release candidate.
 
 Developer ID and Sparkle signatures solve different problems. Sparkle's EdDSA
 signature authenticates updates delivered to existing users. Developer ID and
-notarization are unavailable without paid programme membership, so unsigned
-distribution retains the Sparkle signature but cannot satisfy Gatekeeper.
+notarization satisfy Gatekeeper for fresh downloads; the ad-hoc fallback still
+carries the Sparkle signature but cannot satisfy Gatekeeper.
 
 ## Running a dry run
 
@@ -47,8 +47,8 @@ and verifies the same archive shape used by unsigned publication. Its job token
 is read-only, and it contains no publishing steps.
 
 Use `patch`, `minor`, or `major` instead of `auto` to force a bump. An untagged
-configured version, such as the current `0.26.0` build `79`, is always resumed
-instead of bumped again.
+configured version in `Config/Version.xcconfig` is always resumed instead of
+bumped again; once that version is tagged, `bump=auto` computes the next one.
 
 ## One-time unsigned-release setup
 
@@ -89,9 +89,11 @@ Settings → Privacy & Security**, click **Open Anyway** for AgentUsage, and
 confirm **Open**. Do not instruct users to disable Gatekeeper globally. See
 [Apple's current guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
 
-## Future Apple setup
+## Apple signing setup
 
-After joining the Apple Developer Program:
+With paid Apple Developer Program membership, configure the following once so the
+`publish` operation can sign and notarize. The certificate and API key belong to
+Apple Team `96NH8UVPYB` (the same team as the iOS and widget targets):
 
 1. Create a **Developer ID Application** certificate and export it from
    Keychain Access as a password-protected `.p12` file.
@@ -125,7 +127,7 @@ After joining the Apple Developer Program:
    gh secret set DEVELOPER_ID_APPLICATION_PASSWORD --env release
    gh secret set APPLE_NOTARY_KEY_ID --env release
    gh secret set APPLE_NOTARY_ISSUER_ID --env release
-   gh secret set APPLE_TEAM_ID --env release
+   gh secret set APPLE_TEAM_ID --env release   # 96NH8UVPYB
    ```
 
 6. Run a dry run and confirm it passes. Only then enable signed publishing:
@@ -163,7 +165,7 @@ If a GitHub release exists but publishing or deploying its feed failed:
 ```bash
 gh workflow run release.yml \
   -f operation=repair-appcast \
-  -f tag=v0.26.0
+  -f tag=v0.29.0
 ```
 
 Repair downloads the existing ZIP and detects its signature mode. Developer ID
