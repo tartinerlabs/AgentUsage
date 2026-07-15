@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D8A11C022F0C000000000002 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D8A11C012F0C000000000001 /* AppIcon.icon */; };
 		D835E7BC2F06B812001A996A /* Sparkle in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = D8EFFFC12F05CD75006A2183 /* Sparkle */; };
 		D835E8532F06D377001A996A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8522F06D377001A996A /* WidgetKit.framework */; };
 		D835E8552F06D377001A996A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8542F06D377001A996A /* SwiftUI.framework */; };
-		D835E8662F06D378001A996A /* AgentUsageWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D835E8502F06D377001A996A /* AgentUsageWidgetsExtension.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D835E8662F06D378001A996A /* AgentUsageWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D835E8502F06D377001A996A /* AgentUsageWidgetsExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D8A11C022F0C000000000002 /* Design/AppIcon/AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */; };
 		D8AB30E12F0AB1E800A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E02F0AB1E800A4BD39 /* AgentUsageKit */; };
 		D8AB30E52F0AB2B800A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E42F0AB2B800A4BD39 /* AgentUsageKit */; };
 		D8AFC0012F0D000000000001 /* AgentUsageProviderCore in Frameworks */ = {isa = PBXBuildFile; productRef = D8AFC0022F0D000000000002 /* AgentUsageProviderCore */; };
@@ -56,10 +56,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D8A11C012F0C000000000001 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Design/AppIcon/AppIcon.icon; sourceTree = "<group>"; };
 		D835E8502F06D377001A996A /* AgentUsageWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AgentUsageWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D835E8522F06D377001A996A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		D835E8542F06D377001A996A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Design/AppIcon/AppIcon.icon; sourceTree = "<group>"; };
 		D8EFFF722F05796A006A2183 /* AgentUsage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentUsage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8EFFF832F05796C006A2183 /* AgentUsageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentUsageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8EFFF8D2F05796C006A2183 /* AgentUsageUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentUsageUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -162,7 +162,7 @@
 		D8EFFF692F05796A006A2183 = {
 			isa = PBXGroup;
 			children = (
-				D8A11C012F0C000000000001 /* AppIcon.icon */,
+				D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */,
 				D8EFFF742F05796A006A2183 /* AgentUsage */,
 				D8EFFF862F05796C006A2183 /* AgentUsageTests */,
 				D8EFFF902F05796C006A2183 /* AgentUsageUITests */,
@@ -290,7 +290,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2620;
-				LastUpgradeCheck = 2620;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					D835E84F2F06D377001A996A = {
 						CreatedOnToolsVersion = 26.2;
@@ -346,7 +346,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D8A11C022F0C000000000002 /* AppIcon.icon in Resources */,
+				D8A11C022F0C000000000002 /* Design/AppIcon/AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -500,14 +500,15 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "AgentUsage/iOS/AgentUsage-iOS.entitlements";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				"CODE_SIGN_STYLE[sdk=iphoneos*]" = Automatic;
 				"CODE_SIGN_STYLE[sdk=iphonesimulator*]" = Automatic;
 				"CODE_SIGN_STYLE[sdk=macosx*]" = Manual;
 				CURRENT_PROJECT_VERSION = 83;
+				DEAD_CODE_STRIPPING = YES;
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 96NH8UVPYB;
 				"DEVELOPMENT_TEAM[sdk=iphonesimulator*]" = 96NH8UVPYB;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = 96NH8UVPYB;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -561,14 +562,15 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "AgentUsage/iOS/AgentUsage-iOS.entitlements";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				"CODE_SIGN_STYLE[sdk=iphoneos*]" = Automatic;
 				"CODE_SIGN_STYLE[sdk=iphonesimulator*]" = Automatic;
 				"CODE_SIGN_STYLE[sdk=macosx*]" = Manual;
 				CURRENT_PROJECT_VERSION = 83;
+				DEAD_CODE_STRIPPING = YES;
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 96NH8UVPYB;
 				"DEVELOPMENT_TEAM[sdk=iphonesimulator*]" = 96NH8UVPYB;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = 96NH8UVPYB;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -646,6 +648,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -669,6 +672,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -708,6 +712,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -724,6 +729,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -734,6 +740,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 83;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -760,6 +767,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 83;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -785,6 +793,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 83;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -809,6 +818,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 83;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
