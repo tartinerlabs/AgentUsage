@@ -7,8 +7,13 @@ import Foundation
 import OSLog
 import Security
 
-/// Helper for Keychain credential storage
-/// TODO: Enable iCloud Keychain sync when paid developer account is available
+/// Helper for Keychain credential storage.
+///
+/// Credential items are marked synchronizable so they sync across a user's
+/// devices via iCloud Keychain. This relies on the app being signed with the
+/// team's Keychain Sharing capability (`keychain-access-groups`), already
+/// present in the iOS entitlements. Only the iOS credential path uses these
+/// methods; macOS credentials are handled by `MacOSCredentialService`.
 enum KeychainHelper {
     nonisolated static let service = "com.tartinerlabs.AgentUsage"
     static let account = "claude-oauth-credentials"
@@ -66,9 +71,11 @@ enum KeychainHelper {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account
-            // TODO: Uncomment for iCloud sync (requires paid developer account)
-            // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+            kSecAttrAccount as String: account,
+            // Mark the item synchronizable so it syncs via iCloud Keychain.
+            // Must be a concrete boolean on add — kSecAttrSynchronizableAny is a
+            // query-only value and is rejected by SecItemAdd (errSecParam).
+            kSecAttrSynchronizable as String: kCFBooleanTrue!
         ]
 
         let attributes: [String: Any] = [
@@ -103,9 +110,10 @@ enum KeychainHelper {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnData as String: kCFBooleanTrue!,
-            kSecMatchLimit as String: kSecMatchLimitOne
-            // TODO: Uncomment for iCloud sync (requires paid developer account)
-            // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            // Match both synchronizable and non-synchronizable items so existing
+            // local-only credentials keep loading after enabling iCloud sync.
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
 
         var result: AnyObject?
@@ -141,9 +149,10 @@ enum KeychainHelper {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account
-            // TODO: Uncomment for iCloud sync (requires paid developer account)
-            // kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+            kSecAttrAccount as String: account,
+            // Match both synchronizable and non-synchronizable items so a
+            // credential saved on any device (or a legacy local-only item) is removed.
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
         SecItemDelete(query as CFDictionary)
     }
