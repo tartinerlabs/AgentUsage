@@ -20,6 +20,13 @@ struct MainTabView: View {
             }
 
             NavigationStack {
+                ClaudeWrappedView()
+            }
+            .tabItem {
+                Label("Wrapped", systemImage: "gift")
+            }
+
+            NavigationStack {
                 SettingsView()
             }
             .tabItem {
