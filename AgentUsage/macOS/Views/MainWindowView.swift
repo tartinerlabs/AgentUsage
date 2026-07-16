@@ -51,7 +51,7 @@ struct MainWindowView: View {
             }
             .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
-            .navigationTitle("AgentUsage")
+            .navigationTitle(Constants.appDisplayName)
         } detail: {
             selectedContent
                 .environment(viewModel)

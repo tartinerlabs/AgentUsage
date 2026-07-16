@@ -46,7 +46,7 @@ struct WrappedShareCard: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "gift")
-                Text("AgentUsage")
+                Text(Constants.appDisplayName)
                     .font(.system(size: 13, weight: .semibold))
             }
             .foregroundStyle(.secondary)

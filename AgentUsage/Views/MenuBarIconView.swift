@@ -127,7 +127,7 @@ enum MenuBarStatusRenderer {
     static let fallbackImage: NSImage = {
         let image = NSImage(
             systemSymbolName: "gauge.with.dots.needle.bottom.50percent",
-            accessibilityDescription: "AgentUsage"
+            accessibilityDescription: Constants.appDisplayName
         ) ?? NSImage(size: NSSize(width: 18, height: 18))
         image.isTemplate = true
         return image
@@ -193,7 +193,7 @@ struct MenuBarIconView: View {
             ?? MenuBarStatusRenderer.fallbackImage
 
         Image(nsImage: image)
-            .accessibilityLabel(content.isEmpty ? "AgentUsage" : content.accessibilityText)
+            .accessibilityLabel(content.isEmpty ? Constants.appDisplayName : content.accessibilityText)
             .task {
                 await viewModel.initializeIfNeeded()
             }

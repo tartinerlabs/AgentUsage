@@ -332,7 +332,7 @@ final class UpdaterController: ObservableObject {
             guard granted else { return }
 
             let content = UNMutableNotificationContent()
-            content.title = "AgentUsage Update Available"
+            content.title = "\(Constants.appDisplayName) Update Available"
             content.body = "Version \(version) is ready to install."
             content.sound = .default
 

@@ -22,7 +22,7 @@ struct AboutView: View {
 
                 // App Name and Version
                 VStack(spacing: 4) {
-                    Text("AgentUsage")
+                    Text(Constants.appDisplayName)
                         .font(.title)
                         .fontWeight(.bold)
 

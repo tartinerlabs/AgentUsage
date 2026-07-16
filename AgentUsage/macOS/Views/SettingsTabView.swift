@@ -35,7 +35,7 @@ struct SettingsTabView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Launch at Login")
                                     .font(.body)
-                                Text("Automatically start AgentUsage when you log in")
+                                Text("Automatically start \(Constants.appDisplayName) when you log in")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

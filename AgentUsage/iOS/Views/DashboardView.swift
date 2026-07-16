@@ -47,7 +47,7 @@ struct DashboardView: View {
         .refreshable {
             await viewModel.refresh(force: true)
         }
-        .navigationTitle("AgentUsage")
+        .navigationTitle(Constants.appDisplayName)
         .task {
             await viewModel.initializeIfNeeded()
         }

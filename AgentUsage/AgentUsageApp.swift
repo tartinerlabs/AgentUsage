@@ -65,7 +65,7 @@ struct AgentUsageApp: App {
     var body: some Scene {
         #if os(macOS)
         // Main window (opened from menu bar)
-        Window("AgentUsage", id: Constants.mainWindowID) {
+        Window(Constants.appDisplayName, id: Constants.mainWindowID) {
             MainWindowView()
                 .environment(viewModel)
                 .environmentObject(updaterController)

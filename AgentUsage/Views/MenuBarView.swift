@@ -264,7 +264,7 @@ struct MenuBarView: View {
     private var footer: some View {
         HStack {
             if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-                Text("AgentUsage v\(version)")
+                Text("\(Constants.appDisplayName) v\(version)")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
