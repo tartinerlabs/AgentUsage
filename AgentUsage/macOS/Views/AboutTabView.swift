@@ -15,7 +15,7 @@ struct AboutTabView: View {
             VStack(alignment: .leading, spacing: 24) {
                 appHeader
 
-                aboutCard(title: "What AgentUsage Tracks", systemImage: "gauge.with.dots.needle.bottom.50percent") {
+                aboutCard(title: "What \(Constants.appDisplayName) Tracks", systemImage: "gauge.with.dots.needle.bottom.50percent") {
                     VStack(alignment: .leading, spacing: 12) {
                         featureRow(
                             icon: "chart.bar.fill",
@@ -81,7 +81,7 @@ struct AboutTabView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("AgentUsage")
+                Text(Constants.appDisplayName)
                     .font(.title2.weight(.semibold))
 
                 Text("Version \(Bundle.main.appVersion)")
@@ -108,7 +108,7 @@ struct AboutTabView: View {
 
     private var footer: some View {
         VStack(spacing: 8) {
-            Text("Claude and its mark belong to Anthropic PBC. OpenAI, Codex, and the OpenAI mark belong to OpenAI. AgentUsage is not affiliated with or endorsed by either provider.")
+            Text("Claude and its mark belong to Anthropic PBC. OpenAI, Codex, and the OpenAI mark belong to OpenAI. \(Constants.appDisplayName) is not affiliated with or endorsed by either provider.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)

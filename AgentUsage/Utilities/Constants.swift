@@ -7,6 +7,13 @@ import Foundation
 import SwiftUI
 
 enum Constants {
+    // MARK: - Branding
+    /// User-facing product name shown in the UI (window/nav titles, About and Settings
+    /// headings, notifications, share card). Single source of truth for in-app display.
+    /// Keep in sync with `INFOPLIST_KEY_CFBundleDisplayName` in the build settings, which
+    /// drives the OS-level name under the app icon and cannot reference this constant.
+    static let appDisplayName = "Agent Usage"
+
     // MARK: - Window IDs
     static let mainWindowID = "main-window"
 

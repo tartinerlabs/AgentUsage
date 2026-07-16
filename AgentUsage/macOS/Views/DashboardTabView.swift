@@ -404,7 +404,7 @@ struct DashboardTabView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Update available")
                     .font(.subheadline.weight(.semibold))
-                Text("Open the updater to review the latest AgentUsage release.")
+                Text("Open the updater to review the latest \(Constants.appDisplayName) release.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -485,7 +485,7 @@ struct DashboardTabView: View {
             subtitle: "Your usage limits will appear after your next Claude prompt.",
             systemImage: "chart.bar.xaxis"
         ) {
-            Text("AgentUsage has not received an active provider window yet.")
+            Text("\(Constants.appDisplayName) has not received an active provider window yet.")
                 .font(.body)
                 .foregroundStyle(.secondary)
         }

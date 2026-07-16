@@ -428,7 +428,7 @@
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AgentUsageWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = AgentUsageWidgets;
+				INFOPLIST_KEY_CFBundleDisplayName = "Agent Usage Widgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -464,7 +464,7 @@
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AgentUsageWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = AgentUsageWidgets;
+				INFOPLIST_KEY_CFBundleDisplayName = "Agent Usage Widgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (

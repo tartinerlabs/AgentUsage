@@ -208,7 +208,7 @@ private struct AboutTab: View {
 
             // App Name and Version
             VStack(spacing: 2) {
-                Text("AgentUsage")
+                Text(Constants.appDisplayName)
                     .font(.title2)
                     .fontWeight(.bold)
 
