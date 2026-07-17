@@ -26,9 +26,42 @@ enum ClaudeTokenRefreshPolicy {
 /// macOS credential service that reads from Claude Code's Keychain entry
 /// via `/usr/bin/security` CLI (avoids repeated keychain access prompts).
 actor MacOSCredentialService: CredentialProvider {
+    typealias ClaudeCodeKeychainLoader = () throws -> (credentials: ClaudeOAuthCredentials, rawData: Data)
+    typealias AppKeychainLoader = () throws -> ClaudeOAuthCredentials
+    typealias AppKeychainSaver = (ClaudeOAuthCredentials) throws -> Void
+
+    private enum CredentialSource {
+        case claudeCode(credentials: ClaudeOAuthCredentials, rawData: Data)
+        case appKeychain(credentials: ClaudeOAuthCredentials)
+
+        var credentials: ClaudeOAuthCredentials {
+            switch self {
+            case .claudeCode(let credentials, _), .appKeychain(let credentials):
+                return credentials
+            }
+        }
+    }
+
+    private let claudeCodeKeychainLoader: ClaudeCodeKeychainLoader
+    private let appKeychainLoader: AppKeychainLoader
+    private let appKeychainSaver: AppKeychainSaver
+    private let defaults: UserDefaults
+
+    init(
+        defaults: UserDefaults = .standard,
+        claudeCodeKeychainLoader: ClaudeCodeKeychainLoader? = nil,
+        appKeychainLoader: AppKeychainLoader? = nil,
+        appKeychainSaver: AppKeychainSaver? = nil
+    ) {
+        self.defaults = defaults
+        self.claudeCodeKeychainLoader = claudeCodeKeychainLoader ?? Self.loadFromClaudeCodeKeychain
+        self.appKeychainLoader = appKeychainLoader ?? { try KeychainHelper.loadCredentials() }
+        self.appKeychainSaver = appKeychainSaver ?? { try KeychainHelper.saveCredentials($0) }
+    }
+
     func loadCredentials() async throws -> ClaudeOAuthCredentials {
-        let (credentials, rawData) = try loadFromClaudeCodeKeychain()
-        Logger.credentials.debug("Loaded credentials from Claude Code Keychain")
+        let source = try loadCredentialSource()
+        let credentials = source.credentials
 
         if !credentials.hasRequiredScope {
             throw CredentialError.missingScope
@@ -39,12 +72,11 @@ actor MacOSCredentialService: CredentialProvider {
         if credentials.isExpired || credentials.isAboutToExpire {
             if ClaudeTokenRefreshPolicy.shouldAttemptRefresh(
                 for: credentials,
-                defaults: .standard
+                defaults: defaults
             ), let refreshToken = credentials.refreshToken {
                 do {
                     let refreshed = try await refreshAndPersist(
-                        current: credentials,
-                        rawData: rawData,
+                        source: source,
                         refreshToken: refreshToken
                     )
                     mirrorToSynchronizableKeychain(refreshed)
@@ -63,11 +95,25 @@ actor MacOSCredentialService: CredentialProvider {
         return credentials
     }
 
+    private func loadCredentialSource() throws -> CredentialSource {
+        do {
+            let (credentials, rawData) = try claudeCodeKeychainLoader()
+            Logger.credentials.debug("Loaded credentials from Claude Code Keychain")
+            return .claudeCode(credentials: credentials, rawData: rawData)
+        } catch {
+            Logger.credentials.debug("Claude Code Keychain unavailable, trying AgentUsage Keychain: \(error.localizedDescription)")
+        }
+
+        let credentials = try appKeychainLoader()
+        Logger.credentials.debug("Loaded credentials from AgentUsage Keychain")
+        return .appKeychain(credentials: credentials)
+    }
+
     /// Seed AgentUsage's own synchronizable Keychain item from Claude Code's
     /// credential so iOS can receive it through iCloud Keychain.
     private func mirrorToSynchronizableKeychain(_ credentials: ClaudeOAuthCredentials) {
         do {
-            try KeychainHelper.saveCredentials(credentials)
+            try appKeychainSaver(credentials)
             Logger.credentials.info("Mirrored Claude credentials to synchronizable Keychain")
         } catch {
             Logger.credentials.error("Failed to mirror Claude credentials to synchronizable Keychain: \(error.localizedDescription)")
@@ -76,13 +122,13 @@ actor MacOSCredentialService: CredentialProvider {
 
     // MARK: - Refresh + write-back
 
-    /// Refreshes the token, writes the rotated credentials back to Claude Code's
-    /// keychain entry (preserving any fields we don't model), and returns the result.
+    /// Refreshes the token, writes the rotated credentials back to the source
+    /// credential store, and returns the result.
     private func refreshAndPersist(
-        current: ClaudeOAuthCredentials,
-        rawData: Data,
+        source: CredentialSource,
         refreshToken: String
     ) async throws -> ClaudeOAuthCredentials {
+        let current = source.credentials
         let tokens = try await TokenRefreshService.shared.refresh(refreshToken: refreshToken)
 
         let expiresAtMs: Double? = tokens.expiresInSeconds.map {
@@ -91,16 +137,7 @@ actor MacOSCredentialService: CredentialProvider {
         let newRefreshToken = tokens.refreshToken ?? refreshToken
         let newScopes = tokens.scopes ?? current.scopes
 
-        try writeBack(
-            rawData: rawData,
-            accessToken: tokens.accessToken,
-            refreshToken: newRefreshToken,
-            expiresAtMs: expiresAtMs,
-            scopes: newScopes
-        )
-        Logger.credentials.info("Refreshed and persisted Claude token")
-
-        return ClaudeOAuthCredentials(
+        let refreshed = ClaudeOAuthCredentials(
             accessToken: tokens.accessToken,
             refreshToken: newRefreshToken,
             expiresAt: expiresAtMs ?? current.expiresAt,
@@ -108,6 +145,22 @@ actor MacOSCredentialService: CredentialProvider {
             subscriptionType: current.subscriptionType,
             rateLimitTier: current.rateLimitTier
         )
+
+        switch source {
+        case .claudeCode(_, let rawData):
+            try writeBack(
+                rawData: rawData,
+                accessToken: refreshed.accessToken,
+                refreshToken: newRefreshToken,
+                expiresAtMs: expiresAtMs,
+                scopes: newScopes
+            )
+        case .appKeychain:
+            try appKeychainSaver(refreshed)
+        }
+        Logger.credentials.info("Refreshed and persisted Claude token")
+
+        return refreshed
     }
 
     /// Mutates only the token fields of the raw keychain JSON and writes it back, so
@@ -168,7 +221,7 @@ actor MacOSCredentialService: CredentialProvider {
 
         // `security -i` does not reliably surface failures via exit code, so verify
         // the write by reading the value back.
-        guard let (_, written) = try? loadFromClaudeCodeKeychain(), written == Data(json.utf8) else {
+        guard let (_, written) = try? Self.loadFromClaudeCodeKeychain(), written == Data(json.utf8) else {
             let stderr = String(
                 data: errorPipe.fileHandleForReading.readDataToEndOfFile(),
                 encoding: .utf8
@@ -188,7 +241,7 @@ actor MacOSCredentialService: CredentialProvider {
     ///
     /// Returns the decoded credentials plus the raw JSON bytes (needed to round-trip a
     /// write-back without dropping fields we don't model).
-    private func loadFromClaudeCodeKeychain() throws -> (credentials: ClaudeOAuthCredentials, rawData: Data) {
+    private static func loadFromClaudeCodeKeychain() throws -> (credentials: ClaudeOAuthCredentials, rawData: Data) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         process.arguments = [
