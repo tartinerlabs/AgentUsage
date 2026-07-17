@@ -501,6 +501,7 @@
 				CODE_SIGN_ENTITLEMENTS = "AgentUsage/iOS/AgentUsage-iOS.entitlements";
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "AgentUsage/iOS/AgentUsage-iOS.entitlements";
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "AgentUsage/iOS/AgentUsage-iOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = AgentUsage/AgentUsage.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -570,6 +571,7 @@
 				CODE_SIGN_ENTITLEMENTS = "AgentUsage/iOS/AgentUsage-iOS.entitlements";
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "AgentUsage/iOS/AgentUsage-iOS.entitlements";
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "AgentUsage/iOS/AgentUsage-iOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = AgentUsage/AgentUsage.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;

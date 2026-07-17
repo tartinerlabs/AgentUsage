@@ -267,7 +267,11 @@ nonisolated struct BlogUsageSourceParser {
 
     nonisolated init(
         fileManager: FileManager = .default,
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        // Real home, not the sandbox container home. Under the App Sandbox
+        // `homeDirectoryForCurrentUser` returns the container, whose `.claude`/`.codex`
+        // paths do not exist; `Constants.realHomeDirectory` resolves the true home that
+        // the user's security-scoped folder grants make readable.
+        homeDirectory: URL = Constants.realHomeDirectory,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
@@ -282,7 +286,10 @@ nonisolated struct BlogUsageSourceParser {
     }
 
     nonisolated func parseClaudeEvents() throws -> [BlogUsageEvent] {
-        let roots = [homeDirectory.appendingPathComponent(".claude/projects")]
+        let roots = [
+            homeDirectory.appendingPathComponent(".claude/projects"),
+            homeDirectory.appendingPathComponent(".config/claude/projects")
+        ]
         let files = try roots.flatMap { try jsonlFiles(in: $0) }
         var seen = Set<String>()
         var events: [BlogUsageEvent] = []
@@ -894,7 +901,14 @@ actor BlogUsageSyncService {
         if !manual,
            let lastAttempt = status.lastAttemptAt,
            now().timeIntervalSince(lastAttempt) < Self.throttleInterval {
-            return updateStatus(.skipped, message: "Blog usage sync skipped; last attempt was less than five minutes ago")
+            // Do not restamp `lastAttemptAt` here: passive sync fires every refresh
+            // tick, so restamping on skip would perpetually reset the throttle window
+            // and passive sync could never run again.
+            return updateStatus(
+                .skipped,
+                message: "Blog usage sync skipped; last attempt was less than five minutes ago",
+                countsAsAttempt: false
+            )
         }
 
         updateStatus(.syncing, message: "Syncing blog usage")
@@ -915,11 +929,16 @@ actor BlogUsageSyncService {
     }
 
     @discardableResult
-    private func updateStatus(_ state: BlogUsageSyncState, message: String, success: Bool = false) -> BlogUsageSyncStatus {
+    private func updateStatus(
+        _ state: BlogUsageSyncState,
+        message: String,
+        success: Bool = false,
+        countsAsAttempt: Bool = true
+    ) -> BlogUsageSyncStatus {
         let currentStatus = status
         let updated = BlogUsageSyncStatus(
             state: state,
-            lastAttemptAt: now(),
+            lastAttemptAt: countsAsAttempt ? now() : currentStatus.lastAttemptAt,
             lastSuccessAt: success ? now() : currentStatus.lastSuccessAt,
             message: message
         )

@@ -104,10 +104,15 @@ actor OpenCodeLogSource: UsageLogSource {
 
     /// OpenCode stores `model` as JSON: `{"id":"gpt-5.5","providerID":"openai","variant":"…"}`.
     ///
-    /// `providerID` is the upstream OpenCode provider key, not the display bucket.
-    /// ChatGPT-subscription sessions report `providerID: "openai"` (first-party
-    /// OpenAI models served via the codex endpoint) and belong in the Codex bucket;
-    /// OpenCode Go/Zen and OpenAI-compatible third-party setups stay in OpenCode.
+    /// `providerID` is the upstream OpenCode provider key. We route to a display bucket
+    /// by it because OpenCode's DB records no per-session auth mode (the `credential`
+    /// and `account` tables are empty), so a true subscription-vs-API-key split is not
+    /// recoverable. The provider key is the best available proxy:
+    ///   - `openai` → Codex: these are ChatGPT-subscription sessions (their model ids are
+    ///     ChatGPT-internal codenames like `gpt-5.6-terra-pro`, not public API models),
+    ///     drawing the same ChatGPT quota as Codex.
+    ///   - `opencode-go` → OpenCode Go.
+    ///   - `opencode` (Zen) and everything else → OpenCode.
     static func parseModel(_ json: String) -> (id: String, providerID: String, provider: Provider) {
         guard let data = json.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -125,6 +130,8 @@ actor OpenCodeLogSource: UsageLogSource {
         switch providerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "openai":
             return .codex
+        case "opencode-go":
+            return .openCodeGo
         default:
             return .openCode
         }
