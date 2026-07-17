@@ -17,12 +17,13 @@ struct Provider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<WidgetEntry> {
-        // Fetch live usage directly so the widget stays fresh even when the app
-        // isn't running; fall back to the last cached snapshot on failure.
-        let snapshot = await WidgetUsageProvider.refresh() ?? WidgetDataManager.load() ?? .placeholder
+        // Read only the shared snapshot the app writes (sourced from the Mac via
+        // CloudKit). The widget no longer calls the Claude API itself — doing so
+        // per widget multiplied requests and contributed to rate limiting.
+        let snapshot = WidgetDataManager.load() ?? .placeholder
         let entry = WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
 
-        // Request refresh every 15 minutes
+        // Re-render periodically to keep reset countdowns current.
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: .now)!
         return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
@@ -39,7 +40,8 @@ struct LockScreenProvider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<WidgetEntry> {
-        let snapshot = await WidgetUsageProvider.refresh() ?? WidgetDataManager.load() ?? .placeholder
+        // Read only the shared snapshot; see `Provider.timeline` above.
+        let snapshot = WidgetDataManager.load() ?? .placeholder
         let entry = WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
 
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: .now)!
