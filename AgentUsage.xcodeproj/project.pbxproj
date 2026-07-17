@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D835E7BC2F06B812001A996A /* Sparkle in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = D8EFFFC12F05CD75006A2183 /* Sparkle */; };
 		D835E8532F06D377001A996A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8522F06D377001A996A /* WidgetKit.framework */; };
 		D835E8552F06D377001A996A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8542F06D377001A996A /* SwiftUI.framework */; };
 		D835E8662F06D378001A996A /* AgentUsageWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D835E8502F06D377001A996A /* AgentUsageWidgetsExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -128,7 +127,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D835E7BC2F06B812001A996A /* Sparkle in Frameworks */,
 				D8AB30E12F0AB1E800A4BD39 /* AgentUsageKit in Frameworks */,
 				D8AFC0012F0D000000000001 /* AgentUsageProviderCore in Frameworks */,
 			);
@@ -230,7 +228,6 @@
 			);
 			name = AgentUsage;
 			packageProductDependencies = (
-				D8EFFFC12F05CD75006A2183 /* Sparkle */,
 				D8AB30E02F0AB1E800A4BD39 /* AgentUsageKit */,
 				D8AFC0022F0D000000000002 /* AgentUsageProviderCore */,
 			);
@@ -320,7 +317,6 @@
 			mainGroup = D8EFFF692F05796A006A2183;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D8EFFFC02F05CD75006A2183 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "AgentUsageKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -511,9 +507,19 @@
 				CURRENT_PROJECT_VERSION = 83;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
-				ENABLE_APP_SANDBOX = NO;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=iphoneos*]" = AgentUsage/iOS/Info.plist;
 				"INFOPLIST_FILE[sdk=iphonesimulator*]" = AgentUsage/iOS/Info.plist;
@@ -570,9 +576,19 @@
 				CURRENT_PROJECT_VERSION = 83;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
-				ENABLE_APP_SANDBOX = NO;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=iphoneos*]" = AgentUsage/iOS/Info.plist;
 				"INFOPLIST_FILE[sdk=iphonesimulator*]" = AgentUsage/iOS/Info.plist;
@@ -895,17 +911,6 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		D8EFFFC02F05CD75006A2183 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.8.1;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
 		D8AB30E02F0AB1E800A4BD39 /* AgentUsageKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -920,11 +925,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "AgentUsageKit" */;
 			productName = AgentUsageProviderCore;
-		};
-		D8EFFFC12F05CD75006A2183 /* Sparkle */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D8EFFFC02F05CD75006A2183 /* XCRemoteSwiftPackageReference "Sparkle" */;
-			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
