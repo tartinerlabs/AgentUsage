@@ -7,9 +7,6 @@ import Foundation
 import AgentUsageKit
 import SwiftUI
 import OSLog
-#if os(macOS)
-import AgentUsageProviderCore
-#endif
 
 @MainActor @Observable
 final class UsageViewModel {
@@ -230,7 +227,6 @@ final class UsageViewModel {
     private let blogUsageSyncService: BlogUsageSyncService?
     private let blogOAuthService: BlogOAuthService?
     private let providerUsageServices: [Provider: any ProviderUsageServiceProtocol]
-    private var reliabilityCoordinator: ProviderReliabilityCoordinator?
     #endif
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
@@ -271,13 +267,6 @@ final class UsageViewModel {
             ?? BlogUsageSyncService.defaultEndpointURLString
 
         loadCachedSnapshot()
-        self.reliabilityCoordinator = ProviderReliabilityCoordinator(
-            credentialProvider: credentialProvider,
-            claudeService: self.apiService,
-            providerServices: providerUsageServices,
-            legacySnapshot: snapshot,
-            legacyPlanName: planType
-        )
         refreshScheduler.onRefresh = { [weak self] in
             await self?.refresh()
         }
@@ -356,7 +345,6 @@ extension UsageViewModel {
         // inside it are already independent of the Claude API.
         async let providersArm: Void = refreshExtraProviders()
         let (outcome, _) = await (claudeArm, providersArm)
-        await runShadowValidation(policy: force ? .replace : .coalesce)
         Task { await runPassiveBlogUsageSync() }
         return outcome
         #else
@@ -396,21 +384,6 @@ extension UsageViewModel {
     private func refreshExtraProviders() async {
         await refreshTokenUsage()
         await refreshProviderUsage()
-    }
-
-    private func runShadowValidation(policy: ProviderRefreshPolicy) async {
-        guard !isOffline, !ProcessInfo.processInfo.isLowPowerModeEnabled,
-              let reliabilityCoordinator else { return }
-        var authoritative: [Provider: ProviderUsageSnapshot] = providerUsage
-        if let snapshot {
-            authoritative[.claude] = ProviderUsageSnapshot(claude: snapshot, planName: planType)
-        }
-        await reliabilityCoordinator.validate(authoritative: authoritative, policy: policy)
-    }
-
-    func exportReliabilityDiagnostics(to destination: URL) async throws {
-        guard let reliabilityCoordinator else { return }
-        try await reliabilityCoordinator.exportDiagnostics(to: destination)
     }
     #endif
 

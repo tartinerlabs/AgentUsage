@@ -7,7 +7,6 @@
 import AgentUsageKit
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Settings content for the main window tab
 struct SettingsTabView: View {
@@ -17,7 +16,6 @@ struct SettingsTabView: View {
     @AppStorage(Constants.autoRefreshClaudeTokenKey) private var autoRefreshClaudeToken = false
     @State private var notificationSettings = NotificationSettings.load()
     @State private var blogSyncTokenDraft = ""
-    @State private var diagnosticExportMessage: String?
     @State private var folderAccess = SandboxFolderAccessService.shared
 
     private let contentWidth: CGFloat = 760
@@ -154,24 +152,6 @@ struct SettingsTabView: View {
                 }
 
                 localDataAccessCard
-
-                settingsCard(title: "Reliability Diagnostics", systemImage: "waveform.path.ecg") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Shadow validation stays on this Mac and stores only mismatch categories, timing buckets, strategy IDs, and failure classes.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Button("Export Redacted Diagnostics…") {
-                                exportDiagnostics()
-                            }
-                            if let diagnosticExportMessage {
-                                Text(diagnosticExportMessage)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
 
                 // Notifications Section
                 settingsCard(title: "Notifications", systemImage: "bell.badge") {
@@ -492,21 +472,6 @@ struct SettingsTabView: View {
         }
     }
 
-    private func exportDiagnostics() {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "AgentUsage-reliability-diagnostics.json"
-        panel.allowedContentTypes = [.json]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        Task {
-            do {
-                try await viewModel.exportReliabilityDiagnostics(to: url)
-                diagnosticExportMessage = "Exported"
-            } catch {
-                diagnosticExportMessage = "Export failed"
-            }
-        }
-    }
-
     private func menuBarPinBinding(
         _ window: UsageWindowType,
         provider: Provider
@@ -544,7 +509,7 @@ struct SettingsTabView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Settings")
                 .font(.title2.weight(.semibold))
-            Text("Control refresh cadence, notifications, diagnostics, syncing, and updates.")
+            Text("Control refresh cadence, notifications, syncing, and updates.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
