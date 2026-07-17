@@ -159,12 +159,19 @@ enum KeychainHelper {
     }
 
     /// Save a generic UTF-8 secret string to Keychain.
+    ///
+    /// Uses the data-protection keychain, where access is governed by the
+    /// `keychain-access-groups` entitlement rather than a per-item ACL. Items in
+    /// the file-based login keychain carry an ACL whose *modification* is gated
+    /// separately from read access and trusts no application, so any writer that
+    /// touches the ACL prompts for the login password on every write.
     nonisolated static func saveString(_ value: String, account: String) throws {
         let data = Data(value.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account
+            kSecAttrAccount as String: account,
+            kSecUseDataProtectionKeychain as String: kCFBooleanTrue!
         ]
         let attributes: [String: Any] = [
             kSecValueData as String: data,
@@ -190,7 +197,8 @@ enum KeychainHelper {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnData as String: kCFBooleanTrue!,
-            kSecMatchLimit as String: kSecMatchLimitOne
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseDataProtectionKeychain as String: kCFBooleanTrue!
         ]
 
         var result: AnyObject?
@@ -208,12 +216,13 @@ enum KeychainHelper {
         return value
     }
 
-    /// Delete a generic Keychain string.
+    /// Delete a generic Keychain string. Removes every match, not just the first.
     nonisolated static func deleteString(account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account
+            kSecAttrAccount as String: account,
+            kSecUseDataProtectionKeychain as String: kCFBooleanTrue!
         ]
         SecItemDelete(query as CFDictionary)
     }

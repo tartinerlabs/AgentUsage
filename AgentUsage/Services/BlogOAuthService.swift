@@ -466,14 +466,70 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
-    // MARK: - Keychain storage (via `/usr/bin/security` CLI)
+    // MARK: - Keychain storage
     //
-    // Mirrors `BlogUsageSyncService`: the token blob is stored in the login Keychain via
-    // the Apple-signed `security` binary so the "Always Allow" grant survives rebuilds of
-    // the unsigned (ad-hoc) app. An in-process `SecItem*` accessor would re-prompt on
-    // every launch.
+    // The token blob lives in the data-protection keychain, reached in-process through
+    // `KeychainHelper`. Access there is granted by the `keychain-access-groups`
+    // entitlement, and no per-item ACL exists — so nothing can trigger the "wants to
+    // change access permissions" prompt.
+    //
+    // This deliberately does not use the `/usr/bin/security` CLI. Writing through it
+    // required `-T` to name a trusted application, and modifying an item's ACL is gated
+    // separately from reading it, trusting no application by default — so every token
+    // refresh re-prompted for the login password. Only Claude Code's *shared* keychain
+    // item still goes through the CLI, because Claude Code owns that item's ACL; see
+    // `MacOSCredentialService`.
 
     private func loadTokensFromKeychain() -> BlogOAuthTokens? {
+        guard let json = try? KeychainHelper.loadString(account: keychainAccount),
+              let tokens = try? JSONDecoder().decode(BlogOAuthTokens.self, from: Data(json.utf8)) else {
+            return migrateLegacyTokensFromLoginKeychain()
+        }
+        return tokens
+    }
+
+    private func saveTokensToKeychain(_ tokens: BlogOAuthTokens) throws {
+        let jsonData = try JSONEncoder().encode(tokens)
+        guard let json = String(data: jsonData, encoding: .utf8) else {
+            throw BlogOAuthError.notSignedIn
+        }
+        try KeychainHelper.saveString(json, account: keychainAccount)
+    }
+
+    /// Remove the saved tokens. `SecItemDelete` removes every match, so one call suffices.
+    @discardableResult
+    private func deleteTokensFromKeychain() -> Bool {
+        KeychainHelper.deleteString(account: keychainAccount)
+        deleteLegacyTokensFromLoginKeychain()
+        return (try? KeychainHelper.loadString(account: keychainAccount)) == nil
+    }
+
+    // MARK: Legacy login-keychain migration
+    //
+    // Builds up to 0.x stored this token in the file-based login keychain via the
+    // `security` CLI. That item is invisible to the data-protection keychain, so without
+    // this the user would silently appear signed out. Reading via `find-generic-password`
+    // is a read, not an ACL change, so it does not prompt.
+    //
+    // Remove this shim once released builds have had a cycle to migrate.
+
+    private func migrateLegacyTokensFromLoginKeychain() -> BlogOAuthTokens? {
+        guard let json = readLegacyTokenJSON(),
+              let tokens = try? JSONDecoder().decode(BlogOAuthTokens.self, from: Data(json.utf8)) else {
+            return nil
+        }
+        do {
+            try KeychainHelper.saveString(json, account: keychainAccount)
+            deleteLegacyTokensFromLoginKeychain()
+            Logger.keychain.info("Migrated blog OAuth tokens to the data-protection keychain")
+        } catch {
+            // Keep serving the legacy value; a later launch can retry the migration.
+            Logger.keychain.error("Blog OAuth token migration failed: \(error.localizedDescription)")
+        }
+        return tokens
+    }
+
+    private func readLegacyTokenJSON() -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         process.arguments = [
@@ -498,64 +554,16 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         guard let json = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
-              let jsonData = json.data(using: .utf8),
-              let tokens = try? JSONDecoder().decode(BlogOAuthTokens.self, from: jsonData) else {
+              !json.isEmpty else {
             return nil
         }
-        return tokens
+        return json
     }
 
-    private func saveTokensToKeychain(_ tokens: BlogOAuthTokens) throws {
-        let jsonData = try JSONEncoder().encode(tokens)
-        let json = String(data: jsonData, encoding: .utf8) ?? ""
-        let escaped = json
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let service = KeychainHelper.service
-        let account = keychainAccount
-        let command = "add-generic-password -U -s \(service) -a \(account) -w \"\(escaped)\" -T /usr/bin/security\n"
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = ["-i"]
-        let inputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardInput = inputPipe
-        process.standardOutput = Pipe()
-        process.standardError = errorPipe
-
-        try process.run()
-        inputPipe.fileHandleForWriting.write(Data(command.utf8))
-        inputPipe.fileHandleForWriting.closeFile()
-        process.waitUntilExit()
-
-        guard loadTokensFromKeychain() == tokens else {
-            let stderr = String(
-                data: errorPipe.fileHandleForReading.readDataToEndOfFile(),
-                encoding: .utf8
-            )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let message = stderr.isEmpty ? "keychain write could not be verified" : stderr
-            Logger.keychain.error("security add-generic-password (oauth) failed: \(message)")
-            throw NSError(
-                domain: "BlogOAuth.Keychain",
-                code: Int(process.terminationStatus),
-                userInfo: [NSLocalizedDescriptionKey: message]
-            )
-        }
-    }
-
-    /// Delete every matching keychain item and confirm none remain.
-    ///
-    /// `security delete-generic-password` removes only one matching item per call, so a
-    /// keychain that accumulated duplicates (e.g. an item left by an older in-process build
-    /// alongside one written via the CLI) would still report "signed in" after a single
-    /// delete — making the "Sign Out" button appear to do nothing. Loop until the lookup
-    /// comes back empty, then verify, so the UI can trust the result.
-    @discardableResult
-    private func deleteTokensFromKeychain() -> Bool {
-        // Bounded loop: each pass removes at most one item; stop once none remain.
+    private func deleteLegacyTokensFromLoginKeychain() {
+        // Each call removes at most one match; stop once the lookup comes back empty.
         for _ in 0..<16 {
-            guard loadTokensFromKeychain() != nil else { return true }
+            guard readLegacyTokenJSON() != nil else { return }
 
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
@@ -570,17 +578,15 @@ actor BlogOAuthService: BlogAccessTokenProviding {
                 try process.run()
             } catch {
                 Logger.keychain.error("security delete-generic-password (oauth) failed to run: \(error.localizedDescription)")
-                return false
+                return
             }
             process.waitUntilExit()
 
-            // A non-zero status with the item still present means we made no progress.
-            if process.terminationStatus != 0, loadTokensFromKeychain() != nil {
+            if process.terminationStatus != 0, readLegacyTokenJSON() != nil {
                 Logger.keychain.error("security delete-generic-password (oauth) returned status \(process.terminationStatus)")
-                return false
+                return
             }
         }
-        return loadTokensFromKeychain() == nil
     }
 }
 
