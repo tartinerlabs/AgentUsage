@@ -1,47 +1,58 @@
-# Deploys the gh-pages branch (which holds appcast.xml, the Sparkle update feed)
-# to the live GitHub Pages site.
+# ============================================================================
+# DISABLED: Deploy appcast to Pages
 #
-# Why Pages source is "GitHub Actions" and not "Deploy from a branch": GitHub's
-# legacy branch-deploy pipeline has failed server-side (deployments stuck
-# queued), leaving the live feed stale while the branch was current. This
-# workflow uploads the branch as an artifact and deploys it explicitly instead.
+# CI, build, and release/distribution moved to Xcode Cloud
+# (build / test / archive -> App Store Connect). This workflow is intentionally
+# commented out rather than deleted so the original definition is preserved.
 #
-# Why appcast.xml lives on gh-pages and not main: it is a build artifact kept
-# out of main's source tree. It is an accumulating feed — each release prepends
-# its item to the existing feed (full version history). release.yml
-# publishes it to gh-pages.
+# To restore: uncomment the block below and, if it was disabled on GitHub,
+# re-enable it with `gh workflow enable "Deploy appcast to Pages"`.
+# ============================================================================
+
+# # Deploys the gh-pages branch (which holds appcast.xml, the Sparkle update feed)
+# # to the live GitHub Pages site.
+# #
+# # Why Pages source is "GitHub Actions" and not "Deploy from a branch": GitHub's
+# # legacy branch-deploy pipeline has failed server-side (deployments stuck
+# # queued), leaving the live feed stale while the branch was current. This
+# # workflow uploads the branch as an artifact and deploys it explicitly instead.
+# #
+# # Why appcast.xml lives on gh-pages and not main: it is a build artifact kept
+# # out of main's source tree. It is an accumulating feed — each release prepends
+# # its item to the existing feed (full version history). release.yml
+# # publishes it to gh-pages.
+# #
+# # The release workflow dispatches this workflow explicitly after it publishes
+# # a validated appcast. A normal push to main and a release dry-run never deploy
+# # the feed.
+# name: Deploy appcast to Pages
 #
-# The release workflow dispatches this workflow explicitly after it publishes
-# a validated appcast. A normal push to main and a release dry-run never deploy
-# the feed.
-name: Deploy appcast to Pages
-
-on:
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: gh-pages
-
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: .
-
-      - id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+# on:
+#   workflow_dispatch:
+#
+# permissions:
+#   contents: read
+#   pages: write
+#   id-token: write
+#
+# concurrency:
+#   group: pages
+#   cancel-in-progress: false
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     environment:
+#       name: github-pages
+#       url: ${{ steps.deployment.outputs.page_url }}
+#     steps:
+#       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+#         with:
+#           ref: gh-pages
+#
+#       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+#         with:
+#           path: .
+#
+#       - id: deployment
+#         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
