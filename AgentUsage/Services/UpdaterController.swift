@@ -7,8 +7,6 @@
 internal import Combine
 import Foundation
 import os.log
-import Sparkle
-import UserNotifications
 
 // MARK: - Logger
 
@@ -44,6 +42,10 @@ enum UpdateCheckResult: Equatable {
         }
     }
 }
+
+#if canImport(Sparkle)
+import Sparkle
+import UserNotifications
 
 // MARK: - User Driver Delegate
 
@@ -351,4 +353,37 @@ final class UpdaterController: ObservableObject {
             .removeDeliveredNotifications(withIdentifiers: ["com.tartinerlabs.AgentUsage.update"])
     }
 }
+#else
+
+// MARK: - Updater Controller (Sparkle removed)
+
+/// No-op stand-in used when the Sparkle framework is not linked.
+/// Preserves the public interface consumed by the UI so the app compiles
+/// without in-app updates. Re-adding the Sparkle package restores the real
+/// implementation automatically via `#if canImport(Sparkle)`.
+@MainActor
+final class UpdaterController: ObservableObject {
+    @Published var canCheckForUpdates = false
+    @Published var updateAvailable = false
+    @Published var isChecking = false
+    @Published var lastCheckResult: UpdateCheckResult?
+    @Published var lastCheckDate: Date?
+    @Published var nextScheduledCheckDate: Date?
+
+    var lastCheckDescription: String { "Never" }
+
+    var automaticallyChecksForUpdates: Bool {
+        get { false }
+        set { _ = newValue }
+    }
+
+    init() {
+        logger.info("Sparkle not linked; in-app updates disabled")
+    }
+
+    func checkForUpdates() {}
+
+    func checkForUpdatesInBackground() {}
+}
+#endif
 #endif
