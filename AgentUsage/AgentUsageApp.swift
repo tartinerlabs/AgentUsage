@@ -28,6 +28,10 @@ struct AgentUsageApp: App {
 
     init() {
         #if os(macOS)
+        // Resolve any user-granted folder bookmarks and begin holding their security
+        // scope before any log-reading service runs, so reads under the sandbox succeed.
+        _ = SandboxFolderAccessService.shared
+
         // Initialize SwiftData container
         let schema = Schema([
             TokenLogEntry.self,
@@ -35,7 +39,15 @@ struct AgentUsageApp: App {
             DailyUsageRecordEntity.self,
             ProviderWindowDailyPeakEntity.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        // Pin the store to the App Group container explicitly. SwiftData otherwise
+        // defaults into the group container only implicitly (because the app-groups
+        // entitlement is present); making it explicit ensures the existing store is
+        // never relocated/orphaned by entitlement changes.
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            groupContainer: .identifier(Constants.appGroupIdentifier)
+        )
 
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
