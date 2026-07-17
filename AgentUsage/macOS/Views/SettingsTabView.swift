@@ -13,7 +13,6 @@ struct SettingsTabView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @EnvironmentObject private var updaterController: UpdaterController
     @StateObject private var launchAtLogin = LaunchAtLoginService.shared
-    @AppStorage(Constants.autoRefreshClaudeTokenKey) private var autoRefreshClaudeToken = false
     @State private var notificationSettings = NotificationSettings.load()
     @State private var blogSyncTokenDraft = ""
     @State private var folderAccess = SandboxFolderAccessService.shared
@@ -61,29 +60,6 @@ struct SettingsTabView: View {
                             }
                             .labelsHidden()
                             .frame(width: 120)
-                        }
-
-                        Divider()
-
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Auto-refresh Claude Token")
-                                    .font(.body)
-                                Text(
-                                    "Disabled by default. Refreshing can conflict with Claude Code's "
-                                        + "rotating token and may require signing in again."
-                                )
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Auto-refresh Claude Token", isOn: $autoRefreshClaudeToken)
-                                .labelsHidden()
-                                .accessibilityLabel("Auto-refresh Claude Token")
-                                .help(
-                                    "Refresh expired Claude credentials automatically. "
-                                        + "This can conflict with Claude Code's own token refresh."
-                                )
                         }
 
                         Divider()

@@ -30,7 +30,7 @@ enum CredentialError: LocalizedError {
             return "No OAuth credentials found. Please authenticate with Claude CLI."
         case .expired:
             #if os(macOS)
-            return "Claude token expired. Run `claude` to refresh it, or enable auto-refresh in Settings."
+            return "Claude token expired. Run `claude` to refresh it."
             #else
             return "Credentials have expired. Please re-authenticate with Claude CLI."
             #endif
