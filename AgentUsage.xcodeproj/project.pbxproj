@@ -60,6 +60,7 @@
 		D835E8522F06D377001A996A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		D835E8542F06D377001A996A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Design/AppIcon/AppIcon.icon; sourceTree = "<group>"; };
+		D8EE0142300A2A1400A03D4E /* AgentUsageWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AgentUsageWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		D8EFFF722F05796A006A2183 /* AgentUsage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentUsage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8EFFF832F05796C006A2183 /* AgentUsageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentUsageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8EFFF8D2F05796C006A2183 /* AgentUsageUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentUsageUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -162,6 +163,7 @@
 		D8EFFF692F05796A006A2183 = {
 			isa = PBXGroup;
 			children = (
+				D8EE0142300A2A1400A03D4E /* AgentUsageWidgetsExtension.entitlements */,
 				D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */,
 				D8EFFF742F05796A006A2183 /* AgentUsage */,
 				D8EFFF862F05796C006A2183 /* AgentUsageTests */,
@@ -422,6 +424,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = AgentUsageWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 83;
@@ -439,6 +442,7 @@
 				MARKETING_VERSION = 0.29.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tartinerlabs.AgentUsage.AgentUsageWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -458,6 +462,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = AgentUsageWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 83;
@@ -475,6 +480,7 @@
 				MARKETING_VERSION = 0.29.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tartinerlabs.AgentUsage.AgentUsageWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
