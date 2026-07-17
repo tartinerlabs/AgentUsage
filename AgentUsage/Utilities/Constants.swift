@@ -66,6 +66,18 @@ enum Constants {
     static let initialRetryDelay: TimeInterval = 1.0
     static let retryBackoffMultiplier: Double = 2.0
 
+    /// Default cooldown after a rate-limit (HTTP 429) response with no `Retry-After`
+    /// header. Auto-refresh is suppressed for this long so we stop hammering the
+    /// endpoint that just throttled us.
+    static let rateLimitCooldownFallback: TimeInterval = 120
+
+    // MARK: - Cross-Device Sync (CloudKit)
+    /// How stale a macOS-published snapshot may be before iOS falls back to
+    /// fetching from the Claude API itself. Within this window iOS reads only the
+    /// synced snapshot, so a running Mac keeps the account polled once. Beyond it
+    /// (e.g. the Mac is asleep or off), iOS does a single throttled direct fetch.
+    static let syncFallbackThreshold: TimeInterval = 6 * 3600
+
     // MARK: - Claude Code Keychain
     static let claudeCodeKeychainService = "Claude Code-credentials"
     static var claudeCodeKeychainAccount: String {

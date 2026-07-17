@@ -232,9 +232,35 @@ final class UsageViewModel {
     private let minRefreshInterval: TimeInterval = 30
     private var hasInitialized = false
 
+    /// While set and in the future, auto-refresh is suppressed because the endpoint
+    /// returned HTTP 429. Cleared on the next successful fetch.
+    private var rateLimitedUntil: Date?
+
     /// Overall status computed from the worst status across all usage windows
     var overallStatus: UsageStatus {
         UsageCalculations.overallStatus(from: snapshot)
+    }
+
+    /// A clear, user-facing summary of the app's connection to Claude's usage API,
+    /// combining credential validity, last-fetch success, network reachability, and
+    /// service outages. Rendered identically on macOS and iOS/iPadOS.
+    var claudeConnectionStatus: ClaudeConnectionStatus {
+        if isOffline {
+            return .offline
+        }
+        if isClaudeServiceDown {
+            return .serviceUnavailable
+        }
+        if isNoUsageData {
+            return .noUsageData
+        }
+        if snapshot != nil {
+            return isUsingCachedData ? .cached : .connected
+        }
+        if isLoading {
+            return .checking
+        }
+        return .disconnected(message: errorMessage)
     }
 
     #if os(macOS)
@@ -331,6 +357,12 @@ extension UsageViewModel {
            Date().timeIntervalSince(lastRefresh) < minRefreshInterval {
             return .skipped
         }
+        // Respect an active rate-limit cooldown for auto-refresh so we stop
+        // hammering an endpoint that just throttled us. A manual (forced) refresh
+        // still proceeds.
+        if !force, let until = rateLimitedUntil, Date() < until {
+            return .skipped
+        }
         // Gate the batch on when it last RAN, not on Claude's success. This keeps the
         // debounce while ensuring Claude's outcome never decides whether the other
         // providers may refresh.
@@ -348,7 +380,7 @@ extension UsageViewModel {
         Task { await runPassiveBlogUsageSync() }
         return outcome
         #else
-        return await refreshClaude()
+        return await refreshClaudeViaSync()
         #endif
     }
 
@@ -419,10 +451,17 @@ extension UsageViewModel {
             snapshot = newSnapshot
             isUsingCachedData = false
             isNoUsageData = false
+            rateLimitedUntil = nil  // Successful fetch ends any rate-limit cooldown
             clearIncident(for: .claude)  // Successful fetch ends any active outage
 
             // Cache the successful response
             cacheSnapshot(newSnapshot, planType: planType)
+
+            #if os(macOS)
+            // macOS is the source of truth: publish so iOS + widgets can consume
+            // this without polling the Claude API themselves.
+            Task { await UsageSyncService.shared.publish(snapshot: newSnapshot, planType: planType) }
+            #endif
 
             // Record to usage history for trend tracking
             await usageHistoryService.record(snapshot: newSnapshot)
@@ -461,6 +500,11 @@ extension UsageViewModel {
             }
 
             errorMessage = error.localizedDescription
+            // Back off auto-refresh when rate limited so we stop adding to the load.
+            if let apiError = error as? ClaudeAPIService.APIError,
+               case .rateLimited(let retryAfter) = apiError {
+                rateLimitedUntil = Date().addingTimeInterval(retryAfter ?? Constants.rateLimitCooldownFallback)
+            }
             // Track service outages (5xx / unavailable); leave any incident
             // untouched for non-outage errors (auth, rate limit, connectivity).
             if Self.isOutageError(error) {
@@ -482,6 +526,53 @@ extension UsageViewModel {
             return .failed
         }
     }
+
+    #if os(iOS)
+    /// iOS refresh: prefer the macOS-published snapshot from CloudKit, and only
+    /// fetch from the Claude API directly when the Mac hasn't published recently
+    /// (it may be asleep or offline). This keeps the account polled once — by the
+    /// Mac — instead of once per iOS device and per widget.
+    private func refreshClaudeViaSync() async -> ClaudeRefreshOutcome {
+        // Offline: skip CloudKit and use the existing cached-data path.
+        if isOffline {
+            return await refreshClaude()
+        }
+
+        if let synced = await UsageSyncService.shared.fetchLatest(),
+           synced.age() <= Constants.syncFallbackThreshold {
+            applySyncedSnapshot(synced)
+            Logger.viewModel.debug("Applied macOS-synced snapshot (age \(Int(synced.age()))s)")
+            return .updated
+        }
+
+        Logger.viewModel.info("No fresh macOS-synced snapshot — falling back to direct fetch")
+        return await refreshClaude()
+    }
+
+    /// Apply a snapshot received from the Mac: update UI state, persist it so
+    /// freshness and offline fallback reflect the Mac's fetch time, and hand it to
+    /// the widgets and Live Activity.
+    private func applySyncedSnapshot(_ synced: SyncedUsageSnapshot) {
+        snapshot = synced.snapshot
+        planType = synced.planType
+        isUsingCachedData = false
+        isNoUsageData = false
+        errorMessage = nil
+        rateLimitedUntil = nil
+        clearIncident(for: .claude)
+
+        snapshotStore.save(
+            snapshot: synced.snapshot,
+            planType: synced.planType,
+            fetchedAt: synced.fetchedAt
+        )
+
+        Task {
+            await WidgetDataManager.shared.save(synced.snapshot)
+            await LiveActivityManager.shared.update(snapshot: synced.snapshot)
+        }
+    }
+    #endif
 
     #if os(macOS)
     /// Refresh per-provider detail: Codex rate-limit windows + Claude/Codex/OpenCode
