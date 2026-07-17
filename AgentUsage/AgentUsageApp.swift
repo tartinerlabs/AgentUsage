@@ -43,10 +43,18 @@ struct AgentUsageApp: App {
         // defaults into the group container only implicitly (because the app-groups
         // entitlement is present); making it explicit ensures the existing store is
         // never relocated/orphaned by entitlement changes.
+        //
+        // `cloudKitDatabase: .none` disables SwiftData's automatic iCloud mirroring.
+        // The app now carries a CloudKit entitlement (for `UsageSyncService`), which
+        // SwiftData would otherwise take as a cue to sync this store — failing at
+        // launch because these @Model types have non-optional attributes without
+        // defaults. This local token/history store must stay local; only
+        // `UsageSyncService` uses CloudKit, via its own container and records.
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
-            groupContainer: .identifier(Constants.appGroupIdentifier)
+            groupContainer: .identifier(Constants.appGroupIdentifier),
+            cloudKitDatabase: .none
         )
 
         do {
