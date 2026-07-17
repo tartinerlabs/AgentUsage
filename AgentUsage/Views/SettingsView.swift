@@ -24,11 +24,13 @@ struct SettingsView: View {
                     Label("Notifications", systemImage: "bell")
                 }
 
-            UpdatesTab()
-                .environmentObject(updaterController)
-                .tabItem {
-                    Label("Updates", systemImage: "arrow.triangle.2.circlepath")
-                }
+            if Bundle.main.isAppStoreBuild {
+                UpdatesTab()
+                    .environmentObject(updaterController)
+                    .tabItem {
+                        Label("Updates", systemImage: "arrow.triangle.2.circlepath")
+                    }
+            }
 
             AboutTab()
                 .tabItem {
@@ -251,6 +253,14 @@ extension Bundle {
         let version = infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+
+    /// True only when distributed through App Store Connect (Mac App Store or
+    /// TestFlight), detected by the presence of an App Store receipt.
+    /// Developer ID / direct-download / ad-hoc / dev builds have no receipt.
+    var isAppStoreBuild: Bool {
+        guard let receiptURL = appStoreReceiptURL else { return false }
+        return FileManager.default.fileExists(atPath: receiptURL.path)
     }
 }
 
