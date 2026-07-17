@@ -1,300 +1,311 @@
-name: Release
+# ============================================================================
+# DISABLED: Release
+#
+# CI, build, and release/distribution moved to Xcode Cloud
+# (build / test / archive -> App Store Connect). This workflow is intentionally
+# commented out rather than deleted so the original definition is preserved.
+#
+# To restore: uncomment the block below and, if it was disabled on GitHub,
+# re-enable it with `gh workflow enable "Release"`.
+# ============================================================================
 
-on:
-  workflow_dispatch:
-    inputs:
-      operation:
-        description: "Release operation"
-        type: choice
-        options: [dry-run, publish, publish-unsigned, repair-appcast]
-        default: dry-run
-      bump:
-        description: "Version bump type (ignored when resuming an untagged version)"
-        type: choice
-        options: [auto, patch, minor, major]
-        default: auto
-      tag:
-        description: "Existing vX.Y.Z tag (required only for repair-appcast)"
-        type: string
-        required: false
-
-permissions:
-  contents: read
-
-concurrency:
-  group: release
-  cancel-in-progress: false
-
-env:
-  APP_NAME: AgentUsage
-  SCHEME: AgentUsage
-
-jobs:
-  dry-run:
-    name: Dry run
-    if: inputs.operation == 'dry-run'
-    runs-on: macos-26
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Compute version and release notes
-        id: version
-        uses: ./.github/actions/compute-version
-        with:
-          bump: ${{ inputs.bump }}
-
-      - name: Run tests
-        if: steps.version.outputs.skip != 'true'
-        run: |
-          xcodebuild -project "${APP_NAME}.xcodeproj" \
-            -scheme "$SCHEME" \
-            -destination 'platform=macOS' \
-            -derivedDataPath build/DryRunDerivedData \
-            test \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO
-
-      - name: Simulate version and changelog update
-        if: steps.version.outputs.skip != 'true' && steps.version.outputs.resume != 'true'
-        uses: ./.github/actions/bump-version
-        with:
-          version: ${{ steps.version.outputs.version }}
-          build-number: ${{ steps.version.outputs.build-number }}
-          last-tag: ${{ steps.version.outputs.last-tag }}
-          notes: ${{ steps.version.outputs.notes }}
-          app-name: ${{ env.APP_NAME }}
-
-      - name: Build and validate ad-hoc-signed archive
-        if: steps.version.outputs.skip != 'true'
-        run: .github/scripts/release/build-unsigned-release.sh
-
-      - name: Report dry run
-        if: steps.version.outputs.skip != 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          BUILD: ${{ steps.version.outputs.build-number }}
-          BUMP: ${{ steps.version.outputs.bump }}
-          RESUME: ${{ steps.version.outputs.resume }}
-          NOTES: ${{ steps.version.outputs.notes }}
-        run: |
-          {
-            echo "## Dry run: $VERSION (build $BUILD)"
-            echo ""
-            echo "- Resolution: $BUMP"
-            echo "- Resuming committed version: $RESUME"
-            echo ""
-            echo "$NOTES"
-          } >> "$GITHUB_STEP_SUMMARY"
-          git diff -- Config/Version.xcconfig "${APP_NAME}.xcodeproj/project.pbxproj" CHANGELOG.md
-
-  publish:
-    name: Publish release
-    if: inputs.operation == 'publish' || inputs.operation == 'publish-unsigned'
-    runs-on: macos-26
-    environment: release
-    permissions:
-      actions: write
-      contents: write
-    steps:
-      - name: Checkout main
-        id: checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Validate release gate
-        env:
-          OPERATION: ${{ inputs.operation }}
-          SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
-          UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
-          DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
-          DEVELOPER_ID_APPLICATION_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
-          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        run: .github/scripts/release/check-release-gate.sh
-
-      - name: Compute version and release notes
-        id: version
-        uses: ./.github/actions/compute-version
-        with:
-          bump: ${{ inputs.bump }}
-
-      - name: Run tests
-        if: steps.version.outputs.skip != 'true'
-        run: |
-          xcodebuild -project "${APP_NAME}.xcodeproj" \
-            -scheme "$SCHEME" \
-            -destination 'platform=macOS' \
-            -derivedDataPath build/ReleaseDerivedData \
-            test \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO
-
-      - name: Prepare version and changelog
-        if: steps.version.outputs.skip != 'true' && steps.version.outputs.resume != 'true'
-        uses: ./.github/actions/bump-version
-        with:
-          version: ${{ steps.version.outputs.version }}
-          build-number: ${{ steps.version.outputs.build-number }}
-          last-tag: ${{ steps.version.outputs.last-tag }}
-          notes: ${{ steps.version.outputs.notes }}
-          app-name: ${{ env.APP_NAME }}
-
-      - name: Compose release notes
-        if: steps.version.outputs.skip != 'true'
-        env:
-          NOTES: ${{ steps.version.outputs.notes }}
-        run: |
-          .github/scripts/release/render-release-notes.py \
-            --markdown "$RUNNER_TEMP/release-notes.md" \
-            --html "$RUNNER_TEMP/release-notes.html" \
-            --repository "$GITHUB_REPOSITORY"
-
-      - name: Configure Developer ID signing
-        if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish'
-        env:
-          DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
-          DEVELOPER_ID_APPLICATION_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
-          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-        run: .github/scripts/release/configure-signing.sh
-
-      - name: Build, sign, and notarize
-        if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish'
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
-        run: .github/scripts/release/build-signed-release.sh
-
-      - name: Build and ad-hoc sign
-        if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish-unsigned'
-        run: .github/scripts/release/build-unsigned-release.sh
-
-      - name: Generate and validate appcast
-        if: steps.version.outputs.skip != 'true'
-        uses: ./.github/actions/generate-appcast
-        with:
-          version: ${{ steps.version.outputs.version }}
-          build-number: ${{ steps.version.outputs.build-number }}
-          tag: ${{ steps.version.outputs.tag }}
-          notes-file: ${{ runner.temp }}/release-notes.html
-          sparkle-private-key: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          app-name: ${{ env.APP_NAME }}
-
-      - name: Commit version and changelog
-        if: steps.version.outputs.skip != 'true'
-        uses: ./.github/actions/commit-push
-        with:
-          files: Config/Version.xcconfig ${{ env.APP_NAME }}.xcodeproj/project.pbxproj CHANGELOG.md
-          message: Bump version to ${{ steps.version.outputs.version }}
-          strategy: abort-on-moved-main
-
-      - name: Confirm tested main has not moved
-        if: steps.version.outputs.skip != 'true'
-        run: |
-          git fetch origin main
-          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
-            echo "::error::main moved after validation; aborting before tag and release creation"
-            exit 1
-          fi
-
-      - name: Create GitHub release
-        if: steps.version.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          TAG: ${{ steps.version.outputs.tag }}
-          NOTES_FILE: ${{ runner.temp }}/release-notes.md
-        run: .github/scripts/release/create-github-release.sh
-
-      - name: Publish appcast to gh-pages
-        if: steps.version.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          TAG: ${{ steps.version.outputs.tag }}
-        run: .github/scripts/release/publish-appcast.sh
-
-      - name: Deploy appcast with Pages workflow
-        if: steps.version.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
-
-      - name: Clean up signing material
-        if: always() && steps.checkout.outcome == 'success' && inputs.operation == 'publish'
-        run: .github/scripts/release/cleanup-signing.sh
-
-  repair-appcast:
-    name: Repair published appcast
-    if: inputs.operation == 'repair-appcast'
-    runs-on: macos-26
-    environment: release
-    permissions:
-      actions: write
-      contents: write
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Validate release gate
-        env:
-          OPERATION: repair-appcast
-          SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
-          UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        run: .github/scripts/release/check-release-gate.sh
-
-      - name: Download and validate release archive
-        id: repair
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
-          SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
-          UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
-        run: .github/scripts/release/prepare-appcast-repair.sh
-
-      - name: Compose repair release notes
-        run: |
-          .github/scripts/release/render-release-notes.py \
-            --markdown "$RUNNER_TEMP/release-notes.md" \
-            --html "$RUNNER_TEMP/release-notes.html" \
-            --notes-file "${{ steps.repair.outputs.notes_path }}" \
-            --repository "$GITHUB_REPOSITORY"
-
-      - name: Regenerate and validate appcast
-        uses: ./.github/actions/generate-appcast
-        with:
-          version: ${{ steps.repair.outputs.version }}
-          build-number: ${{ steps.repair.outputs.build }}
-          tag: ${{ inputs.tag }}
-          notes-file: ${{ runner.temp }}/release-notes.html
-          sparkle-private-key: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          app-name: ${{ env.APP_NAME }}
-          archive-path: ${{ steps.repair.outputs.archive_path }}
-
-      - name: Publish repaired appcast to gh-pages
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          TAG: ${{ inputs.tag }}
-        run: .github/scripts/release/publish-appcast.sh
-
-      - name: Deploy repaired appcast with Pages workflow
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
+# name: Release
+#
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       operation:
+#         description: "Release operation"
+#         type: choice
+#         options: [dry-run, publish, publish-unsigned, repair-appcast]
+#         default: dry-run
+#       bump:
+#         description: "Version bump type (ignored when resuming an untagged version)"
+#         type: choice
+#         options: [auto, patch, minor, major]
+#         default: auto
+#       tag:
+#         description: "Existing vX.Y.Z tag (required only for repair-appcast)"
+#         type: string
+#         required: false
+#
+# permissions:
+#   contents: read
+#
+# concurrency:
+#   group: release
+#   cancel-in-progress: false
+#
+# env:
+#   APP_NAME: AgentUsage
+#   SCHEME: AgentUsage
+#
+# jobs:
+#   dry-run:
+#     name: Dry run
+#     if: inputs.operation == 'dry-run'
+#     runs-on: macos-26
+#     permissions:
+#       contents: read
+#     steps:
+#       - name: Checkout main
+#         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+#         with:
+#           ref: main
+#           fetch-depth: 0
+#
+#       - name: Compute version and release notes
+#         id: version
+#         uses: ./.github/actions/compute-version
+#         with:
+#           bump: ${{ inputs.bump }}
+#
+#       - name: Run tests
+#         if: steps.version.outputs.skip != 'true'
+#         run: |
+#           xcodebuild -project "${APP_NAME}.xcodeproj" \
+#             -scheme "$SCHEME" \
+#             -destination 'platform=macOS' \
+#             -derivedDataPath build/DryRunDerivedData \
+#             test \
+#             CODE_SIGN_IDENTITY="-" \
+#             CODE_SIGNING_REQUIRED=NO
+#
+#       - name: Simulate version and changelog update
+#         if: steps.version.outputs.skip != 'true' && steps.version.outputs.resume != 'true'
+#         uses: ./.github/actions/bump-version
+#         with:
+#           version: ${{ steps.version.outputs.version }}
+#           build-number: ${{ steps.version.outputs.build-number }}
+#           last-tag: ${{ steps.version.outputs.last-tag }}
+#           notes: ${{ steps.version.outputs.notes }}
+#           app-name: ${{ env.APP_NAME }}
+#
+#       - name: Build and validate ad-hoc-signed archive
+#         if: steps.version.outputs.skip != 'true'
+#         run: .github/scripts/release/build-unsigned-release.sh
+#
+#       - name: Report dry run
+#         if: steps.version.outputs.skip != 'true'
+#         env:
+#           VERSION: ${{ steps.version.outputs.version }}
+#           BUILD: ${{ steps.version.outputs.build-number }}
+#           BUMP: ${{ steps.version.outputs.bump }}
+#           RESUME: ${{ steps.version.outputs.resume }}
+#           NOTES: ${{ steps.version.outputs.notes }}
+#         run: |
+#           {
+#             echo "## Dry run: $VERSION (build $BUILD)"
+#             echo ""
+#             echo "- Resolution: $BUMP"
+#             echo "- Resuming committed version: $RESUME"
+#             echo ""
+#             echo "$NOTES"
+#           } >> "$GITHUB_STEP_SUMMARY"
+#           git diff -- Config/Version.xcconfig "${APP_NAME}.xcodeproj/project.pbxproj" CHANGELOG.md
+#
+#   publish:
+#     name: Publish release
+#     if: inputs.operation == 'publish' || inputs.operation == 'publish-unsigned'
+#     runs-on: macos-26
+#     environment: release
+#     permissions:
+#       actions: write
+#       contents: write
+#     steps:
+#       - name: Checkout main
+#         id: checkout
+#         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+#         with:
+#           ref: main
+#           fetch-depth: 0
+#
+#       - name: Validate release gate
+#         env:
+#           OPERATION: ${{ inputs.operation }}
+#           SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
+#           UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
+#           DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+#           DEVELOPER_ID_APPLICATION_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
+#           APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+#           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+#           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+#           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+#           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+#         run: .github/scripts/release/check-release-gate.sh
+#
+#       - name: Compute version and release notes
+#         id: version
+#         uses: ./.github/actions/compute-version
+#         with:
+#           bump: ${{ inputs.bump }}
+#
+#       - name: Run tests
+#         if: steps.version.outputs.skip != 'true'
+#         run: |
+#           xcodebuild -project "${APP_NAME}.xcodeproj" \
+#             -scheme "$SCHEME" \
+#             -destination 'platform=macOS' \
+#             -derivedDataPath build/ReleaseDerivedData \
+#             test \
+#             CODE_SIGN_IDENTITY="-" \
+#             CODE_SIGNING_REQUIRED=NO
+#
+#       - name: Prepare version and changelog
+#         if: steps.version.outputs.skip != 'true' && steps.version.outputs.resume != 'true'
+#         uses: ./.github/actions/bump-version
+#         with:
+#           version: ${{ steps.version.outputs.version }}
+#           build-number: ${{ steps.version.outputs.build-number }}
+#           last-tag: ${{ steps.version.outputs.last-tag }}
+#           notes: ${{ steps.version.outputs.notes }}
+#           app-name: ${{ env.APP_NAME }}
+#
+#       - name: Compose release notes
+#         if: steps.version.outputs.skip != 'true'
+#         env:
+#           NOTES: ${{ steps.version.outputs.notes }}
+#         run: |
+#           .github/scripts/release/render-release-notes.py \
+#             --markdown "$RUNNER_TEMP/release-notes.md" \
+#             --html "$RUNNER_TEMP/release-notes.html" \
+#             --repository "$GITHUB_REPOSITORY"
+#
+#       - name: Configure Developer ID signing
+#         if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish'
+#         env:
+#           DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+#           DEVELOPER_ID_APPLICATION_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
+#           APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+#           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+#         run: .github/scripts/release/configure-signing.sh
+#
+#       - name: Build, sign, and notarize
+#         if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish'
+#         env:
+#           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+#           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+#           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+#         run: .github/scripts/release/build-signed-release.sh
+#
+#       - name: Build and ad-hoc sign
+#         if: steps.version.outputs.skip != 'true' && inputs.operation == 'publish-unsigned'
+#         run: .github/scripts/release/build-unsigned-release.sh
+#
+#       - name: Generate and validate appcast
+#         if: steps.version.outputs.skip != 'true'
+#         uses: ./.github/actions/generate-appcast
+#         with:
+#           version: ${{ steps.version.outputs.version }}
+#           build-number: ${{ steps.version.outputs.build-number }}
+#           tag: ${{ steps.version.outputs.tag }}
+#           notes-file: ${{ runner.temp }}/release-notes.html
+#           sparkle-private-key: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+#           app-name: ${{ env.APP_NAME }}
+#
+#       - name: Commit version and changelog
+#         if: steps.version.outputs.skip != 'true'
+#         uses: ./.github/actions/commit-push
+#         with:
+#           files: Config/Version.xcconfig ${{ env.APP_NAME }}.xcodeproj/project.pbxproj CHANGELOG.md
+#           message: Bump version to ${{ steps.version.outputs.version }}
+#           strategy: abort-on-moved-main
+#
+#       - name: Confirm tested main has not moved
+#         if: steps.version.outputs.skip != 'true'
+#         run: |
+#           git fetch origin main
+#           if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+#             echo "::error::main moved after validation; aborting before tag and release creation"
+#             exit 1
+#           fi
+#
+#       - name: Create GitHub release
+#         if: steps.version.outputs.skip != 'true'
+#         env:
+#           GH_TOKEN: ${{ github.token }}
+#           VERSION: ${{ steps.version.outputs.version }}
+#           TAG: ${{ steps.version.outputs.tag }}
+#           NOTES_FILE: ${{ runner.temp }}/release-notes.md
+#         run: .github/scripts/release/create-github-release.sh
+#
+#       - name: Publish appcast to gh-pages
+#         if: steps.version.outputs.skip != 'true'
+#         env:
+#           GH_TOKEN: ${{ github.token }}
+#           REPO: ${{ github.repository }}
+#           TAG: ${{ steps.version.outputs.tag }}
+#         run: .github/scripts/release/publish-appcast.sh
+#
+#       - name: Deploy appcast with Pages workflow
+#         if: steps.version.outputs.skip != 'true'
+#         env:
+#           GH_TOKEN: ${{ github.token }}
+#         run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
+#
+#       - name: Clean up signing material
+#         if: always() && steps.checkout.outcome == 'success' && inputs.operation == 'publish'
+#         run: .github/scripts/release/cleanup-signing.sh
+#
+#   repair-appcast:
+#     name: Repair published appcast
+#     if: inputs.operation == 'repair-appcast'
+#     runs-on: macos-26
+#     environment: release
+#     permissions:
+#       actions: write
+#       contents: write
+#     steps:
+#       - name: Checkout main
+#         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+#         with:
+#           ref: main
+#           fetch-depth: 0
+#
+#       - name: Validate release gate
+#         env:
+#           OPERATION: repair-appcast
+#           SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
+#           UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
+#           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+#         run: .github/scripts/release/check-release-gate.sh
+#
+#       - name: Download and validate release archive
+#         id: repair
+#         env:
+#           GH_TOKEN: ${{ github.token }}
+#           TAG: ${{ inputs.tag }}
+#           SIGNED_RELEASES_ENABLED: ${{ vars.SIGNED_RELEASES_ENABLED }}
+#           UNSIGNED_RELEASES_ENABLED: ${{ vars.UNSIGNED_RELEASES_ENABLED }}
+#         run: .github/scripts/release/prepare-appcast-repair.sh
+#
+#       - name: Compose repair release notes
+#         run: |
+#           .github/scripts/release/render-release-notes.py \
+#             --markdown "$RUNNER_TEMP/release-notes.md" \
+#             --html "$RUNNER_TEMP/release-notes.html" \
+#             --notes-file "${{ steps.repair.outputs.notes_path }}" \
+#             --repository "$GITHUB_REPOSITORY"
+#
+#       - name: Regenerate and validate appcast
+#         uses: ./.github/actions/generate-appcast
+#         with:
+#           version: ${{ steps.repair.outputs.version }}
+#           build-number: ${{ steps.repair.outputs.build }}
+#           tag: ${{ inputs.tag }}
+#           notes-file: ${{ runner.temp }}/release-notes.html
+#           sparkle-private-key: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+#           app-name: ${{ env.APP_NAME }}
+#           archive-path: ${{ steps.repair.outputs.archive_path }}
+#
+#       - name: Publish repaired appcast to gh-pages
+#         env:
+#           GH_TOKEN: ${{ github.token }}
+#           REPO: ${{ github.repository }}
+#           TAG: ${{ inputs.tag }}
+#         run: .github/scripts/release/publish-appcast.sh
+#
+#       - name: Deploy repaired appcast with Pages workflow
+#         env:
+#           GH_TOKEN: ${{ github.token }}
+#         run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
