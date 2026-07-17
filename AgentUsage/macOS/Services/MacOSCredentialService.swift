@@ -8,21 +8,6 @@ import Foundation
 import OSLog
 import Security
 
-enum ClaudeTokenRefreshPolicy {
-    nonisolated static func isEnabled(in defaults: UserDefaults) -> Bool {
-        defaults.bool(forKey: Constants.autoRefreshClaudeTokenKey)
-    }
-
-    nonisolated static func shouldAttemptRefresh(
-        for credentials: ClaudeOAuthCredentials,
-        defaults: UserDefaults
-    ) -> Bool {
-        isEnabled(in: defaults)
-            && credentials.refreshToken != nil
-            && (credentials.isExpired || credentials.isAboutToExpire)
-    }
-}
-
 /// macOS credential service that reads from Claude Code's Keychain entry
 /// via `/usr/bin/security` CLI (avoids repeated keychain access prompts).
 actor MacOSCredentialService: CredentialProvider {
@@ -45,15 +30,12 @@ actor MacOSCredentialService: CredentialProvider {
     private let claudeCodeKeychainLoader: ClaudeCodeKeychainLoader
     private let appKeychainLoader: AppKeychainLoader
     private let appKeychainSaver: AppKeychainSaver
-    private let defaults: UserDefaults
 
     init(
-        defaults: UserDefaults = .standard,
         claudeCodeKeychainLoader: ClaudeCodeKeychainLoader? = nil,
         appKeychainLoader: AppKeychainLoader? = nil,
         appKeychainSaver: AppKeychainSaver? = nil
     ) {
-        self.defaults = defaults
         self.claudeCodeKeychainLoader = claudeCodeKeychainLoader ?? Self.loadFromClaudeCodeKeychain
         self.appKeychainLoader = appKeychainLoader ?? { try KeychainHelper.loadCredentials() }
         self.appKeychainSaver = appKeychainSaver ?? { try KeychainHelper.saveCredentials($0) }
@@ -67,28 +49,10 @@ actor MacOSCredentialService: CredentialProvider {
             throw CredentialError.missingScope
         }
 
-        // Refresh proactively (or on expiry) only when the user has opted in, since
-        // Anthropic rotates refresh tokens and writing back can race Claude Code.
-        if credentials.isExpired || credentials.isAboutToExpire {
-            if ClaudeTokenRefreshPolicy.shouldAttemptRefresh(
-                for: credentials,
-                defaults: defaults
-            ), let refreshToken = credentials.refreshToken {
-                do {
-                    let refreshed = try await refreshAndPersist(
-                        source: source,
-                        refreshToken: refreshToken
-                    )
-                    mirrorToSynchronizableKeychain(refreshed)
-                    return refreshed
-                } catch {
-                    Logger.credentials.error("Claude token auto-refresh failed: \(error.localizedDescription)")
-                    // Fall through: surface expiry only if the token is actually expired.
-                }
-            }
-            if credentials.isExpired {
-                throw CredentialError.expired
-            }
+        // Claude Code owns the credential lifecycle: an expired token is refreshed by
+        // running `claude`, not by this read-only viewer.
+        if credentials.isExpired {
+            throw CredentialError.expired
         }
 
         mirrorToSynchronizableKeychain(credentials)
@@ -117,118 +81,6 @@ actor MacOSCredentialService: CredentialProvider {
             Logger.credentials.info("Mirrored Claude credentials to synchronizable Keychain")
         } catch {
             Logger.credentials.error("Failed to mirror Claude credentials to synchronizable Keychain: \(error.localizedDescription)")
-        }
-    }
-
-    // MARK: - Refresh + write-back
-
-    /// Refreshes the token, writes the rotated credentials back to the source
-    /// credential store, and returns the result.
-    private func refreshAndPersist(
-        source: CredentialSource,
-        refreshToken: String
-    ) async throws -> ClaudeOAuthCredentials {
-        let current = source.credentials
-        let tokens = try await TokenRefreshService.shared.refresh(refreshToken: refreshToken)
-
-        let expiresAtMs: Double? = tokens.expiresInSeconds.map {
-            (Date().timeIntervalSince1970 + Double($0)) * 1000
-        }
-        let newRefreshToken = tokens.refreshToken ?? refreshToken
-        let newScopes = tokens.scopes ?? current.scopes
-
-        let refreshed = ClaudeOAuthCredentials(
-            accessToken: tokens.accessToken,
-            refreshToken: newRefreshToken,
-            expiresAt: expiresAtMs ?? current.expiresAt,
-            scopes: newScopes,
-            subscriptionType: current.subscriptionType,
-            rateLimitTier: current.rateLimitTier
-        )
-
-        switch source {
-        case .claudeCode(_, let rawData):
-            try writeBack(
-                rawData: rawData,
-                accessToken: refreshed.accessToken,
-                refreshToken: newRefreshToken,
-                expiresAtMs: expiresAtMs,
-                scopes: newScopes
-            )
-        case .appKeychain:
-            try appKeychainSaver(refreshed)
-        }
-        Logger.credentials.info("Refreshed and persisted Claude token")
-
-        return refreshed
-    }
-
-    /// Mutates only the token fields of the raw keychain JSON and writes it back, so
-    /// any keys Claude Code stores that we don't model are preserved verbatim.
-    private func writeBack(
-        rawData: Data,
-        accessToken: String,
-        refreshToken: String,
-        expiresAtMs: Double?,
-        scopes: [String]?
-    ) throws {
-        guard var root = try? JSONSerialization.jsonObject(with: rawData) as? [String: Any],
-              var oauth = root["claudeAiOauth"] as? [String: Any] else {
-            throw CredentialError.invalidFormat
-        }
-
-        oauth["accessToken"] = accessToken
-        oauth["refreshToken"] = refreshToken
-        if let expiresAtMs { oauth["expiresAt"] = expiresAtMs }
-        if let scopes { oauth["scopes"] = scopes }
-        root["claudeAiOauth"] = oauth
-
-        // Minified (single-line) JSON: `security -w` hex-encodes values containing
-        // newlines, which corrupts the entry and breaks Claude Code.
-        let minified = try JSONSerialization.data(withJSONObject: root, options: [])
-        guard let jsonString = String(data: minified, encoding: .utf8) else {
-            throw CredentialError.invalidFormat
-        }
-
-        try saveToClaudeCodeKeychain(jsonString)
-    }
-
-    /// Writes the credentials JSON back via the Apple-signed `security` CLI so the
-    /// keychain ACL stays stable (no per-launch prompts on an unsigned app). The
-    /// secret is fed over stdin, never argv (which `ps` can read).
-    private func saveToClaudeCodeKeychain(_ json: String) throws {
-        let escaped = json
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let service = Constants.claudeCodeKeychainService
-        let account = Constants.claudeCodeKeychainAccount
-        let command = "add-generic-password -U -s \(service) -a \(account) -w \"\(escaped)\" -T /usr/bin/security\n"
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = ["-i"]
-
-        let inputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardInput = inputPipe
-        process.standardOutput = Pipe()
-        process.standardError = errorPipe
-
-        try process.run()
-        inputPipe.fileHandleForWriting.write(Data(command.utf8))
-        inputPipe.fileHandleForWriting.closeFile()
-        process.waitUntilExit()
-
-        // `security -i` does not reliably surface failures via exit code, so verify
-        // the write by reading the value back.
-        guard let (_, written) = try? Self.loadFromClaudeCodeKeychain(), written == Data(json.utf8) else {
-            let stderr = String(
-                data: errorPipe.fileHandleForReading.readDataToEndOfFile(),
-                encoding: .utf8
-            )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let message = stderr.isEmpty ? "keychain write could not be verified" : stderr
-            Logger.credentials.error("Claude token keychain write failed: \(message)")
-            throw CredentialError.keychainError(errSecIO)
         }
     }
 
