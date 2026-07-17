@@ -26,6 +26,25 @@ struct SettingsTabView: View {
             VStack(alignment: .leading, spacing: 24) {
                 settingsHeader
 
+                // Claude Connection Section
+                settingsCard(title: "Claude Connection", systemImage: "person.badge.key") {
+                    HStack(alignment: .top) {
+                        ClaudeConnectionStatusView(
+                            status: viewModel.claudeConnectionStatus,
+                            lastUpdatedText: viewModel.timeSinceLastUpdate
+                        )
+                        Spacer(minLength: 12)
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Button("Refresh") {
+                                Task { _ = await viewModel.refresh(force: true) }
+                            }
+                        }
+                    }
+                }
+
                 // General Section
                 settingsCard(title: "General", systemImage: "gearshape") {
                     VStack(spacing: 12) {

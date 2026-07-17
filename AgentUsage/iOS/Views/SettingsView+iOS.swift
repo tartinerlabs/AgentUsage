@@ -42,19 +42,11 @@ struct SettingsView: View {
                 Text("Show extra usage badges, banners, and cost sections throughout the app. Requires extra usage to be enabled in your Claude account.")
             }
 
-            Section("Credential Status") {
-                LabeledContent("Status") {
-                    if viewModel.errorMessage == nil && viewModel.snapshot != nil {
-                        Label("Connected", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    } else if viewModel.errorMessage != nil {
-                        Label("Not connected", systemImage: "xmark.circle.fill")
-                            .foregroundStyle(.red)
-                    } else {
-                        Label("Checking...", systemImage: "arrow.triangle.2.circlepath")
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            Section("Claude Connection") {
+                ClaudeConnectionStatusView(
+                    status: viewModel.claudeConnectionStatus,
+                    lastUpdatedText: viewModel.timeSinceLastUpdate
+                )
             }
 
             Section {
