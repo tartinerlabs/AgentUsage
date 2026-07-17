@@ -1,100 +1,111 @@
-name: CI
+# ============================================================================
+# DISABLED: CI
+#
+# CI, build, and release/distribution moved to Xcode Cloud
+# (build / test / archive -> App Store Connect). This workflow is intentionally
+# commented out rather than deleted so the original definition is preserved.
+#
+# To restore: uncomment the block below and, if it was disabled on GitHub,
+# re-enable it with `gh workflow enable "CI"`.
+# ============================================================================
 
-on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - ".beads/**"
-      - ".claude/**"
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  macos:
-    name: macOS Build & Test
-    runs-on: macos-26
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - parallel:
-          - name: Test AgentUsageKit package
-            run: swift test --package-path AgentUsageKit
-
-          - name: Test release tooling
-            run: |
-              .github/scripts/tests/test-compute-version.sh
-              .github/scripts/tests/test-release-gate.sh
-              .github/scripts/tests/test-release-destinations.sh
-              .github/scripts/tests/test-appcast-generation.sh
-
-          - name: Build macOS app
-            run: |
-              xcodebuild -project AgentUsage.xcodeproj \
-                -scheme AgentUsage \
-                -configuration Debug \
-                -destination 'platform=macOS' \
-                -derivedDataPath build/DerivedData \
-                build \
-                CODE_SIGN_IDENTITY="-" \
-                CODE_SIGNING_REQUIRED=NO
-
-      - name: Test macOS app
-        run: |
-          xcodebuild -project AgentUsage.xcodeproj \
-            -scheme AgentUsage \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            -derivedDataPath build/DerivedData \
-            test \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO
-
-  ios:
-    name: iOS & Widgets Build
-    runs-on: macos-26
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: Resolve Swift package dependencies
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -project AgentUsage.xcodeproj \
-            -clonedSourcePackagesDirPath build/SourcePackages
-
-      - parallel:
-          - name: Build iOS app and test bundles
-            run: |
-              xcodebuild -project AgentUsage.xcodeproj \
-                -scheme AgentUsage \
-                -configuration Debug \
-                -destination 'generic/platform=iOS Simulator' \
-                -derivedDataPath build/DerivedData-iOS \
-                -clonedSourcePackagesDirPath build/SourcePackages \
-                build-for-testing \
-                CODE_SIGN_IDENTITY="-" \
-                CODE_SIGNING_REQUIRED=NO
-
-          - name: Build widgets
-            run: |
-              xcodebuild -project AgentUsage.xcodeproj \
-                -scheme AgentUsageWidgetsExtension \
-                -configuration Debug \
-                -destination 'generic/platform=iOS Simulator' \
-                -derivedDataPath build/DerivedData-widgets \
-                -clonedSourcePackagesDirPath build/SourcePackages \
-                build \
-                CODE_SIGN_IDENTITY="-" \
-                CODE_SIGNING_REQUIRED=NO
+# name: CI
+#
+# on:
+#   pull_request:
+#     branches: [main]
+#   push:
+#     branches: [main]
+#     paths-ignore:
+#       - "**/*.md"
+#       - ".beads/**"
+#       - ".claude/**"
+#   workflow_dispatch:
+#
+# permissions:
+#   contents: read
+#
+# concurrency:
+#   group: ${{ github.workflow }}-${{ github.ref }}
+#   cancel-in-progress: true
+#
+# jobs:
+#   macos:
+#     name: macOS Build & Test
+#     runs-on: macos-26
+#
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+#
+#       - parallel:
+#           - name: Test AgentUsageKit package
+#             run: swift test --package-path AgentUsageKit
+#
+#           - name: Test release tooling
+#             run: |
+#               .github/scripts/tests/test-compute-version.sh
+#               .github/scripts/tests/test-release-gate.sh
+#               .github/scripts/tests/test-release-destinations.sh
+#               .github/scripts/tests/test-appcast-generation.sh
+#
+#           - name: Build macOS app
+#             run: |
+#               xcodebuild -project AgentUsage.xcodeproj \
+#                 -scheme AgentUsage \
+#                 -configuration Debug \
+#                 -destination 'platform=macOS' \
+#                 -derivedDataPath build/DerivedData \
+#                 build \
+#                 CODE_SIGN_IDENTITY="-" \
+#                 CODE_SIGNING_REQUIRED=NO
+#
+#       - name: Test macOS app
+#         run: |
+#           xcodebuild -project AgentUsage.xcodeproj \
+#             -scheme AgentUsage \
+#             -configuration Debug \
+#             -destination 'platform=macOS' \
+#             -derivedDataPath build/DerivedData \
+#             test \
+#             CODE_SIGN_IDENTITY="-" \
+#             CODE_SIGNING_REQUIRED=NO
+#
+#   ios:
+#     name: iOS & Widgets Build
+#     runs-on: macos-26
+#
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+#
+#       - name: Resolve Swift package dependencies
+#         run: |
+#           xcodebuild -resolvePackageDependencies \
+#             -project AgentUsage.xcodeproj \
+#             -clonedSourcePackagesDirPath build/SourcePackages
+#
+#       - parallel:
+#           - name: Build iOS app and test bundles
+#             run: |
+#               xcodebuild -project AgentUsage.xcodeproj \
+#                 -scheme AgentUsage \
+#                 -configuration Debug \
+#                 -destination 'generic/platform=iOS Simulator' \
+#                 -derivedDataPath build/DerivedData-iOS \
+#                 -clonedSourcePackagesDirPath build/SourcePackages \
+#                 build-for-testing \
+#                 CODE_SIGN_IDENTITY="-" \
+#                 CODE_SIGNING_REQUIRED=NO
+#
+#           - name: Build widgets
+#             run: |
+#               xcodebuild -project AgentUsage.xcodeproj \
+#                 -scheme AgentUsageWidgetsExtension \
+#                 -configuration Debug \
+#                 -destination 'generic/platform=iOS Simulator' \
+#                 -derivedDataPath build/DerivedData-widgets \
+#                 -clonedSourcePackagesDirPath build/SourcePackages \
+#                 build \
+#                 CODE_SIGN_IDENTITY="-" \
+#                 CODE_SIGNING_REQUIRED=NO
