@@ -390,89 +390,91 @@ struct SettingsTabView: View {
                 }
                 #endif
 
-                // Updates Section
-                settingsCard(title: "Updates", systemImage: "arrow.down.circle") {
-                    VStack(spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Current Version")
-                                    .font(.body)
-                                Text("Installed app version")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(Bundle.main.appVersion)
-                                .font(.body.monospaced())
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Divider()
-
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Automatic Updates")
-                                    .font(.body)
-                                Text("Check for updates automatically")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("", isOn: Binding(
-                                get: { updaterController.automaticallyChecksForUpdates },
-                                set: { updaterController.automaticallyChecksForUpdates = $0 }
-                            ))
-                            .labelsHidden()
-                        }
-
-                        Divider()
-
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Check for Updates")
-                                    .font(.body)
-                                Text("Download and install the latest version")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-
-                            if let result = updaterController.lastCheckResult {
-                                HStack(spacing: 4) {
-                                    Image(systemName: result.systemImage)
-                                        .foregroundStyle(resultColor(for: result))
-                                    Text(result.message)
+                // Updates Section (App Store Connect builds only)
+                if Bundle.main.isAppStoreBuild {
+                    settingsCard(title: "Updates", systemImage: "arrow.down.circle") {
+                        VStack(spacing: 12) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Current Version")
+                                        .font(.body)
+                                    Text("Installed app version")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
-                                        .lineLimit(1)
                                 }
-                            }
-
-                            if updaterController.isChecking {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Button("Check Now") {
-                                    updaterController.checkForUpdates()
-                                }
-                                .disabled(!updaterController.canCheckForUpdates)
-                            }
-                        }
-
-                        Divider()
-
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Last Checked")
-                                    .font(.body)
-                                Text("Most recent update check")
-                                    .font(.caption)
+                                Spacer()
+                                Text(Bundle.main.appVersion)
+                                    .font(.body.monospaced())
                                     .foregroundStyle(.secondary)
                             }
-                            Spacer()
-                            Text(updaterController.lastCheckDescription)
-                                .font(.body)
-                                .foregroundStyle(.secondary)
+
+                            Divider()
+
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Automatic Updates")
+                                        .font(.body)
+                                    Text("Check for updates automatically")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { updaterController.automaticallyChecksForUpdates },
+                                    set: { updaterController.automaticallyChecksForUpdates = $0 }
+                                ))
+                                .labelsHidden()
+                            }
+
+                            Divider()
+
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Check for Updates")
+                                        .font(.body)
+                                    Text("Download and install the latest version")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+
+                                if let result = updaterController.lastCheckResult {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: result.systemImage)
+                                            .foregroundStyle(resultColor(for: result))
+                                        Text(result.message)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+
+                                if updaterController.isChecking {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Button("Check Now") {
+                                        updaterController.checkForUpdates()
+                                    }
+                                    .disabled(!updaterController.canCheckForUpdates)
+                                }
+                            }
+
+                            Divider()
+
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Last Checked")
+                                        .font(.body)
+                                    Text("Most recent update check")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(updaterController.lastCheckDescription)
+                                    .font(.body)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
