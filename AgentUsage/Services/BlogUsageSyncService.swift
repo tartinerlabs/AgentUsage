@@ -755,44 +755,20 @@ actor BlogUsageSyncService {
 
     // MARK: - Token storage
     //
-    // The token is stored in the login Keychain via the `/usr/bin/security` CLI
-    // rather than in-process `SecItem*` calls. The `security` binary is Apple-signed
-    // with a stable code signature, so the Keychain "Always Allow" grant persists
-    // across app rebuilds and updates. AgentUsage itself is distributed unsigned
-    // (ad-hoc), so an in-process accessor would re-prompt on every launch because the
-    // ACL can never permanently trust it. This mirrors `MacOSCredentialService`,
-    // which reads Claude Code's token the same way.
+    // The token lives in the data-protection keychain, reached in-process through
+    // `KeychainHelper`. Access there is granted by the `keychain-access-groups`
+    // entitlement, and no per-item ACL exists — so nothing can trigger the "wants to
+    // change access permissions" prompt.
+    //
+    // This deliberately does not use the `/usr/bin/security` CLI. Writing through it
+    // required `-T` to name a trusted application, and modifying an item's ACL is gated
+    // separately from reading it, trusting no application by default — so every write
+    // re-prompted for the login password. Only Claude Code's *shared* keychain item
+    // still goes through the CLI, because Claude Code owns that item's ACL; see
+    // `MacOSCredentialService`.
 
     private func loadTokenFromKeychain() -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = [
-            "find-generic-password",
-            "-s", KeychainHelper.service,
-            "-a", keychainAccount,
-            "-w"  // output password data only
-        ]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            Logger.keychain.error("security find-generic-password failed to run: \(error.localizedDescription)")
-            return nil
-        }
-
-        guard process.terminationStatus == 0 else {
-            // Non-zero status includes "item not found" — treat as no token.
-            return nil
-        }
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let token = String(data: data, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
+        guard let token = try? KeychainHelper.loadString(account: keychainAccount),
               !token.isEmpty else {
             return nil
         }
@@ -800,63 +776,11 @@ actor BlogUsageSyncService {
     }
 
     private func saveTokenToKeychain(_ token: String) throws {
-        // Feed the command (including the secret) to `security -i` over stdin so the
-        // token never appears as a process argument — argv is visible to other
-        // processes via `ps`. The interactive parser splits on whitespace and honours
-        // double quotes, so the token is wrapped in quotes with `\` and `"` escaped.
-        let escaped = token
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let service = KeychainHelper.service
-        let account = keychainAccount
-        // `-T /usr/bin/security` trusts the stable, Apple-signed security binary.
-        let command = "add-generic-password -U -s \(service) -a \(account) -w \"\(escaped)\" -T /usr/bin/security\n"
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = ["-i"]
-
-        let inputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardInput = inputPipe
-        process.standardOutput = Pipe()
-        process.standardError = errorPipe
-
-        try process.run()
-        inputPipe.fileHandleForWriting.write(Data(command.utf8))
-        inputPipe.fileHandleForWriting.closeFile()
-        process.waitUntilExit()
-
-        // `security -i` does not reliably surface sub-command failures via exit code,
-        // so confirm the write succeeded by reading the value back.
-        guard loadTokenFromKeychain() == token else {
-            let stderr = String(
-                data: errorPipe.fileHandleForReading.readDataToEndOfFile(),
-                encoding: .utf8
-            )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let message = stderr.isEmpty ? "keychain write could not be verified" : stderr
-            Logger.keychain.error("security add-generic-password (interactive) failed: \(message)")
-            throw NSError(
-                domain: "BlogUsageSync.Keychain",
-                code: Int(process.terminationStatus),
-                userInfo: [NSLocalizedDescriptionKey: message]
-            )
-        }
+        try KeychainHelper.saveString(token, account: keychainAccount)
     }
 
     private func deleteTokenFromKeychain() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = [
-            "delete-generic-password",
-            "-s", KeychainHelper.service,
-            "-a", keychainAccount
-        ]
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
-
-        try? process.run()
-        process.waitUntilExit()
+        KeychainHelper.deleteString(account: keychainAccount)
     }
 
     func syncIfNeeded() async -> BlogUsageSyncStatus {
