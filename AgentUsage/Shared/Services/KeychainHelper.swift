@@ -12,8 +12,9 @@ import Security
 /// Credential items are marked synchronizable so they sync across a user's
 /// devices via iCloud Keychain. This relies on the app being signed with the
 /// team's Keychain Sharing capability (`keychain-access-groups`), already
-/// present in the iOS entitlements. Only the iOS credential path uses these
-/// methods; macOS credentials are handled by `MacOSCredentialService`.
+/// present in the iOS and macOS entitlements. iOS reads and writes these
+/// credentials directly; macOS mirrors Claude Code credentials here so iCloud
+/// Keychain can sync them to iOS.
 enum KeychainHelper {
     nonisolated static let service = "com.tartinerlabs.AgentUsage"
     static let account = "claude-oauth-credentials"
