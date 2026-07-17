@@ -17,6 +17,12 @@ enum Constants {
     // MARK: - Window IDs
     static let mainWindowID = "main-window"
 
+    // MARK: - App Group
+    /// Shared App Group container identifier. Backs the SwiftData store, widget data
+    /// sharing, and the security-scoped bookmark suite. Must match the
+    /// `com.apple.security.application-groups` entitlement across all targets.
+    static let appGroupIdentifier = "group.com.tartinerlabs.AgentUsage"
+
     // MARK: - Brand Colors
     static let brandPrimary = Color(red: 193/255, green: 95/255, blue: 60/255)  // #C15F3C (Crail)
     static let brandSecondary = Color(red: 218/255, green: 119/255, blue: 86/255)  // #DA7756
@@ -106,8 +112,38 @@ enum Constants {
     // MARK: - macOS Only (file system access)
     #if os(macOS)
 
+    /// The user's real home directory.
+    ///
+    /// Under the App Sandbox, `FileManager.homeDirectoryForCurrentUser` and
+    /// `NSHomeDirectory()` return the app's *container* home
+    /// (`~/Library/Containers/…/Data`), which does not contain the CLI tools' logs.
+    /// `getpwuid(getuid())` returns the true home (`/Users/<name>`) even when
+    /// sandboxed, which is what we need both to preset the folder-access panel and
+    /// to build the real log paths that the security-scoped bookmarks grant access to.
+    nonisolated static var realHomeDirectory: URL {
+        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
+            let path = String(cString: dir)
+            if !path.isEmpty {
+                return URL(fileURLWithPath: path, isDirectory: true)
+            }
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+    }
+
+    /// Real per-provider root directories the user grants access to. Each granted
+    /// directory covers its entire subtree (the paths below are all subpaths).
+    nonisolated static var claudeHomeDirectory: URL {
+        realHomeDirectory.appendingPathComponent(".claude")
+    }
+    nonisolated static var codexHomeDirectory: URL {
+        realHomeDirectory.appendingPathComponent(".codex")
+    }
+    nonisolated static var openCodeHomeDirectory: URL {
+        realHomeDirectory.appendingPathComponent(".local/share/opencode")
+    }
+
     nonisolated static var claudeProjectsDirectories: [URL] {
-        let home = FileManager.default.homeDirectoryForCurrentUser
+        let home = realHomeDirectory
         return [
             home.appendingPathComponent(".claude/projects"),
             home.appendingPathComponent(".config/claude/projects")
@@ -116,7 +152,7 @@ enum Constants {
 
     /// Codex CLI session rollout logs (`rollout-*.jsonl`), nested by year/month/day.
     nonisolated static var codexSessionsDirectories: [URL] {
-        let home = FileManager.default.homeDirectoryForCurrentUser
+        let home = realHomeDirectory
         return [
             home.appendingPathComponent(".codex/sessions")
         ]
@@ -126,7 +162,7 @@ enum Constants {
     /// Used as the bearer-token source for the live `/wham/usage` fetch.
     nonisolated static var codexAuthFileURLs: [URL] {
         let env = ProcessInfo.processInfo.environment
-        let home = FileManager.default.homeDirectoryForCurrentUser
+        let home = realHomeDirectory
         var urls: [URL] = []
         if let codexHome = env["CODEX_HOME"], !codexHome.isEmpty {
             urls.append(URL(fileURLWithPath: codexHome).appendingPathComponent("auth.json"))
@@ -138,7 +174,7 @@ enum Constants {
 
     /// OpenCode SQLite database (XDG data home, with fallback).
     nonisolated static var openCodeDatabaseURLs: [URL] {
-        let home = FileManager.default.homeDirectoryForCurrentUser
+        let home = realHomeDirectory
         var urls: [URL] = []
         if let xdgData = ProcessInfo.processInfo.environment["XDG_DATA_HOME"], !xdgData.isEmpty {
             urls.append(URL(fileURLWithPath: xdgData).appendingPathComponent("opencode/opencode.db"))

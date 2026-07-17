@@ -18,6 +18,7 @@ struct SettingsTabView: View {
     @State private var notificationSettings = NotificationSettings.load()
     @State private var blogSyncTokenDraft = ""
     @State private var diagnosticExportMessage: String?
+    @State private var folderAccess = SandboxFolderAccessService.shared
 
     private let contentWidth: CGFloat = 760
 
@@ -149,24 +150,10 @@ struct SettingsTabView: View {
                             Toggle("", isOn: $viewModel.showExtraUsageIndicators)
                                 .labelsHidden()
                         }
-
-                        Divider()
-
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Experimental OpenCode Providers")
-                                    .font(.body)
-                                Text("Enable distinct OpenCode activity and OpenCode Go quota sources. Takes effect after relaunch.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Experimental OpenCode Providers", isOn: $viewModel.experimentalOpenCodeProviders)
-                                .labelsHidden()
-                                .accessibilityLabel("Experimental OpenCode Providers")
-                        }
                     }
                 }
+
+                localDataAccessCard
 
                 settingsCard(title: "Reliability Diagnostics", systemImage: "waveform.path.ecg") {
                     VStack(alignment: .leading, spacing: 10) {
@@ -561,6 +548,52 @@ struct SettingsTabView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var localDataAccessCard: some View {
+        settingsCard(title: "Local Data Access", systemImage: "folder.badge.person.crop") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(
+                    "\(Constants.appDisplayName) runs sandboxed, so it needs your permission to "
+                        + "read each tool's local usage logs. Grant access to see token usage, cost, "
+                        + "and blog sync for Codex and OpenCode alongside Claude."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                ForEach(SandboxFolderAccessService.grantableProviders) { provider in
+                    if provider != SandboxFolderAccessService.grantableProviders.first {
+                        Divider()
+                    }
+                    let granted = folderAccess.hasAccess(to: provider)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label(provider.displayName, systemImage: provider.iconName)
+                                .font(.body)
+                            Text(folderAccess.defaultDirectory(for: provider).path)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        if granted {
+                            Label("Granted", systemImage: "checkmark.circle.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.green)
+                            Button("Revoke") {
+                                folderAccess.revokeAccess(to: provider)
+                            }
+                        } else {
+                            Button("Grant Access…") {
+                                if folderAccess.requestAccess(to: provider) {
+                                    Task { _ = await viewModel.refresh(force: true) }
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
+                }
+            }
         }
     }
 

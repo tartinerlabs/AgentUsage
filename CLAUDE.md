@@ -130,7 +130,8 @@ AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | `UsageViewModel` | ViewModels/ | State manager with auto-refresh via `Task`. Persists refresh interval to `UserDefaults`. |
-| `MacOSCredentialService` | macOS/Services/ | Loads OAuth token from `~/.claude/.credentials.json`. Falls back to `NSOpenPanel` if sandboxed. |
+| `MacOSCredentialService` | macOS/Services/ | Loads the OAuth token from Claude Code's Keychain entry (with the app's own Keychain as fallback). Not filesystem-based, so it is unaffected by the App Sandbox. |
+| `SandboxFolderAccessService` | macOS/Services/ | Grants the sandboxed app read access to the CLI log directories (`~/.claude`, `~/.codex`, `~/.local/share/opencode`) via user-selected folders and persisted security-scoped bookmarks. Access is resolved at launch and held for the process lifetime. |
 | `iOSCredentialService` | iOS/Services/ | Loads OAuth token from `~/.claude/.credentials.json` via CredentialProvider + KeychainHelper. |
 | `ClaudeAPIService` | Services/ | Fetches usage from Anthropic API. API constants in `Utilities/Constants.swift`. |
 | `TokenUsageService` | Services/ | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. Persists to SwiftData (macOS only). |
@@ -225,8 +226,9 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 
 **macOS:**
 - Menu bar only app: `LSUIElement = true` in Info.plist
-- Sandbox disabled in entitlements (required for ~/.claude access)
+- **App Sandbox enabled** (`ENABLE_APP_SANDBOX = YES`) for Mac App Store / TestFlight distribution. macOS uses its own `AgentUsage/AgentUsage.entitlements` (wired via `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`), which keeps the app-group and adds `com.apple.security.files.user-selected.read-only`. Reading the CLI tools' log directories requires the user to grant folder access (Settings → Local Data Access); see `SandboxFolderAccessService`. Credentials come from the Keychain and need no folder grant.
 - Network client entitlement enabled
+- App Group `group.com.tartinerlabs.AgentUsage` backs the SwiftData store (pinned explicitly via `ModelConfiguration(groupContainer:)`) and widget data sharing
 - Sparkle auto-updates enabled: `SUEnableAutomaticChecks = true`
 
 **iOS:**

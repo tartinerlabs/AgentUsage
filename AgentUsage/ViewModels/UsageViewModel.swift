@@ -176,18 +176,6 @@ final class UsageViewModel {
     }
 
     #if os(macOS)
-    var experimentalOpenCodeProviders: Bool {
-        didSet {
-            defaults.set(experimentalOpenCodeProviders, forKey: "experimentalOpenCodeProviders")
-            if !experimentalOpenCodeProviders {
-                providerUsage[.openCode] = nil
-                providerUsage[.openCodeGo] = nil
-                providerDetails[.openCode] = nil
-                providerDetails[.openCodeGo] = nil
-            }
-        }
-    }
-
     var notificationsEnabled: Bool {
         didSet {
             defaults.set(notificationsEnabled, forKey: "notificationsEnabled")
@@ -278,7 +266,6 @@ final class UsageViewModel {
         self.providerUsageServices = providerUsageServices
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
-        self.experimentalOpenCodeProviders = defaults.bool(forKey: "experimentalOpenCodeProviders")
         self.blogUsageSyncEnabled = defaults.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
         self.blogUsageSyncEndpointURLString = defaults.string(forKey: "blogUsageSyncEndpointURL")
             ?? BlogUsageSyncService.defaultEndpointURLString
@@ -396,7 +383,6 @@ extension UsageViewModel {
         }
         providers.append(contentsOf: Provider.allCases.filter {
             $0 != .claude
-                && (experimentalOpenCodeProviders || ($0 != .openCode && $0 != .openCodeGo))
                 && (usageSnapshot(for: $0) != nil || providerDetails[$0] != nil)
         })
         return providers
@@ -529,7 +515,6 @@ extension UsageViewModel {
     /// token detail (today/yesterday/30-day, per-model, daily trend).
     private func refreshProviderUsage() async {
         for (provider, service) in providerUsageServices {
-            if !experimentalOpenCodeProviders, provider.family == .openCode { continue }
             do {
                 providerUsage[provider] = try await service.fetchSnapshot()
                 clearIncident(for: provider)
