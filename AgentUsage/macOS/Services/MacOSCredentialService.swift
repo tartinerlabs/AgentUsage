@@ -42,11 +42,13 @@ actor MacOSCredentialService: CredentialProvider {
                 defaults: .standard
             ), let refreshToken = credentials.refreshToken {
                 do {
-                    return try await refreshAndPersist(
+                    let refreshed = try await refreshAndPersist(
                         current: credentials,
                         rawData: rawData,
                         refreshToken: refreshToken
                     )
+                    mirrorToSynchronizableKeychain(refreshed)
+                    return refreshed
                 } catch {
                     Logger.credentials.error("Claude token auto-refresh failed: \(error.localizedDescription)")
                     // Fall through: surface expiry only if the token is actually expired.
@@ -57,7 +59,19 @@ actor MacOSCredentialService: CredentialProvider {
             }
         }
 
+        mirrorToSynchronizableKeychain(credentials)
         return credentials
+    }
+
+    /// Seed AgentUsage's own synchronizable Keychain item from Claude Code's
+    /// credential so iOS can receive it through iCloud Keychain.
+    private func mirrorToSynchronizableKeychain(_ credentials: ClaudeOAuthCredentials) {
+        do {
+            try KeychainHelper.saveCredentials(credentials)
+            Logger.credentials.info("Mirrored Claude credentials to synchronizable Keychain")
+        } catch {
+            Logger.credentials.error("Failed to mirror Claude credentials to synchronizable Keychain: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Refresh + write-back
