@@ -17,7 +17,9 @@ struct Provider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<WidgetEntry> {
-        let snapshot = WidgetDataManager.load() ?? .placeholder
+        // Fetch live usage directly so the widget stays fresh even when the app
+        // isn't running; fall back to the last cached snapshot on failure.
+        let snapshot = await WidgetUsageProvider.refresh() ?? WidgetDataManager.load() ?? .placeholder
         let entry = WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
 
         // Request refresh every 15 minutes
@@ -37,7 +39,7 @@ struct LockScreenProvider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<WidgetEntry> {
-        let snapshot = WidgetDataManager.load() ?? .placeholder
+        let snapshot = await WidgetUsageProvider.refresh() ?? WidgetDataManager.load() ?? .placeholder
         let entry = WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
 
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: .now)!
