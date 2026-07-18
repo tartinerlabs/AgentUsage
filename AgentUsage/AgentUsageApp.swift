@@ -130,6 +130,13 @@ struct AgentUsageApp: App {
         } label: {
             MenuBarIconView()
                 .environment(viewModel)
+                .task {
+                    // Refresh immediately when the user grants local data access
+                    // from the first-run onboarding, without waiting for the next cycle.
+                    for await _ in NotificationCenter.default.notifications(named: .localDataAccessGranted) {
+                        _ = await viewModel.refresh(force: true)
+                    }
+                }
         }
         .menuBarExtraStyle(.window)
         #else
