@@ -85,7 +85,7 @@ public actor UsageSyncService {
             )
             logger.debug("Published usage snapshot to CloudKit")
         } catch {
-            logger.error("CloudKit publish failed: \(error.localizedDescription, privacy: .public)")
+            logger.error("CloudKit publish failed: \(Self.describe(error), privacy: .public)")
         }
     }
 
@@ -106,10 +106,33 @@ public actor UsageSyncService {
             let fetchedAt = record[Self.fetchedAtKey] as? Date ?? snapshot.fetchedAt
             return SyncedUsageSnapshot(snapshot: snapshot, planType: planType, fetchedAt: fetchedAt)
         } catch {
-            // Unknown item (never published), no iCloud account, or offline.
-            logger.debug("CloudKit fetch returned no snapshot: \(error.localizedDescription, privacy: .public)")
+            // A missing record (never published yet) is the expected empty state, so
+            // keep it at debug. Anything else — missing record type (schema not
+            // deployed to Production), auth, quota, server rejection — is a real
+            // failure worth surfacing in `log stream` / Console.
+            if (error as? CKError)?.code == .unknownItem {
+                logger.debug("CloudKit fetch: no snapshot published yet")
+            } else {
+                logger.error("CloudKit fetch failed: \(Self.describe(error), privacy: .public)")
+            }
             return nil
         }
+    }
+
+    /// Renders an error for logging, pulling out the concrete `CKError` code (and any
+    /// per-item partial-failure codes) so a swallowed sync failure is diagnosable.
+    private static func describe(_ error: Error) -> String {
+        guard let ckError = error as? CKError else {
+            return error.localizedDescription
+        }
+        var parts = ["CKError.\(ckError.code) (\(ckError.errorCode)): \(ckError.localizedDescription)"]
+        for (id, itemError) in ckError.partialErrorsByItemID ?? [:] {
+            let itemCK = itemError as? CKError
+            let code = itemCK.map { "CKError.\($0.code) (\($0.errorCode))" } ?? "\(itemError)"
+            let name = (id as? CKRecord.ID)?.recordName ?? "\(id)"
+            parts.append("item \(name): \(code)")
+        }
+        return parts.joined(separator: "; ")
     }
 }
 #endif
