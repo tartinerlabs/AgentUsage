@@ -25,7 +25,7 @@ struct OpenCodeLogSourceTests {
         let zenModel = OpenCodeLogSource.parseModel(#"{"id":"gpt-5.1-codex","providerID":"opencode-zen"}"#)
 
         #expect(goModel.providerID == "opencode-go")
-        #expect(goModel.provider == .openCode)
+        #expect(goModel.provider == .openCodeGo)
         #expect(zenModel.providerID == "opencode-zen")
         #expect(zenModel.provider == .openCode)
     }
@@ -40,13 +40,13 @@ struct OpenCodeLogSourceTests {
         #expect(model.provider == .codex)
     }
 
-    @Test func keepsGLMWithOpenCodeGoProviderInOpenCodeBucket() throws {
+    @Test func keepsGLMWithOpenCodeGoProviderInOpenCodeGoBucket() throws {
         // Real-world GLM sessions arrive via OpenCode Go (providerID="opencode-go").
         let model = OpenCodeLogSource.parseModel(#"{"id":"glm-5.2","providerID":"opencode-go"}"#)
 
         #expect(model.id == "glm-5.2")
         #expect(model.providerID == "opencode-go")
-        #expect(model.provider == .openCode)
+        #expect(model.provider == .openCodeGo)
     }
 
     @Test func invalidModelJSONFallsBackWithoutOpenAIHardcoding() throws {
