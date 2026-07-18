@@ -39,23 +39,32 @@ struct AgentUsageApp: App {
             DailyUsageRecordEntity.self,
             ProviderWindowDailyPeakEntity.self,
         ])
-        // Pin the store to the App Group container explicitly. SwiftData otherwise
-        // defaults into the group container only implicitly (because the app-groups
-        // entitlement is present); making it explicit ensures the existing store is
-        // never relocated/orphaned by entitlement changes.
-        //
-        // `cloudKitDatabase: .none` disables SwiftData's automatic iCloud mirroring.
-        // The app now carries a CloudKit entitlement (for `UsageSyncService`), which
-        // SwiftData would otherwise take as a cue to sync this store — failing at
-        // launch because these @Model types have non-optional attributes without
-        // defaults. This local token/history store must stay local; only
-        // `UsageSyncService` uses CloudKit, via its own container and records.
-        let modelConfiguration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false,
-            groupContainer: .identifier(Constants.appGroupIdentifier),
-            cloudKitDatabase: .none
-        )
+        let modelConfiguration: ModelConfiguration
+        if Self.isRunningTests {
+            modelConfiguration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: true,
+                cloudKitDatabase: .none
+            )
+        } else {
+            // Pin the store to the App Group container explicitly. SwiftData otherwise
+            // defaults into the group container only implicitly (because the app-groups
+            // entitlement is present); making it explicit ensures the existing store is
+            // never relocated/orphaned by entitlement changes.
+            //
+            // `cloudKitDatabase: .none` disables SwiftData's automatic iCloud mirroring.
+            // The app now carries a CloudKit entitlement (for `UsageSyncService`), which
+            // SwiftData would otherwise take as a cue to sync this store — failing at
+            // launch because these @Model types have non-optional attributes without
+            // defaults. This local token/history store must stay local; only
+            // `UsageSyncService` uses CloudKit, via its own container and records.
+            modelConfiguration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                groupContainer: .identifier(Constants.appGroupIdentifier),
+                cloudKitDatabase: .none
+            )
+        }
 
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -77,8 +86,14 @@ struct AgentUsageApp: App {
             refreshFrequency: { viewModel.refreshInterval }
         )
         _backgroundRefreshCoordinator = State(initialValue: coordinator)
-        coordinator.register()
+        if !Self.isRunningTests {
+            coordinator.register()
+        }
         #endif
+    }
+
+    private static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
     @SceneBuilder
