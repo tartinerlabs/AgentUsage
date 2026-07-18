@@ -28,15 +28,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     // MARK: - First-run local data access
 
-    /// Show the single, one-time local-data-access prompt at first launch when the
-    /// sandboxed app has no read grant yet. Marked complete once shown so it never
-    /// nags again — the grant stays available in Settings.
+    /// Show the one-time local-data-access prompt at first launch when the sandboxed
+    /// app has no Full Disk Access or saved folder grant yet. Marked complete once
+    /// shown so it never nags again — the setup remains available in Settings.
     private func presentDataAccessOnboardingIfNeeded() {
         let defaults = UserDefaults.standard
         guard !defaults.bool(forKey: Self.onboardingCompletedKey) else { return }
 
         // Already have access (including a migrated legacy grant): nothing to ask.
-        guard !SandboxFolderAccessService.shared.hasFullAccess else {
+        guard !SandboxFolderAccessService.shared.hasAnyAccess else {
             defaults.set(true, forKey: Self.onboardingCompletedKey)
             return
         }

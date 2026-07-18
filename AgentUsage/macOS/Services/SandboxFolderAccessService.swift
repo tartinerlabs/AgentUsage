@@ -2,9 +2,9 @@
 //  SandboxFolderAccessService.swift
 //  AgentUsage
 //
-//  Grants the sandboxed macOS app read access to the CLI tools' log directories
-//  (`~/.claude`, `~/.codex`, `~/.local/share/opencode`) via a single, one-time
-//  user-selected home-folder grant and a persisted security-scoped bookmark.
+//  Tracks whether the sandboxed macOS app can read the CLI tools' log directories
+//  (`~/.claude`, `~/.codex`, `~/.local/share/opencode`) through Full Disk Access
+//  or previously saved security-scoped bookmarks.
 //
 
 #if os(macOS)
@@ -12,48 +12,50 @@ import Foundation
 import AppKit
 import AgentUsageKit
 
-/// Manages a single user-granted, security-scoped read grant covering the home
-/// directory, which the App Sandbox otherwise hides.
+/// Tracks local log-directory readability for the sandboxed macOS app.
 ///
-/// Access model: the user grants read access to their home folder **once**. That
-/// one grant covers every provider's log directory (all are subpaths of home).
-/// The bookmark is persisted in the App Group defaults suite, resolved once at
-/// launch, and its security scope is **held for the process lifetime**
-/// (`startAccessingSecurityScopedResource` without a matching stop until deinit).
-/// This suits a continuously-refreshing menu-bar app and means the file-reading
-/// services need no per-read scope wrapping — they read the real paths from
-/// `Constants` and access is ambient once `resolveExistingGrants()` has run.
+/// Preferred access model: the user grants Full Disk Access in System Settings.
+/// The app cannot grant that permission programmatically, so `requestFullAccess()`
+/// opens Privacy & Security and `refreshAccessStatus()` re-probes afterwards.
 ///
-/// Legacy per-provider bookmarks from earlier builds are still resolved at launch
-/// so upgraders keep access without re-granting.
+/// Legacy per-provider and home-folder security-scoped bookmarks from earlier builds
+/// are still resolved at launch so upgraders keep access without re-granting.
 @MainActor
 @Observable
 final class SandboxFolderAccessService {
     static let shared = SandboxFolderAccessService()
 
-    /// Providers whose logs are covered once home access is granted.
+    /// Providers whose logs require local disk access.
     /// `.openCodeGo` is remote-only, so it is not included.
     static let grantableProviders: [Provider] = [.claude, .codex, .openCode]
 
-    /// Whether the single home-folder grant is currently resolved and access-started.
+    /// Whether the app appears to have broad access to the real home directory.
     private(set) var hasFullAccess = false
 
-    /// The home URL whose security scope we are holding open, if granted.
+    /// Whether any broad or legacy provider-specific access is currently available.
+    var hasAnyAccess: Bool {
+        hasFullAccess || !legacyScopedURLs.isEmpty
+    }
+
+    /// The home URL whose security scope we are holding open, if a previous build saved one.
     private var homeScopedURL: URL?
 
     /// Legacy per-provider scoped URLs resolved from earlier builds' bookmarks.
     private var legacyScopedURLs: [Provider: URL] = [:]
 
     private let defaults: UserDefaults
+    private let fileManager: FileManager
 
-    private init(defaults: UserDefaults? = nil) {
+    private init(defaults: UserDefaults? = nil, fileManager: FileManager = .default) {
         self.defaults = defaults ?? UserDefaults(suiteName: Constants.appGroupIdentifier) ?? .standard
+        self.fileManager = fileManager
         resolveExistingGrants()
+        refreshAccessStatus()
     }
 
     // MARK: - Public API
 
-    /// The real directory a grant covers for a provider (e.g. real `~/.claude`).
+    /// The real directory used by a provider (e.g. real `~/.claude`).
     func defaultDirectory(for provider: Provider) -> URL {
         switch provider {
         case .claude: Constants.claudeHomeDirectory
@@ -62,54 +64,29 @@ final class SandboxFolderAccessService {
         }
     }
 
-    /// Whether a provider's logs are readable — true when the home grant is active,
-    /// or when a legacy per-provider grant from an earlier build is still resolved.
+    /// Whether a provider's logs are readable through Full Disk Access or a legacy bookmark.
     func hasAccess(to provider: Provider) -> Bool {
-        hasFullAccess || legacyScopedURLs[provider] != nil
+        hasFullAccess || legacyScopedURLs[provider] != nil || canReadDirectory(defaultDirectory(for: provider))
     }
 
-    /// Present a single open panel defaulting to the user's home folder and, on
-    /// selection, persist a security-scoped bookmark and begin holding its scope.
-    /// This one grant covers every provider. Returns whether access is now granted.
+    /// Open System Settings to Full Disk Access. macOS requires the user to complete
+    /// the grant there; this method cannot grant access by itself.
     @discardableResult
     func requestFullAccess() -> Bool {
-        let target = Constants.realHomeDirectory
-
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.canCreateDirectories = false
-        panel.showsHiddenFiles = true          // logs live in hidden dot-directories
-        panel.directoryURL = target
-        panel.message = "Grant read access to your home folder so \(Constants.appDisplayName) "
-            + "can read the local usage logs for Claude, Codex, and OpenCode. This is asked only once."
-        panel.prompt = "Grant Access"
-
-        guard panel.runModal() == .OK, let url = panel.url else {
-            return false
-        }
-
-        do {
-            let bookmark = try url.bookmarkData(
-                options: .withSecurityScope,
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-            defaults.set(bookmark, forKey: homeBookmarkKey)
-            startHomeAccess(url: url)
-            // The home grant supersedes any legacy per-provider grants; drop them.
-            clearLegacyGrants()
-            return hasFullAccess
-        } catch {
-            NSLog("SandboxFolderAccessService: failed to create home bookmark: \(error)")
-            return false
-        }
+        openFullDiskAccessSettings()
+        refreshAccessStatus()
+        return hasFullAccess
     }
 
-    /// Stop holding the home scope and forget the stored bookmark (and any legacy
-    /// per-provider bookmarks).
-    func revokeAccess() {
+    /// Re-check whether Full Disk Access or saved bookmarks currently make the real
+    /// home/log directories readable. Call this after the user returns from Settings.
+    func refreshAccessStatus() {
+        hasFullAccess = homeScopedURL != nil || canReadDirectory(Constants.realHomeDirectory)
+    }
+
+    /// Stop holding and forget any saved security-scoped bookmarks from previous
+    /// builds. Full Disk Access itself can only be revoked in System Settings.
+    func clearSavedFolderGrants() {
         if let url = homeScopedURL {
             url.stopAccessingSecurityScopedResource()
             homeScopedURL = nil
@@ -117,12 +94,18 @@ final class SandboxFolderAccessService {
         defaults.removeObject(forKey: homeBookmarkKey)
         hasFullAccess = false
         clearLegacyGrants()
+        refreshAccessStatus()
+    }
+
+    /// Backwards-compatible name for existing callers; this only clears saved
+    /// bookmarks and cannot revoke Full Disk Access.
+    func revokeAccess() {
+        clearSavedFolderGrants()
     }
 
     // MARK: - Launch resolution
 
-    /// Resolve the persisted home bookmark and begin holding its scope. Called once
-    /// at init; falls back to legacy per-provider bookmarks so upgraders keep access.
+    /// Resolve persisted bookmarks from earlier builds and begin holding their scopes.
     private func resolveExistingGrants() {
         if let bookmark = defaults.data(forKey: homeBookmarkKey) {
             resolve(bookmark: bookmark, key: homeBookmarkKey) { [weak self] url in
@@ -131,8 +114,8 @@ final class SandboxFolderAccessService {
         }
 
         // Legacy fallback: earlier builds stored one bookmark per provider. Keep
-        // resolving them until the user grants the unified home access.
-        guard !hasFullAccess else { return }
+        // resolving them until the user grants broader access.
+        guard homeScopedURL == nil else { return }
         for provider in Self.grantableProviders {
             let key = legacyBookmarkKey(for: provider)
             guard let bookmark = defaults.data(forKey: key) else { continue }
@@ -170,7 +153,6 @@ final class SandboxFolderAccessService {
     }
 
     private func startHomeAccess(url: URL) {
-        // Release any prior scope before replacing it.
         if let previous = homeScopedURL {
             previous.stopAccessingSecurityScopedResource()
             homeScopedURL = nil
@@ -180,6 +162,35 @@ final class SandboxFolderAccessService {
             hasFullAccess = true
         } else {
             NSLog("SandboxFolderAccessService: startAccessingSecurityScopedResource failed for home")
+        }
+    }
+
+    @discardableResult
+    private func openFullDiskAccessSettings() -> Bool {
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"
+        ]
+
+        for candidate in candidates {
+            guard let url = URL(string: candidate) else { continue }
+            if NSWorkspace.shared.open(url) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func canReadDirectory(_ url: URL) -> Bool {
+        do {
+            _ = try fileManager.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: nil,
+                options: [.skipsPackageDescendants]
+            )
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -198,7 +209,7 @@ final class SandboxFolderAccessService {
     }
 
     // No deinit cleanup: this is a process-lifetime singleton, and the sandbox
-    // releases held security scopes automatically on termination. `revokeAccess`
+    // releases held security scopes automatically on termination. `clearSavedFolderGrants`
     // handles the only case where a scope is released during the app's lifetime.
 }
 #endif

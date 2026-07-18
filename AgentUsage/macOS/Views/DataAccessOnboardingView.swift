@@ -2,8 +2,8 @@
 //  DataAccessOnboardingView.swift
 //  AgentUsage
 //
-//  First-run sheet asking, once, for the single home-folder grant that lets the
-//  sandboxed app read the CLI tools' local usage logs.
+//  First-run sheet directing users to Full Disk Access so the sandboxed app can
+//  read local CLI usage logs without a folder picker.
 //
 
 #if os(macOS)
@@ -16,7 +16,7 @@ extension Notification.Name {
 }
 
 struct DataAccessOnboardingView: View {
-    /// Invoked to dismiss the hosting window, whether the user grants or skips.
+    /// Invoked to dismiss the hosting window, whether the user opens Settings or skips.
     let onClose: () -> Void
 
     @State private var folderAccess = SandboxFolderAccessService.shared
@@ -24,22 +24,22 @@ struct DataAccessOnboardingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 14) {
-                Image(systemName: "folder.badge.person.crop")
+                Image(systemName: "lock.shield")
                     .font(.largeTitle)
                     .foregroundStyle(Constants.brandPrimary)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Allow Local Data Access")
                         .font(.title2.weight(.semibold))
-                    Text("Asked only once")
+                    Text("Requires Full Disk Access")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             }
 
             Text(
-                "\(Constants.appDisplayName) runs sandboxed, so it needs your permission to read "
-                    + "your home folder, where each tool keeps its local usage logs. One grant "
-                    + "covers token usage, cost, and blog sync for all supported tools."
+                "\(Constants.appDisplayName) runs sandboxed, so macOS blocks direct reads from "
+                    + "the hidden folders where Claude, Codex, and OpenCode keep local usage logs. "
+                    + "Enable Full Disk Access in Privacy & Security, then return here and refresh."
             )
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -60,10 +60,8 @@ struct DataAccessOnboardingView: View {
                     onClose()
                 }
                 Spacer()
-                Button("Grant Access…") {
-                    if folderAccess.requestFullAccess() {
-                        NotificationCenter.default.post(name: .localDataAccessGranted, object: nil)
-                    }
+                Button("Open Privacy Settings") {
+                    folderAccess.requestFullAccess()
                     onClose()
                 }
                 .buttonStyle(.borderedProminent)
