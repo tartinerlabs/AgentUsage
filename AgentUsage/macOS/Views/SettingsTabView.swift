@@ -514,41 +514,50 @@ struct SettingsTabView: View {
     }
 
     private var localDataAccessCard: some View {
-        settingsCard(title: "Local Data Access", systemImage: "folder.badge.person.crop") {
+        settingsCard(title: "Local Data Access", systemImage: "lock.shield") {
             VStack(alignment: .leading, spacing: 12) {
                 Text(
-                    "\(Constants.appDisplayName) runs sandboxed, so it needs your permission "
-                        + "once to read your home folder, where each tool keeps its local usage "
-                        + "logs. This unlocks token usage, cost, and blog sync for Claude, Codex, "
-                        + "and OpenCode."
+                    "\(Constants.appDisplayName) runs sandboxed, so macOS blocks direct reads "
+                        + "from the hidden folders where Claude, Codex, and OpenCode keep local "
+                        + "usage logs. Enable Full Disk Access in Privacy & Security, then check again."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-                HStack {
+                HStack(spacing: 10) {
                     if folderAccess.hasFullAccess {
-                        Label("Access granted", systemImage: "checkmark.circle.fill")
+                        Label("Full Disk Access enabled", systemImage: "checkmark.circle.fill")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.green)
-                        Spacer()
-                        Button("Revoke") {
-                            folderAccess.revokeAccess()
-                        }
+                    } else if folderAccess.hasAnyAccess {
+                        Label("Saved folder access available", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.green)
                     } else {
-                        Spacer()
-                        Button("Grant Access…") {
-                            if folderAccess.requestFullAccess() {
-                                Task { _ = await viewModel.refresh(force: true) }
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
+                        Label("Access needed", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.orange)
                     }
+
+                    Spacer()
+
+                    Button("Check Again") {
+                        folderAccess.refreshAccessStatus()
+                        if folderAccess.hasAnyAccess {
+                            Task { _ = await viewModel.refresh(force: true) }
+                        }
+                    }
+
+                    Button("Open Privacy Settings") {
+                        folderAccess.requestFullAccess()
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
 
                 Divider()
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Covers")
+                    Text("Reads")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     ForEach(SandboxFolderAccessService.grantableProviders) { provider in
