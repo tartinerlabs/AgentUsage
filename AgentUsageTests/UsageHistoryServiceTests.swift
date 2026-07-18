@@ -64,7 +64,11 @@ struct UsageHistoryServiceTests {
             DailyUsageRecordEntity.self,
             ProviderWindowDailyPeakEntity.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let repository = UsageHistoryRepository(modelContainer: container)
         return UsageHistoryService(repository: repository, defaults: defaults)
