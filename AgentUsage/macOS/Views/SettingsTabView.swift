@@ -517,41 +517,47 @@ struct SettingsTabView: View {
         settingsCard(title: "Local Data Access", systemImage: "folder.badge.person.crop") {
             VStack(alignment: .leading, spacing: 12) {
                 Text(
-                    "\(Constants.appDisplayName) runs sandboxed, so it needs your permission to "
-                        + "read each tool's local usage logs. Grant access to see token usage, cost, "
-                        + "and blog sync for Codex and OpenCode alongside Claude."
+                    "\(Constants.appDisplayName) runs sandboxed, so it needs your permission "
+                        + "once to read your home folder, where each tool keeps its local usage "
+                        + "logs. This unlocks token usage, cost, and blog sync for Claude, Codex, "
+                        + "and OpenCode."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-                ForEach(SandboxFolderAccessService.grantableProviders) { provider in
-                    if provider != SandboxFolderAccessService.grantableProviders.first {
-                        Divider()
+                HStack {
+                    if folderAccess.hasFullAccess {
+                        Label("Access granted", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.green)
+                        Spacer()
+                        Button("Revoke") {
+                            folderAccess.revokeAccess()
+                        }
+                    } else {
+                        Spacer()
+                        Button("Grant Access…") {
+                            if folderAccess.requestFullAccess() {
+                                Task { _ = await viewModel.refresh(force: true) }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    let granted = folderAccess.hasAccess(to: provider)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Covers")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(SandboxFolderAccessService.grantableProviders) { provider in
+                        HStack(spacing: 6) {
                             Label(provider.displayName, systemImage: provider.iconName)
-                                .font(.body)
+                                .font(.caption)
                             Text(folderAccess.defaultDirectory(for: provider).path)
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.tertiary)
-                        }
-                        Spacer()
-                        if granted {
-                            Label("Granted", systemImage: "checkmark.circle.fill")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.green)
-                            Button("Revoke") {
-                                folderAccess.revokeAccess(to: provider)
-                            }
-                        } else {
-                            Button("Grant Access…") {
-                                if folderAccess.requestAccess(to: provider) {
-                                    Task { _ = await viewModel.refresh(force: true) }
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
                         }
                     }
                 }
