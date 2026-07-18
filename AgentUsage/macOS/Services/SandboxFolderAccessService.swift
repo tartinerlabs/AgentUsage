@@ -29,15 +29,20 @@ final class SandboxFolderAccessService {
     /// `.openCodeGo` is remote-only, so it is not included.
     static let grantableProviders: [Provider] = [.claude, .codex, .openCode]
 
-    /// Whether the app appears to have broad access to the real home directory.
+    /// Whether the app appears to have Full Disk Access to the real home directory.
     private(set) var hasFullAccess = false
 
-    /// Whether any broad or legacy provider-specific access is currently available.
-    var hasAnyAccess: Bool {
-        hasFullAccess || !legacyScopedURLs.isEmpty
+    /// Whether a user-selected home-folder bookmark is currently resolved and held open.
+    var hasHomeFolderAccess: Bool {
+        homeScopedURL != nil
     }
 
-    /// The home URL whose security scope we are holding open, if a previous build saved one.
+    /// Whether any broad, home-folder, or legacy provider-specific access is currently available.
+    var hasAnyAccess: Bool {
+        hasFullAccess || hasHomeFolderAccess || !legacyScopedURLs.isEmpty
+    }
+
+    /// The home URL whose security scope we are holding open.
     private var homeScopedURL: URL?
 
     /// Legacy per-provider scoped URLs resolved from earlier builds' bookmarks.
@@ -64,9 +69,46 @@ final class SandboxFolderAccessService {
         }
     }
 
-    /// Whether a provider's logs are readable through Full Disk Access or a legacy bookmark.
+    /// Whether a provider's logs are readable through Full Disk Access, a home-folder bookmark, or a legacy bookmark.
     func hasAccess(to provider: Provider) -> Bool {
-        hasFullAccess || legacyScopedURLs[provider] != nil || canReadDirectory(defaultDirectory(for: provider))
+        hasFullAccess || hasHomeFolderAccess || legacyScopedURLs[provider] != nil || canReadDirectory(defaultDirectory(for: provider))
+    }
+
+    /// Present an open panel for the user's home directory and persist a security-scoped bookmark.
+    @discardableResult
+    func requestHomeFolderAccess() -> Bool {
+        let target = Constants.realHomeDirectory
+
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.showsHiddenFiles = true
+        panel.directoryURL = target
+        panel.message = "Grant read access to your home folder so \(Constants.appDisplayName) can read local Claude, Codex, and OpenCode usage logs."
+        panel.prompt = "Grant Access"
+
+        guard panel.runModal() == .OK,
+              let url = panel.url,
+              url.standardizedFileURL.path == target.standardizedFileURL.path else {
+            return false
+        }
+
+        do {
+            let bookmark = try url.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            defaults.set(bookmark, forKey: homeBookmarkKey)
+            startHomeAccess(url: url)
+            refreshAccessStatus()
+            return hasHomeFolderAccess
+        } catch {
+            NSLog("SandboxFolderAccessService: failed to create home bookmark: \(error)")
+            return false
+        }
     }
 
     /// Open System Settings to Full Disk Access. macOS requires the user to complete
@@ -78,10 +120,10 @@ final class SandboxFolderAccessService {
         return hasFullAccess
     }
 
-    /// Re-check whether Full Disk Access or saved bookmarks currently make the real
-    /// home/log directories readable. Call this after the user returns from Settings.
+    /// Re-check whether Full Disk Access currently makes the real home directory readable.
+    /// Saved security-scoped bookmarks are tracked separately by `hasHomeFolderAccess`.
     func refreshAccessStatus() {
-        hasFullAccess = homeScopedURL != nil || canReadDirectory(Constants.realHomeDirectory)
+        hasFullAccess = canReadDirectory(Constants.realHomeDirectory)
     }
 
     /// Stop holding and forget any saved security-scoped bookmarks from previous
@@ -159,7 +201,6 @@ final class SandboxFolderAccessService {
         }
         if url.startAccessingSecurityScopedResource() {
             homeScopedURL = url
-            hasFullAccess = true
         } else {
             NSLog("SandboxFolderAccessService: startAccessingSecurityScopedResource failed for home")
         }
