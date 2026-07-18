@@ -513,43 +513,62 @@ struct SettingsTabView: View {
         }
     }
 
+    private var localDataAccessStatusLabel: some View {
+        Group {
+            if folderAccess.hasFullAccess {
+                Label("Full Disk Access enabled", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else if folderAccess.hasHomeFolderAccess {
+                Label("Home folder access saved", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else if folderAccess.hasAnyAccess {
+                Label("Saved folder access available", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Label("Access needed", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+            }
+        }
+        .font(.caption.weight(.semibold))
+    }
+
+    private func refreshAfterAccessChange() {
+        folderAccess.refreshAccessStatus()
+        if folderAccess.hasAnyAccess {
+            NotificationCenter.default.post(name: .localDataAccessGranted, object: nil)
+            Task { _ = await viewModel.refresh(force: true) }
+        }
+    }
+
     private var localDataAccessCard: some View {
         settingsCard(title: "Local Data Access", systemImage: "lock.shield") {
             VStack(alignment: .leading, spacing: 12) {
                 Text(
                     "\(Constants.appDisplayName) runs sandboxed, so macOS blocks direct reads "
                         + "from the hidden folders where Claude, Codex, and OpenCode keep local "
-                        + "usage logs. Enable Full Disk Access in Privacy & Security, then check again."
+                        + "usage logs. Grant your home folder here, or use Full Disk Access in Privacy & Security as a fallback."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
                 HStack(spacing: 10) {
-                    if folderAccess.hasFullAccess {
-                        Label("Full Disk Access enabled", systemImage: "checkmark.circle.fill")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.green)
-                    } else if folderAccess.hasAnyAccess {
-                        Label("Saved folder access available", systemImage: "checkmark.circle.fill")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.green)
-                    } else {
-                        Label("Access needed", systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.orange)
-                    }
+                    localDataAccessStatusLabel
 
                     Spacer()
 
                     Button("Check Again") {
-                        folderAccess.refreshAccessStatus()
-                        if folderAccess.hasAnyAccess {
-                            Task { _ = await viewModel.refresh(force: true) }
-                        }
+                        refreshAfterAccessChange()
                     }
 
                     Button("Open Privacy Settings") {
                         folderAccess.requestFullAccess()
+                    }
+
+                    Button("Choose Home Folder") {
+                        if folderAccess.requestHomeFolderAccess() {
+                            NotificationCenter.default.post(name: .localDataAccessGranted, object: nil)
+                            Task { _ = await viewModel.refresh(force: true) }
+                        }
                     }
                     .buttonStyle(.borderedProminent)
                 }

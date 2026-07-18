@@ -2,8 +2,8 @@
 //  DataAccessOnboardingView.swift
 //  AgentUsage
 //
-//  First-run sheet directing users to Full Disk Access so the sandboxed app can
-//  read local CLI usage logs without a folder picker.
+//  First-run sheet requesting user-granted access so the sandboxed app can read
+//  local CLI usage logs.
 //
 
 #if os(macOS)
@@ -30,7 +30,7 @@ struct DataAccessOnboardingView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Allow Local Data Access")
                         .font(.title2.weight(.semibold))
-                    Text("Requires Full Disk Access")
+                    Text("Choose your home folder; Full Disk Access is optional")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -39,7 +39,7 @@ struct DataAccessOnboardingView: View {
             Text(
                 "\(Constants.appDisplayName) runs sandboxed, so macOS blocks direct reads from "
                     + "the hidden folders where Claude, Codex, and OpenCode keep local usage logs. "
-                    + "Enable Full Disk Access in Privacy & Security, then return here and refresh."
+                    + "Grant your home folder here, or use Full Disk Access in Privacy & Security as a fallback."
             )
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -62,6 +62,12 @@ struct DataAccessOnboardingView: View {
                 Spacer()
                 Button("Open Privacy Settings") {
                     folderAccess.requestFullAccess()
+                    onClose()
+                }
+                Button("Choose Home Folder") {
+                    if folderAccess.requestHomeFolderAccess() {
+                        NotificationCenter.default.post(name: .localDataAccessGranted, object: nil)
+                    }
                     onClose()
                 }
                 .buttonStyle(.borderedProminent)
