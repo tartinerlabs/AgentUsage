@@ -302,6 +302,8 @@ CURRENT_PROJECT_VERSION = 1
 - **MARKETING_VERSION**: User-facing version (X.Y.Z format, per Apple guidelines)
 - **CURRENT_PROJECT_VERSION**: Build number (must always increase)
 
+`Config/Version.xcconfig` is wired as the **project-level base configuration** (Debug and Release) in `AgentUsage.xcodeproj`, so all targets inherit these values — no target defines `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` inline. Edit the xcconfig only; the release workflow (`compute-version.sh` / `bump-version`) reads and rewrites it. Do not re-add these keys to per-target build settings, or they will override the xcconfig.
+
 ### Release Workflow
 
 Releases use the manually triggered `.github/workflows/release.yml`; a normal push to `main` runs CI only. The default `dry-run` operation has read-only permissions and builds a fully validated ad-hoc-signed archive. Publishing always uses the protected `release` environment and requires the Sparkle private key.
