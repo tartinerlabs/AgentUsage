@@ -7,8 +7,8 @@
 import Foundation
 import OSLog
 
-/// iOS credential service that reads from Keychain
-/// Credentials can be synced from macOS (when iCloud Keychain enabled) or entered manually
+/// iOS credential service retained for legacy stored credentials.
+/// iOS usage refreshes read Mac-shared snapshots instead of fetching provider usage directly.
 actor iOSCredentialService: CredentialProvider {
     func loadCredentials() async throws -> ClaudeOAuthCredentials {
         Logger.credentials.debug("Loading credentials from Keychain")

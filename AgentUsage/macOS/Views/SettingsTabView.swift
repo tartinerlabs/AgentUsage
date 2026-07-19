@@ -16,6 +16,7 @@ struct SettingsTabView: View {
     @State private var notificationSettings = NotificationSettings.load()
     @State private var blogSyncTokenDraft = ""
     @State private var folderAccess = SandboxFolderAccessService.shared
+    @State private var showingRevokeSyncConfirmation = false
 
     private let contentWidth: CGFloat = 760
 
@@ -26,20 +27,43 @@ struct SettingsTabView: View {
             VStack(alignment: .leading, spacing: 24) {
                 settingsHeader
 
-                // Claude Connection Section
-                settingsCard(title: "Claude Connection", systemImage: "person.badge.key") {
-                    HStack(alignment: .top) {
-                        ClaudeConnectionStatusView(
-                            status: viewModel.claudeConnectionStatus,
-                            lastUpdatedText: viewModel.timeSinceLastUpdate
-                        )
-                        Spacer(minLength: 12)
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Button("Refresh") {
-                                Task { _ = await viewModel.refresh(force: true) }
+                // Continuity Sync Section
+                settingsCard(title: "Continuity Sync", systemImage: "laptopcomputer.and.iphone") {
+                    VStack(spacing: 12) {
+                        HStack(alignment: .top) {
+                            AppConnectionStatusView(status: viewModel.appConnectionStatus)
+                            Spacer(minLength: 12)
+                            if viewModel.isRefreshingContinuitySync {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Button("Sync Now") {
+                                    Task { await viewModel.refreshContinuitySync() }
+                                }
+                                .disabled(viewModel.appConnectionRevoked || viewModel.snapshot == nil)
+                            }
+                        }
+
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Continuity Sync")
+                                    .font(.body)
+                                Text("Control whether this Mac shares \(Constants.appDisplayName) updates with iPhone and iPad")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if viewModel.appConnectionRevoked {
+                                Button("Resume Sync") {
+                                    Task { await viewModel.resumeAppConnection() }
+                                }
+                            } else {
+                                Button("Revoke Sync", role: .destructive) {
+                                    showingRevokeSyncConfirmation = true
+                                }
+                                .disabled(viewModel.isRevokingAppConnection)
                             }
                         }
                     }
@@ -466,6 +490,13 @@ struct SettingsTabView: View {
         .task {
             await viewModel.loadBlogUsageSyncSettings()
             blogSyncTokenDraft = viewModel.blogUsageSyncToken
+        }
+        .confirmationDialog("Revoke Sync?", isPresented: $showingRevokeSyncConfirmation, titleVisibility: .visible) {
+            Button("Revoke Sync", role: .destructive) {
+                Task { await viewModel.revokeAppConnection() }
+            }
+        } message: {
+            Text("This turns off Continuity Sync on this Mac and removes the latest shared update for iPhone and iPad.")
         }
     }
 
