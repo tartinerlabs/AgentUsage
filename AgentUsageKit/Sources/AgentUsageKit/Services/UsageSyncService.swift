@@ -5,13 +5,10 @@
 //  Cross-device usage sync via CloudKit.
 //
 //  macOS is the single source of truth: it fetches usage from the provider
-//  endpoints and `publish`es the resulting `UsageSnapshot` to the user's private
-//  CloudKit database. iOS and the widgets `fetchLatest` from there instead of
-//  calling the Claude API themselves, so the account is polled once (by the Mac)
-//  rather than once per device + per widget.
-//
-//  A single record (`recordName == "latest"`) is overwritten on each publish; we
-//  don't need history here, only the most recent snapshot.
+//  endpoints and publishes the resulting UsageSnapshot to the user's private
+//  CloudKit database. iPhone and iPad fetch that snapshot and acknowledge the
+//  exact sync generation they received. macOS uses those receipts to show a
+//  verified round trip instead of inferring connectivity from local data.
 //
 
 #if canImport(CloudKit)
@@ -19,18 +16,41 @@ import CloudKit
 import Foundation
 import OSLog
 
+public enum UsageSyncDevice: String, CaseIterable, Codable, Hashable, Sendable {
+    case iPhone
+    case iPad
+}
+
+public struct PublishedUsageSnapshot: Equatable, Sendable {
+    public let syncGeneration: String
+    public let fetchedAt: Date
+
+    public init(syncGeneration: String, fetchedAt: Date) {
+        self.syncGeneration = syncGeneration
+        self.fetchedAt = fetchedAt
+    }
+}
+
 /// A usage snapshot received from another device via CloudKit, tagged with the
-/// time the source device fetched it.
+/// time the source device fetched it and the generation used for acknowledgement.
 public struct SyncedUsageSnapshot: Sendable {
     public let snapshot: UsageSnapshot
     public let planType: String
-    /// When the *source* device fetched this from the provider (not when it synced).
+    /// When the source device fetched this from the provider (not when it synced).
     public let fetchedAt: Date
+    /// Nil for records written by builds released before verified receipts existed.
+    public let syncGeneration: String?
 
-    public init(snapshot: UsageSnapshot, planType: String, fetchedAt: Date) {
+    public init(
+        snapshot: UsageSnapshot,
+        planType: String,
+        fetchedAt: Date,
+        syncGeneration: String? = nil
+    ) {
         self.snapshot = snapshot
         self.planType = planType
         self.fetchedAt = fetchedAt
+        self.syncGeneration = syncGeneration
     }
 
     /// Seconds since the source device fetched this snapshot.
@@ -39,78 +59,160 @@ public struct SyncedUsageSnapshot: Sendable {
     }
 }
 
+public struct ContinuityReceipt: Equatable, Sendable {
+    public let device: UsageSyncDevice
+    public let syncGeneration: String
+    public let acknowledgedAt: Date
+
+    public init(device: UsageSyncDevice, syncGeneration: String, acknowledgedAt: Date) {
+        self.device = device
+        self.syncGeneration = syncGeneration
+        self.acknowledgedAt = acknowledgedAt
+    }
+}
+
+public enum UsageSyncError: LocalizedError, Equatable, Sendable {
+    case missingRecordResult(recordName: String)
+    case recordOperationFailed(recordName: String, message: String)
+    case invalidRecord(recordName: String, reason: String)
+    case missingSyncGeneration
+
+    public var errorDescription: String? {
+        switch self {
+        case .missingRecordResult(let recordName):
+            return "CloudKit returned no result for \(recordName)."
+        case .recordOperationFailed(let recordName, let message):
+            return "CloudKit operation failed for \(recordName): \(message)"
+        case .invalidRecord(let recordName, let reason):
+            return "CloudKit record \(recordName) is invalid: \(reason)"
+        case .missingSyncGeneration:
+            return "The shared usage snapshot predates verified device acknowledgements."
+        }
+    }
+}
+
+public protocol UsageSyncServicing: Sendable {
+    func publish(snapshot: UsageSnapshot, planType: String) async throws -> PublishedUsageSnapshot
+    func fetchLatest() async -> SyncedUsageSnapshot?
+    func acknowledge(
+        snapshot: SyncedUsageSnapshot,
+        from device: UsageSyncDevice
+    ) async throws -> ContinuityReceipt
+    func fetchReceipts() async throws -> [UsageSyncDevice: ContinuityReceipt]
+    func revokeAll() async -> Bool
+    func revoke(device: UsageSyncDevice) async -> Bool
+}
+
+protocol UsageSyncDatabase: AnyObject, Sendable {
+    func records(
+        for ids: [CKRecord.ID],
+        desiredKeys: [CKRecord.FieldKey]?
+    ) async throws -> [CKRecord.ID: Result<CKRecord, Error>]
+
+    func modifyRecords(
+        saving recordsToSave: [CKRecord],
+        deleting recordIDsToDelete: [CKRecord.ID],
+        savePolicy: CKModifyRecordsOperation.RecordSavePolicy,
+        atomically: Bool
+    ) async throws -> (
+        saveResults: [CKRecord.ID: Result<CKRecord, Error>],
+        deleteResults: [CKRecord.ID: Result<Void, Error>]
+    )
+}
+
+extension CKDatabase: UsageSyncDatabase {}
+
 /// Publishes and reads the latest usage snapshot through the user's private
-/// CloudKit database. Best-effort: every operation degrades to a no-op / `nil`
-/// when iCloud is unavailable, so callers can fall back to a direct fetch.
-public actor UsageSyncService {
+/// CloudKit database. Reads remain best-effort so callers can use cached data;
+/// writes throw when either the batch or the target record fails.
+public actor UsageSyncService: UsageSyncServicing {
     public static let shared = UsageSyncService()
 
-    /// CloudKit container. Must match the `com.apple.developer.icloud-container-identifiers`
-    /// entitlement on the macOS and iOS app targets.
+    /// CloudKit container. Must match the iCloud container entitlement on every target.
     public static let containerIdentifier = "iCloud.com.tartinerlabs.AgentUsage"
 
-    private static let recordType = "UsageSnapshot"
-    private static let recordName = "latest"
+    private static let snapshotRecordType = "UsageSnapshot"
+    private static let snapshotRecordName = "latest"
+    private static let receiptRecordType = "ContinuityReceipt"
     private static let payloadKey = "payload"
     private static let planTypeKey = "planType"
     private static let fetchedAtKey = "fetchedAt"
+    private static let syncGenerationKey = "syncGeneration"
+    private static let deviceKindKey = "deviceKind"
+    private static let acknowledgedAtKey = "acknowledgedAt"
 
-    private let database: CKDatabase
-    private let recordID: CKRecord.ID
+    private var database: (any UsageSyncDatabase)?
+    private let containerIdentifier: String?
+    private let snapshotRecordID: CKRecord.ID
     private let logger = Logger(subsystem: "com.tartinerlabs.AgentUsage", category: "UsageSync")
 
     public init(containerIdentifier: String = UsageSyncService.containerIdentifier) {
-        let container = CKContainer(identifier: containerIdentifier)
-        self.database = container.privateCloudDatabase
-        self.recordID = CKRecord.ID(recordName: UsageSyncService.recordName)
+        self.database = nil
+        self.containerIdentifier = containerIdentifier
+        self.snapshotRecordID = CKRecord.ID(recordName: Self.snapshotRecordName)
     }
 
-    /// Publish the latest snapshot, overwriting the previous one. Called by the
-    /// macOS app after a successful fetch. Failures are logged and swallowed.
-    public func publish(snapshot: UsageSnapshot, planType: String) async {
+    init(database: any UsageSyncDatabase) {
+        self.database = database
+        self.containerIdentifier = nil
+        self.snapshotRecordID = CKRecord.ID(recordName: Self.snapshotRecordName)
+    }
+
+    /// Publish the latest snapshot, overwriting the previous one. The returned
+    /// generation becomes connected only after a mobile receipt echoes it.
+    public func publish(
+        snapshot: UsageSnapshot,
+        planType: String
+    ) async throws -> PublishedUsageSnapshot {
+        let generation = UUID().uuidString
+
         do {
             let payload = try JSONEncoder().encode(snapshot)
-            let record = CKRecord(recordType: Self.recordType, recordID: recordID)
+            let record = CKRecord(recordType: Self.snapshotRecordType, recordID: snapshotRecordID)
             record[Self.payloadKey] = payload as CKRecordValue
             record[Self.planTypeKey] = planType as CKRecordValue
             record[Self.fetchedAtKey] = snapshot.fetchedAt as CKRecordValue
+            record[Self.syncGenerationKey] = generation as CKRecordValue
 
-            // `.allKeys` overwrites the existing record regardless of change tag —
-            // we always want the newest snapshot to win.
-            _ = try await database.modifyRecords(
-                saving: [record],
-                deleting: [],
-                savePolicy: .allKeys,
-                atomically: true
-            )
-            logger.debug("Published usage snapshot to CloudKit")
+            _ = try await save(record)
+            logger.debug("Published usage snapshot generation \(generation, privacy: .public)")
+            return PublishedUsageSnapshot(syncGeneration: generation, fetchedAt: snapshot.fetchedAt)
         } catch {
-            logger.error("CloudKit publish failed: \(Self.describe(error), privacy: .public)")
+            let syncError = Self.syncError(error, recordName: snapshotRecordID.recordName)
+            logger.error("CloudKit publish failed: \(syncError.localizedDescription, privacy: .public)")
+            throw syncError
         }
     }
 
-    /// Fetch the most recently published snapshot, or `nil` when none exists yet
-    /// or iCloud is unavailable. Never throws — callers fall back to a direct fetch.
+    /// Fetch the most recently published snapshot. Legacy records without a
+    /// generation remain readable but cannot be acknowledged.
     public func fetchLatest() async -> SyncedUsageSnapshot? {
         do {
-            let results = try await database.records(for: [recordID])
-            guard let result = results[recordID] else { return nil }
+            let database = resolvedDatabase()
+            let results = try await database.records(for: [snapshotRecordID], desiredKeys: nil)
+            guard let result = results[snapshotRecordID] else {
+                throw UsageSyncError.missingRecordResult(recordName: snapshotRecordID.recordName)
+            }
             let record = try result.get()
 
             guard let payload = record[Self.payloadKey] as? Data else {
-                logger.error("CloudKit snapshot record missing payload")
-                return nil
+                throw UsageSyncError.invalidRecord(
+                    recordName: snapshotRecordID.recordName,
+                    reason: "missing payload"
+                )
             }
             let snapshot = try JSONDecoder().decode(UsageSnapshot.self, from: payload)
             let planType = record[Self.planTypeKey] as? String ?? "Free"
             let fetchedAt = record[Self.fetchedAtKey] as? Date ?? snapshot.fetchedAt
-            return SyncedUsageSnapshot(snapshot: snapshot, planType: planType, fetchedAt: fetchedAt)
+            let generation = record[Self.syncGenerationKey] as? String
+            return SyncedUsageSnapshot(
+                snapshot: snapshot,
+                planType: planType,
+                fetchedAt: fetchedAt,
+                syncGeneration: generation
+            )
         } catch {
-            // A missing record (never published yet) is the expected empty state, so
-            // keep it at debug. Anything else — missing record type (schema not
-            // deployed to Production), auth, quota, server rejection — is a real
-            // failure worth surfacing in `log stream` / Console.
-            if (error as? CKError)?.code == .unknownItem {
+            if Self.isUnknownItem(error) {
                 logger.debug("CloudKit fetch: no snapshot published yet")
             } else {
                 logger.error("CloudKit fetch failed: \(Self.describe(error), privacy: .public)")
@@ -119,31 +221,202 @@ public actor UsageSyncService {
         }
     }
 
-    /// Delete the shared latest snapshot. Used when the user revokes cross-device
-    /// app sync. A missing record still counts as revoked.
+    /// Record that a mobile device successfully received this exact generation.
+    @discardableResult
+    public func acknowledge(
+        snapshot: SyncedUsageSnapshot,
+        from device: UsageSyncDevice
+    ) async throws -> ContinuityReceipt {
+        guard let generation = snapshot.syncGeneration else {
+            throw UsageSyncError.missingSyncGeneration
+        }
+
+        let receipt = ContinuityReceipt(
+            device: device,
+            syncGeneration: generation,
+            acknowledgedAt: Date()
+        )
+        let recordID = Self.receiptRecordID(for: device)
+        let record = CKRecord(recordType: Self.receiptRecordType, recordID: recordID)
+        record[Self.deviceKindKey] = device.rawValue as CKRecordValue
+        record[Self.syncGenerationKey] = generation as CKRecordValue
+        record[Self.acknowledgedAtKey] = receipt.acknowledgedAt as CKRecordValue
+
+        do {
+            _ = try await save(record)
+            logger.debug(
+                "Acknowledged generation \(generation, privacy: .public) from \(device.rawValue, privacy: .public)"
+            )
+            return receipt
+        } catch {
+            let syncError = Self.syncError(error, recordName: recordID.recordName)
+            logger.error("CloudKit acknowledgement failed: \(syncError.localizedDescription, privacy: .public)")
+            throw syncError
+        }
+    }
+
+    /// Fetch the latest acknowledgement for each mobile device family. A missing
+    /// fixed-ID record means that family has never acknowledged a snapshot.
+    public func fetchReceipts() async throws -> [UsageSyncDevice: ContinuityReceipt] {
+        let recordIDs = UsageSyncDevice.allCases.map(Self.receiptRecordID(for:))
+
+        do {
+            let database = resolvedDatabase()
+            let results = try await database.records(for: recordIDs, desiredKeys: nil)
+            var receipts: [UsageSyncDevice: ContinuityReceipt] = [:]
+
+            for device in UsageSyncDevice.allCases {
+                let recordID = Self.receiptRecordID(for: device)
+                guard let result = results[recordID] else {
+                    throw UsageSyncError.missingRecordResult(recordName: recordID.recordName)
+                }
+
+                do {
+                    receipts[device] = try Self.receipt(from: result.get(), expectedDevice: device)
+                } catch where Self.isUnknownItem(error) {
+                    continue
+                }
+            }
+
+            return receipts
+        } catch {
+            let syncError = Self.syncError(error, recordName: Self.receiptRecordType)
+            logger.error("CloudKit receipt fetch failed: \(syncError.localizedDescription, privacy: .public)")
+            throw syncError
+        }
+    }
+
+    /// Remove the shared snapshot and all device receipts. Used by macOS when
+    /// Continuity Sync is revoked for the whole shared setup.
+    public func revokeAll() async -> Bool {
+        await delete(
+            recordIDs: [snapshotRecordID] + UsageSyncDevice.allCases.map(Self.receiptRecordID(for:))
+        )
+    }
+
+    /// Remove only one mobile device's acknowledgement. Other devices and the
+    /// Mac-published snapshot remain available.
+    public func revoke(device: UsageSyncDevice) async -> Bool {
+        await delete(recordIDs: [Self.receiptRecordID(for: device)])
+    }
+
+    /// Backward-compatible whole-setup revoke for existing callers.
     @discardableResult
     public func revoke() async -> Bool {
+        await revokeAll()
+    }
+
+    private func save(_ record: CKRecord) async throws -> CKRecord {
+        let database = resolvedDatabase()
+        let result = try await database.modifyRecords(
+            saving: [record],
+            deleting: [],
+            savePolicy: .allKeys,
+            atomically: true
+        )
+        guard let recordResult = result.saveResults[record.recordID] else {
+            throw UsageSyncError.missingRecordResult(recordName: record.recordID.recordName)
+        }
+        return try recordResult.get()
+    }
+
+    private func delete(recordIDs: [CKRecord.ID]) async -> Bool {
         do {
-            _ = try await database.modifyRecords(
+            let database = resolvedDatabase()
+            let result = try await database.modifyRecords(
                 saving: [],
-                deleting: [recordID],
+                deleting: recordIDs,
                 savePolicy: .allKeys,
-                atomically: true
+                atomically: false
             )
-            logger.debug("Revoked CloudKit usage snapshot")
-            return true
-        } catch {
-            if (error as? CKError)?.code == .unknownItem {
-                logger.debug("CloudKit revoke: no snapshot published yet")
-                return true
+            var succeeded = true
+
+            for recordID in recordIDs {
+                guard let recordResult = result.deleteResults[recordID] else {
+                    logger.error("CloudKit returned no delete result for \(recordID.recordName, privacy: .public)")
+                    succeeded = false
+                    continue
+                }
+
+                if case .failure(let error) = recordResult, !Self.isUnknownItem(error) {
+                    logger.error(
+                        "CloudKit revoke failed for \(recordID.recordName, privacy: .public): \(Self.describe(error), privacy: .public)"
+                    )
+                    succeeded = false
+                }
             }
+
+            if succeeded {
+                logger.debug("Revoked requested CloudKit continuity records")
+            }
+            return succeeded
+        } catch {
             logger.error("CloudKit revoke failed: \(Self.describe(error), privacy: .public)")
             return false
         }
     }
 
-    /// Renders an error for logging, pulling out the concrete `CKError` code (and any
-    /// per-item partial-failure codes) so a swallowed sync failure is diagnosable.
+    private static func receipt(
+        from record: CKRecord,
+        expectedDevice: UsageSyncDevice
+    ) throws -> ContinuityReceipt {
+        guard let deviceRawValue = record[deviceKindKey] as? String,
+              let device = UsageSyncDevice(rawValue: deviceRawValue),
+              device == expectedDevice else {
+            throw UsageSyncError.invalidRecord(
+                recordName: record.recordID.recordName,
+                reason: "unexpected device kind"
+            )
+        }
+        guard let generation = record[syncGenerationKey] as? String, !generation.isEmpty else {
+            throw UsageSyncError.invalidRecord(
+                recordName: record.recordID.recordName,
+                reason: "missing sync generation"
+            )
+        }
+        guard let acknowledgedAt = record[acknowledgedAtKey] as? Date else {
+            throw UsageSyncError.invalidRecord(
+                recordName: record.recordID.recordName,
+                reason: "missing acknowledgement date"
+            )
+        }
+        return ContinuityReceipt(
+            device: device,
+            syncGeneration: generation,
+            acknowledgedAt: acknowledgedAt
+        )
+    }
+
+    static func receiptRecordID(for device: UsageSyncDevice) -> CKRecord.ID {
+        CKRecord.ID(recordName: "continuity-\(device.rawValue.lowercased())")
+    }
+
+    private func resolvedDatabase() -> any UsageSyncDatabase {
+        if let database {
+            return database
+        }
+        let container = CKContainer(identifier: containerIdentifier ?? Self.containerIdentifier)
+        let database = container.privateCloudDatabase
+        self.database = database
+        return database
+    }
+
+    private static func syncError(_ error: Error, recordName: String) -> UsageSyncError {
+        if let syncError = error as? UsageSyncError {
+            return syncError
+        }
+        return .recordOperationFailed(recordName: recordName, message: describe(error))
+    }
+
+    private static func isUnknownItem(_ error: Error) -> Bool {
+        if let syncError = error as? UsageSyncError,
+           case .recordOperationFailed(_, let message) = syncError {
+            return message.contains("unknownItem") || message.contains("Unknown Item")
+        }
+        return (error as? CKError)?.code == .unknownItem
+    }
+
+    /// Render an error for logging, including concrete per-item partial failures.
     private static func describe(_ error: Error) -> String {
         guard let ckError = error as? CKError else {
             return error.localizedDescription

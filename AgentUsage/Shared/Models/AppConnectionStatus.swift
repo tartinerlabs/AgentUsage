@@ -5,10 +5,25 @@
 
 import SwiftUI
 
+enum ContinuityNodeState: Equatable, Sendable {
+    case connected(lastSeenAt: Date?)
+    case waiting(lastSeenAt: Date?)
+    case unavailable
+    case checking
+    case revoked
+}
+
+struct ContinuityNetworkStatus: Equatable, Sendable {
+    let mac: ContinuityNodeState
+    let iPhone: ContinuityNodeState
+    let iPad: ContinuityNodeState
+}
+
 /// Provider-neutral status for the connection between AgentUsage installs.
 enum AppConnectionStatus: Equatable, Sendable {
     case linked(lastUpdatedText: String?)
     case syncedFromMac(lastUpdatedText: String?)
+    case waitingForDevices(message: String?)
     case checking
     case waitingForMac
     case revoked
@@ -26,6 +41,8 @@ extension AppConnectionStatus {
             #endif
         case .syncedFromMac:
             return "Updated from your Mac"
+        case .waitingForDevices:
+            return "Waiting for iPhone or iPad"
         case .checking:
             return "Checking Continuity Sync"
         case .waitingForMac:
@@ -45,6 +62,8 @@ extension AppConnectionStatus {
         switch self {
         case .linked, .syncedFromMac:
             return "iphone.and.arrow.forward.inward"
+        case .waitingForDevices:
+            return "laptopcomputer.and.iphone"
         case .checking:
             return "arrow.triangle.2.circlepath"
         case .waitingForMac:
@@ -62,7 +81,7 @@ extension AppConnectionStatus {
             return .green
         case .checking:
             return .secondary
-        case .waitingForMac, .revoked, .needsSetup:
+        case .waitingForDevices, .waitingForMac, .revoked, .needsSetup:
             return .orange
         }
     }
@@ -85,6 +104,9 @@ extension AppConnectionStatus {
         case .syncedFromMac(let lastUpdatedText):
             return lastUpdatedText.map { "Your Mac shared the latest usage. Last updated \($0)." }
                 ?? "Your Mac shared the latest usage."
+        case .waitingForDevices(let message):
+            return message
+                ?? "This Mac shared the latest usage. Open Agent Usage on iPhone or iPad to verify the connection."
         case .checking:
             return "Looking for the latest update from your Mac."
         case .waitingForMac:

@@ -109,7 +109,8 @@ enum DependencyContainer {
             blogUsageSyncService: blogUsageSyncService,
             blogOAuthService: blogOAuthService,
             providerUsageServices: providerUsageServices,
-            usageHistoryService: usageHistoryService
+            usageHistoryService: usageHistoryService,
+            usageSyncService: UsageSyncService.shared
         )
     }
     #else
@@ -118,7 +119,8 @@ enum DependencyContainer {
     static func createUsageViewModel() -> UsageViewModel {
         let credentialProvider = createCredentialProvider()
         return UsageViewModel(
-            credentialProvider: credentialProvider
+            credentialProvider: credentialProvider,
+            usageSyncService: UsageSyncService.shared
         )
     }
     #endif

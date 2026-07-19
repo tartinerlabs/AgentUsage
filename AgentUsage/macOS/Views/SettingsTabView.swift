@@ -31,7 +31,10 @@ struct SettingsTabView: View {
                 settingsCard(title: "Continuity Sync", systemImage: "laptopcomputer.and.iphone") {
                     VStack(spacing: 12) {
                         HStack(alignment: .top) {
-                            AppConnectionStatusView(status: viewModel.appConnectionStatus)
+                            AppConnectionStatusView(
+                                status: viewModel.appConnectionStatus,
+                                networkStatus: viewModel.continuityNetworkStatus
+                            )
                             Spacer(minLength: 12)
                             if viewModel.isRefreshingContinuitySync {
                                 ProgressView()
@@ -490,6 +493,16 @@ struct SettingsTabView: View {
         .task {
             await viewModel.loadBlogUsageSyncSettings()
             blogSyncTokenDraft = viewModel.blogUsageSyncToken
+        }
+        .task {
+            while !Task.isCancelled {
+                await viewModel.refreshContinuityReceipts()
+                do {
+                    try await Task.sleep(for: .seconds(15))
+                } catch {
+                    return
+                }
+            }
         }
         .confirmationDialog("Revoke Sync?", isPresented: $showingRevokeSyncConfirmation, titleVisibility: .visible) {
             Button("Revoke Sync", role: .destructive) {
