@@ -18,7 +18,6 @@
 #     branches: [main]
 #     paths-ignore:
 #       - "**/*.md"
-#       - ".beads/**"
 #       - ".claude/**"
 #   workflow_dispatch:
 #

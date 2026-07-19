@@ -80,7 +80,7 @@ fi
 
 RANGE="$LAST_TAG..HEAD"
 SUBJECTS=$(git log "$RANGE" --no-merges --format='%s' \
-  | grep -vE '^(Update appcast for v|Bump version to |Update beads)' \
+  | grep -vE '^(Update appcast for v|Bump version to )' \
   | grep -vF '[skip release]' || true)
 NOTES=$(printf '%s\n' "$SUBJECTS" \
   | sed -E 's/ *\[(minor|major|patch)\]//g' \
