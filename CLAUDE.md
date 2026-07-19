@@ -14,6 +14,7 @@ rules.
 Multi-platform SwiftUI app (macOS + iOS) built with Xcode (no npm/yarn/package managers).
 
 **Available schemes:**
+
 - `AgentUsage` - multiplatform macOS menu bar and iOS/iPadOS dashboard app
 - `AgentUsageWidgetsExtension` - iOS Widgets and Live Activities
 - `AgentUsageKit` - Shared Swift Package (data models)
@@ -58,10 +59,12 @@ Or open `AgentUsage.xcodeproj` in Xcode: ⌘B to build, ⌘R to run.
 **Purpose:** Provides shared data models and utilities used across macOS app, iOS app, and widget extensions. Eliminates code duplication and ensures consistency.
 
 **Platform Support:**
+
 - macOS 15.0+
 - iOS 18.0+
 
 **Package Structure:**
+
 ```
 AgentUsageKit/
 ├── Package.swift          # Swift Package manifest
@@ -86,6 +89,7 @@ AgentUsageKit/
 MVVM with Swift Actors for thread safety. Multi-platform architecture with shared services and platform-specific UIs.
 
 **macOS:**
+
 ```
 AgentUsageApp (@main) + SwiftData ModelContainer
     ↓
@@ -101,6 +105,7 @@ AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
 
 **iOS:**
+
 ```
 AgentUsage_iOSApp (@main)
     ↓
@@ -115,6 +120,7 @@ AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
 
 **Widgets:**
+
 ```
 AgentUsageWidgetsBundle
     ↓
@@ -127,57 +133,57 @@ AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 
 ### Key Components
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| `UsageViewModel` | ViewModels/ | State manager with auto-refresh via `Task`. Persists refresh interval to `UserDefaults`. |
-| `MacOSCredentialService` | macOS/Services/ | Loads the OAuth token from Claude Code's Keychain entry (with the app's own Keychain as fallback). Not filesystem-based, so it is unaffected by the App Sandbox. |
-| `SandboxFolderAccessService` | macOS/Services/ | Grants the sandboxed app read access to the CLI log directories (`~/.claude`, `~/.codex`, `~/.local/share/opencode`) via user-selected folders and persisted security-scoped bookmarks. Access is resolved at launch and held for the process lifetime. |
-| `iOSCredentialService` | iOS/Services/ | Loads OAuth token from `~/.claude/.credentials.json` via CredentialProvider + KeychainHelper. |
-| `ClaudeAPIService` | Services/ | Fetches usage from Anthropic API. API constants in `Utilities/Constants.swift`. |
-| `TokenUsageService` | Services/ | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. Persists to SwiftData (macOS only). |
-| `TokenUsageRepository` | Services/ | SwiftData `@ModelActor` for background queries of persisted token usage (macOS only). |
-| `NotificationService` | Services/ | Threshold-based usage alerts (25%, 50%, 75%, 100%) with reset notifications (macOS only). |
-| `UpdaterController` | Services/ | Sparkle updater integration for automatic updates. Observes `canCheckForUpdates` state (macOS only). |
-| `LaunchAtLoginService` | macOS/Services/ | Manages Login Items for launching app on macOS startup (macOS 13+). |
-| `LiveActivityManager` | iOS/Services/ | Manages Live Activities for Dynamic Island on iOS. |
-| `WidgetDataManager` | Shared/Services/ | Provides usage data to widgets via App Groups for cross-process communication. |
+| Component                    | Location         | Purpose                                                                                                                                                                                                                                                 |
+| ---------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UsageViewModel`             | ViewModels/      | State manager with auto-refresh via `Task`. Persists refresh interval to `UserDefaults`.                                                                                                                                                                |
+| `MacOSCredentialService`     | macOS/Services/  | Loads the OAuth token from Claude Code's Keychain entry (with the app's own Keychain as fallback). Not filesystem-based, so it is unaffected by the App Sandbox.                                                                                        |
+| `SandboxFolderAccessService` | macOS/Services/  | Grants the sandboxed app read access to the CLI log directories (`~/.claude`, `~/.codex`, `~/.local/share/opencode`) via user-selected folders and persisted security-scoped bookmarks. Access is resolved at launch and held for the process lifetime. |
+| `iOSCredentialService`       | iOS/Services/    | Loads OAuth token from `~/.claude/.credentials.json` via CredentialProvider + KeychainHelper.                                                                                                                                                           |
+| `ClaudeAPIService`           | Services/        | Fetches usage from Anthropic API. API constants in `Utilities/Constants.swift`.                                                                                                                                                                         |
+| `TokenUsageService`          | Services/        | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. Persists to SwiftData (macOS only).                                                                                                                            |
+| `TokenUsageRepository`       | Services/        | SwiftData `@ModelActor` for background queries of persisted token usage (macOS only).                                                                                                                                                                   |
+| `NotificationService`        | Services/        | Threshold-based usage alerts (25%, 50%, 75%, 100%) with reset notifications (macOS only).                                                                                                                                                               |
+| `UpdaterController`          | Services/        | Sparkle updater integration for automatic updates. Observes `canCheckForUpdates` state (macOS only).                                                                                                                                                    |
+| `LaunchAtLoginService`       | macOS/Services/  | Manages Login Items for launching app on macOS startup (macOS 13+).                                                                                                                                                                                     |
+| `LiveActivityManager`        | iOS/Services/    | Manages Live Activities for Dynamic Island on iOS.                                                                                                                                                                                                      |
+| `WidgetDataManager`          | Shared/Services/ | Provides usage data to widgets via App Groups for cross-process communication.                                                                                                                                                                          |
 
 ### Data Models
 
 **Shared Models (AgentUsageKit package):**
 
-| Model | Purpose |
-|-------|---------|
-| `UsageSnapshot` | Contains `session`, `opus`, and optional `sonnet` usage windows + fetch timestamp |
-| `UsageWindow` | Utilization %, reset time, window type. Computed: `normalized`, `status`, `timeUntilReset` |
-| `UsageWindowType` | Enum: `.session`, `.opus`, `.sonnet` - with `displayName` and `totalDuration` |
-| `UsageStatus` | Enum: `.onTrack`, `.warning`, `.critical` - calculated from usage rate with colors and icons |
+| Model             | Purpose                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| `UsageSnapshot`   | Contains `session`, `opus`, and optional `sonnet` usage windows + fetch timestamp            |
+| `UsageWindow`     | Utilization %, reset time, window type. Computed: `normalized`, `status`, `timeUntilReset`   |
+| `UsageWindowType` | Enum: `.session`, `.opus`, `.sonnet` - with `displayName` and `totalDuration`                |
+| `UsageStatus`     | Enum: `.onTrack`, `.warning`, `.critical` - calculated from usage rate with colors and icons |
 
 **App-Specific Models:**
 
-| Model | Purpose |
-|-------|---------|
-| `ClaudeOAuthCredentials` | Token validation + `planDisplayName` for UI |
-| `TokenUsageSnapshot` | Contains `today`, `last30Days` summaries + `byModel` breakdown |
-| `TokenUsageSummary` | Aggregated tokens + cost USD for a period (`.today` or `.last30Days`) |
-| `TokenCount` | Input, output, cache creation, cache read token counts |
-| `ModelPricing` | Per-model pricing rates (MTok): Opus 4.5, Sonnet 4.5, Sonnet 4, Haiku 4.5, Haiku 3.5 |
-| `LiveActivityAttributes` | iOS Live Activity data model for Dynamic Island (iOS only) |
+| Model                    | Purpose                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| `ClaudeOAuthCredentials` | Token validation + `planDisplayName` for UI                                          |
+| `TokenUsageSnapshot`     | Contains `today`, `last30Days` summaries + `byModel` breakdown                       |
+| `TokenUsageSummary`      | Aggregated tokens + cost USD for a period (`.today` or `.last30Days`)                |
+| `TokenCount`             | Input, output, cache creation, cache read token counts                               |
+| `ModelPricing`           | Per-model pricing rates (MTok): Opus 4.5, Sonnet 4.5, Sonnet 4, Haiku 4.5, Haiku 3.5 |
+| `LiveActivityAttributes` | iOS Live Activity data model for Dynamic Island (iOS only)                           |
 
 **SwiftData Persistence Models (macOS only):**
 
-| Model | Purpose |
-|-------|---------|
+| Model           | Purpose                                                                         |
+| --------------- | ------------------------------------------------------------------------------- |
 | `TokenLogEntry` | `@Model` - Persisted token usage entry from JSONL logs with unique composite ID |
-| `ImportedFile` | `@Model` - Tracks imported JSONL files to prevent duplicates |
+| `ImportedFile`  | `@Model` - Tracks imported JSONL files to prevent duplicates                    |
 
 ### API Response Mapping
 
-| API Field | Model Field | Description |
-|-----------|-------------|-------------|
-| `five_hour` | `session` | 5-hour session window |
-| `seven_day` | `opus` | Default weekly limit (Opus) |
-| `seven_day_sonnet` | `sonnet` | Separate Sonnet limit (if available) |
+| API Field          | Model Field | Description                          |
+| ------------------ | ----------- | ------------------------------------ |
+| `five_hour`        | `session`   | 5-hour session window                |
+| `seven_day`        | `opus`      | Default weekly limit (Opus)          |
+| `seven_day_sonnet` | `sonnet`    | Separate Sonnet limit (if available) |
 
 ### Patterns Used
 
@@ -192,6 +198,7 @@ AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ### Data Persistence (macOS only)
 
 **SwiftData Integration:**
+
 - `ModelContainer` configured in `AgentUsageApp` for token usage persistence
 - `@Model` classes: `TokenLogEntry` and `ImportedFile` for tracking parsed JSONL logs
 - `@ModelActor` (`TokenUsageQuerier`) for non-blocking background queries
@@ -213,6 +220,7 @@ Follow [Swift API Design Guidelines](https://www.swift.org/documentation/api-des
 ### Local JSONL Logs
 
 Token usage and costs are calculated from Claude Code's local JSONL logs:
+
 - **Location**: `~/.claude/projects/` or `~/.config/claude/projects/`
 - **Format**: One JSON object per line with `message.model`, `message.usage`, `timestamp`
 - **Pricing**: Hardcoded rates based on [Anthropic pricing](https://anthropic.com/pricing)
@@ -225,6 +233,7 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 ## App Configuration
 
 **macOS:**
+
 - Menu bar only app: `LSUIElement = true` in Info.plist
 - **App Sandbox enabled** (`ENABLE_APP_SANDBOX = YES`) for Mac App Store / TestFlight distribution. macOS uses its own `AgentUsage/AgentUsage.entitlements` (wired via `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`), which keeps the app-group and adds `com.apple.security.files.user-selected.read-only`. Reading the CLI tools' log directories requires the user to grant folder access (Settings → Local Data Access); see `SandboxFolderAccessService`. Credentials come from the Keychain and need no folder grant.
 - Network client entitlement enabled
@@ -232,6 +241,7 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 - Sparkle auto-updates enabled: `SUEnableAutomaticChecks = true`
 
 **iOS:**
+
 - Live Activities support: `NSSupportsLiveActivities = true`
 - Background modes: `remote-notification` for Live Activity updates
 - App Groups for widget data sharing
@@ -239,19 +249,23 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 ## iOS Features
 
 **Home Screen Widgets:**
+
 - Small Widget: Single usage window (Session, Opus, or Sonnet)
 - Medium Widget: Two usage windows side-by-side
 - Large Widget: All usage windows + token usage summary
 
 **Lock Screen Widget:**
+
 - Compact gauge showing worst usage status across all windows
 
 **Live Activity (Dynamic Island):**
+
 - Real-time usage tracking in Dynamic Island and Lock Screen
 - Updates automatically when app is active
 - Managed via `LiveActivityManager` actor
 
 **Widget Implementation:**
+
 - Timeline-based updates via `TimelineProvider`
 - Data sharing via `WidgetDataManager` and App Groups
 - Supports widget configuration and sizing
@@ -259,23 +273,27 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 ## macOS Features
 
 **Menu Bar:**
+
 - Color-coded status icon (green/orange/red based on usage)
 - Orange badge dot when update is available
 - Countdown timer when at 100% usage
 - Quick access popover with usage cards
 
 **Notifications:**
+
 - Threshold alerts at 25%, 50%, 75%, 100%
 - Reset notifications when limit resets after being near capacity
 - Per-window tracking to avoid duplicate notifications
 - Test notification button in Settings
 
 **Launch at Login:**
+
 - Native macOS Login Items integration (macOS 13+)
 - Managed via `LaunchAtLoginService`
 - User-configurable in Settings
 
 **Window Management:**
+
 - Dynamic dock icon (shows when main window open, hides otherwise)
 - TabView navigation: Dashboard, Settings, About
 - Window opens via menu bar or keyboard shortcut (⌘,)
@@ -320,60 +338,3 @@ gh workflow run release.yml -f operation=repair-appcast -f tag=vX.Y.Z
 ```
 
 Signed, notarized Developer ID releases (`publish`) are the primary distribution mode, gated on `SIGNED_RELEASES_ENABLED=true` plus the Apple signing and notarization secrets in the `release` environment; `publish-unsigned` remains an ad-hoc fallback. An untagged version committed in `Config/Version.xcconfig` is resumed regardless of the requested bump. See `RELEASING.md` and `.claude/skills/release/SKILL.md` for setup, Gatekeeper behaviour, and recovery.
-
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
-
-### Rules
-
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
-
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
-
-## Agent Context Profiles
-
-The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
-
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
-
-## Session Completion
-
-This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
-
-1. **File issues for remaining work** - Create beads for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **Handle git/sync by active profile**:
-   ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
-
-   # Team-maintainer opt-in only, unless current instructions forbid it:
-   git pull --rebase
-   bd dolt push
-   git push
-   git status
-   ```
-5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
-
-**Critical rules:**
-- Explicit user or orchestrator instructions override this Beads block.
-- Do not commit or push without clear authority from the active profile or the current user request.
-- If a required sync or push is blocked, stop and report the exact command and error.
-<!-- END BEADS INTEGRATION -->
