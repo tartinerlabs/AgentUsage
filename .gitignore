@@ -18,11 +18,5 @@ sparkle_private_key
 *.zip
 *.dmg
 
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
-.beads-credential-key
-.beads/proxieddb/
-
 # Sparkle appcast is a build artifact published to the gh-pages branch, not tracked on main
 appcast.xml
