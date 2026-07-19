@@ -1,23 +1,31 @@
 {
   "fill" : {
-    "solid" : "extended-srgb:0.98039,0.95686,0.93725,1.00000"
+    "automatic-gradient" : "extended-srgb:0.93333,0.94510,0.96078,1.00000"
   },
+  "fill-specializations" : [
+    {
+      "appearance" : "dark",
+      "value" : {
+        "automatic-gradient" : "extended-srgb:0.10588,0.11765,0.14118,1.00000"
+      }
+    }
+  ],
   "groups" : [
     {
       "layers" : [
         {
-          "image-name" : "timefold-symbol-1024-clean.png",
-          "name" : "Approved Timefold"
+          "image-name" : "usage-ring-1024.png",
+          "name" : "Usage Ring"
         }
       ],
-      "name" : "Timefold",
+      "name" : "Usage Ring",
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.6
+        "opacity" : 0.35
       },
       "translucency" : {
-        "enabled" : true,
-        "value" : 0.2
+        "enabled" : false,
+        "value" : 0.0
       }
     }
   ],
