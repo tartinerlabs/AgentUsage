@@ -37,7 +37,10 @@ struct SettingsView: View {
             }
 
             Section("Continuity Sync") {
-                AppConnectionStatusView(status: viewModel.appConnectionStatus)
+                AppConnectionStatusView(
+                    status: viewModel.appConnectionStatus,
+                    networkStatus: viewModel.continuityNetworkStatus
+                )
 
                 if viewModel.appConnectionRevoked {
                     Button {

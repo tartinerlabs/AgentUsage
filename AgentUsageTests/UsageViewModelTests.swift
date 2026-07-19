@@ -7,6 +7,9 @@
 
 import Testing
 import Foundation
+#if os(iOS)
+import UIKit
+#endif
 @testable import AgentUsage
 @testable import AgentUsageKit
 
@@ -422,5 +425,363 @@ struct UsageCalculationsTests {
 
         let status = UsageCalculations.overallStatus(from: snapshot)
         #expect(status == .onTrack)
+    }
+}
+
+// MARK: - Verified Continuity Sync Tests
+
+#if os(macOS)
+@Suite("UsageViewModel verified continuity sync")
+struct UsageViewModelVerifiedContinuitySyncTests {
+    @Test @MainActor func localSnapshotAloneDoesNotClaimAConnection() {
+        let viewModel = makeViewModel(syncService: MockUsageSyncService())
+        viewModel.snapshot = Self.snapshot()
+
+        #expect(viewModel.appConnectionStatus == .waitingForDevices(message: nil))
+        #expect(viewModel.continuityNetworkStatus.mac == .waiting(lastSeenAt: nil))
+        #expect(viewModel.continuityNetworkStatus.iPhone == .unavailable)
+        #expect(viewModel.continuityNetworkStatus.iPad == .unavailable)
+    }
+
+    @Test @MainActor func matchingIPhoneReceiptVerifiesOnlyIPhone() async {
+        let acknowledgedAt = Date()
+        let syncService = MockUsageSyncService()
+        await syncService.configurePublication(generation: "current")
+        await syncService.configureReceipts([
+            .iPhone: ContinuityReceipt(
+                device: .iPhone,
+                syncGeneration: "current",
+                acknowledgedAt: acknowledgedAt
+            ),
+        ])
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.appConnectionStatus == .linked(lastUpdatedText: nil))
+        #expect(viewModel.continuityNetworkStatus.iPhone == .connected(lastSeenAt: acknowledgedAt))
+        #expect(viewModel.continuityNetworkStatus.iPad == .unavailable)
+    }
+
+    @Test @MainActor func staleReceiptDoesNotVerifyLatestGeneration() async {
+        let lastSeenAt = Date().addingTimeInterval(-3600)
+        let syncService = MockUsageSyncService()
+        await syncService.configurePublication(generation: "current")
+        await syncService.configureReceipts([
+            .iPhone: ContinuityReceipt(
+                device: .iPhone,
+                syncGeneration: "previous",
+                acknowledgedAt: lastSeenAt
+            ),
+        ])
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.appConnectionStatus == .waitingForDevices(message: nil))
+        #expect(viewModel.continuityNetworkStatus.iPhone == .waiting(lastSeenAt: lastSeenAt))
+    }
+
+    @Test @MainActor func publishFailureIsVisibleAndDoesNotTurnGreen() async {
+        let syncService = MockUsageSyncService()
+        await syncService.configurePublishError(
+            .recordOperationFailed(recordName: "latest", message: "schema unavailable")
+        )
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.publishedSyncGeneration == nil)
+        #expect(viewModel.continuitySyncErrorMessage?.contains("schema unavailable") == true)
+        guard case .needsSetup = viewModel.appConnectionStatus else {
+            Issue.record("Expected a visible continuity setup error")
+            return
+        }
+        #expect(viewModel.continuityNetworkStatus.mac == .unavailable)
+    }
+
+    @Test @MainActor func receiptCheckFailureKeepsUploadTruthfulButUnverified() async {
+        let syncService = MockUsageSyncService()
+        await syncService.configurePublication(generation: "current")
+        await syncService.configureReceiptError(
+            .recordOperationFailed(recordName: "ContinuityReceipt", message: "not authenticated")
+        )
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.publishedSyncGeneration == "current")
+        #expect(viewModel.continuitySyncErrorMessage?.contains("could not verify") == true)
+        guard case .waitingForDevices = viewModel.appConnectionStatus else {
+            Issue.record("Expected an uploaded but unverified state")
+            return
+        }
+        #expect(viewModel.continuityNetworkStatus.mac == .connected(lastSeenAt: viewModel.snapshot?.fetchedAt))
+    }
+
+    @Test @MainActor func successfulRetryClearsPreviousPublishError() async {
+        let syncService = MockUsageSyncService()
+        await syncService.configurePublishError(
+            .recordOperationFailed(recordName: "latest", message: "temporary")
+        )
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+        await viewModel.refreshContinuitySync()
+        #expect(viewModel.continuitySyncErrorMessage != nil)
+
+        await syncService.configurePublishError(nil)
+        await syncService.configurePublication(generation: "recovered")
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.publishedSyncGeneration == "recovered")
+        #expect(viewModel.continuitySyncErrorMessage == nil)
+    }
+
+    @Test @MainActor func macRevokeRemovesTheWholeContinuitySetup() async {
+        let syncService = MockUsageSyncService()
+        let viewModel = makeViewModel(syncService: syncService)
+
+        await viewModel.revokeAppConnection()
+
+        #expect(await syncService.didRevokeAll())
+        #expect(await syncService.revokedDeviceValues().isEmpty)
+    }
+
+    @MainActor
+    private func makeViewModel(syncService: MockUsageSyncService) -> UsageViewModel {
+        UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            defaults: TestUserDefaults().defaults
+        )
+    }
+
+    private static func snapshot() -> UsageSnapshot {
+        UsageSnapshot(
+            session: UsageWindow(
+                utilization: 20,
+                resetsAt: Date().addingTimeInterval(3600),
+                windowType: .session
+            ),
+            opus: UsageWindow(
+                utilization: 30,
+                resetsAt: Date().addingTimeInterval(7200),
+                windowType: .opus
+            ),
+            sonnet: nil,
+            fetchedAt: Date()
+        )
+    }
+}
+#endif
+
+#if os(iOS)
+@Suite("UsageViewModel mobile continuity acknowledgement")
+struct UsageViewModelMobileContinuityTests {
+    @Test @MainActor func receiptFailureDoesNotDiscardFetchedSnapshot() async {
+        let snapshot = UsageSnapshot(
+            session: UsageWindow(
+                utilization: 20,
+                resetsAt: Date().addingTimeInterval(3600),
+                windowType: .session
+            ),
+            opus: UsageWindow(
+                utilization: 30,
+                resetsAt: Date().addingTimeInterval(7200),
+                windowType: .opus
+            ),
+            sonnet: nil,
+            fetchedAt: Date()
+        )
+        let syncService = MockUsageSyncService()
+        await syncService.configureFetchedSnapshot(
+            SyncedUsageSnapshot(
+                snapshot: snapshot,
+                planType: "Pro",
+                fetchedAt: snapshot.fetchedAt,
+                syncGeneration: "mobile-generation"
+            )
+        )
+        await syncService.configureAcknowledgementError(
+            .recordOperationFailed(recordName: "continuity-iphone", message: "offline")
+        )
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            defaults: TestUserDefaults().defaults
+        )
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.snapshot?.fetchedAt == snapshot.fetchedAt)
+        guard case .syncedFromMac = viewModel.appConnectionStatus else {
+            Issue.record("Expected the fetched snapshot to remain applied")
+            return
+        }
+        #expect(await syncService.acknowledgementCount() == 1)
+    }
+
+    @Test @MainActor func receiptWriteRecoversOnTheNextRefresh() async {
+        let snapshot = Self.snapshot()
+        let syncService = MockUsageSyncService()
+        await syncService.configureFetchedSnapshot(
+            SyncedUsageSnapshot(
+                snapshot: snapshot,
+                planType: "Pro",
+                fetchedAt: snapshot.fetchedAt,
+                syncGeneration: "mobile-generation"
+            )
+        )
+        await syncService.configureAcknowledgementError(
+            .recordOperationFailed(recordName: "continuity-mobile", message: "offline")
+        )
+        let viewModel = Self.makeViewModel(syncService: syncService)
+
+        await viewModel.refreshContinuitySync()
+        #expect(await syncService.successfullyAcknowledgedDevices().isEmpty)
+
+        await syncService.configureAcknowledgementError(nil)
+        await viewModel.refreshContinuitySync()
+
+        #expect(await syncService.successfullyAcknowledgedDevices().count == 1)
+        #expect(viewModel.snapshot?.fetchedAt == snapshot.fetchedAt)
+    }
+
+    @Test @MainActor func mobileRevokeRemovesOnlyTheCurrentPlatformReceipt() async {
+        let syncService = MockUsageSyncService()
+        let viewModel = Self.makeViewModel(syncService: syncService)
+        let expectedDevice: UsageSyncDevice = UIDevice.current.userInterfaceIdiom == .pad
+            ? .iPad
+            : .iPhone
+
+        await viewModel.revokeAppConnection()
+
+        #expect(await syncService.didRevokeAll() == false)
+        #expect(await syncService.revokedDeviceValues() == [expectedDevice])
+    }
+
+    @MainActor
+    private static func makeViewModel(syncService: MockUsageSyncService) -> UsageViewModel {
+        UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            defaults: TestUserDefaults().defaults
+        )
+    }
+
+    private static func snapshot() -> UsageSnapshot {
+        UsageSnapshot(
+            session: UsageWindow(
+                utilization: 20,
+                resetsAt: Date().addingTimeInterval(3600),
+                windowType: .session
+            ),
+            opus: UsageWindow(
+                utilization: 30,
+                resetsAt: Date().addingTimeInterval(7200),
+                windowType: .opus
+            ),
+            sonnet: nil,
+            fetchedAt: Date()
+        )
+    }
+}
+#endif
+
+private actor MockUsageSyncService: UsageSyncServicing {
+    private var publication = PublishedUsageSnapshot(
+        syncGeneration: "generation",
+        fetchedAt: Date()
+    )
+    private var publishError: UsageSyncError?
+    private var fetchedSnapshot: SyncedUsageSnapshot?
+    private var acknowledgementError: UsageSyncError?
+    private var receiptValues: [UsageSyncDevice: ContinuityReceipt] = [:]
+    private var receiptError: UsageSyncError?
+    private var acknowledgementCalls = 0
+    private var acknowledgedDevices: [UsageSyncDevice] = []
+    private var revokedDevices: [UsageSyncDevice] = []
+    private var revokedAll = false
+
+    func configurePublication(generation: String) {
+        publication = PublishedUsageSnapshot(syncGeneration: generation, fetchedAt: Date())
+    }
+
+    func configurePublishError(_ error: UsageSyncError?) {
+        publishError = error
+    }
+
+    func configureFetchedSnapshot(_ snapshot: SyncedUsageSnapshot?) {
+        fetchedSnapshot = snapshot
+    }
+
+    func configureAcknowledgementError(_ error: UsageSyncError?) {
+        acknowledgementError = error
+    }
+
+    func configureReceipts(_ receipts: [UsageSyncDevice: ContinuityReceipt]) {
+        receiptValues = receipts
+    }
+
+    func configureReceiptError(_ error: UsageSyncError?) {
+        receiptError = error
+    }
+
+    func acknowledgementCount() -> Int {
+        acknowledgementCalls
+    }
+
+    func successfullyAcknowledgedDevices() -> [UsageSyncDevice] {
+        acknowledgedDevices
+    }
+
+    func revokedDeviceValues() -> [UsageSyncDevice] {
+        revokedDevices
+    }
+
+    func didRevokeAll() -> Bool {
+        revokedAll
+    }
+
+    func publish(snapshot: UsageSnapshot, planType: String) async throws -> PublishedUsageSnapshot {
+        if let publishError { throw publishError }
+        return publication
+    }
+
+    func fetchLatest() async -> SyncedUsageSnapshot? {
+        fetchedSnapshot
+    }
+
+    func acknowledge(
+        snapshot: SyncedUsageSnapshot,
+        from device: UsageSyncDevice
+    ) async throws -> ContinuityReceipt {
+        acknowledgementCalls += 1
+        if let acknowledgementError { throw acknowledgementError }
+        acknowledgedDevices.append(device)
+        return ContinuityReceipt(
+            device: device,
+            syncGeneration: snapshot.syncGeneration ?? "",
+            acknowledgedAt: Date()
+        )
+    }
+
+    func fetchReceipts() async throws -> [UsageSyncDevice: ContinuityReceipt] {
+        if let receiptError { throw receiptError }
+        return receiptValues
+    }
+
+    func revokeAll() async -> Bool {
+        revokedAll = true
+        return true
+    }
+
+    func revoke(device: UsageSyncDevice) async -> Bool {
+        revokedDevices.append(device)
+        return true
     }
 }

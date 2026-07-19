@@ -31,6 +31,35 @@ signature authenticates updates delivered to existing users. Developer ID and
 notarization satisfy Gatekeeper for fresh downloads; the ad-hoc fallback still
 carries the Sparkle signature but cannot satisfy Gatekeeper.
 
+## CloudKit schema gate
+
+Continuity Sync uses the private database in
+`iCloud.com.tartinerlabs.AgentUsage`. TestFlight and other distribution builds
+use the Production CloudKit environment, so a build that introduces CloudKit
+record types or fields must not be distributed until those schema changes are
+deployed to Production.
+
+For verified device acknowledgements, initialize the schema in Development
+with signed development builds:
+
+1. On Mac, refresh usage and choose **Sync Now**. Confirm that `UsageSnapshot`
+   contains `payload` (Bytes), `planType` (String), `fetchedAt` (Date/Time), and
+   `syncGeneration` (String).
+2. On iPhone or iPad using the same iCloud account, refresh Continuity Sync.
+   Confirm that `ContinuityReceipt` contains `deviceKind` (String),
+   `syncGeneration` (String), and `acknowledgedAt` (Date/Time). Receipts use the
+   fixed record names `continuity-iphone` and `continuity-ipad`.
+3. Reopen Settings on Mac and verify that only the mobile platform that fetched
+   the current generation turns green.
+4. In CloudKit Console, deploy the Development schema changes to Production and
+   verify both the new `UsageSnapshot.syncGeneration` field and the
+   `ContinuityReceipt` record type before uploading the matching TestFlight
+   builds.
+
+The GitHub release workflow does not deploy CloudKit schemas. This remains a
+manual Apple-console gate because schema promotion changes shared production
+state independently of the app binaries.
+
 ## Running a dry run
 
 A dry run is safe before the Apple membership is ready:
