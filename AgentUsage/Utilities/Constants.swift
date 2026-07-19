@@ -71,11 +71,12 @@ enum Constants {
     /// endpoint that just throttled us.
     static let rateLimitCooldownFallback: TimeInterval = 120
 
-    // MARK: - Cross-Device Sync (CloudKit)
-    /// How stale a macOS-published snapshot may be before iOS falls back to
-    /// fetching from the Claude API itself. Within this window iOS reads only the
-    /// synced snapshot, so a running Mac keeps the account polled once. Beyond it
-    /// (e.g. the Mac is asleep or off), iOS does a single throttled direct fetch.
+    // MARK: - Continuity Sync (CloudKit)
+    static let continuitySyncRevokedKey = "appConnectionRevoked"
+
+    /// How stale a macOS-published snapshot may be before iOS stops treating it
+    /// as fresh. iOS never fetches provider usage directly; it waits for the Mac
+    /// to publish the next snapshot.
     static let syncFallbackThreshold: TimeInterval = 6 * 3600
 
     // MARK: - Claude Code Keychain
