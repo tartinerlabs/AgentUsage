@@ -119,6 +119,29 @@ public actor UsageSyncService {
         }
     }
 
+    /// Delete the shared latest snapshot. Used when the user revokes cross-device
+    /// app sync. A missing record still counts as revoked.
+    @discardableResult
+    public func revoke() async -> Bool {
+        do {
+            _ = try await database.modifyRecords(
+                saving: [],
+                deleting: [recordID],
+                savePolicy: .allKeys,
+                atomically: true
+            )
+            logger.debug("Revoked CloudKit usage snapshot")
+            return true
+        } catch {
+            if (error as? CKError)?.code == .unknownItem {
+                logger.debug("CloudKit revoke: no snapshot published yet")
+                return true
+            }
+            logger.error("CloudKit revoke failed: \(Self.describe(error), privacy: .public)")
+            return false
+        }
+    }
+
     /// Renders an error for logging, pulling out the concrete `CKError` code (and any
     /// per-item partial-failure codes) so a swallowed sync failure is diagnosable.
     private static func describe(_ error: Error) -> String {

@@ -44,6 +44,12 @@ struct UsageSnapshotStore {
         defaults.set(fetchedAt.timeIntervalSince1970, forKey: Self.fetchTimeKey)
     }
 
+    func clear() {
+        defaults.removeObject(forKey: Self.snapshotKey)
+        defaults.removeObject(forKey: Self.planKey)
+        defaults.removeObject(forKey: Self.fetchTimeKey)
+    }
+
     var lastSuccessfulFetchTime: Date? {
         let timestamp = defaults.double(forKey: Self.fetchTimeKey)
         return timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil

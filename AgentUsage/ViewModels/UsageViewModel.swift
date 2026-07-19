@@ -26,6 +26,13 @@ final class UsageViewModel {
     var planType: String = "Free"
     var isLoading = false
     var errorMessage: String?
+    var appConnectionRevoked = false {
+        didSet {
+            defaults.set(appConnectionRevoked, forKey: Constants.continuitySyncRevokedKey)
+        }
+    }
+    var isRevokingAppConnection = false
+    var isRefreshingContinuitySync = false
     #if os(macOS)
     var tokenUsageError: TokenUsageError?
     var isLoadingTokenUsage = false
@@ -74,6 +81,11 @@ final class UsageViewModel {
     /// usage windows have reset but no prompt has been sent since. The UI shows
     /// a "No usage data" state instead of stale cached meters or a spinner.
     var isNoUsageData: Bool = false
+
+    #if os(iOS)
+    /// True after iOS has applied a snapshot published by the Mac app during this session.
+    private var receivedMacSyncedSnapshot = false
+    #endif
 
     // MARK: - Outage Tracking
 
@@ -263,6 +275,33 @@ final class UsageViewModel {
         return .disconnected(message: errorMessage)
     }
 
+    /// Provider-neutral status for how this install participates in the shared
+    /// AgentUsage setup across Mac, iPhone, and iPad.
+    var appConnectionStatus: AppConnectionStatus {
+        if appConnectionRevoked {
+            return .revoked
+        }
+
+        #if os(iOS)
+        if receivedMacSyncedSnapshot {
+            return .syncedFromMac(lastUpdatedText: timeSinceLastUpdate)
+        }
+        #endif
+
+        if snapshot != nil || isNoUsageData {
+            return .linked(lastUpdatedText: timeSinceLastUpdate)
+        }
+        if isLoading {
+            return .checking
+        }
+        #if os(iOS)
+        if isOffline {
+            return .waitingForMac
+        }
+        #endif
+        return .needsSetup(message: errorMessage)
+    }
+
     #if os(macOS)
     init(
         credentialProvider: any CredentialProvider,
@@ -287,6 +326,7 @@ final class UsageViewModel {
         self.blogOAuthService = blogOAuthService
         self.providerUsageServices = providerUsageServices
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
+        self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
         self.blogUsageSyncEnabled = defaults.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
         self.blogUsageSyncEndpointURLString = defaults.string(forKey: "blogUsageSyncEndpointURL")
@@ -311,6 +351,7 @@ final class UsageViewModel {
         self.snapshotStore = UsageSnapshotStore(defaults: defaults)
         self.refreshScheduler = RefreshScheduler(defaults: defaults)
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
+        self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -369,7 +410,7 @@ extension UsageViewModel {
         lastRefreshTime = Date()
 
         // Fetch each provider concurrently and independently so a slow, retrying, or
-        // failing Claude fetch can never delay or block Codex/OpenCode. iOS is Claude-only.
+        // failing Claude fetch can never delay or block Codex/OpenCode. iOS reads Mac-shared snapshots only.
         #if os(macOS)
         async let claudeArm = refreshClaude()
         // Extra providers share one arm because refreshProviderUsage() reads the
@@ -451,6 +492,9 @@ extension UsageViewModel {
             snapshot = newSnapshot
             isUsingCachedData = false
             isNoUsageData = false
+            #if os(iOS)
+            receivedMacSyncedSnapshot = false
+            #endif
             rateLimitedUntil = nil  // Successful fetch ends any rate-limit cooldown
             clearIncident(for: .claude)  // Successful fetch ends any active outage
 
@@ -460,7 +504,9 @@ extension UsageViewModel {
             #if os(macOS)
             // macOS is the source of truth: publish so iOS + widgets can consume
             // this without polling the Claude API themselves.
-            Task { await UsageSyncService.shared.publish(snapshot: newSnapshot, planType: planType) }
+            if !appConnectionRevoked {
+                Task { await UsageSyncService.shared.publish(snapshot: newSnapshot, planType: planType) }
+            }
             #endif
 
             // Record to usage history for trend tracking
@@ -528,14 +574,22 @@ extension UsageViewModel {
     }
 
     #if os(iOS)
-    /// iOS refresh: prefer the macOS-published snapshot from CloudKit, and only
-    /// fetch from the Claude API directly when the Mac hasn't published recently
-    /// (it may be asleep or offline). This keeps the account polled once — by the
-    /// Mac — instead of once per iOS device and per widget.
+    /// iOS refresh reads only the macOS-published snapshot from CloudKit. The Mac
+    /// is the source of provider usage updates.
     private func refreshClaudeViaSync() async -> ClaudeRefreshOutcome {
-        // Offline: skip CloudKit and use the existing cached-data path.
+        if appConnectionRevoked {
+            errorMessage = nil
+            return .skipped
+        }
+
         if isOffline {
-            return await refreshClaude()
+            if snapshot != nil {
+                isUsingCachedData = true
+                errorMessage = nil
+            } else {
+                errorMessage = "Open \(Constants.appDisplayName) on your Mac to sync usage data."
+            }
+            return .failed
         }
 
         if let synced = await UsageSyncService.shared.fetchLatest(),
@@ -545,8 +599,14 @@ extension UsageViewModel {
             return .updated
         }
 
-        Logger.viewModel.info("No fresh macOS-synced snapshot — falling back to direct fetch")
-        return await refreshClaude()
+        if snapshot != nil {
+            isUsingCachedData = true
+            errorMessage = nil
+        } else {
+            errorMessage = "Open \(Constants.appDisplayName) on your Mac to share the latest usage."
+        }
+        Logger.viewModel.info("No fresh macOS-synced snapshot available")
+        return .failed
     }
 
     /// Apply a snapshot received from the Mac: update UI state, persist it so
@@ -557,6 +617,7 @@ extension UsageViewModel {
         planType = synced.planType
         isUsingCachedData = false
         isNoUsageData = false
+        receivedMacSyncedSnapshot = true
         errorMessage = nil
         rateLimitedUntil = nil
         clearIncident(for: .claude)
@@ -573,6 +634,58 @@ extension UsageViewModel {
         }
     }
     #endif
+
+    func refreshContinuitySync() async {
+        guard !isRefreshingContinuitySync else { return }
+        isRefreshingContinuitySync = true
+        defer { isRefreshingContinuitySync = false }
+
+        guard !appConnectionRevoked else {
+            errorMessage = nil
+            return
+        }
+
+        #if os(macOS)
+        guard let snapshot else {
+            errorMessage = "Refresh usage once before sharing it with iPhone and iPad."
+            return
+        }
+        await UsageSyncService.shared.publish(snapshot: snapshot, planType: planType)
+        errorMessage = nil
+        #else
+        _ = await refresh(force: true)
+        #endif
+    }
+
+    func revokeAppConnection() async {
+        guard !isRevokingAppConnection else { return }
+        isRevokingAppConnection = true
+        defer { isRevokingAppConnection = false }
+
+        appConnectionRevoked = true
+        errorMessage = nil
+
+        #if os(iOS)
+        KeychainHelper.deleteCredentials()
+        snapshotStore.clear()
+        snapshot = nil
+        planType = "Free"
+        isUsingCachedData = false
+        isNoUsageData = false
+        rateLimitedUntil = nil
+        activeIncidents.removeAll()
+        receivedMacSyncedSnapshot = false
+        await WidgetDataManager.shared.clear()
+        LiveActivityManager.shared.stop()
+        #endif
+
+        _ = await UsageSyncService.shared.revoke()
+    }
+
+    func resumeAppConnection() async {
+        appConnectionRevoked = false
+        await refreshContinuitySync()
+    }
 
     #if os(macOS)
     /// Refresh per-provider detail: Codex rate-limit windows + Claude/Codex/OpenCode

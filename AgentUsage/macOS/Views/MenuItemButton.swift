@@ -38,7 +38,7 @@ struct MenuItemButton: View {
 
 #Preview {
     VStack(spacing: 4) {
-        MenuItemButton(title: "Open AgentUsage", shortcut: "⌘O") {}
+        MenuItemButton(title: "Open \(Constants.appDisplayName)", shortcut: "⌘O") {}
         MenuItemButton(title: "Settings", shortcut: "⌘,") {}
         Divider()
         MenuItemButton(title: "Quit", shortcut: "⌘Q") {}

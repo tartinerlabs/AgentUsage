@@ -32,7 +32,7 @@ struct AboutView: View {
                 }
 
                 // Description
-                Text("Monitor your Claude API usage directly from your device.")
+                Text("Keep an eye on your usage from iPhone, with updates shared from your Mac.")
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)

@@ -76,6 +76,11 @@ actor MacOSCredentialService: CredentialProvider {
     /// Seed AgentUsage's own synchronizable Keychain item from Claude Code's
     /// credential so iOS can receive it through iCloud Keychain.
     private func mirrorToSynchronizableKeychain(_ credentials: ClaudeOAuthCredentials) {
+        guard !UserDefaults.standard.bool(forKey: Constants.continuitySyncRevokedKey) else {
+            Logger.credentials.debug("Continuity Sync is off; skipping synchronizable Keychain mirror")
+            return
+        }
+
         do {
             try appKeychainSaver(credentials)
             Logger.credentials.info("Mirrored Claude credentials to synchronizable Keychain")
