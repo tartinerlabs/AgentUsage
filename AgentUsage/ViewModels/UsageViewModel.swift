@@ -7,6 +7,50 @@ import Foundation
 import AgentUsageKit
 import SwiftUI
 import OSLog
+#if os(iOS)
+import UIKit
+#endif
+
+/// Safe default for tests and previews that construct a view model outside the
+/// app's dependency container. Production explicitly injects CloudKit below.
+actor InactiveUsageSyncService: UsageSyncServicing {
+    static let shared = InactiveUsageSyncService()
+
+    private let unavailableError = UsageSyncError.recordOperationFailed(
+        recordName: "ContinuitySync",
+        message: "Continuity Sync is not configured for this view model."
+    )
+
+    func publish(
+        snapshot _: UsageSnapshot,
+        planType _: String
+    ) async throws -> PublishedUsageSnapshot {
+        throw unavailableError
+    }
+
+    func fetchLatest() async -> SyncedUsageSnapshot? {
+        nil
+    }
+
+    func acknowledge(
+        snapshot _: SyncedUsageSnapshot,
+        from _: UsageSyncDevice
+    ) async throws -> ContinuityReceipt {
+        throw unavailableError
+    }
+
+    func fetchReceipts() async throws -> [UsageSyncDevice: ContinuityReceipt] {
+        [:]
+    }
+
+    func revokeAll() async -> Bool {
+        true
+    }
+
+    func revoke(device _: UsageSyncDevice) async -> Bool {
+        true
+    }
+}
 
 @MainActor @Observable
 final class UsageViewModel {
@@ -33,6 +77,12 @@ final class UsageViewModel {
     }
     var isRevokingAppConnection = false
     var isRefreshingContinuitySync = false
+    var continuitySyncErrorMessage: String?
+    #if os(macOS)
+    private(set) var publishedSyncGeneration: String?
+    private(set) var continuityReceipts: [UsageSyncDevice: ContinuityReceipt] = [:]
+    private(set) var isCheckingContinuityReceipts = false
+    #endif
     #if os(macOS)
     var tokenUsageError: TokenUsageError?
     var isLoadingTokenUsage = false
@@ -229,6 +279,7 @@ final class UsageViewModel {
 
     private let credentialProvider: any CredentialProvider
     private let apiService: any APIServiceProtocol
+    private let usageSyncService: any UsageSyncServicing
     private let usageHistoryService: UsageHistoryService
     private let defaults: UserDefaults
     private let snapshotStore: UsageSnapshotStore
@@ -288,9 +339,27 @@ final class UsageViewModel {
         }
         #endif
 
+        #if os(macOS)
+        if isRefreshingContinuitySync {
+            return .checking
+        }
+        if publishedSyncGeneration != nil {
+            if hasCurrentDeviceAcknowledgement {
+                return .linked(lastUpdatedText: timeSinceLastUpdate)
+            }
+            return .waitingForDevices(message: continuitySyncErrorMessage)
+        }
+        if let continuitySyncErrorMessage {
+            return .needsSetup(message: continuitySyncErrorMessage)
+        }
+        if snapshot != nil || isNoUsageData {
+            return .waitingForDevices(message: nil)
+        }
+        #else
         if snapshot != nil || isNoUsageData {
             return .linked(lastUpdatedText: timeSinceLastUpdate)
         }
+        #endif
         if isLoading {
             return .checking
         }
@@ -302,6 +371,66 @@ final class UsageViewModel {
         return .needsSetup(message: errorMessage)
     }
 
+    var continuityNetworkStatus: ContinuityNetworkStatus {
+        if appConnectionRevoked {
+            return ContinuityNetworkStatus(mac: .revoked, iPhone: .revoked, iPad: .revoked)
+        }
+
+        #if os(macOS)
+        let macState: ContinuityNodeState
+        if isRefreshingContinuitySync {
+            macState = .checking
+        } else if publishedSyncGeneration != nil {
+            macState = .connected(lastSeenAt: snapshot?.fetchedAt)
+        } else if continuitySyncErrorMessage != nil {
+            macState = .unavailable
+        } else {
+            macState = .waiting(lastSeenAt: nil)
+        }
+
+        return ContinuityNetworkStatus(
+            mac: macState,
+            iPhone: continuityNodeState(for: .iPhone),
+            iPad: continuityNodeState(for: .iPad)
+        )
+        #else
+        let macState: ContinuityNodeState = receivedMacSyncedSnapshot
+            ? .connected(lastSeenAt: snapshot?.fetchedAt)
+            : .waiting(lastSeenAt: nil)
+        let localState: ContinuityNodeState = receivedMacSyncedSnapshot
+            ? .connected(lastSeenAt: snapshot?.fetchedAt)
+            : .waiting(lastSeenAt: nil)
+        return ContinuityNetworkStatus(
+            mac: macState,
+            iPhone: Self.currentSyncDevice == .iPhone ? localState : .unavailable,
+            iPad: Self.currentSyncDevice == .iPad ? localState : .unavailable
+        )
+        #endif
+    }
+
+    #if os(macOS)
+    private var hasCurrentDeviceAcknowledgement: Bool {
+        guard let publishedSyncGeneration else { return false }
+        return continuityReceipts.values.contains {
+            $0.syncGeneration == publishedSyncGeneration
+        }
+    }
+
+    private func continuityNodeState(for device: UsageSyncDevice) -> ContinuityNodeState {
+        guard let receipt = continuityReceipts[device] else {
+            return isCheckingContinuityReceipts ? .checking : .unavailable
+        }
+        guard receipt.syncGeneration == publishedSyncGeneration else {
+            return .waiting(lastSeenAt: receipt.acknowledgedAt)
+        }
+        return .connected(lastSeenAt: receipt.acknowledgedAt)
+    }
+    #else
+    private static var currentSyncDevice: UsageSyncDevice {
+        UIDevice.current.userInterfaceIdiom == .pad ? .iPad : .iPhone
+    }
+    #endif
+
     #if os(macOS)
     init(
         credentialProvider: any CredentialProvider,
@@ -311,10 +440,12 @@ final class UsageViewModel {
         blogOAuthService: BlogOAuthService? = nil,
         providerUsageServices: [Provider: any ProviderUsageServiceProtocol] = [:],
         usageHistoryService: UsageHistoryService? = nil,
+        usageSyncService: any UsageSyncServicing = InactiveUsageSyncService.shared,
         defaults: UserDefaults = .standard
     ) {
         self.credentialProvider = credentialProvider
         self.apiService = apiService ?? ClaudeAPIService()
+        self.usageSyncService = usageSyncService
         self.usageHistoryService = usageHistoryService ?? UsageHistoryService(defaults: defaults)
         self.defaults = defaults
         self.snapshotStore = UsageSnapshotStore(defaults: defaults)
@@ -342,10 +473,12 @@ final class UsageViewModel {
         credentialProvider: any CredentialProvider,
         apiService: (any APIServiceProtocol)? = nil,
         usageHistoryService: UsageHistoryService? = nil,
+        usageSyncService: any UsageSyncServicing = InactiveUsageSyncService.shared,
         defaults: UserDefaults = .standard
     ) {
         self.credentialProvider = credentialProvider
         self.apiService = apiService ?? ClaudeAPIService()
+        self.usageSyncService = usageSyncService
         self.usageHistoryService = usageHistoryService ?? UsageHistoryService(defaults: defaults)
         self.defaults = defaults
         self.snapshotStore = UsageSnapshotStore(defaults: defaults)
@@ -505,7 +638,9 @@ extension UsageViewModel {
             // macOS is the source of truth: publish so iOS + widgets can consume
             // this without polling the Claude API themselves.
             if !appConnectionRevoked {
-                Task { await UsageSyncService.shared.publish(snapshot: newSnapshot, planType: planType) }
+                Task { [weak self] in
+                    await self?.publishContinuitySnapshot(newSnapshot)
+                }
             }
             #endif
 
@@ -592,9 +727,22 @@ extension UsageViewModel {
             return .failed
         }
 
-        if let synced = await UsageSyncService.shared.fetchLatest(),
+        if let synced = await usageSyncService.fetchLatest(),
            synced.age() <= Constants.syncFallbackThreshold {
             applySyncedSnapshot(synced)
+            if synced.syncGeneration != nil {
+                do {
+                    _ = try await usageSyncService.acknowledge(
+                        snapshot: synced,
+                        from: Self.currentSyncDevice
+                    )
+                    Logger.viewModel.debug("Acknowledged macOS-synced snapshot")
+                } catch {
+                    Logger.viewModel.error(
+                        "Could not acknowledge macOS-synced snapshot: \(error.localizedDescription)"
+                    )
+                }
+            }
             Logger.viewModel.debug("Applied macOS-synced snapshot (age \(Int(synced.age()))s)")
             return .updated
         }
@@ -647,15 +795,45 @@ extension UsageViewModel {
 
         #if os(macOS)
         guard let snapshot else {
-            errorMessage = "Refresh usage once before sharing it with iPhone and iPad."
+            continuitySyncErrorMessage = "Refresh usage once before sharing it with iPhone and iPad."
             return
         }
-        await UsageSyncService.shared.publish(snapshot: snapshot, planType: planType)
-        errorMessage = nil
+        await publishContinuitySnapshot(snapshot)
         #else
         _ = await refresh(force: true)
         #endif
     }
+
+    #if os(macOS)
+    func refreshContinuityReceipts() async {
+        guard publishedSyncGeneration != nil, !isCheckingContinuityReceipts else { return }
+        isCheckingContinuityReceipts = true
+        defer { isCheckingContinuityReceipts = false }
+
+        do {
+            continuityReceipts = try await usageSyncService.fetchReceipts()
+            continuitySyncErrorMessage = nil
+        } catch {
+            continuitySyncErrorMessage = "This Mac shared the latest usage, but could not verify iPhone or iPad: \(error.localizedDescription)"
+        }
+    }
+
+    private func publishContinuitySnapshot(_ snapshot: UsageSnapshot) async {
+        publishedSyncGeneration = nil
+        continuitySyncErrorMessage = nil
+
+        do {
+            let publication = try await usageSyncService.publish(
+                snapshot: snapshot,
+                planType: planType
+            )
+            publishedSyncGeneration = publication.syncGeneration
+            await refreshContinuityReceipts()
+        } catch {
+            continuitySyncErrorMessage = "This Mac could not share usage through iCloud: \(error.localizedDescription)"
+        }
+    }
+    #endif
 
     func revokeAppConnection() async {
         guard !isRevokingAppConnection else { return }
@@ -679,7 +857,14 @@ extension UsageViewModel {
         LiveActivityManager.shared.stop()
         #endif
 
-        _ = await UsageSyncService.shared.revoke()
+        #if os(macOS)
+        _ = await usageSyncService.revokeAll()
+        publishedSyncGeneration = nil
+        continuityReceipts = [:]
+        continuitySyncErrorMessage = nil
+        #else
+        _ = await usageSyncService.revoke(device: Self.currentSyncDevice)
+        #endif
     }
 
     func resumeAppConnection() async {
