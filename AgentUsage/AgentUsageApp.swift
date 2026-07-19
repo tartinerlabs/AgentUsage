@@ -131,6 +131,9 @@ struct AgentUsageApp: App {
             MenuBarIconView()
                 .environment(viewModel)
                 .task {
+                    await viewModel.initializeIfNeeded()
+                }
+                .task {
                     // Refresh immediately when the user grants local data access
                     // from the first-run onboarding, without waiting for the next cycle.
                     for await _ in NotificationCenter.default.notifications(named: .localDataAccessGranted) {
@@ -144,7 +147,11 @@ struct AgentUsageApp: App {
             MainTabView()
                 .environment(viewModel)
                 .onChange(of: scenePhase) { _, newPhase in
-                    if newPhase == .background {
+                    if newPhase == .active {
+                        Task {
+                            await viewModel.refreshContinuitySync()
+                        }
+                    } else if newPhase == .background {
                         backgroundRefreshCoordinator.schedule()
                     }
                 }
