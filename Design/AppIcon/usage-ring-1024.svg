@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1024" height="1024" viewBox="0 0 1024 1024"
+     role="img" aria-labelledby="title desc">
+  <title id="title">Usage ring</title>
+  <desc id="desc">A circular usage gauge: a neutral track ring with a bright blue-to-cyan progress arc.</desc>
+
+  <defs>
+    <!-- Neutral groove for the full track ring. Rendered semi-transparent so it
+         adapts to both light and dark backgrounds (reads as light-gray on light,
+         dark-gray on dark) while the accent arc stays vivid. -->
+    <linearGradient id="trackGrad" x1="512" y1="180" x2="512" y2="844" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9aa0aa"/>
+      <stop offset="0.55" stop-color="#7c828c"/>
+      <stop offset="1" stop-color="#6b7079"/>
+    </linearGradient>
+
+    <!-- Bright accent for the progress arc. -->
+    <linearGradient id="accentGrad" x1="512" y1="200" x2="205" y2="770" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7fd8ff"/>
+      <stop offset="0.45" stop-color="#4c9bff"/>
+      <stop offset="1" stop-color="#2f6bff"/>
+    </linearGradient>
+
+    <!-- Soft halo glow behind the arc's leading head. -->
+    <radialGradient id="headGlow" cx="0" cy="0" r="1"
+        gradientUnits="userSpaceOnUse"
+        gradientTransform="translate(205.5 570.5) scale(150)">
+      <stop offset="0" stop-color="#bfe9ff" stop-opacity="0.75"/>
+      <stop offset="0.5" stop-color="#5aa6ff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#5aa6ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Full neutral track ring. -->
+  <circle cx="512" cy="512" r="312" fill="none"
+          stroke="url(#trackGrad)" stroke-width="118"/>
+  <!-- Faint top highlight on the track for a subtle bevel. -->
+  <circle cx="512" cy="512" r="312" fill="none"
+          stroke="#ffffff" stroke-opacity="0.05" stroke-width="118"/>
+
+  <!-- Glow spread beneath the accent arc. -->
+  <path d="M 512 200 A 312 312 0 1 1 205.5 570.5" fill="none"
+        stroke="url(#accentGrad)" stroke-opacity="0.28"
+        stroke-width="150" stroke-linecap="round"/>
+
+  <!-- Main accent progress arc (~72%). -->
+  <path d="M 512 200 A 312 312 0 1 1 205.5 570.5" fill="none"
+        stroke="url(#accentGrad)" stroke-width="118" stroke-linecap="round"/>
+
+  <!-- Leading head glow. -->
+  <circle cx="205.5" cy="570.5" r="150" fill="url(#headGlow)"/>
+  <!-- Crisp specular dot on the leading cap. -->
+  <circle cx="205.5" cy="570.5" r="20" fill="#eaf6ff" fill-opacity="0.9"/>
+</svg>
