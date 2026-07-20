@@ -3,7 +3,6 @@
 //  AgentUsage
 //
 
-#if os(macOS)
 import Foundation
 import AgentUsageKit
 
@@ -18,6 +17,9 @@ protocol NotificationServiceProtocol: Actor {
     /// - Returns: True if authorized
     func checkPermission() async -> Bool
 
+    /// Get the current app-facing notification permission state.
+    func permissionState() async -> NotificationPermissionState
+
     /// Check for threshold crossings and send notifications
     /// - Parameters:
     ///   - oldSnapshot: Previous usage snapshot (nil on first fetch)
@@ -27,7 +29,6 @@ protocol NotificationServiceProtocol: Actor {
         newSnapshot: UsageSnapshot
     ) async
 
-    /// Send a test notification to verify setup
-    func sendTestNotification() async
+    /// Send a synthetic test notification that does not depend on usage data.
+    func sendTestNotification() async -> NotificationTestResult
 }
-#endif

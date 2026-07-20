@@ -3,16 +3,63 @@
 //  AgentUsage
 //
 
-#if os(macOS)
 import Foundation
 import AgentUsageKit
 import OSLog
 import UserNotifications
 
+protocol UserNotificationCenterClient: Actor {
+    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
+    func permissionState() async -> NotificationPermissionState
+    func add(_ request: UNNotificationRequest) async throws
+}
+
+actor SystemUserNotificationCenterClient: UserNotificationCenterClient {
+    private let center: UNUserNotificationCenter
+
+    init(center: UNUserNotificationCenter = .current()) {
+        self.center = center
+    }
+
+    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
+        try await center.requestAuthorization(options: options)
+    }
+
+    func permissionState() async -> NotificationPermissionState {
+        let settings = await center.notificationSettings()
+        return Self.permissionState(for: settings.authorizationStatus)
+    }
+
+    nonisolated static func permissionState(
+        for authorizationStatus: UNAuthorizationStatus
+    ) -> NotificationPermissionState {
+        switch authorizationStatus {
+        #if os(iOS)
+        case .authorized, .provisional, .ephemeral:
+            return .authorized
+        #else
+        case .authorized, .provisional:
+            return .authorized
+        #endif
+        case .notDetermined:
+            return .notDetermined
+        case .denied:
+            return .denied
+        @unknown default:
+            return .denied
+        }
+    }
+
+    func add(_ request: UNNotificationRequest) async throws {
+        try await center.add(request)
+    }
+}
+
 actor NotificationService: NotificationServiceProtocol {
     static let shared = NotificationService()
 
-    private let notificationCenter = UNUserNotificationCenter.current()
+    private let notificationCenter: any UserNotificationCenterClient
+    private nonisolated let settingsProvider: @Sendable () -> NotificationSettings
 
     // Track notified thresholds per window type and reset time to avoid duplicates
     private var notifiedThresholds: [String: Set<Int>] = [:]
@@ -20,13 +67,21 @@ actor NotificationService: NotificationServiceProtocol {
     // Track whether we've already notified about extra usage activation
     private var notifiedExtraUsage: Bool = false
 
-    private init() {}
+    init(
+        notificationCenter: any UserNotificationCenterClient = SystemUserNotificationCenterClient(),
+        settingsProvider: @escaping @Sendable () -> NotificationSettings = {
+            NotificationSettings.load()
+        }
+    ) {
+        self.notificationCenter = notificationCenter
+        self.settingsProvider = settingsProvider
+    }
 
     // MARK: - Settings
 
     /// Get current notification settings
     nonisolated var settings: NotificationSettings {
-        NotificationSettings.load()
+        settingsProvider()
     }
 
     /// Update notification settings
@@ -56,8 +111,11 @@ actor NotificationService: NotificationServiceProtocol {
     }
 
     func checkPermission() async -> Bool {
-        let settings = await notificationCenter.notificationSettings()
-        return settings.authorizationStatus == .authorized
+        await permissionState().canDeliverNotifications
+    }
+
+    func permissionState() async -> NotificationPermissionState {
+        await notificationCenter.permissionState()
     }
 
     // MARK: - Threshold Notifications
@@ -122,7 +180,12 @@ actor NotificationService: NotificationServiceProtocol {
         if currentSettings.notifyExtraUsage {
             let wasActive = oldSnapshot?.isExtraUsageActive ?? false
             let isActive = newSnapshot.isExtraUsageActive
-            if !wasActive && isActive && !notifiedExtraUsage {
+
+            if oldSnapshot == nil {
+                // First-observation suppression applies to extra usage too. Remember
+                // the observed state so a later deactivation can re-arm the alert.
+                notifiedExtraUsage = isActive
+            } else if !wasActive && isActive && !notifiedExtraUsage {
                 await sendExtraUsageNotification()
                 notifiedExtraUsage = true
             } else if !isActive {
@@ -167,9 +230,13 @@ actor NotificationService: NotificationServiceProtocol {
         // Pre-populate already-passed thresholds to prevent false "crossing" notifications on first launch
         if notifiedThresholds[windowKey] == nil {
             notifiedThresholds[windowKey] = []
-            // Mark thresholds already exceeded to avoid spurious notifications
-            for threshold in settings.thresholds where newPercent >= threshold {
-                notifiedThresholds[windowKey]?.insert(threshold)
+            // Suppress alerts only when this is the first snapshot the app has ever
+            // observed. If a cached old snapshot exists, preserve the crossing so an
+            // iOS process relaunch does not lose the notification.
+            if oldUsage == nil {
+                for threshold in settings.thresholds where newPercent >= threshold {
+                    notifiedThresholds[windowKey]?.insert(threshold)
+                }
             }
         }
 
@@ -198,11 +265,19 @@ actor NotificationService: NotificationServiceProtocol {
 
     // MARK: - Test Notifications
 
-    func sendTestNotification() async {
-        let hasPermission = await checkPermission()
-        guard hasPermission else {
-            _ = await requestPermission()
-            return
+    func sendTestNotification() async -> NotificationTestResult {
+        switch await permissionState() {
+        case .notDetermined:
+            let granted = await requestPermission()
+            if !granted {
+                return await permissionState() == .denied
+                    ? .permissionDenied
+                    : .failed("Notification permission could not be granted.")
+            }
+        case .denied:
+            return .permissionDenied
+        case .authorized:
+            break
         }
 
         let content = UNMutableNotificationContent()
@@ -218,8 +293,10 @@ actor NotificationService: NotificationServiceProtocol {
 
         do {
             try await notificationCenter.add(request)
+            return .sent
         } catch {
             Logger.notifications.error("Failed to send test notification: \(error.localizedDescription)")
+            return .failed(error.localizedDescription)
         }
     }
 
@@ -315,4 +392,3 @@ actor NotificationService: NotificationServiceProtocol {
         }
     }
 }
-#endif
