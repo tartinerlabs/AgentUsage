@@ -5,10 +5,13 @@
 
 #if os(iOS)
 import SwiftUI
+import UIKit
 
 /// iOS Settings view
 struct SettingsView: View {
     @Environment(UsageViewModel.self) private var viewModel
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var notificationSettings = NotificationSettings.load()
     @State private var showingRevokeSyncConfirmation = false
     @State private var showingRevokeSyncPopover = false
 
@@ -26,6 +29,47 @@ struct SettingsView: View {
                 Text("Auto Refresh")
             } footer: {
                 Text("How often to automatically fetch usage data.")
+            }
+
+            Section {
+                Toggle(isOn: notificationsEnabledBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Usage Alerts")
+                        Text("Notify when usage crosses 25%, 50%, 75%, or 100%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if viewModel.notificationPermissionState == .denied {
+                    Label("Notifications are disabled in iOS Settings", systemImage: "bell.slash")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Button("Open Settings") {
+                        openSystemSettings()
+                    }
+                } else {
+                    if viewModel.notificationsEnabled {
+                        Toggle("Extra Usage Alert", isOn: Binding(
+                            get: { notificationSettings.notifyExtraUsage },
+                            set: {
+                                notificationSettings.notifyExtraUsage = $0
+                                notificationSettings.save()
+                            }
+                        ))
+                    }
+
+                    Button("Send Test Notification") {
+                        Task { await viewModel.sendTestNotification() }
+                    }
+
+                    notificationTestStatus
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("Usage alerts are delivered when this device refreshes usage shared by your Mac. Test notifications use synthetic content and do not require synced usage data.")
             }
 
             Section {
@@ -65,12 +109,49 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await viewModel.refreshNotificationPermissionState()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task { await viewModel.refreshNotificationPermissionState() }
+        }
         .confirmationDialog("Revoke Sync?", isPresented: $showingRevokeSyncConfirmation, titleVisibility: .visible) {
             Button("Revoke Sync", role: .destructive) {
                 Task { await viewModel.revokeAppConnection() }
             }
         } message: {
             Text("This turns off Continuity Sync for this device and clears shared app data from this device.")
+        }
+    }
+
+    private var notificationsEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.notificationsEnabled },
+            set: { enabled in
+                Task { await viewModel.setNotificationsEnabled(enabled) }
+            }
+        )
+    }
+
+    private func openSystemSettings() {
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(settingsURL)
+    }
+
+    @ViewBuilder
+    private var notificationTestStatus: some View {
+        switch viewModel.notificationTestResult {
+        case .some(.sent):
+            EmptyView()
+        case .some(.permissionDenied):
+            Label("Notifications are disabled in iOS Settings.", systemImage: "bell.slash")
+                .foregroundStyle(.secondary)
+        case .some(.failed(let message)):
+            Label("Could not send the test: \(message)", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        case .none:
+            EmptyView()
         }
     }
 

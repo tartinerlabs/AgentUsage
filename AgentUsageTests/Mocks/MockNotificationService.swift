@@ -2,10 +2,9 @@
 //  MockNotificationService.swift
 //  AgentUsageTests
 //
-//  Mock implementation of NotificationServiceProtocol for testing (macOS)
+//  Mock implementation of NotificationServiceProtocol for testing
 //
 
-#if os(macOS)
 import Foundation
 @testable import AgentUsage
 import AgentUsageKit
@@ -14,6 +13,8 @@ import AgentUsageKit
 actor MockNotificationService: NotificationServiceProtocol {
     /// Configurable permission state
     var hasPermission = true
+    var currentPermissionState: NotificationPermissionState = .authorized
+    var testNotificationResult: NotificationTestResult = .sent
 
     /// Track notification requests
     private(set) var permissionRequestCount = 0
@@ -35,6 +36,10 @@ actor MockNotificationService: NotificationServiceProtocol {
         return hasPermission
     }
 
+    func permissionState() async -> NotificationPermissionState {
+        currentPermissionState
+    }
+
     func checkThresholdCrossings(
         oldSnapshot: UsageSnapshot?,
         newSnapshot: UsageSnapshot
@@ -44,13 +49,24 @@ actor MockNotificationService: NotificationServiceProtocol {
         lastNewSnapshot = newSnapshot
     }
 
-    func sendTestNotification() async {
+    func sendTestNotification() async -> NotificationTestResult {
         testNotificationCount += 1
+        return testNotificationResult
+    }
+
+    func configurePermission(
+        state: NotificationPermissionState,
+        grantsPermission: Bool
+    ) {
+        currentPermissionState = state
+        hasPermission = grantsPermission
     }
 
     /// Reset mock state
     func reset() {
         hasPermission = true
+        currentPermissionState = .authorized
+        testNotificationResult = .sent
         permissionRequestCount = 0
         permissionCheckCount = 0
         thresholdCheckCount = 0
@@ -59,4 +75,3 @@ actor MockNotificationService: NotificationServiceProtocol {
         lastNewSnapshot = nil
     }
 }
-#endif

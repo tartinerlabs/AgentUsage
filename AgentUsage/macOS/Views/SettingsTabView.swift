@@ -187,7 +187,7 @@ struct SettingsTabView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Toggle("", isOn: $viewModel.notificationsEnabled)
+                            Toggle("", isOn: notificationsEnabledBinding)
                                 .labelsHidden()
                         }
 
@@ -213,22 +213,25 @@ struct SettingsTabView: View {
                                 .labelsHidden()
                             }
 
-                            Divider()
+                        }
 
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Test Notification")
-                                        .font(.body)
-                                    Text("Send a test notification to verify setup")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Button("Test") {
-                                    Task { await NotificationService.shared.sendTestNotification() }
-                                }
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Test Notification")
+                                    .font(.body)
+                                Text("Uses synthetic content and does not require usage data")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Test") {
+                                Task { await viewModel.sendTestNotification() }
                             }
                         }
+
+                        notificationTestStatus
                     }
                 }
 
@@ -510,6 +513,31 @@ struct SettingsTabView: View {
             }
         } message: {
             Text("This turns off Continuity Sync on this Mac and removes the latest shared update for iPhone and iPad.")
+        }
+    }
+
+    private var notificationsEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.notificationsEnabled },
+            set: { enabled in
+                Task { await viewModel.setNotificationsEnabled(enabled) }
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var notificationTestStatus: some View {
+        switch viewModel.notificationTestResult {
+        case .some(.sent):
+            EmptyView()
+        case .some(.permissionDenied):
+            Label("Notifications are disabled in System Settings.", systemImage: "bell.slash")
+                .foregroundStyle(.secondary)
+        case .some(.failed(let message)):
+            Label("Could not send the test: \(message)", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        case .none:
+            EmptyView()
         }
     }
 

@@ -22,6 +22,7 @@ struct AgentUsageApp: App {
 
     let modelContainer: ModelContainer
     #else
+    @UIApplicationDelegateAdaptor(iOSAppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var backgroundRefreshCoordinator: BackgroundRefreshCoordinator
     #endif
@@ -149,6 +150,7 @@ struct AgentUsageApp: App {
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         Task {
+                            await viewModel.refreshNotificationPermissionState()
                             await viewModel.refreshContinuitySync()
                         }
                     } else if newPhase == .background {
