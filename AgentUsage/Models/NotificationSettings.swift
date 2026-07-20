@@ -5,11 +5,10 @@
 //  User-configurable notification preferences
 //
 
-#if os(macOS)
 import Foundation
 
 /// User-configurable notification settings
-struct NotificationSettings: Codable {
+nonisolated struct NotificationSettings: Codable, Equatable, Sendable {
     /// Thresholds at which to send notifications (e.g., [25, 50, 75, 100])
     var thresholds: [Int]
 
@@ -100,8 +99,8 @@ struct NotificationSettings: Codable {
     private static let storageKey = "notificationSettings"
 
     /// Load settings from UserDefaults
-    static func load() -> NotificationSettings {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+    static func load(defaults: UserDefaults = .standard) -> NotificationSettings {
+        guard let data = defaults.data(forKey: storageKey),
               let settings = try? JSONDecoder().decode(NotificationSettings.self, from: data) else {
             return .default
         }
@@ -109,9 +108,9 @@ struct NotificationSettings: Codable {
     }
 
     /// Save settings to UserDefaults
-    func save() {
+    func save(defaults: UserDefaults = .standard) {
         guard let data = try? JSONEncoder().encode(self) else { return }
-        UserDefaults.standard.set(data, forKey: NotificationSettings.storageKey)
+        defaults.set(data, forKey: NotificationSettings.storageKey)
     }
 
     /// Toggle a specific threshold
@@ -129,4 +128,3 @@ struct NotificationSettings: Codable {
         thresholds.contains(threshold)
     }
 }
-#endif

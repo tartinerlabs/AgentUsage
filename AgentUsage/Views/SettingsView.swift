@@ -74,12 +74,7 @@ private struct NotificationsTab: View {
 
         Form {
             Section {
-                Toggle("Enable Notifications", isOn: $viewModel.notificationsEnabled)
-                    .onChange(of: viewModel.notificationsEnabled) { _, enabled in
-                        if enabled {
-                            Task { await NotificationService.shared.requestPermission() }
-                        }
-                    }
+                Toggle("Enable Notifications", isOn: notificationsEnabledBinding)
             }
 
             if viewModel.notificationsEnabled {
@@ -132,14 +127,43 @@ private struct NotificationsTab: View {
                     .help("Get notified when extra usage starts. Requires extra usage to be enabled in your Claude account.")
                 }
 
-                Section {
-                    Button("Send Test Notification") {
-                        Task { await NotificationService.shared.sendTestNotification() }
-                    }
+            }
+
+            Section {
+                Button("Send Test Notification") {
+                    Task { await viewModel.sendTestNotification() }
                 }
+                notificationTestStatus
+            } footer: {
+                Text("Uses synthetic content and does not require usage data.")
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var notificationsEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.notificationsEnabled },
+            set: { enabled in
+                Task { await viewModel.setNotificationsEnabled(enabled) }
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var notificationTestStatus: some View {
+        switch viewModel.notificationTestResult {
+        case .some(.sent):
+            EmptyView()
+        case .some(.permissionDenied):
+            Label("Notifications are disabled in System Settings.", systemImage: "bell.slash")
+                .foregroundStyle(.secondary)
+        case .some(.failed(let message)):
+            Label("Could not send the test: \(message)", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        case .none:
+            EmptyView()
+        }
     }
 }
 
