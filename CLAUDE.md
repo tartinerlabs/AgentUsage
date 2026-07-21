@@ -114,7 +114,7 @@ MainTabView (TabView: Dashboard, Settings, About)
 UsageViewModel (@Observable, @MainActor)
     ↓
 iOSCredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (actor)
-    +  LiveActivityManager  +  WidgetDataManager
+    +  NotificationService (actor)  +  LiveActivityManager  +  WidgetDataManager
     ↓ (imports)
 AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
@@ -142,7 +142,7 @@ AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 | `ClaudeAPIService`           | Services/        | Fetches usage from Anthropic API. API constants in `Utilities/Constants.swift`.                                                                                                                                                                         |
 | `TokenUsageService`          | Services/        | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. Persists to SwiftData (macOS only).                                                                                                                            |
 | `TokenUsageRepository`       | Services/        | SwiftData `@ModelActor` for background queries of persisted token usage (macOS only).                                                                                                                                                                   |
-| `NotificationService`        | Services/        | Threshold-based usage alerts (25%, 50%, 75%, 100%) with reset notifications (macOS only).                                                                                                                                                               |
+| `NotificationService`        | Services/        | Local threshold-based usage alerts (25%, 50%, 75%, 100%) with reset and extra-usage notifications on macOS and iOS.                                                                                                                                      |
 | `UpdaterController`          | Services/        | Sparkle updater integration for automatic updates. Observes `canCheckForUpdates` state (macOS only).                                                                                                                                                    |
 | `LaunchAtLoginService`       | macOS/Services/  | Manages Login Items for launching app on macOS startup (macOS 13+).                                                                                                                                                                                     |
 | `LiveActivityManager`        | iOS/Services/    | Manages Live Activities for Dynamic Island on iOS.                                                                                                                                                                                                      |
@@ -243,10 +243,17 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 **iOS:**
 
 - Live Activities support: `NSSupportsLiveActivities = true`
-- Background modes: `remote-notification` for Live Activity updates
+- Background mode: `fetch` for best-effort CloudKit snapshot refreshes
 - App Groups for widget data sharing
+- Local notifications are evaluated from fresh Mac-synced snapshots; no APNs registration or remote-notification entitlement is used
 
 ## iOS Features
+
+**Notifications:**
+
+- Usage alerts are evaluated when a fresh Mac-synced snapshot arrives during foreground or background refresh
+- Foreground alerts present a banner with sound through `iOSAppDelegate`
+- Preferences are device-local, and delivery timing remains best-effort under iOS background scheduling
 
 **Home Screen Widgets:**
 
@@ -279,12 +286,13 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 - Countdown timer when at 100% usage
 - Quick access popover with usage cards
 
-**Notifications:**
+**Notifications (shared with iOS):**
 
 - Threshold alerts at 25%, 50%, 75%, 100%
 - Reset notifications when limit resets after being near capacity
 - Per-window tracking to avoid duplicate notifications
 - Test notification button in Settings
+- Notification preferences remain device-local so macOS and iOS can alert independently
 
 **Launch at Login:**
 
