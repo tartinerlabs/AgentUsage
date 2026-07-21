@@ -37,6 +37,14 @@ struct UsageStatusTests {
 
 // MARK: - UsageWindowType Tests
 
+@Suite("Provider")
+struct ProviderTests {
+    @Test func displayNamesDistinguishOpenCodeOfferings() {
+        #expect(Provider.openCode.displayName == "OpenCode Zen")
+        #expect(Provider.openCodeGo.displayName == "OpenCode Go")
+    }
+}
+
 @Suite("UsageWindowType")
 struct UsageWindowTypeTests {
     @Test func displayNames() {
