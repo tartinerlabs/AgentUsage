@@ -80,6 +80,20 @@ struct OpenCodeLogSourceTests {
         #expect(entry.tokens.cacheCreationTokens == 20)
     }
 
+    @Test func sqliteRowsSkipOpenCodeZenDirectAPI() async throws {
+        let root = try Self.temporaryDirectory()
+        let database = root.appendingPathComponent("opencode.db")
+        try Self.createSessionDatabase(
+            at: database,
+            modelJSON: #"{"id":"gpt-5.1-codex","providerID":"opencode"}"#
+        )
+
+        let source = OpenCodeLogSource(candidatePaths: [database])
+        let entries = try await source.fetchEntries(since: Date(timeIntervalSince1970: 0))
+
+        #expect(entries.isEmpty)
+    }
+
     @Test func extraProviderDetailsAggregateByEntryProviderNotSourceProvider() async throws {
         let source = StaticUsageLogSource(entries: [
             ProviderUsageEntry(
