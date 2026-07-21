@@ -11,12 +11,13 @@ import AgentUsageKit
 import OSLog
 import SQLite3
 
-/// Reads per-session token aggregates from OpenCode's SQLite DB
+/// Reads quota-relevant per-session token aggregates from OpenCode's SQLite DB
 /// (`~/.local/share/opencode/opencode.db`, `session` table).
 ///
 /// OpenCode stores a `cost` column but leaves it 0, so we recompute cost via
 /// `ModelPricing` using each session's `model.providerID`. The DB is in WAL mode
-/// with a live writer, so we open it read-only.
+/// with a live writer, so we open it read-only. Direct OpenCode Zen rows are
+/// intentionally skipped here because they have no app-tracked quota window.
 actor OpenCodeLogSource: UsageLogSource {
     nonisolated let provider: Provider = .openCode
 
@@ -78,6 +79,7 @@ actor OpenCodeLogSource: UsageLogSource {
             let timeCreatedMillis = sqlite3_column_int64(stmt, 7)
 
             let model = Self.parseModel(modelJSON)
+            guard model.provider != .openCode else { continue }
 
             let tokens = TokenCount(
                 inputTokens: input,

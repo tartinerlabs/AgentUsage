@@ -24,7 +24,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         switch self {
         case .claude: "Claude"
         case .codex: "Codex"
-        case .openCode: "OpenCode"
+        case .openCode: "OpenCode Zen"
         case .openCodeGo: "OpenCode Go"
         }
     }
