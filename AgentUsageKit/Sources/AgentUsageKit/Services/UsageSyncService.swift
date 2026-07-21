@@ -34,7 +34,7 @@ public struct PublishedUsageSnapshot: Equatable, Sendable {
 /// A usage snapshot received from another device via CloudKit, tagged with the
 /// time the source device fetched it and the generation used for acknowledgement.
 public struct SyncedUsageSnapshot: Sendable {
-    public let snapshot: UsageSnapshot
+    public let snapshot: UsageSnapshot?
     public let planType: String
     public let providerSnapshots: [ProviderUsageSnapshot]
     /// When the source device fetched this from the provider (not when it synced).
@@ -43,7 +43,7 @@ public struct SyncedUsageSnapshot: Sendable {
     public let syncGeneration: String?
 
     public init(
-        snapshot: UsageSnapshot,
+        snapshot: UsageSnapshot? = nil,
         planType: String,
         providerSnapshots: [ProviderUsageSnapshot] = [],
         fetchedAt: Date,
@@ -96,7 +96,7 @@ public enum UsageSyncError: LocalizedError, Equatable, Sendable {
 
 public protocol UsageSyncServicing: Sendable {
     func publish(
-        snapshot: UsageSnapshot,
+        snapshot: UsageSnapshot?,
         planType: String,
         providerSnapshots: [ProviderUsageSnapshot]
     ) async throws -> PublishedUsageSnapshot
@@ -169,25 +169,29 @@ public actor UsageSyncService: UsageSyncServicing {
     /// Publish the latest snapshot, overwriting the previous one. The returned
     /// generation becomes connected only after a mobile receipt echoes it.
     public func publish(
-        snapshot: UsageSnapshot,
+        snapshot: UsageSnapshot?,
         planType: String,
         providerSnapshots: [ProviderUsageSnapshot] = []
     ) async throws -> PublishedUsageSnapshot {
         let generation = UUID().uuidString
+        let fetchedAt = snapshot?.fetchedAt
+            ?? providerSnapshots.map(\.fetchedAt).max()
+            ?? Date()
 
         do {
-            let payload = try JSONEncoder().encode(snapshot)
             let providersPayload = try JSONEncoder().encode(providerSnapshots)
             let record = CKRecord(recordType: Self.snapshotRecordType, recordID: snapshotRecordID)
-            record[Self.payloadKey] = payload as CKRecordValue
+            if let snapshot {
+                record[Self.payloadKey] = try JSONEncoder().encode(snapshot) as CKRecordValue
+            }
             record[Self.planTypeKey] = planType as CKRecordValue
             record[Self.providerSnapshotsKey] = providersPayload as CKRecordValue
-            record[Self.fetchedAtKey] = snapshot.fetchedAt as CKRecordValue
+            record[Self.fetchedAtKey] = fetchedAt as CKRecordValue
             record[Self.syncGenerationKey] = generation as CKRecordValue
 
             _ = try await save(record)
             logger.debug("Published usage snapshot generation \(generation, privacy: .public)")
-            return PublishedUsageSnapshot(syncGeneration: generation, fetchedAt: snapshot.fetchedAt)
+            return PublishedUsageSnapshot(syncGeneration: generation, fetchedAt: fetchedAt)
         } catch {
             let syncError = Self.syncError(error, recordName: snapshotRecordID.recordName)
             logger.error("CloudKit publish failed: \(syncError.localizedDescription, privacy: .public)")
@@ -206,16 +210,24 @@ public actor UsageSyncService: UsageSyncServicing {
             }
             let record = try result.get()
 
-            guard let payload = record[Self.payloadKey] as? Data else {
+            let snapshot: UsageSnapshot?
+            if let payload = record[Self.payloadKey] as? Data {
+                snapshot = try JSONDecoder().decode(UsageSnapshot.self, from: payload)
+            } else {
+                snapshot = nil
+            }
+            let providerSnapshots = try Self.providerSnapshots(from: record)
+            guard snapshot != nil || !providerSnapshots.isEmpty else {
                 throw UsageSyncError.invalidRecord(
                     recordName: snapshotRecordID.recordName,
                     reason: "missing payload"
                 )
             }
-            let snapshot = try JSONDecoder().decode(UsageSnapshot.self, from: payload)
             let planType = record[Self.planTypeKey] as? String ?? "Free"
-            let providerSnapshots = try Self.providerSnapshots(from: record)
-            let fetchedAt = record[Self.fetchedAtKey] as? Date ?? snapshot.fetchedAt
+            let fetchedAt = record[Self.fetchedAtKey] as? Date
+                ?? snapshot?.fetchedAt
+                ?? providerSnapshots.map(\.fetchedAt).max()
+                ?? Date()
             let generation = record[Self.syncGenerationKey] as? String
             return SyncedUsageSnapshot(
                 snapshot: snapshot,

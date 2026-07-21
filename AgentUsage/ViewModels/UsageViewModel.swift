@@ -22,7 +22,7 @@ actor InactiveUsageSyncService: UsageSyncServicing {
     )
 
     func publish(
-        snapshot _: UsageSnapshot,
+        snapshot _: UsageSnapshot?,
         planType _: String,
         providerSnapshots _: [ProviderUsageSnapshot]
     ) async throws -> PublishedUsageSnapshot {
@@ -508,12 +508,18 @@ final class UsageViewModel {
         guard let cached = snapshotStore.load() else { return }
         snapshot = cached.snapshot
         planType = cached.planType
+        providerUsage = Dictionary(uniqueKeysWithValues: cached.providerSnapshots.map { ($0.provider, $0) })
         isUsingCachedData = true
         Logger.viewModel.debug("Loaded cached snapshot from \(self.timeSinceLastUpdate ?? "unknown time")")
     }
 
     private func cacheSnapshot(_ snapshot: UsageSnapshot, planType: String) {
-        snapshotStore.save(snapshot: snapshot, planType: planType, fetchedAt: Date())
+        snapshotStore.save(
+            snapshot: snapshot,
+            planType: planType,
+            providerSnapshots: providerUsage.values.sorted { $0.provider.rawValue < $1.provider.rawValue },
+            fetchedAt: Date()
+        )
         Logger.viewModel.debug("Cached snapshot successfully")
     }
 
@@ -617,9 +623,9 @@ extension UsageViewModel {
         // inside it are already independent of the Claude API.
         async let providersArm: Void = refreshExtraProviders()
         let (outcome, _) = await (claudeArm, providersArm)
-        if !appConnectionRevoked, let snapshot {
+        if !appConnectionRevoked, snapshot != nil || !providerUsage.isEmpty {
             Task { [weak self] in
-                await self?.publishContinuitySnapshot(snapshot)
+                await self?.publishContinuitySnapshot()
             }
         }
         Task { await runPassiveBlogUsageSync() }
@@ -783,18 +789,18 @@ extension UsageViewModel {
             return .failed
         }
 
-        if let synced = await usageSyncService.fetchLatest(),
-           synced.age() <= Constants.syncFallbackThreshold {
+        if let synced = await usageSyncService.fetchLatest() {
             let oldSnapshot = snapshot
-            let hasNewSnapshot = oldSnapshot?.fetchedAt != synced.snapshot.fetchedAt
-            applySyncedSnapshot(synced)
-            if hasNewSnapshot {
+            let hasNewSnapshot = synced.snapshot.map { oldSnapshot?.fetchedAt != $0.fetchedAt } ?? false
+            let isCached = synced.age() > Constants.syncFallbackThreshold
+            applySyncedSnapshot(synced, isCached: isCached)
+            if !isCached, hasNewSnapshot, let newSnapshot = synced.snapshot {
                 await checkUsageNotifications(
                     oldSnapshot: oldSnapshot,
-                    newSnapshot: synced.snapshot
+                    newSnapshot: newSnapshot
                 )
             }
-            if synced.syncGeneration != nil {
+            if !isCached, synced.syncGeneration != nil {
                 do {
                     _ = try await usageSyncService.acknowledge(
                         snapshot: synced,
@@ -808,7 +814,7 @@ extension UsageViewModel {
                 }
             }
             Logger.viewModel.debug("Applied macOS-synced snapshot (age \(Int(synced.age()))s)")
-            return .updated
+            return isCached ? .failed : .updated
         }
 
         if snapshot != nil {
@@ -824,11 +830,13 @@ extension UsageViewModel {
     /// Apply a snapshot received from the Mac: update UI state, persist it so
     /// freshness and offline fallback reflect the Mac's fetch time, and hand it to
     /// the widgets and Live Activity.
-    private func applySyncedSnapshot(_ synced: SyncedUsageSnapshot) {
-        snapshot = synced.snapshot
-        planType = synced.planType
+    private func applySyncedSnapshot(_ synced: SyncedUsageSnapshot, isCached: Bool = false) {
+        if let syncedSnapshot = synced.snapshot {
+            snapshot = syncedSnapshot
+            planType = synced.planType
+        }
         providerUsage = Dictionary(uniqueKeysWithValues: synced.providerSnapshots.map { ($0.provider, $0) })
-        isUsingCachedData = false
+        isUsingCachedData = isCached
         isNoUsageData = false
         receivedMacSyncedSnapshot = true
         errorMessage = nil
@@ -836,14 +844,17 @@ extension UsageViewModel {
         clearIncident(for: .claude)
 
         snapshotStore.save(
-            snapshot: synced.snapshot,
+            snapshot: snapshot,
             planType: synced.planType,
+            providerSnapshots: synced.providerSnapshots,
             fetchedAt: synced.fetchedAt
         )
 
         Task {
-            await WidgetDataManager.shared.save(synced.snapshot)
-            await LiveActivityManager.shared.update(snapshot: synced.snapshot)
+            if let snapshot = synced.snapshot {
+                await WidgetDataManager.shared.save(snapshot)
+                await LiveActivityManager.shared.update(snapshot: snapshot)
+            }
         }
     }
     #endif
@@ -859,11 +870,11 @@ extension UsageViewModel {
         }
 
         #if os(macOS)
-        guard let snapshot else {
+        guard snapshot != nil || !providerUsage.isEmpty else {
             continuitySyncErrorMessage = "Refresh usage once before sharing it with iPhone and iPad."
             return
         }
-        await publishContinuitySnapshot(snapshot)
+        await publishContinuitySnapshot()
         #else
         _ = await refresh(force: true)
         #endif
@@ -883,7 +894,7 @@ extension UsageViewModel {
         }
     }
 
-    private func publishContinuitySnapshot(_ snapshot: UsageSnapshot) async {
+    private func publishContinuitySnapshot() async {
         publishedSyncGeneration = nil
         continuitySyncErrorMessage = nil
 
