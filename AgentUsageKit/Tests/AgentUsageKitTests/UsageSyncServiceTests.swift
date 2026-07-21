@@ -48,6 +48,37 @@ struct UsageSyncServiceTests {
         #expect(synced.providerSnapshots.first?.windows.map(\.windowType) == [.codexFiveHour])
     }
 
+    @Test func publishStoresProviderSnapshotsWithoutClaudeSnapshot() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        let fetchedAt = Date()
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 42,
+                    resetsAt: Date().addingTimeInterval(3600),
+                    windowType: .codexFiveHour
+                ),
+            ],
+            planName: "Plus",
+            fetchedAt: fetchedAt
+        )
+
+        let publication = try await service.publish(
+            snapshot: nil,
+            planType: "Free",
+            providerSnapshots: [codexSnapshot]
+        )
+        let savedRecord = try #require(await database.record(named: "latest"))
+        let synced = try #require(await service.fetchLatest())
+
+        #expect(savedRecord["payload"] == nil)
+        #expect(publication.fetchedAt == fetchedAt)
+        #expect(synced.snapshot == nil)
+        #expect(synced.providerSnapshots.map(\.provider) == [.codex])
+    }
+
     @Test func publishSurfacesPerRecordFailure() async {
         let database = StubUsageSyncDatabase()
         await database.failSave(recordName: "latest", code: .serverRejectedRequest)
