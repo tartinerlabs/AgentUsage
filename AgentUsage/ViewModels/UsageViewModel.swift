@@ -23,7 +23,8 @@ actor InactiveUsageSyncService: UsageSyncServicing {
 
     func publish(
         snapshot _: UsageSnapshot,
-        planType _: String
+        planType _: String,
+        providerSnapshots _: [ProviderUsageSnapshot]
     ) async throws -> PublishedUsageSnapshot {
         throw unavailableError
     }
@@ -59,10 +60,12 @@ final class UsageViewModel {
     var selectedPeriodSummary: TokenUsageSummary?
     #if os(macOS)
     var periodSummaries: [UsagePeriod: TokenUsageSummary] = [:]
-    /// Rate-limit windows for optional macOS providers. Claude remains backed by
-    /// its cached `UsageSnapshot` because its API model is richer and shared with
+    #endif
+    /// Rate-limit windows for optional providers. Claude remains backed by its
+    /// cached `UsageSnapshot` because its API model is richer and shared with
     /// iOS and WidgetKit.
     private(set) var providerUsage: [Provider: ProviderUsageSnapshot] = [:]
+    #if os(macOS)
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
     /// for all providers (Claude, Codex, OpenCode).
     var providerDetails: [Provider: ProviderDetail] = [:]
@@ -234,16 +237,16 @@ final class UsageViewModel {
         }
     }
 
-    #if os(macOS)
-    var notificationsEnabled: Bool {
+    private(set) var notificationsEnabled: Bool {
         didSet {
             defaults.set(notificationsEnabled, forKey: "notificationsEnabled")
-            if notificationsEnabled {
-                Task { await NotificationService.shared.requestPermission() }
-            }
         }
     }
 
+    private(set) var notificationPermissionState: NotificationPermissionState = .notDetermined
+    private(set) var notificationTestResult: NotificationTestResult?
+
+    #if os(macOS)
     var menuBarProviders: [Provider] {
         MenuBarSettingsManager.supportedProviders
     }
@@ -284,6 +287,7 @@ final class UsageViewModel {
     private let defaults: UserDefaults
     private let snapshotStore: UsageSnapshotStore
     private let refreshScheduler: RefreshScheduler
+    private let notificationService: any NotificationServiceProtocol
     #if os(macOS)
     private let tokenUsageCoordinator: any TokenUsageCoordinating
     private let menuBarSettingsManager: MenuBarSettingsManager
@@ -441,6 +445,7 @@ final class UsageViewModel {
         providerUsageServices: [Provider: any ProviderUsageServiceProtocol] = [:],
         usageHistoryService: UsageHistoryService? = nil,
         usageSyncService: any UsageSyncServicing = InactiveUsageSyncService.shared,
+        notificationService: any NotificationServiceProtocol = NotificationService.shared,
         defaults: UserDefaults = .standard
     ) {
         self.credentialProvider = credentialProvider
@@ -450,6 +455,7 @@ final class UsageViewModel {
         self.defaults = defaults
         self.snapshotStore = UsageSnapshotStore(defaults: defaults)
         self.refreshScheduler = RefreshScheduler(defaults: defaults)
+        self.notificationService = notificationService
         self.tokenUsageCoordinator = tokenUsageCoordinator
             ?? TokenUsageCoordinator(tokenService: nil, defaults: defaults)
         self.menuBarSettingsManager = MenuBarSettingsManager(defaults: defaults)
@@ -474,6 +480,7 @@ final class UsageViewModel {
         apiService: (any APIServiceProtocol)? = nil,
         usageHistoryService: UsageHistoryService? = nil,
         usageSyncService: any UsageSyncServicing = InactiveUsageSyncService.shared,
+        notificationService: any NotificationServiceProtocol = NotificationService.shared,
         defaults: UserDefaults = .standard
     ) {
         self.credentialProvider = credentialProvider
@@ -483,8 +490,10 @@ final class UsageViewModel {
         self.defaults = defaults
         self.snapshotStore = UsageSnapshotStore(defaults: defaults)
         self.refreshScheduler = RefreshScheduler(defaults: defaults)
+        self.notificationService = notificationService
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
         self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
+        self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -506,6 +515,63 @@ final class UsageViewModel {
     private func cacheSnapshot(_ snapshot: UsageSnapshot, planType: String) {
         snapshotStore.save(snapshot: snapshot, planType: planType, fetchedAt: Date())
         Logger.viewModel.debug("Cached snapshot successfully")
+    }
+
+    // MARK: - Notifications
+
+    func setNotificationsEnabled(_ enabled: Bool) async {
+        notificationTestResult = nil
+        guard enabled else {
+            notificationsEnabled = false
+            return
+        }
+
+        let currentState = await notificationService.permissionState()
+        notificationPermissionState = currentState
+
+        switch currentState {
+        case .authorized:
+            notificationsEnabled = true
+        case .notDetermined:
+            let granted = await notificationService.requestPermission()
+            if granted {
+                notificationPermissionState = .authorized
+                notificationsEnabled = true
+            } else {
+                notificationPermissionState = await notificationService.permissionState()
+                notificationsEnabled = false
+            }
+        case .denied:
+            notificationsEnabled = false
+        }
+    }
+
+    func refreshNotificationPermissionState() async {
+        let currentState = await notificationService.permissionState()
+        notificationPermissionState = currentState
+        if currentState == .denied {
+            notificationsEnabled = false
+        }
+    }
+
+    func sendTestNotification() async {
+        notificationTestResult = await notificationService.sendTestNotification()
+        await refreshNotificationPermissionState()
+    }
+
+    func clearNotificationTestResult() {
+        notificationTestResult = nil
+    }
+
+    private func checkUsageNotifications(
+        oldSnapshot: UsageSnapshot?,
+        newSnapshot: UsageSnapshot
+    ) async {
+        guard notificationsEnabled else { return }
+        await notificationService.checkThresholdCrossings(
+            oldSnapshot: oldSnapshot,
+            newSnapshot: newSnapshot
+        )
     }
 }
 
@@ -551,6 +617,11 @@ extension UsageViewModel {
         // inside it are already independent of the Claude API.
         async let providersArm: Void = refreshExtraProviders()
         let (outcome, _) = await (claudeArm, providersArm)
+        if !appConnectionRevoked, let snapshot {
+            Task { [weak self] in
+                await self?.publishContinuitySnapshot(snapshot)
+            }
+        }
         Task { await runPassiveBlogUsageSync() }
         return outcome
         #else
@@ -558,10 +629,9 @@ extension UsageViewModel {
         #endif
     }
 
-    #if os(macOS)
-    /// Returns the provider-neutral usage snapshot used by macOS surfaces.
-    /// Claude is bridged from its existing cached snapshot; other providers are
-    /// populated by their optional local service.
+    /// Returns the provider-neutral usage snapshot used by provider surfaces.
+    /// Claude is bridged from its existing cached snapshot; other providers come
+    /// from local macOS services or macOS-published continuity sync.
     func usageSnapshot(for provider: Provider) -> ProviderUsageSnapshot? {
         if provider == .claude {
             return snapshot.map { ProviderUsageSnapshot(claude: $0, planName: planType) }
@@ -575,9 +645,13 @@ extension UsageViewModel {
         if snapshot != nil || isNoUsageData {
             providers.append(.claude)
         }
-        providers.append(contentsOf: Provider.allCases.filter {
-            $0 != .claude
-                && (usageSnapshot(for: $0) != nil || providerDetails[$0] != nil)
+        providers.append(contentsOf: Provider.allCases.filter { provider in
+            guard provider != .claude else { return false }
+            #if os(macOS)
+            return usageSnapshot(for: provider) != nil || providerDetails[provider] != nil
+            #else
+            return usageSnapshot(for: provider) != nil
+            #endif
         })
         return providers
     }
@@ -586,6 +660,7 @@ extension UsageViewModel {
         availableProviders.contains(provider)
     }
 
+    #if os(macOS)
     /// Extra-provider arm: local token usage then Codex/OpenCode rate windows.
     private func refreshExtraProviders() async {
         await refreshTokenUsage()
@@ -613,10 +688,8 @@ extension UsageViewModel {
         errorMessage = nil
         isNoUsageData = false  // Reset on each online fetch attempt
 
-        // Store old snapshot for threshold comparison (macOS only)
-        #if os(macOS)
+        // Store old snapshot for threshold comparison.
         let oldSnapshot = snapshot
-        #endif
 
         do {
             let credentials = try await credentialProvider.loadCredentials()
@@ -634,28 +707,11 @@ extension UsageViewModel {
             // Cache the successful response
             cacheSnapshot(newSnapshot, planType: planType)
 
-            #if os(macOS)
-            // macOS is the source of truth: publish so iOS + widgets can consume
-            // this without polling the Claude API themselves.
-            if !appConnectionRevoked {
-                Task { [weak self] in
-                    await self?.publishContinuitySnapshot(newSnapshot)
-                }
-            }
-            #endif
-
             // Record to usage history for trend tracking
             await usageHistoryService.record(snapshot: newSnapshot)
 
-            // Check for threshold crossings and send notifications (macOS only)
-            #if os(macOS)
-            if notificationsEnabled, let newSnapshot = snapshot {
-                await NotificationService.shared.checkThresholdCrossings(
-                    oldSnapshot: oldSnapshot,
-                    newSnapshot: newSnapshot
-                )
-            }
-            #endif
+            // Check for threshold crossings before platform-specific follow-up work.
+            await checkUsageNotifications(oldSnapshot: oldSnapshot, newSnapshot: newSnapshot)
 
             // Cache snapshot for widgets and update Live Activity (iOS only)
             #if os(iOS)
@@ -729,7 +785,15 @@ extension UsageViewModel {
 
         if let synced = await usageSyncService.fetchLatest(),
            synced.age() <= Constants.syncFallbackThreshold {
+            let oldSnapshot = snapshot
+            let hasNewSnapshot = oldSnapshot?.fetchedAt != synced.snapshot.fetchedAt
             applySyncedSnapshot(synced)
+            if hasNewSnapshot {
+                await checkUsageNotifications(
+                    oldSnapshot: oldSnapshot,
+                    newSnapshot: synced.snapshot
+                )
+            }
             if synced.syncGeneration != nil {
                 do {
                     _ = try await usageSyncService.acknowledge(
@@ -763,6 +827,7 @@ extension UsageViewModel {
     private func applySyncedSnapshot(_ synced: SyncedUsageSnapshot) {
         snapshot = synced.snapshot
         planType = synced.planType
+        providerUsage = Dictionary(uniqueKeysWithValues: synced.providerSnapshots.map { ($0.provider, $0) })
         isUsingCachedData = false
         isNoUsageData = false
         receivedMacSyncedSnapshot = true
@@ -825,7 +890,8 @@ extension UsageViewModel {
         do {
             let publication = try await usageSyncService.publish(
                 snapshot: snapshot,
-                planType: planType
+                planType: planType,
+                providerSnapshots: providerUsage.values.sorted { $0.provider.rawValue < $1.provider.rawValue }
             )
             publishedSyncGeneration = publication.syncGeneration
             await refreshContinuityReceipts()
@@ -848,6 +914,7 @@ extension UsageViewModel {
         snapshotStore.clear()
         snapshot = nil
         planType = "Free"
+        providerUsage.removeAll()
         isUsingCachedData = false
         isNoUsageData = false
         rateLimitedUntil = nil

@@ -90,6 +90,61 @@ struct UsageViewModelInitialStateTests {
     #endif
 }
 
+@Suite("UsageViewModel Notifications")
+struct UsageViewModelNotificationTests {
+    @Test @MainActor func enablingNotificationsRequestsAndPersistsPermission() async {
+        let testDefaults = TestUserDefaults()
+        let notifications = MockNotificationService()
+        await notifications.configurePermission(state: .notDetermined, grantsPermission: true)
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            notificationService: notifications,
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.setNotificationsEnabled(true)
+
+        #expect(viewModel.notificationsEnabled)
+        #expect(viewModel.notificationPermissionState == .authorized)
+        #expect(testDefaults.defaults.bool(forKey: "notificationsEnabled"))
+        #expect(await notifications.permissionRequestCount == 1)
+    }
+
+    @Test @MainActor func deniedPermissionDisablesStoredPreference() async {
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(true, forKey: "notificationsEnabled")
+        let notifications = MockNotificationService()
+        await notifications.configurePermission(state: .denied, grantsPermission: false)
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            notificationService: notifications,
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.refreshNotificationPermissionState()
+
+        #expect(!viewModel.notificationsEnabled)
+        #expect(viewModel.notificationPermissionState == .denied)
+        #expect(!testDefaults.defaults.bool(forKey: "notificationsEnabled"))
+    }
+
+    @Test @MainActor func testNotificationUsesInjectedServiceWithoutUsageDataOrPreference() async {
+        let notifications = MockNotificationService()
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            notificationService: notifications,
+            defaults: TestUserDefaults().defaults
+        )
+
+        await viewModel.sendTestNotification()
+
+        #expect(!viewModel.notificationsEnabled)
+        #expect(viewModel.snapshot == nil)
+        #expect(viewModel.notificationTestResult == .sent)
+        #expect(await notifications.testNotificationCount == 1)
+    }
+}
+
 // MARK: - ViewModel Status Calculation Tests
 
 @Suite("UsageViewModel Status Calculations")
@@ -582,6 +637,131 @@ struct UsageViewModelVerifiedContinuitySyncTests {
 #if os(iOS)
 @Suite("UsageViewModel mobile continuity acknowledgement")
 struct UsageViewModelMobileContinuityTests {
+    @Test @MainActor func cachedPreThresholdSnapshotAlertsAfterRelaunch() async {
+        let reset = Date().addingTimeInterval(3_600)
+        let cached = Self.snapshot(session: 20, reset: reset, fetchedAt: Date())
+        let crossed = Self.snapshot(
+            session: 30,
+            reset: reset,
+            fetchedAt: cached.fetchedAt.addingTimeInterval(60)
+        )
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(true, forKey: "notificationsEnabled")
+        UsageSnapshotStore(defaults: testDefaults.defaults).save(
+            snapshot: cached,
+            planType: "Pro",
+            fetchedAt: cached.fetchedAt
+        )
+        let syncService = MockUsageSyncService()
+        await syncService.configureFetchedSnapshot(Self.synced(crossed))
+        let notifications = MockNotificationService()
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            notificationService: notifications,
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(await notifications.thresholdCheckCount == 1)
+        #expect(await notifications.lastOldSnapshot?.session.percentUsed == 20)
+        #expect(await notifications.lastNewSnapshot?.session.percentUsed == 30)
+    }
+
+    @Test @MainActor func notificationsEvaluateOnlyNewFreshSyncedSnapshots() async {
+        let reset = Date().addingTimeInterval(3_600)
+        let initial = Self.snapshot(session: 20, reset: reset, fetchedAt: Date())
+        let crossed = Self.snapshot(
+            session: 30,
+            reset: reset,
+            fetchedAt: initial.fetchedAt.addingTimeInterval(60)
+        )
+        let syncService = MockUsageSyncService()
+        let notifications = MockNotificationService()
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(true, forKey: "notificationsEnabled")
+        await syncService.configureFetchedSnapshot(Self.synced(initial))
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            notificationService: notifications,
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.refreshContinuitySync()
+        await syncService.configureFetchedSnapshot(Self.synced(crossed))
+        await viewModel.refreshContinuitySync()
+        await viewModel.refreshContinuitySync()
+        await syncService.configureFetchedSnapshot(nil)
+        await viewModel.refreshContinuitySync()
+        let stale = Self.snapshot(
+            session: 40,
+            reset: reset,
+            fetchedAt: Date().addingTimeInterval(-(Constants.syncFallbackThreshold + 60))
+        )
+        await syncService.configureFetchedSnapshot(Self.synced(stale))
+        await viewModel.refreshContinuitySync()
+
+        #expect(await notifications.thresholdCheckCount == 2)
+        #expect(await notifications.lastOldSnapshot?.session.percentUsed == 20)
+        #expect(await notifications.lastNewSnapshot?.session.percentUsed == 30)
+    }
+
+    @Test @MainActor func disabledUsageAlertsSkipSyncedSnapshotEvaluation() async {
+        let syncService = MockUsageSyncService()
+        let notifications = MockNotificationService()
+        let snapshot = Self.snapshot(
+            session: 30,
+            reset: Date().addingTimeInterval(3_600),
+            fetchedAt: Date()
+        )
+        await syncService.configureFetchedSnapshot(Self.synced(snapshot))
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            notificationService: notifications,
+            defaults: TestUserDefaults().defaults
+        )
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(!viewModel.notificationsEnabled)
+        #expect(await notifications.thresholdCheckCount == 0)
+    }
+
+    @Test @MainActor func syncedProviderSnapshotsAreAvailableOnMobile() async {
+        let snapshot = Self.snapshot()
+        let codexWindow = UsageWindow(
+            utilization: 54,
+            resetsAt: Date().addingTimeInterval(3_600),
+            windowType: .codexFiveHour
+        )
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [codexWindow],
+            planName: "Plus",
+            fetchedAt: snapshot.fetchedAt
+        )
+        let syncService = MockUsageSyncService()
+        await syncService.configureFetchedSnapshot(
+            SyncedUsageSnapshot(
+                snapshot: snapshot,
+                planType: "Pro",
+                providerSnapshots: [codexSnapshot],
+                fetchedAt: snapshot.fetchedAt,
+                syncGeneration: "mobile-generation"
+            )
+        )
+        let viewModel = Self.makeViewModel(syncService: syncService)
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
+        #expect(viewModel.usageSnapshot(for: .codex)?.windows.map(\.windowType) == [.codexFiveHour])
+        #expect(viewModel.hasProviderData(.codex))
+    }
+
     @Test @MainActor func receiptFailureDoesNotDiscardFetchedSnapshot() async {
         let snapshot = UsageSnapshot(
             session: UsageWindow(
@@ -674,10 +854,22 @@ struct UsageViewModelMobileContinuityTests {
     }
 
     private static func snapshot() -> UsageSnapshot {
+        snapshot(
+            session: 20,
+            reset: Date().addingTimeInterval(3_600),
+            fetchedAt: Date()
+        )
+    }
+
+    private static func snapshot(
+        session: Double,
+        reset: Date,
+        fetchedAt: Date
+    ) -> UsageSnapshot {
         UsageSnapshot(
             session: UsageWindow(
-                utilization: 20,
-                resetsAt: Date().addingTimeInterval(3600),
+                utilization: session,
+                resetsAt: reset,
                 windowType: .session
             ),
             opus: UsageWindow(
@@ -686,13 +878,21 @@ struct UsageViewModelMobileContinuityTests {
                 windowType: .opus
             ),
             sonnet: nil,
-            fetchedAt: Date()
+            fetchedAt: fetchedAt
+        )
+    }
+
+    private static func synced(_ snapshot: UsageSnapshot) -> SyncedUsageSnapshot {
+        SyncedUsageSnapshot(
+            snapshot: snapshot,
+            planType: "Pro",
+            fetchedAt: snapshot.fetchedAt
         )
     }
 }
 #endif
 
-private actor MockUsageSyncService: UsageSyncServicing {
+actor MockUsageSyncService: UsageSyncServicing {
     private var publication = PublishedUsageSnapshot(
         syncGeneration: "generation",
         fetchedAt: Date()
@@ -747,7 +947,11 @@ private actor MockUsageSyncService: UsageSyncServicing {
         revokedAll
     }
 
-    func publish(snapshot: UsageSnapshot, planType: String) async throws -> PublishedUsageSnapshot {
+    func publish(
+        snapshot: UsageSnapshot,
+        planType: String,
+        providerSnapshots: [ProviderUsageSnapshot]
+    ) async throws -> PublishedUsageSnapshot {
         if let publishError { throw publishError }
         return publication
     }
