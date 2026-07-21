@@ -228,6 +228,19 @@ struct DashboardView: View {
         if viewModel.showExtraUsageIndicators, let extraUsage = snapshot.extraUsage {
             extraUsageCostCard(extraUsage)
         }
+
+        if let codexUsage = viewModel.usageSnapshot(for: .codex) {
+            ProviderCardView(
+                provider: .codex,
+                planName: codexUsage.planName,
+                windows: codexUsage.windows,
+                extraUsage: codexUsage.extraUsage,
+                now: now,
+                showExtraUsage: viewModel.showExtraUsageIndicators,
+                rateLimitResetCredits: codexUsage.rateLimitResetCredits
+            )
+            .accessibilityLabel("Codex usage")
+        }
     }
 
     // MARK: - Extra Usage Cost Card

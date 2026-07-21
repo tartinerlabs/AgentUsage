@@ -36,6 +36,7 @@ public struct PublishedUsageSnapshot: Equatable, Sendable {
 public struct SyncedUsageSnapshot: Sendable {
     public let snapshot: UsageSnapshot
     public let planType: String
+    public let providerSnapshots: [ProviderUsageSnapshot]
     /// When the source device fetched this from the provider (not when it synced).
     public let fetchedAt: Date
     /// Nil for records written by builds released before verified receipts existed.
@@ -44,11 +45,13 @@ public struct SyncedUsageSnapshot: Sendable {
     public init(
         snapshot: UsageSnapshot,
         planType: String,
+        providerSnapshots: [ProviderUsageSnapshot] = [],
         fetchedAt: Date,
         syncGeneration: String? = nil
     ) {
         self.snapshot = snapshot
         self.planType = planType
+        self.providerSnapshots = providerSnapshots
         self.fetchedAt = fetchedAt
         self.syncGeneration = syncGeneration
     }
@@ -92,7 +95,11 @@ public enum UsageSyncError: LocalizedError, Equatable, Sendable {
 }
 
 public protocol UsageSyncServicing: Sendable {
-    func publish(snapshot: UsageSnapshot, planType: String) async throws -> PublishedUsageSnapshot
+    func publish(
+        snapshot: UsageSnapshot,
+        planType: String,
+        providerSnapshots: [ProviderUsageSnapshot]
+    ) async throws -> PublishedUsageSnapshot
     func fetchLatest() async -> SyncedUsageSnapshot?
     func acknowledge(
         snapshot: SyncedUsageSnapshot,
@@ -136,6 +143,7 @@ public actor UsageSyncService: UsageSyncServicing {
     private static let receiptRecordType = "ContinuityReceipt"
     private static let payloadKey = "payload"
     private static let planTypeKey = "planType"
+    private static let providerSnapshotsKey = "providerSnapshots"
     private static let fetchedAtKey = "fetchedAt"
     private static let syncGenerationKey = "syncGeneration"
     private static let deviceKindKey = "deviceKind"
@@ -162,15 +170,18 @@ public actor UsageSyncService: UsageSyncServicing {
     /// generation becomes connected only after a mobile receipt echoes it.
     public func publish(
         snapshot: UsageSnapshot,
-        planType: String
+        planType: String,
+        providerSnapshots: [ProviderUsageSnapshot] = []
     ) async throws -> PublishedUsageSnapshot {
         let generation = UUID().uuidString
 
         do {
             let payload = try JSONEncoder().encode(snapshot)
+            let providersPayload = try JSONEncoder().encode(providerSnapshots)
             let record = CKRecord(recordType: Self.snapshotRecordType, recordID: snapshotRecordID)
             record[Self.payloadKey] = payload as CKRecordValue
             record[Self.planTypeKey] = planType as CKRecordValue
+            record[Self.providerSnapshotsKey] = providersPayload as CKRecordValue
             record[Self.fetchedAtKey] = snapshot.fetchedAt as CKRecordValue
             record[Self.syncGenerationKey] = generation as CKRecordValue
 
@@ -203,11 +214,13 @@ public actor UsageSyncService: UsageSyncServicing {
             }
             let snapshot = try JSONDecoder().decode(UsageSnapshot.self, from: payload)
             let planType = record[Self.planTypeKey] as? String ?? "Free"
+            let providerSnapshots = try Self.providerSnapshots(from: record)
             let fetchedAt = record[Self.fetchedAtKey] as? Date ?? snapshot.fetchedAt
             let generation = record[Self.syncGenerationKey] as? String
             return SyncedUsageSnapshot(
                 snapshot: snapshot,
                 planType: planType,
+                providerSnapshots: providerSnapshots,
                 fetchedAt: fetchedAt,
                 syncGeneration: generation
             )
@@ -385,6 +398,13 @@ public actor UsageSyncService: UsageSyncServicing {
             syncGeneration: generation,
             acknowledgedAt: acknowledgedAt
         )
+    }
+
+    private static func providerSnapshots(from record: CKRecord) throws -> [ProviderUsageSnapshot] {
+        guard let payload = record[providerSnapshotsKey] as? Data else {
+            return []
+        }
+        return try JSONDecoder().decode([ProviderUsageSnapshot].self, from: payload)
     }
 
     static func receiptRecordID(for device: UsageSyncDevice) -> CKRecord.ID {

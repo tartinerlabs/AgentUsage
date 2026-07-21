@@ -19,6 +19,35 @@ struct UsageSyncServiceTests {
         #expect(savedRecord["planType"] as? String == "Pro")
     }
 
+    @Test func publishStoresProviderSnapshots() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        let snapshot = Self.snapshot()
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 42,
+                    resetsAt: Date().addingTimeInterval(3600),
+                    windowType: .codexFiveHour
+                ),
+            ],
+            planName: "Plus",
+            fetchedAt: snapshot.fetchedAt
+        )
+
+        _ = try await service.publish(
+            snapshot: snapshot,
+            planType: "Pro",
+            providerSnapshots: [codexSnapshot]
+        )
+        let synced = try #require(await service.fetchLatest())
+
+        #expect(synced.providerSnapshots.map(\.provider) == [.codex])
+        #expect(synced.providerSnapshots.first?.planName == "Plus")
+        #expect(synced.providerSnapshots.first?.windows.map(\.windowType) == [.codexFiveHour])
+    }
+
     @Test func publishSurfacesPerRecordFailure() async {
         let database = StubUsageSyncDatabase()
         await database.failSave(recordName: "latest", code: .serverRejectedRequest)
@@ -60,6 +89,7 @@ struct UsageSyncServiceTests {
         let synced = await UsageSyncService(database: database).fetchLatest()
 
         #expect(synced?.planType == "Pro")
+        #expect(synced?.providerSnapshots.isEmpty == true)
         #expect(synced?.syncGeneration == nil)
     }
 
