@@ -43,6 +43,39 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.refreshInterval == .fiveMinutes)
     }
 
+    @Test @MainActor func cachedProviderSnapshotsLoadWithoutClaudeDependency() async {
+        let testDefaults = TestUserDefaults()
+        let fetchedAt = Date()
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 42,
+                    resetsAt: Date().addingTimeInterval(3_600),
+                    windowType: .codexFiveHour
+                ),
+            ],
+            planName: "Plus",
+            fetchedAt: fetchedAt
+        )
+        UsageSnapshotStore(defaults: testDefaults.defaults).save(
+            snapshot: nil,
+            planType: "Free",
+            providerSnapshots: [codexSnapshot],
+            fetchedAt: fetchedAt
+        )
+
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            defaults: testDefaults.defaults
+        )
+
+        #expect(viewModel.snapshot == nil)
+        #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
+        #expect(viewModel.hasProviderData(.codex))
+        #expect(!viewModel.hasProviderData(.claude))
+    }
+
     @Test @MainActor func loadsRefreshIntervalFromUserDefaults() async {
         let testDefaults = TestUserDefaults()
         testDefaults.defaults.set("1min", forKey: "refreshInterval")
@@ -762,6 +795,103 @@ struct UsageViewModelMobileContinuityTests {
         #expect(viewModel.hasProviderData(.codex))
     }
 
+    @Test @MainActor func syncedProviderSnapshotsAreAvailableOnMobileWithoutClaudeSnapshot() async {
+        let fetchedAt = Date()
+        let codexWindow = UsageWindow(
+            utilization: 54,
+            resetsAt: Date().addingTimeInterval(3_600),
+            windowType: .codexFiveHour
+        )
+        let openCodeGoWindow = UsageWindow(
+            utilization: 28,
+            resetsAt: Date().addingTimeInterval(7_200),
+            windowType: .openCodeGoFiveHour
+        )
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [codexWindow],
+            planName: "Plus",
+            fetchedAt: fetchedAt
+        )
+        let openCodeGoSnapshot = ProviderUsageSnapshot(
+            provider: .openCodeGo,
+            windows: [openCodeGoWindow],
+            planName: "Go",
+            fetchedAt: fetchedAt
+        )
+        let syncService = MockUsageSyncService()
+        await syncService.configureFetchedSnapshot(
+            SyncedUsageSnapshot(
+                planType: "Free",
+                providerSnapshots: [codexSnapshot, openCodeGoSnapshot],
+                fetchedAt: fetchedAt,
+                syncGeneration: "provider-only-generation"
+            )
+        )
+        let viewModel = Self.makeViewModel(syncService: syncService)
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.snapshot == nil)
+        #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
+        #expect(viewModel.usageSnapshot(for: .codex)?.windows.map(\.windowType) == [.codexFiveHour])
+        #expect(viewModel.usageSnapshot(for: .openCodeGo)?.planName == "Go")
+        #expect(viewModel.usageSnapshot(for: .openCodeGo)?.windows.map(\.windowType) == [.openCodeGoFiveHour])
+        #expect(viewModel.hasProviderData(.codex))
+        #expect(viewModel.hasProviderData(.openCodeGo))
+        #expect(!viewModel.hasProviderData(.claude))
+    }
+
+    @Test @MainActor func staleSyncedProviderSnapshotsRemainAvailableAsCachedDataOnMobile() async {
+        let cachedClaude = Self.snapshot(
+            session: 15,
+            reset: Date().addingTimeInterval(3_600),
+            fetchedAt: Date().addingTimeInterval(-22 * 3_600)
+        )
+        let fetchedAt = Date().addingTimeInterval(-(Constants.syncFallbackThreshold + 60))
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 54,
+                    resetsAt: Date().addingTimeInterval(3_600),
+                    windowType: .codexFiveHour
+                ),
+            ],
+            planName: "Plus",
+            fetchedAt: fetchedAt
+        )
+        let testDefaults = TestUserDefaults()
+        UsageSnapshotStore(defaults: testDefaults.defaults).save(
+            snapshot: cachedClaude,
+            planType: "Max",
+            fetchedAt: cachedClaude.fetchedAt
+        )
+        let syncService = MockUsageSyncService()
+        await syncService.configureFetchedSnapshot(
+            SyncedUsageSnapshot(
+                planType: "Free",
+                providerSnapshots: [codexSnapshot],
+                fetchedAt: fetchedAt,
+                syncGeneration: "stale-provider-generation"
+            )
+        )
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.snapshot?.session.percentUsed == 15)
+        #expect(viewModel.planType == "Max")
+        #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
+        #expect(viewModel.hasProviderData(.codex))
+        #expect(viewModel.isUsingCachedData)
+        #expect(await syncService.acknowledgementCount() == 0)
+    }
+
     @Test @MainActor func receiptFailureDoesNotDiscardFetchedSnapshot() async {
         let snapshot = UsageSnapshot(
             session: UsageWindow(
@@ -948,7 +1078,7 @@ actor MockUsageSyncService: UsageSyncServicing {
     }
 
     func publish(
-        snapshot: UsageSnapshot,
+        snapshot: UsageSnapshot?,
         planType: String,
         providerSnapshots: [ProviderUsageSnapshot]
     ) async throws -> PublishedUsageSnapshot {

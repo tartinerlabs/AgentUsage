@@ -20,6 +20,10 @@ struct DashboardView: View {
             VStack(spacing: 20) {
                 headerCard
 
+                if viewModel.snapshot == nil {
+                    secondaryProviderCards
+                }
+
                 if let snapshot = viewModel.snapshot {
                     // Offline indicator
                     if viewModel.isUsingCachedData {
@@ -229,17 +233,24 @@ struct DashboardView: View {
             extraUsageCostCard(extraUsage)
         }
 
-        if let codexUsage = viewModel.usageSnapshot(for: .codex) {
-            ProviderCardView(
-                provider: .codex,
-                planName: codexUsage.planName,
-                windows: codexUsage.windows,
-                extraUsage: codexUsage.extraUsage,
-                now: now,
-                showExtraUsage: viewModel.showExtraUsageIndicators,
-                rateLimitResetCredits: codexUsage.rateLimitResetCredits
-            )
-            .accessibilityLabel("Codex usage")
+        secondaryProviderCards
+    }
+
+    @ViewBuilder
+    private var secondaryProviderCards: some View {
+        ForEach(viewModel.availableProviders.filter { $0 != .claude }) { provider in
+            if let providerUsage = viewModel.usageSnapshot(for: provider) {
+                ProviderCardView(
+                    provider: provider,
+                    planName: providerUsage.planName,
+                    windows: providerUsage.windows,
+                    extraUsage: providerUsage.extraUsage,
+                    now: now,
+                    showExtraUsage: viewModel.showExtraUsageIndicators,
+                    rateLimitResetCredits: providerUsage.rateLimitResetCredits
+                )
+                .accessibilityLabel("\(provider.displayName) usage")
+            }
         }
     }
 
