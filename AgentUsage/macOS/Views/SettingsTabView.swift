@@ -92,6 +92,22 @@ struct SettingsTabView: View {
 
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
+                                Text("Setup Guide")
+                                    .font(.body)
+                                Text("Review local data access and Continuity Sync")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Run Setup Again") {
+                                NotificationCenter.default.post(name: .showOnboarding, object: nil)
+                            }
+                        }
+
+                        Divider()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("Refresh Interval")
                                     .font(.body)
                                 Text("How often to fetch usage data")
