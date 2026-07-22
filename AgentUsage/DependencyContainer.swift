@@ -37,14 +37,13 @@ enum DependencyContainer {
     #if os(macOS)
     /// Create the token usage service for local JSONL log parsing.
     ///
-    /// Codex and OpenCode sources are attached unconditionally: each no-ops when its
-    /// data path is absent or the user has not yet granted sandbox access, so there is
-    /// no launch-time `fileExists` probe (which would fail before a grant exists and
-    /// would otherwise require rebuilding services after every new grant).
+    /// Codex sources are attached unconditionally: each no-ops when its data path
+    /// is absent or the user has not yet granted sandbox access, so there is no
+    /// launch-time `fileExists` probe.
     static func createTokenUsageService(defaults: UserDefaults = .standard) -> TokenUsageService {
         let sources: [any UsageLogSource] = [
             CodexLogSource(),
-            OpenCodeLogSource(),
+            // OpenCodeLogSource(), // Disabled: OpenCode usage is currently unreliable.
         ]
         return TokenUsageService(extraSources: sources)
     }
@@ -85,7 +84,7 @@ enum DependencyContainer {
     static func createProviderUsageServices(defaults: UserDefaults = .standard) -> [Provider: any ProviderUsageServiceProtocol] {
         [
             .codex: CodexUsageService(),
-            .openCodeGo: OpenCodeGoLocalUsageService(),
+            // .openCodeGo: OpenCodeGoLocalUsageService(), // Disabled: OpenCode usage is currently unreliable.
         ]
     }
     #endif

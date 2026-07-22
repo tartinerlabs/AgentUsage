@@ -288,6 +288,8 @@ final class UsageViewModel {
     private let snapshotStore: UsageSnapshotStore
     private let refreshScheduler: RefreshScheduler
     private let notificationService: any NotificationServiceProtocol
+    private static let disabledProviders: Set<Provider> = [.openCode, .openCodeGo]
+
     #if os(macOS)
     private let tokenUsageCoordinator: any TokenUsageCoordinating
     private let menuBarSettingsManager: MenuBarSettingsManager
@@ -508,7 +510,7 @@ final class UsageViewModel {
         guard let cached = snapshotStore.load() else { return }
         snapshot = cached.snapshot
         planType = cached.planType
-        providerUsage = Dictionary(uniqueKeysWithValues: cached.providerSnapshots.map { ($0.provider, $0) })
+        providerUsage = providerUsageDictionary(from: cached.providerSnapshots)
         isUsingCachedData = true
         Logger.viewModel.debug("Loaded cached snapshot from \(self.timeSinceLastUpdate ?? "unknown time")")
     }
@@ -517,10 +519,20 @@ final class UsageViewModel {
         snapshotStore.save(
             snapshot: snapshot,
             planType: planType,
-            providerSnapshots: providerUsage.values.sorted { $0.provider.rawValue < $1.provider.rawValue },
+            providerSnapshots: enabledProviderSnapshots(from: providerUsage.values),
             fetchedAt: Date()
         )
         Logger.viewModel.debug("Cached snapshot successfully")
+    }
+
+    private func providerUsageDictionary(from snapshots: [ProviderUsageSnapshot]) -> [Provider: ProviderUsageSnapshot] {
+        Dictionary(uniqueKeysWithValues: enabledProviderSnapshots(from: snapshots).map { ($0.provider, $0) })
+    }
+
+    private func enabledProviderSnapshots(from snapshots: some Sequence<ProviderUsageSnapshot>) -> [ProviderUsageSnapshot] {
+        snapshots
+            .filter { !Self.disabledProviders.contains($0.provider) }
+            .sorted { $0.provider.rawValue < $1.provider.rawValue }
     }
 
     // MARK: - Notifications
@@ -639,6 +651,7 @@ extension UsageViewModel {
     /// Claude is bridged from its existing cached snapshot; other providers come
     /// from local macOS services or macOS-published continuity sync.
     func usageSnapshot(for provider: Provider) -> ProviderUsageSnapshot? {
+        guard !Self.disabledProviders.contains(provider) else { return nil }
         if provider == .claude {
             return snapshot.map { ProviderUsageSnapshot(claude: $0, planName: planType) }
         }
@@ -653,6 +666,7 @@ extension UsageViewModel {
         }
         providers.append(contentsOf: Provider.allCases.filter { provider in
             guard provider != .claude else { return false }
+            guard !Self.disabledProviders.contains(provider) else { return false }
             #if os(macOS)
             return usageSnapshot(for: provider) != nil || providerDetails[provider] != nil
             #else
@@ -835,7 +849,8 @@ extension UsageViewModel {
             snapshot = syncedSnapshot
             planType = synced.planType
         }
-        providerUsage = Dictionary(uniqueKeysWithValues: synced.providerSnapshots.map { ($0.provider, $0) })
+        let syncedProviderSnapshots = enabledProviderSnapshots(from: synced.providerSnapshots)
+        providerUsage = providerUsageDictionary(from: syncedProviderSnapshots)
         isUsingCachedData = isCached
         isNoUsageData = false
         receivedMacSyncedSnapshot = true
@@ -846,7 +861,7 @@ extension UsageViewModel {
         snapshotStore.save(
             snapshot: snapshot,
             planType: synced.planType,
-            providerSnapshots: synced.providerSnapshots,
+            providerSnapshots: syncedProviderSnapshots,
             fetchedAt: synced.fetchedAt
         )
 
@@ -902,7 +917,7 @@ extension UsageViewModel {
             let publication = try await usageSyncService.publish(
                 snapshot: snapshot,
                 planType: planType,
-                providerSnapshots: providerUsage.values.sorted { $0.provider.rawValue < $1.provider.rawValue }
+                providerSnapshots: enabledProviderSnapshots(from: providerUsage.values)
             )
             publishedSyncGeneration = publication.syncGeneration
             await refreshContinuityReceipts()
