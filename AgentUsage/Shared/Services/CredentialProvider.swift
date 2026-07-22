@@ -38,7 +38,7 @@ enum CredentialError: LocalizedError {
             return "Missing required 'user:profile' scope."
         case .keychainNotFound:
             #if os(iOS)
-            return "Credentials not synced. Please open AgentUsage on your Mac first."
+            return "Credentials not found in sync. Please open AgentUsage on your Mac first."
             #else
             return "Credentials not found in Keychain."
             #endif
