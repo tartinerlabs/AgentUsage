@@ -106,6 +106,14 @@ struct SettingsView: View {
                 Text("Continuity")
             }
 
+            Section("Setup") {
+                Button {
+                    NotificationCenter.default.post(name: .showOnboarding, object: nil)
+                } label: {
+                    Label("Run Setup Again", systemImage: "sparkles")
+                }
+            }
+
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)

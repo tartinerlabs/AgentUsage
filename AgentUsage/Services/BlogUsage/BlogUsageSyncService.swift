@@ -6,7 +6,6 @@
 #if os(macOS)
 import CryptoKit
 import Foundation
-import OSLog
 import SQLite3
 
 nonisolated struct BlogUsageEvent: Sendable, Equatable {
@@ -248,10 +247,10 @@ nonisolated struct BlogUsageAggregator {
 }
 
 nonisolated struct BlogUsageSourceParser {
-    private let fileManager: FileManager
-    private let homeDirectory: URL
-    private let environment: [String: String]
-    private let now: @Sendable () -> Date
+    let fileManager: FileManager
+    let homeDirectory: URL
+    let environment: [String: String]
+    let now: @Sendable () -> Date
 
     private let isoFormatterWithFraction: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
@@ -316,49 +315,55 @@ nonisolated struct BlogUsageSourceParser {
         for file in files {
             var currentModel = "unknown"
             for line in try lines(in: file) {
-                guard let json = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
-                      let payload = json["payload"] as? [String: Any] else {
-                    continue
+                if let event = parseCodexLine(Data(line.utf8), currentModel: &currentModel) {
+                    events.append(event)
                 }
-
-                if let model = payload["model"] as? String, !model.isEmpty {
-                    currentModel = model
-                }
-
-                guard let type = payload["type"] as? String,
-                      type == "token_count",
-                      let info = payload["info"] as? [String: Any],
-                      let usage = info["last_token_usage"] as? [String: Any],
-                      let timestamp = parseTimestamp(from: json) ?? parseTimestamp(from: payload) else {
-                    continue
-                }
-
-                let inputTokensRaw = intValue(usage["input_tokens"])
-                let cachedInputTokens = intValue(usage["cached_input_tokens"])
-                    + intValue((usage["input_tokens_details"] as? [String: Any])?["cached_tokens"])
-                let outputTokensRaw = intValue(usage["output_tokens"])
-                let reasoningTokens = intValue(usage["reasoning_output_tokens"])
-                    + intValue((usage["output_tokens_details"] as? [String: Any])?["reasoning_tokens"])
-                let eventID = stringValue(payload["id"])
-                    ?? stringValue(json["id"])
-                    ?? stableHash(Data(line.utf8))
-
-                events.append(BlogUsageEvent(
-                    id: "codex-\(eventID)",
-                    timestamp: timestamp,
-                    agent: "codex",
-                    provider: "openai",
-                    model: currentModel,
-                    inputTokens: max(0, inputTokensRaw - cachedInputTokens),
-                    outputTokens: max(0, outputTokensRaw - reasoningTokens),
-                    cacheReadTokens: max(0, cachedInputTokens),
-                    cacheWriteTokens: 0,
-                    reasoningTokens: max(0, reasoningTokens)
-                ))
             }
         }
 
         return events
+    }
+
+    nonisolated func parseCodexLine(_ data: Data, currentModel: inout String) -> BlogUsageEvent? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let payload = json["payload"] as? [String: Any] else {
+            return nil
+        }
+
+        if let model = payload["model"] as? String, !model.isEmpty {
+            currentModel = model
+        }
+
+        guard let type = payload["type"] as? String,
+              type == "token_count",
+              let info = payload["info"] as? [String: Any],
+              let usage = info["last_token_usage"] as? [String: Any],
+              let timestamp = parseTimestamp(from: json) ?? parseTimestamp(from: payload) else {
+            return nil
+        }
+
+        let inputTokensRaw = intValue(usage["input_tokens"])
+        let cachedInputTokens = intValue(usage["cached_input_tokens"])
+            + intValue((usage["input_tokens_details"] as? [String: Any])?["cached_tokens"])
+        let outputTokensRaw = intValue(usage["output_tokens"])
+        let reasoningTokens = intValue(usage["reasoning_output_tokens"])
+            + intValue((usage["output_tokens_details"] as? [String: Any])?["reasoning_tokens"])
+        let eventID = stringValue(payload["id"])
+            ?? stringValue(json["id"])
+            ?? stableHash(data)
+
+        return BlogUsageEvent(
+            id: "codex-\(eventID)",
+            timestamp: timestamp,
+            agent: "codex",
+            provider: "openai",
+            model: currentModel,
+            inputTokens: max(0, inputTokensRaw - cachedInputTokens),
+            outputTokens: max(0, outputTokensRaw - reasoningTokens),
+            cacheReadTokens: max(0, cachedInputTokens),
+            cacheWriteTokens: 0,
+            reasoningTokens: max(0, reasoningTokens)
+        )
     }
 
     nonisolated func parseOpenCodeEvents() throws -> [BlogUsageEvent] {
@@ -446,7 +451,7 @@ nonisolated struct BlogUsageSourceParser {
         )
     }
 
-    private nonisolated func openCodeDatabaseURL() -> URL {
+    nonisolated func openCodeDatabaseURL() -> URL {
         if let xdgDataHome = environment["XDG_DATA_HOME"], !xdgDataHome.isEmpty {
             return URL(fileURLWithPath: xdgDataHome).appendingPathComponent("opencode/opencode.db")
         }
@@ -693,8 +698,7 @@ actor BlogUsageSyncService {
     private static let defaultKeychainAccount = "blog-usage-sync-token"
     private static let throttleInterval: TimeInterval = 5 * 60
 
-    private let parser: BlogUsageSourceParser
-    private let aggregator: BlogUsageAggregator
+    private let indexer: any BlogUsageIndexing
     private let client: any BlogUsageSyncPosting
     private let defaults: UserDefaults
     private let keychainAccount: String
@@ -703,16 +707,14 @@ actor BlogUsageSyncService {
     private var inFlightTask: Task<BlogUsageSyncStatus, Never>?
 
     init(
-        parser: BlogUsageSourceParser = BlogUsageSourceParser(),
-        aggregator: BlogUsageAggregator = BlogUsageAggregator(),
+        indexer: any BlogUsageIndexing = BlogUsageSourceIndexer(),
         client: any BlogUsageSyncPosting = BlogUsageSyncClient(),
         defaults: UserDefaults = .standard,
         keychainAccount: String = BlogUsageSyncService.defaultKeychainAccount,
         oauthProvider: (any BlogAccessTokenProviding)? = BlogOAuthService.shared,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
-        self.parser = parser
-        self.aggregator = aggregator
+        self.indexer = indexer
         self.client = client
         self.defaults = defaults
         self.keychainAccount = keychainAccount
@@ -784,20 +786,20 @@ actor BlogUsageSyncService {
     }
 
     func syncIfNeeded() async -> BlogUsageSyncStatus {
-        await sync(manual: false)
+        await sync(mode: .passive)
     }
 
     func syncNow() async -> BlogUsageSyncStatus {
-        await sync(manual: true)
+        await sync(mode: .manual)
     }
 
-    private func sync(manual: Bool) async -> BlogUsageSyncStatus {
+    private func sync(mode: SyncMode) async -> BlogUsageSyncStatus {
         if let inFlightTask {
             return await inFlightTask.value
         }
 
-        let task = Task<BlogUsageSyncStatus, Never> {
-            await self.performSync(manual: manual)
+        let task = Task<BlogUsageSyncStatus, Never>(priority: mode.priority) {
+            await self.performSync(mode: mode)
         }
         inFlightTask = task
         let result = await task.value
@@ -805,7 +807,7 @@ actor BlogUsageSyncService {
         return result
     }
 
-    private func performSync(manual: Bool) async -> BlogUsageSyncStatus {
+    private func performSync(mode: SyncMode) async -> BlogUsageSyncStatus {
         guard isEnabled else {
             return updateStatus(.skipped, message: "Blog usage sync is disabled")
         }
@@ -822,7 +824,7 @@ actor BlogUsageSyncService {
             return updateStatus(.failed, message: BlogUsageSyncError.invalidEndpoint.localizedDescription)
         }
 
-        if !manual,
+        if mode == .passive,
            let lastAttempt = status.lastAttemptAt,
            now().timeIntervalSince(lastAttempt) < Self.throttleInterval {
             // Do not restamp `lastAttemptAt` here: passive sync fires every refresh
@@ -839,17 +841,47 @@ actor BlogUsageSyncService {
 
         do {
             await LiteLLMPricingCache.shared.refreshIfNeeded()
-            let events = try parser.parseAllSources()
-            let rows = aggregator.aggregate(events)
+            let indexResult = try await indexer.index(maximumBytes: mode.byteBudget)
+            let revision = try await indexer.revision()
+            let uploadedRevision = try await indexer.uploadedRevision(endpoint: endpoint.absoluteString)
+            guard revision > uploadedRevision else {
+                return updateStatus(
+                    .success,
+                    message: noChangesMessage(indexResult),
+                    success: true
+                )
+            }
+
+            let rows = try await indexer.rows()
             guard !rows.isEmpty else {
-                return updateStatus(.success, message: "No usage rows to sync", success: true)
+                try await indexer.markUploaded(revision: revision, endpoint: endpoint.absoluteString)
+                return updateStatus(
+                    .success,
+                    message: indexResult.isBackfillInProgress
+                        ? noChangesMessage(indexResult)
+                        : "No usage rows to sync",
+                    success: true
+                )
             }
 
             try await client.post(rows: rows, endpoint: endpoint, token: token)
-            return updateStatus(.success, message: "Synced \(rows.count) usage row\(rows.count == 1 ? "" : "s")", success: true)
+            try await indexer.markUploaded(revision: revision, endpoint: endpoint.absoluteString)
+            let suffix = indexResult.isBackfillInProgress
+                ? "; indexing history (\(indexResult.remainingSources) source\(indexResult.remainingSources == 1 ? "" : "s") remaining)"
+                : ""
+            return updateStatus(
+                .success,
+                message: "Synced \(rows.count) usage row\(rows.count == 1 ? "" : "s")\(suffix)",
+                success: true
+            )
         } catch {
             return updateStatus(.failed, message: error.localizedDescription)
         }
+    }
+
+    private func noChangesMessage(_ result: BlogUsageIndexResult) -> String {
+        guard result.isBackfillInProgress else { return "No new usage rows to sync" }
+        return "Indexing usage history (\(result.remainingSources) source\(result.remainingSources == 1 ? "" : "s") remaining)"
     }
 
     @discardableResult
@@ -888,6 +920,25 @@ actor BlogUsageSyncService {
             return .never
         }
         return decoded
+    }
+
+    private enum SyncMode: Sendable {
+        case passive
+        case manual
+
+        var byteBudget: Int {
+            switch self {
+            case .passive: BlogUsageSourceIndexer.passiveByteBudget
+            case .manual: BlogUsageSourceIndexer.manualByteBudget
+            }
+        }
+
+        var priority: TaskPriority {
+            switch self {
+            case .passive: .utility
+            case .manual: .userInitiated
+            }
+        }
     }
 }
 #endif
