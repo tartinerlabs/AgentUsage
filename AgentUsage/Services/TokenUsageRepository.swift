@@ -95,28 +95,28 @@ actor TokenUsageQuerier {
 /// Background actor for importing token usage data
 @ModelActor
 actor TokenUsageImporter {
-    /// Import usage entries, skipping duplicates via unique constraint
+    /// Import usage entries idempotently, skipping duplicate composite IDs in one batch.
     func importEntries(_ entries: [(entry: UsageEntry, messageId: String, requestId: String)]) throws -> Int {
         guard !entries.isEmpty else { return 0 }
 
-        var insertedCount = 0
-        for (entry, messageId, requestId) in entries {
-            let compositeId = "\(messageId):\(requestId)"
-
-            // Check if already exists
-            var descriptor = FetchDescriptor<TokenLogEntry>(
-                predicate: #Predicate { $0.id == compositeId }
+        let candidates = entries.map { item in
+            (
+                entry: item.entry,
+                messageId: item.messageId,
+                requestId: item.requestId,
+                id: "\(item.messageId):\(item.requestId)"
             )
-            descriptor.fetchLimit = 1
-            let existing = try modelContext.fetchCount(descriptor)
-            guard existing == 0 else { continue }
+        }
+        var existingIDs = try existingEntryIDs(matching: candidates.map(\.id))
+        var insertedCount = 0
 
-            // Calculate cost at import time
+        for candidate in candidates where existingIDs.insert(candidate.id).inserted {
+            let entry = candidate.entry
             let cost = calculateCost(tokens: entry.tokens, model: entry.model, fastMode: entry.fastMode)
 
             let logEntry = TokenLogEntry(
-                messageId: messageId,
-                requestId: requestId,
+                messageId: candidate.messageId,
+                requestId: candidate.requestId,
                 modelName: entry.model,
                 inputTokens: entry.tokens.inputTokens,
                 outputTokens: entry.tokens.outputTokens,
@@ -137,6 +137,22 @@ actor TokenUsageImporter {
         }
 
         return insertedCount
+    }
+
+    private func existingEntryIDs(matching ids: [String]) throws -> Set<String> {
+        let uniqueIDs = Array(Set(ids))
+        guard !uniqueIDs.isEmpty else { return [] }
+
+        var result = Set<String>()
+        for startIndex in stride(from: 0, to: uniqueIDs.count, by: 500) {
+            let endIndex = min(startIndex + 500, uniqueIDs.count)
+            let batch = Array(uniqueIDs[startIndex..<endIndex])
+            let descriptor = FetchDescriptor<TokenLogEntry>(
+                predicate: #Predicate { batch.contains($0.id) }
+            )
+            result.formUnion(try modelContext.fetch(descriptor).map(\.id))
+        }
+        return result
     }
 
     /// Cost for a Claude log entry. Routes through the shared `ModelPricing.costUSD` so the persisted

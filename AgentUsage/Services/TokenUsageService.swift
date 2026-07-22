@@ -11,13 +11,16 @@ import CryptoKit
 
 actor TokenUsageService: TokenUsageServiceProtocol {
     private let fileManager = FileManager.default
+    private let readChunkSize: Int
 
     /// Additional providers (Codex, OpenCode, …) merged into the snapshot.
     /// Claude is read directly by this service.
     private let extraSources: [any UsageLogSource]
 
-    init(extraSources: [any UsageLogSource] = []) {
+    init(extraSources: [any UsageLogSource] = [], readChunkSize: Int = 256 * 1_024) {
+        precondition(readChunkSize > 0)
         self.extraSources = extraSources
+        self.readChunkSize = readChunkSize
     }
 
     // Reentrancy guard: reuse in-flight fetch instead of starting a new one
@@ -208,45 +211,86 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         case resetAndImport
     }
 
-    /// Parse JSONL file starting from a specific byte offset
-    /// Skips the first incomplete line when offset > 0
+    /// Parse JSONL file starting from a specific byte offset.
+    /// Skips the first incomplete line when offset > 0.
     private func parseJSONLFileFromOffset(
         at url: URL,
         offset: Int64
     ) throws -> [(entry: UsageEntry, messageId: String, requestId: String)] {
+        let parsed = try parseJSONLFileStreaming(
+            at: url,
+            offset: offset,
+            skippingFirstLine: offset > 0
+        )
+        return Self.deduplicate(parsed).map(idTuple(from:))
+    }
+
+    /// Parse JSONL file and return entries with their IDs for deduplication.
+    private func parseJSONLFileWithIDs(at url: URL) throws -> [(entry: UsageEntry, messageId: String, requestId: String)] {
+        let parsed = try parseJSONLFileStreaming(at: url)
+        return Self.deduplicate(parsed).map(idTuple(from:))
+    }
+
+    private func parseJSONLFileStreaming(
+        at url: URL,
+        offset: Int64 = 0,
+        skippingFirstLine: Bool = false,
+        cutoff: Date? = nil
+    ) throws -> [ParsedFields] {
         guard let handle = try? FileHandle(forReadingFrom: url) else {
             return []
         }
         defer { try? handle.close() }
 
-        // Seek to offset
         if offset > 0 {
             try handle.seek(toOffset: UInt64(offset))
         }
 
-        // Read remaining data
-        guard let data = try handle.readToEnd(), !data.isEmpty else {
-            return []
+        var parsed: [ParsedFields] = []
+        var pending = Data()
+        var shouldSkipLine = skippingFirstLine
+
+        while let chunk = try handle.read(upToCount: readChunkSize), !chunk.isEmpty {
+            pending.append(chunk)
+            var scanStart = pending.startIndex
+            var consumedThrough = pending.startIndex
+
+            while let newline = pending[scanStart...].firstIndex(of: 0x0A) {
+                var line = Data(pending[scanStart..<newline])
+                if line.last == 0x0D { line.removeLast() }
+                appendParsedLine(line, skipping: &shouldSkipLine, cutoff: cutoff, into: &parsed)
+                consumedThrough = pending.index(after: newline)
+                scanStart = consumedThrough
+            }
+
+            if consumedThrough > pending.startIndex {
+                pending.removeSubrange(pending.startIndex..<consumedThrough)
+            }
         }
 
-        guard let content = String(data: data, encoding: .utf8) else {
-            return []
+        if !pending.isEmpty {
+            appendParsedLine(pending, skipping: &shouldSkipLine, cutoff: cutoff, into: &parsed)
         }
 
-        let isFirstLine = offset > 0  // Skip first line only if we seeked
-        let parsed = parseJSONLines(content, skippingFirstLine: isFirstLine)
-
-        return Self.deduplicate(parsed).map(idTuple(from:))
+        return parsed
     }
 
-    /// Parse JSONL file and return entries with their IDs for deduplication
-    private func parseJSONLFileWithIDs(at url: URL) throws -> [(entry: UsageEntry, messageId: String, requestId: String)] {
-        let data = try Data(contentsOf: url)
-        guard let content = String(data: data, encoding: .utf8) else { return [] }
-
-        let parsed = parseJSONLines(content)
-
-        return Self.deduplicate(parsed).map(idTuple(from:))
+    private func appendParsedLine(
+        _ line: Data,
+        skipping shouldSkipLine: inout Bool,
+        cutoff: Date?,
+        into parsed: inout [ParsedFields]
+    ) {
+        if shouldSkipLine {
+            shouldSkipLine = false
+            return
+        }
+        guard !line.isEmpty,
+              let fields = parseCommonFields(data: line),
+              cutoff.map({ fields.entry.timestamp >= $0 }) ?? true else {
+            return
+        }
+        parsed.append(fields)
     }
 
     /// Map a deduped entry to the import tuple, substituting synthetic ids when message/request ids are absent.
@@ -558,10 +602,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     }
 
     private func parseJSONLFile(at url: URL, cutoff: Date?) throws -> [UsageEntry] {
-        let data = try Data(contentsOf: url)
-        guard let content = String(data: data, encoding: .utf8) else { return [] }
-
-        let parsed = parseJSONLines(content, cutoff: cutoff)
+        let parsed = try parseJSONLFileStreaming(at: url, cutoff: cutoff)
 
         // Sidechain-aware dedup (ccusage approach): collapse streaming duplicates and sidechain replays.
         return Self.deduplicate(parsed).map(\.entry)
