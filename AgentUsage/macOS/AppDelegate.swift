@@ -10,11 +10,11 @@ import AppKit
 import SwiftUI
 import UserNotifications
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var windowObservers: [NSObjectProtocol] = []
     private var onboardingWindow: NSWindow?
-
-    private static let onboardingCompletedKey = "hasCompletedDataAccessOnboarding"
+    private let onboardingStore = OnboardingStore(platform: .mac)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindowObservers()
@@ -28,30 +28,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     // MARK: - First-run local data access
 
-    /// Show the one-time local-data-access prompt at first launch when the sandboxed
-    /// app has no Full Disk Access or saved folder grant yet. Marked complete once
-    /// shown so it never nags again — the setup remains available in Settings.
+    /// Show setup on a new install. Completion and skipping are persisted separately
+    /// so dismissing the window does not silently mark setup as finished.
     private func presentDataAccessOnboardingIfNeeded() {
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: Self.onboardingCompletedKey) else { return }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--show-onboarding") {
+            presentDataAccessOnboarding()
+            return
+        }
+        #endif
+        guard onboardingStore.shouldPresent else { return }
+        presentDataAccessOnboarding()
+    }
 
-        // Already have access (including a migrated legacy grant): nothing to ask.
-        guard !SandboxFolderAccessService.shared.hasAnyAccess else {
-            defaults.set(true, forKey: Self.onboardingCompletedKey)
+    private func presentDataAccessOnboarding() {
+        if let onboardingWindow {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+            onboardingWindow.makeKeyAndOrderFront(nil)
             return
         }
 
-        // Asked at start — mark complete now so any dismissal path is one-and-done.
-        defaults.set(true, forKey: Self.onboardingCompletedKey)
+        onboardingStore.present()
 
-        let content = DataAccessOnboardingView { [weak self] in
+        let content = DataAccessOnboardingView(onComplete: { [weak self] in
+            self?.onboardingStore.complete()
             self?.onboardingWindow?.close()
             self?.onboardingWindow = nil
             self?.updateActivationPolicy()
-        }
+        }, onSkip: { [weak self] in
+            self?.onboardingStore.skip()
+            self?.onboardingWindow?.close()
+            self?.onboardingWindow = nil
+            self?.updateActivationPolicy()
+        })
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
+            contentRect: NSRect(x: 0, y: 0, width: 920, height: 680),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -91,14 +104,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             forName: NSWindow.willCloseNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
+        ) { [weak self] notification in
+            if let closingWindow = notification.object as? NSWindow,
+               closingWindow === self?.onboardingWindow {
+                self?.onboardingStore.dismissWithoutCompleting()
+                self?.onboardingWindow = nil
+            }
             // Delay to allow window to actually close
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 self?.updateActivationPolicy()
             }
         }
 
-        windowObservers = [didBecomeVisible, willClose]
+        let showOnboarding = NotificationCenter.default.addObserver(
+            forName: .showOnboarding,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.presentDataAccessOnboarding()
+        }
+
+        windowObservers = [didBecomeVisible, willClose, showOnboarding]
     }
 
     private func updateActivationPolicy() {

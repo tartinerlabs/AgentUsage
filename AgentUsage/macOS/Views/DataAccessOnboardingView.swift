@@ -2,196 +2,237 @@
 //  DataAccessOnboardingView.swift
 //  AgentUsage
 //
-//  First-run sheet requesting user-granted access so the sandboxed app can read
-//  local CLI usage logs.
-//
 
 #if os(macOS)
 import AppKit
 import SwiftUI
-import AgentUsageKit
-
-extension Notification.Name {
-    /// Posted after the user grants local data access, so live views can refresh.
-    static let localDataAccessGranted = Notification.Name("localDataAccessGranted")
-}
 
 struct DataAccessOnboardingView: View {
-    /// Invoked to dismiss the hosting window after the user completes or skips onboarding.
-    let onClose: () -> Void
+    let onComplete: () -> Void
+    let onSkip: () -> Void
+    private let detectsExistingAccess: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var folderAccess = SandboxFolderAccessService.shared
+    @State private var connectionState: ContinuityOnboardingMap.State = .idle
     @State private var accessMessage: AccessMessage?
 
+    init(
+        onComplete: @escaping () -> Void,
+        onSkip: @escaping () -> Void,
+        detectsExistingAccess: Bool = true
+    ) {
+        self.onComplete = onComplete
+        self.onSkip = onSkip
+        self.detectsExistingAccess = detectsExistingAccess
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header
-            explanation
-            providersPreview
-
-            if let accessMessage {
-                statusMessage(accessMessage)
-            }
-
-            Spacer(minLength: 0)
+        VStack(spacing: 22) {
+            brandHeader
+            introduction
+            connectionMap
             actions
+            privacyNote
         }
-        .padding(28)
-        .frame(width: 480, height: 360)
+        .padding(.horizontal, 54)
+        .padding(.vertical, 28)
+        .frame(width: 920, height: 680)
+        .background(Color(NSColor.windowBackgroundColor))
         .task {
+            guard detectsExistingAccess else { return }
+            if folderAccess.hasAnyAccess {
+                connectionState = .connected
+            }
             await monitorFullDiskAccessChanges()
         }
     }
 
-    private var header: some View {
+    private var brandHeader: some View {
         HStack(spacing: 14) {
-            Image(systemName: "lock.shield")
-                .font(.largeTitle)
-                .foregroundStyle(Constants.brandPrimary)
-                .frame(width: 40)
+            Image("AgentUsageMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 68, height: 68)
+                .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Connect Local Usage Logs")
-                    .font(.title2.weight(.semibold))
-                Text("One folder grant unlocks Claude, Codex, and OpenCode history")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(Constants.appDisplayName)
+                .font(.largeTitle.weight(.semibold))
         }
+        .accessibilityElement(children: .combine)
     }
 
-    private var explanation: some View {
-        Text(
-            "\(Constants.appDisplayName) runs sandboxed. Choose your home folder to save a secure read grant for the hidden log folders below. Full Disk Access remains available as a fallback from Privacy & Security."
-        )
-        .font(.callout)
-        .foregroundStyle(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
-    }
+    private var introduction: some View {
+        VStack(spacing: 12) {
+            Text(connectionState == .connected ? "This Mac is connected" : "Your usage, wherever you are")
+                .font(.system(.title, design: .default, weight: .bold))
+                .multilineTextAlignment(.center)
+                .contentTransition(.numericText())
+                .accessibilityIdentifier("onboarding.title")
 
-    private var providersPreview: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Local sources")
-                .font(.caption.weight(.semibold))
+            Text(introductionText)
+                .font(.body)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 580)
 
-            HStack(spacing: 8) {
-                ForEach(SandboxFolderAccessService.grantableProviders) { provider in
-                    Label(provider.displayName, systemImage: provider.iconName)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(provider.accentColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(provider.accentColor.opacity(0.08))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .strokeBorder(provider.accentColor.opacity(0.15), lineWidth: 1)
-                        )
-                }
-            }
+            Text(connectionState == .connected ? "2 of 2 · Ready" : "1 of 2 · Connect this Mac")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(connectionState == .connected ? .green : .secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.regularMaterial, in: Capsule())
         }
+        .animation(reduceMotion ? nil : .snappy, value: connectionState)
     }
 
+    private var connectionMap: some View {
+        VStack(spacing: 14) {
+            ContinuityOnboardingMap(
+                state: connectionState,
+                highlightsMobileDevice: false
+            )
+
+            if let accessMessage {
+                Label(accessMessage.text, systemImage: accessMessage.systemImage)
+                    .font(.caption)
+                    .foregroundStyle(accessMessage.color)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, 26)
+        .padding(.vertical, 30)
+        .frame(maxWidth: .infinity)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 1)
+        }
+        .animation(reduceMotion ? nil : .smooth, value: accessMessage)
+    }
+
+    @ViewBuilder
     private var actions: some View {
-        HStack(spacing: 10) {
-            Button("Not Now") {
-                onClose()
-            }
-
-            Spacer()
-
-            if accessMessage == .privacySettingsOpened {
-                Button("Check Again") {
-                    refreshAndCloseIfGranted()
-                }
-            }
-
-            Button("Open Privacy Settings") {
-                folderAccess.requestFullAccess()
-                accessMessage = .privacySettingsOpened
-            }
-
-            Button("Choose Home Folder") {
-                chooseHomeFolder()
+        if connectionState == .connected {
+            Button {
+                onComplete()
+            } label: {
+                Text("Continue")
+                    .frame(width: 190, height: 28)
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(Constants.brandPrimary)
             .keyboardShortcut(.defaultAction)
+            .transition(.scale(scale: 0.96).combined(with: .opacity))
+        } else {
+            HStack(spacing: 12) {
+                Button {
+                    chooseHomeFolder()
+                } label: {
+                    Text("Connect Local Data")
+                        .frame(width: 190, height: 28)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(Constants.brandPrimary)
+                .keyboardShortcut(.defaultAction)
+
+                Button {
+                    onSkip()
+                } label: {
+                    Text("Skip Setup")
+                        .frame(width: 104, height: 28)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            }
+
+            Button("Use Full Disk Access instead") {
+                folderAccess.requestFullAccess()
+                accessMessage = .privacySettingsOpened
+                connectionState = .connecting
+            }
+            .buttonStyle(.plain)
+            .font(.callout)
+            .foregroundStyle(Constants.brandPrimary)
         }
     }
 
-    private func statusMessage(_ message: AccessMessage) -> some View {
-        Label(message.text, systemImage: message.systemImage)
+    private var privacyNote: some View {
+        Label("Local logs never leave this Mac", systemImage: "lock.fill")
             .font(.caption)
-            .foregroundStyle(message.color)
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(message.color.opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(message.color.opacity(0.16), lineWidth: 1)
-            )
+            .foregroundStyle(.secondary)
+    }
+
+    private var introductionText: String {
+        if connectionState == .connected {
+            return "AgentUsage can now read local provider data and privately share the latest usage snapshot through your iCloud database."
+        }
+        return "AgentUsage reads local provider data on this Mac and privately shares the latest usage snapshot through your iCloud database."
     }
 
     private func chooseHomeFolder() {
+        accessMessage = nil
+        connectionState = .connecting
+
         if folderAccess.requestHomeFolderAccess() {
-            NotificationCenter.default.post(name: .localDataAccessGranted, object: nil)
-            onClose()
+            completeConnection()
         } else {
+            connectionState = .idle
             accessMessage = .homeFolderRequired
         }
     }
 
-    private func refreshAndCloseIfGranted() {
-        folderAccess.refreshAccessStatus()
-        if folderAccess.hasAnyAccess {
-            NotificationCenter.default.post(name: .localDataAccessGranted, object: nil)
-            onClose()
-        } else {
-            accessMessage = .privacySettingsOpened
+    private func completeConnection() {
+        NotificationCenter.default.post(name: .localDataAccessGranted, object: nil)
+        withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.72)) {
+            connectionState = .connected
+            accessMessage = .connected
         }
     }
 
     private func monitorFullDiskAccessChanges() async {
         for await _ in NotificationCenter.default.notifications(named: NSApplication.didBecomeActiveNotification) {
-            refreshAndCloseIfGranted()
+            folderAccess.refreshAccessStatus()
+            if folderAccess.hasAnyAccess, connectionState != .connected {
+                completeConnection()
+            } else if connectionState == .connecting {
+                connectionState = .idle
+                accessMessage = .privacySettingsOpened
+            }
         }
     }
 
     private enum AccessMessage: Equatable {
         case homeFolderRequired
         case privacySettingsOpened
+        case connected
 
         var text: String {
             switch self {
             case .homeFolderRequired:
-                "Choose your home folder to finish setup. The grant is only saved after macOS returns that exact folder."
+                "Choose your home folder to grant access, or use Full Disk Access instead."
             case .privacySettingsOpened:
-                "After enabling Full Disk Access in System Settings, return here and Agent Usage will check again."
+                "Enable Agent Usage in Privacy & Security, then return here."
+            case .connected:
+                "Local data access granted."
             }
         }
 
         var systemImage: String {
             switch self {
-            case .homeFolderRequired:
-                "exclamationmark.triangle.fill"
-            case .privacySettingsOpened:
-                "gearshape.fill"
+            case .homeFolderRequired: "exclamationmark.triangle.fill"
+            case .privacySettingsOpened: "gearshape.fill"
+            case .connected: "checkmark.circle.fill"
             }
         }
 
         var color: Color {
             switch self {
-            case .homeFolderRequired:
-                .orange
-            case .privacySettingsOpened:
-                Constants.brandPrimary
+            case .homeFolderRequired: .orange
+            case .privacySettingsOpened: Constants.brandPrimary
+            case .connected: .green
             }
         }
     }

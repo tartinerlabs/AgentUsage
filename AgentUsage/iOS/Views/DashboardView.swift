@@ -400,15 +400,28 @@ struct DashboardView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: 12) {
-            Image(systemName: "chart.bar.xaxis")
+            Image(systemName: "laptopcomputer.and.iphone")
                 .font(.largeTitle)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Constants.brandPrimary)
                 .accessibilityHidden(true)
-            Text("No Data")
+            Text("Waiting for your Mac")
                 .font(.headline)
-            Text("Pull down to refresh")
+            Text("Open Agent Usage on your Mac to share the latest usage snapshot through iCloud.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 10) {
+                Button("Check Again") {
+                    Task { await viewModel.refreshContinuitySync() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Constants.brandPrimary)
+
+                Button("Setup Guide") {
+                    NotificationCenter.default.post(name: .showOnboarding, object: nil)
+                }
+                .buttonStyle(.bordered)
+            }
         }
         .padding(40)
         .frame(maxWidth: .infinity)
@@ -417,8 +430,8 @@ struct DashboardView: View {
                 .fill(.regularMaterial)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("No data available")
-        .accessibilityHint("Pull down to refresh")
+        .accessibilityLabel("Waiting for usage from your Mac")
+        .accessibilityHint("Open the setup guide or check for updates again")
     }
 }
 

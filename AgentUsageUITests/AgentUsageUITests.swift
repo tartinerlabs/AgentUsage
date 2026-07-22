@@ -32,6 +32,15 @@ final class AgentUsageUITests: XCTestCase {
     }
 
     @MainActor
+    func testOnboardingPresentation() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--show-onboarding"]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["onboarding.title"].waitForExistence(timeout: 8))
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

@@ -334,19 +334,24 @@ struct BlogUsageSyncTests {
         let logDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
         try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
         let log = logDirectory.appendingPathComponent("usage.jsonl")
-        try """
+        try ("""
         {"type":"assistant","timestamp":"2026-06-02T10:00:00Z","requestId":"req-1","message":{"id":"msg-1","model":"claude-sonnet-4-5","usage":{"input_tokens":1,"output_tokens":2,"cache_read_input_tokens":3,"cache_creation_input_tokens":4}}}
-        """.write(to: log, atomically: true, encoding: .utf8)
+        """ + "\n").write(to: log, atomically: true, encoding: .utf8)
 
         let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
         let posting = CountingPosting()
         let clock = MutableTestClock(date: Date(timeIntervalSince1970: 1_780_000_000))
         let keychainAccount = "BlogUsageSyncTests-\(UUID().uuidString)"
-        let service = BlogUsageSyncService(
+        let indexer = BlogUsageSourceIndexer(
             parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("blog-usage-index.sqlite")
+        )
+        let service = BlogUsageSyncService(
+            indexer: indexer,
             client: posting,
             defaults: defaults,
             keychainAccount: keychainAccount,
+            oauthProvider: nil,
             now: { clock.now() }
         )
         defer { KeychainHelper.deleteString(account: keychainAccount) }
@@ -371,6 +376,437 @@ struct BlogUsageSyncTests {
         let manual = await service.syncNow()
         #expect(manual.state == BlogUsageSyncState.failed)
         #expect(await posting.callCount == 3)
+    }
+
+    @Test func indexerMatchesTheLegacyAggregateAcrossAllSources() async throws {
+        let home = try Self.temporaryDirectory()
+        let claudeDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: claudeDirectory, withIntermediateDirectories: true)
+        let claudeLog = claudeDirectory.appendingPathComponent("usage.jsonl")
+        try [
+            Self.claudeLine(id: "shared", inputTokens: 10),
+            Self.claudeLine(id: "shared", inputTokens: 999),
+            Self.claudeLine(id: "unique", inputTokens: 20)
+        ].joined(separator: "\n").appending("\n")
+            .write(to: claudeLog, atomically: true, encoding: .utf8)
+
+        let codexDirectory = home.appendingPathComponent(".codex/sessions/2026/06", isDirectory: true)
+        try FileManager.default.createDirectory(at: codexDirectory, withIntermediateDirectories: true)
+        let codexLog = codexDirectory.appendingPathComponent("session.jsonl")
+        try [
+            Self.codexModelLine(model: "gpt-5"),
+            Self.codexUsageLine(id: "same-id", inputTokens: 100),
+            Self.codexUsageLine(id: "same-id", inputTokens: 200)
+        ].joined(separator: "\n").appending("\n")
+            .write(to: codexLog, atomically: true, encoding: .utf8)
+
+        let dataHome = home.appendingPathComponent("xdg", isDirectory: true)
+        let openCodeDirectory = dataHome.appendingPathComponent("opencode", isDirectory: true)
+        try FileManager.default.createDirectory(at: openCodeDirectory, withIntermediateDirectories: true)
+        try Self.createOpenCodeDatabase(at: openCodeDirectory.appendingPathComponent("opencode.db"))
+
+        let parser = BlogUsageSourceParser(
+            homeDirectory: home,
+            environment: ["XDG_DATA_HOME": dataHome.path]
+        )
+        let expected = BlogUsageAggregator().aggregate(try parser.parseAllSources())
+        let indexer = BlogUsageSourceIndexer(
+            parser: parser,
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let result = try await indexer.index(maximumBytes: 8 * 1_024 * 1_024)
+
+        #expect(!result.isBackfillInProgress)
+        #expect(try await indexer.rows() == expected)
+    }
+
+    @Test func indexerBoundsOversizedRecordsResumesAndSkipsWarmPayloadReads() async throws {
+        let home = try Self.temporaryDirectory()
+        let logDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+        let log = logDirectory.appendingPathComponent("usage.jsonl")
+        let padding = String(repeating: "x", count: 300_000)
+        let lines = (1...3).map { Self.claudeLine(id: "msg-\($0)", inputTokens: $0, padding: padding) }
+        try lines.joined(separator: "\n").appending("\n")
+            .write(to: log, atomically: true, encoding: .utf8)
+        let largestRecordBytes = Data(lines[0].utf8).count + 1
+        let budget = 64 * 1_024
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let first = try await indexer.index(maximumBytes: budget)
+        #expect(first.recordsProcessed == 1)
+        #expect(first.bytesRead == largestRecordBytes)
+        #expect(first.maximumBufferedBytes <= largestRecordBytes + BlogUsageSourceIndexer.readChunkSize)
+        #expect(first.isBackfillInProgress)
+        #expect(try await indexer.rows().first?.inputTokens == 1)
+
+        let second = try await indexer.index(maximumBytes: budget)
+        #expect(second.recordsProcessed == 1)
+        #expect(second.bytesRead == largestRecordBytes)
+        #expect(second.isBackfillInProgress)
+
+        let third = try await indexer.index(maximumBytes: budget)
+        #expect(third.recordsProcessed == 1)
+        #expect(!third.isBackfillInProgress)
+        #expect(try await indexer.rows().first?.inputTokens == 6)
+
+        let warm = try await indexer.index(maximumBytes: budget)
+        #expect(warm.bytesRead == 0)
+        #expect(warm.recordsProcessed == 0)
+        #expect(warm.changedRecords == 0)
+    }
+
+    @Test func indexerRetainsAnIncompleteFinalLineUntilItIsTerminated() async throws {
+        let home = try Self.temporaryDirectory()
+        let logDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+        let log = logDirectory.appendingPathComponent("usage.jsonl")
+        let complete = Self.claudeLine(id: "complete", inputTokens: 10)
+        let partial = Self.claudeLine(id: "partial", inputTokens: 20)
+        try "\(complete)\n\(partial)".write(to: log, atomically: true, encoding: .utf8)
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let initial = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        #expect(initial.recordsProcessed == 1)
+        #expect(try await indexer.rows().first?.inputTokens == 10)
+
+        let unchanged = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        #expect(unchanged.bytesRead == 0)
+
+        try Self.append("\n", to: log)
+        let appended = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        #expect(appended.recordsProcessed == 1)
+        #expect(try await indexer.rows().first?.inputTokens == 30)
+    }
+
+    @Test func movingACodexSessionToTheArchiveDoesNotDuplicateRecords() async throws {
+        let home = try Self.temporaryDirectory()
+        let sessions = home.appendingPathComponent(".codex/sessions/2026/06", isDirectory: true)
+        let archive = home.appendingPathComponent(".codex/archived_sessions", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: archive, withIntermediateDirectories: true)
+        let original = sessions.appendingPathComponent("session.jsonl")
+        try [
+            Self.codexModelLine(model: "gpt-5"),
+            Self.codexUsageLine(id: "usage-1", inputTokens: 100),
+            Self.codexUsageLine(id: "usage-2", inputTokens: 200)
+        ].joined(separator: "\n").appending("\n")
+            .write(to: original, atomically: true, encoding: .utf8)
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+        _ = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        let before = try await indexer.rows()
+
+        try FileManager.default.moveItem(at: original, to: archive.appendingPathComponent("session.jsonl"))
+        let moved = try await indexer.index(maximumBytes: 1_024 * 1_024)
+
+        #expect(moved.bytesRead == 0)
+        #expect(try await indexer.rows() == before)
+        #expect(try await indexer.rows().first?.messages == 2)
+    }
+
+    @Test func replacingAProcessedFileResetsItsIndexedPrefix() async throws {
+        let home = try Self.temporaryDirectory()
+        let logDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+        let log = logDirectory.appendingPathComponent("usage.jsonl")
+        try Self.claudeLine(id: "old", inputTokens: 1).appending("\n")
+            .write(to: log, atomically: true, encoding: .utf8)
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+        _ = try await indexer.index(maximumBytes: 1_024 * 1_024)
+
+        try Self.claudeLine(id: "replacement", inputTokens: 50).appending("\n")
+            .write(to: log, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(2)],
+            ofItemAtPath: log.path
+        )
+        _ = try await indexer.index(maximumBytes: 1_024 * 1_024)
+
+        let row = try #require(try await indexer.rows().first)
+        #expect(row.inputTokens == 50)
+        #expect(row.messages == 1)
+    }
+
+    @Test func indexerPrioritizesNewestUnindexedFiles() async throws {
+        let home = try Self.temporaryDirectory()
+        let projectDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+        let older = projectDirectory.appendingPathComponent("older.jsonl")
+        let newer = projectDirectory.appendingPathComponent("newer.jsonl")
+        try Self.claudeLine(id: "older", inputTokens: 10).appending("\n")
+            .write(to: older, atomically: true, encoding: .utf8)
+        try Self.claudeLine(id: "newer", inputTokens: 20).appending("\n")
+            .write(to: newer, atomically: true, encoding: .utf8)
+        let baseline = Date(timeIntervalSince1970: 1_780_000_000)
+        try FileManager.default.setAttributes([.modificationDate: baseline], ofItemAtPath: older.path)
+        try FileManager.default.setAttributes(
+            [.modificationDate: baseline.addingTimeInterval(60)],
+            ofItemAtPath: newer.path
+        )
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let first = try await indexer.index(maximumBytes: 1)
+
+        #expect(first.recordsProcessed == 1)
+        #expect(first.isBackfillInProgress)
+        #expect(try await indexer.rows().first?.inputTokens == 20)
+    }
+
+    @Test func indexerPrioritizesAppendsAheadOfNewBackfillFiles() async throws {
+        let home = try Self.temporaryDirectory()
+        let projectDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+        let indexed = projectDirectory.appendingPathComponent("indexed.jsonl")
+        try Self.claudeLine(id: "base", inputTokens: 1).appending("\n")
+            .write(to: indexed, atomically: true, encoding: .utf8)
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+        _ = try await indexer.index(maximumBytes: 1_024 * 1_024)
+
+        let unindexed = projectDirectory.appendingPathComponent("unindexed.jsonl")
+        try Self.claudeLine(id: "backfill", inputTokens: 100).appending("\n")
+            .write(to: unindexed, atomically: true, encoding: .utf8)
+        try Self.append(Self.claudeLine(id: "append", inputTokens: 10).appending("\n"), to: indexed)
+        let now = Date(timeIntervalSince1970: 1_780_000_000)
+        try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: indexed.path)
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(60)],
+            ofItemAtPath: unindexed.path
+        )
+
+        let next = try await indexer.index(maximumBytes: 1)
+
+        #expect(next.recordsProcessed == 1)
+        #expect(try await indexer.rows().first?.inputTokens == 11)
+    }
+
+    @Test func prunedLogsRetainTheirIndexedLifetimeUsage() async throws {
+        let home = try Self.temporaryDirectory()
+        let projectDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+        let log = projectDirectory.appendingPathComponent("usage.jsonl")
+        try Self.claudeLine(id: "lifetime", inputTokens: 42).appending("\n")
+            .write(to: log, atomically: true, encoding: .utf8)
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+        _ = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        let before = try await indexer.rows()
+
+        try FileManager.default.removeItem(at: log)
+        let afterPrune = try await indexer.index(maximumBytes: 1_024 * 1_024)
+
+        #expect(afterPrune.bytesRead == 0)
+        #expect(try await indexer.rows() == before)
+    }
+
+    @Test func changingTimeZoneRebuildsTheDisposableIndex() throws {
+        let root = try Self.temporaryDirectory()
+        let databaseURL = root.appendingPathComponent("index.sqlite")
+        let event = BlogUsageEvent(
+            id: "event",
+            timestamp: Date(timeIntervalSince1970: 1_780_000_000),
+            agent: "claude",
+            provider: "anthropic",
+            model: "claude-sonnet-4-5",
+            inputTokens: 1,
+            outputTokens: 2,
+            cacheReadTokens: 3,
+            cacheWriteTokens: 4,
+            reasoningTokens: 0
+        )
+        do {
+            let store = try BlogUsageIndexStore(databaseURL: databaseURL, timeZoneIdentifier: "UTC")
+            _ = try store.replaceRecord(
+                source: .claude,
+                container: "/tmp/log.jsonl",
+                recordKey: "0",
+                dedupeKey: "event",
+                event: event
+            )
+            _ = try store.advanceRevision()
+            #expect(try store.recordCount() == 1)
+        }
+
+        let rebuilt = try BlogUsageIndexStore(
+            databaseURL: databaseURL,
+            timeZoneIdentifier: "America/Los_Angeles"
+        )
+        #expect(try rebuilt.recordCount() == 0)
+        #expect(try rebuilt.revision() == 0)
+    }
+
+    @Test func corruptCacheIsReconstructed() throws {
+        let root = try Self.temporaryDirectory()
+        let databaseURL = root.appendingPathComponent("index.sqlite")
+        try Data("not a sqlite database".utf8).write(to: databaseURL)
+
+        let store = try BlogUsageIndexStore(databaseURL: databaseURL, timeZoneIdentifier: "UTC")
+
+        #expect(try store.recordCount() == 0)
+        #expect(try store.revision() == 0)
+    }
+
+    @Test func persistenceFailureDoesNotAdvanceAFileCheckpoint() async throws {
+        let home = try Self.temporaryDirectory()
+        let projectDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+        try Self.claudeLine(id: "failure", inputTokens: 1).appending("\n")
+            .write(
+                to: projectDirectory.appendingPathComponent("usage.jsonl"),
+                atomically: true,
+                encoding: .utf8
+            )
+        let store = FailingBlogUsageIndexStore()
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            store: store
+        )
+
+        await #expect(throws: BlogUsageTestError.self) {
+            try await indexer.index(maximumBytes: 1_024 * 1_024)
+        }
+        #expect(store.savedCheckpointCount == 0)
+    }
+
+    @Test func openCodeBackfillsNewestFirstThenIndexesInsertsAndUpdates() async throws {
+        let home = try Self.temporaryDirectory()
+        let dataHome = home.appendingPathComponent("xdg", isDirectory: true)
+        let databaseDirectory = dataHome.appendingPathComponent("opencode", isDirectory: true)
+        try FileManager.default.createDirectory(at: databaseDirectory, withIntermediateDirectories: true)
+        let database = databaseDirectory.appendingPathComponent("opencode.db")
+        try Self.createIncrementalOpenCodeDatabase(at: database)
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(
+                homeDirectory: home,
+                environment: ["XDG_DATA_HOME": dataHome.path]
+            ),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let newestOnly = try await indexer.index(maximumBytes: 4)
+        #expect(newestOnly.recordsProcessed == 1)
+        #expect(newestOnly.isBackfillInProgress)
+        #expect(try await indexer.rows().first?.inputTokens == 30)
+
+        _ = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        #expect(try await indexer.rows().first?.inputTokens == 60)
+
+        try Self.updateIncrementalOpenCodeDatabase(at: database)
+        let changed = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        let row = try #require(try await indexer.rows().first)
+        #expect(changed.changedRecords == 2)
+        #expect(row.inputTokens == 100)
+        #expect(row.messages == 4)
+    }
+
+    @Test func serviceRetriesCachedRowsSkipsUnchangedUploadsAndSnapshotsNewEndpoints() async throws {
+        let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
+        let indexer = ControlledBlogUsageIndexer(revision: 1, rows: [Self.minimalRow()])
+        let posting = CountingPosting()
+        let keychainAccount = "BlogUsageSyncTests-\(UUID().uuidString)"
+        let service = BlogUsageSyncService(
+            indexer: indexer,
+            client: posting,
+            defaults: defaults,
+            keychainAccount: keychainAccount,
+            oauthProvider: nil
+        )
+        defer { KeychainHelper.deleteString(account: keychainAccount) }
+        await service.setEnabled(true)
+        await service.setEndpointURLString("https://example.com/api/usage/ingest")
+        await service.setToken("test-token")
+        await posting.setError(BlogUsageSyncError.unauthorized)
+
+        #expect(await service.syncNow().state == .failed)
+        #expect(await indexer.rowsCallCount == 1)
+        await posting.setError(nil)
+        #expect(await service.syncNow().state == .success)
+        #expect(await indexer.rowsCallCount == 2)
+        #expect(await posting.callCount == 2)
+
+        #expect(await service.syncNow().state == .success)
+        #expect(await indexer.rowsCallCount == 2)
+        #expect(await posting.callCount == 2)
+
+        await service.setEndpointURLString("https://other.example.com/api/usage/ingest")
+        #expect(await service.syncNow().state == .success)
+        #expect(await indexer.rowsCallCount == 3)
+        #expect(await posting.callCount == 3)
+    }
+
+    @Test func concurrentSyncRequestsShareOneIndexingTask() async throws {
+        let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
+        let indexer = ControlledBlogUsageIndexer(
+            revision: 1,
+            rows: [Self.minimalRow()],
+            delayNanoseconds: 100_000_000
+        )
+        let posting = CountingPosting()
+        let keychainAccount = "BlogUsageSyncTests-\(UUID().uuidString)"
+        let service = BlogUsageSyncService(
+            indexer: indexer,
+            client: posting,
+            defaults: defaults,
+            keychainAccount: keychainAccount,
+            oauthProvider: nil
+        )
+        defer { KeychainHelper.deleteString(account: keychainAccount) }
+        await service.setEnabled(true)
+        await service.setEndpointURLString("https://example.com/api/usage/ingest")
+        await service.setToken("test-token")
+
+        async let first = service.syncNow()
+        async let second = service.syncNow()
+        let statuses = await [first, second]
+
+        #expect(statuses.allSatisfy { $0.state == .success })
+        #expect(await indexer.indexCallCount == 1)
+        #expect(await posting.callCount == 1)
+    }
+
+    @Test func serviceUsesPassiveAndManualIndexingBudgets() async throws {
+        let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
+        let indexer = ControlledBlogUsageIndexer(revision: 1, rows: [Self.minimalRow()])
+        let keychainAccount = "BlogUsageSyncTests-\(UUID().uuidString)"
+        let service = BlogUsageSyncService(
+            indexer: indexer,
+            client: CountingPosting(),
+            defaults: defaults,
+            keychainAccount: keychainAccount,
+            oauthProvider: nil
+        )
+        defer { KeychainHelper.deleteString(account: keychainAccount) }
+        await service.setEnabled(true)
+        await service.setEndpointURLString("https://example.com/api/usage/ingest")
+        await service.setToken("test-token")
+
+        _ = await service.syncIfNeeded()
+        _ = await service.syncNow()
+
+        #expect(await indexer.requestedBudgets == [
+            BlogUsageSourceIndexer.passiveByteBudget,
+            BlogUsageSourceIndexer.manualByteBudget
+        ])
     }
 
     private static func requestBodyData(_ request: URLRequest) throws -> Data {
@@ -418,6 +854,28 @@ struct BlogUsageSyncTests {
         )
     }
 
+    private static func claudeLine(id: String, inputTokens: Int, padding: String = "") -> String {
+        let paddingField = padding.isEmpty ? "" : ",\"padding\":\"\(padding)\""
+        return """
+        {"type":"assistant","timestamp":"2026-06-02T10:00:00Z","requestId":"req-\(id)"\(paddingField),"message":{"id":"\(id)","model":"claude-sonnet-4-5","usage":{"input_tokens":\(inputTokens),"output_tokens":2,"cache_read_input_tokens":3,"cache_creation_input_tokens":4}}}
+        """
+    }
+
+    private static func codexModelLine(model: String) -> String {
+        #"{"timestamp":"2026-06-02T10:00:00Z","payload":{"model":"\#(model)"}}"#
+    }
+
+    private static func codexUsageLine(id: String, inputTokens: Int) -> String {
+        #"{"timestamp":"2026-06-02T10:01:00Z","payload":{"type":"token_count","id":"\#(id)","info":{"last_token_usage":{"input_tokens":\#(inputTokens),"cached_input_tokens":0,"output_tokens":10,"reasoning_output_tokens":0}}}}"#
+    }
+
+    private static func append(_ string: String, to url: URL) throws {
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data(string.utf8))
+    }
+
     private static func createOpenCodeDatabase(at url: URL, providerID: String = "opencode-go") throws {
         var database: OpaquePointer?
         guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {
@@ -436,12 +894,74 @@ struct BlogUsageSyncTests {
             throw BlogUsageTestError.sqliteExecFailed
         }
     }
+
+    private static func createIncrementalOpenCodeDatabase(at url: URL) throws {
+        var database: OpaquePointer?
+        guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {
+            throw BlogUsageTestError.sqliteOpenFailed
+        }
+        defer { sqlite3_close(database) }
+        guard sqlite3_exec(
+            database,
+            "CREATE TABLE message (id TEXT PRIMARY KEY, time_updated INTEGER NOT NULL, data TEXT NOT NULL)",
+            nil,
+            nil,
+            nil
+        ) == SQLITE_OK else {
+            throw BlogUsageTestError.sqliteExecFailed
+        }
+        for (id, updated, tokens) in [("old", 1, 10), ("middle", 2, 20), ("new", 3, 30)] {
+            try insertOpenCodeMessage(id: id, updated: updated, inputTokens: tokens, database: database)
+        }
+    }
+
+    private static func updateIncrementalOpenCodeDatabase(at url: URL) throws {
+        var database: OpaquePointer?
+        guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {
+            throw BlogUsageTestError.sqliteOpenFailed
+        }
+        defer { sqlite3_close(database) }
+        try insertOpenCodeMessage(id: "inserted", updated: 4, inputTokens: 15, database: database)
+        let data = openCodeData(id: "new", inputTokens: 55).replacingOccurrences(of: "'", with: "''")
+        guard sqlite3_exec(
+            database,
+            "UPDATE message SET time_updated = 5, data = '\(data)' WHERE id = 'new'",
+            nil,
+            nil,
+            nil
+        ) == SQLITE_OK else {
+            throw BlogUsageTestError.sqliteExecFailed
+        }
+    }
+
+    private static func insertOpenCodeMessage(
+        id: String,
+        updated: Int,
+        inputTokens: Int,
+        database: OpaquePointer
+    ) throws {
+        let data = openCodeData(id: id, inputTokens: inputTokens).replacingOccurrences(of: "'", with: "''")
+        guard sqlite3_exec(
+            database,
+            "INSERT INTO message (id, time_updated, data) VALUES ('\(id)', \(updated), '\(data)')",
+            nil,
+            nil,
+            nil
+        ) == SQLITE_OK else {
+            throw BlogUsageTestError.sqliteExecFailed
+        }
+    }
+
+    private static func openCodeData(id: String, inputTokens: Int) -> String {
+        #"{"id":"\#(id)","role":"assistant","time":{"created":1771952413521},"providerID":"opencode-go","modelID":"gpt-5.5","tokens":{"input":\#(inputTokens),"output":0,"reasoning":0,"cache":{"read":0,"write":0}}}"#
+    }
 }
 
 private enum BlogUsageTestError: Error {
     case sqliteOpenFailed
     case sqliteExecFailed
     case requestBodyReadFailed
+    case persistenceFailed
 }
 
 private final class MutableTestClock: @unchecked Sendable {
@@ -500,5 +1020,98 @@ private actor CountingPosting: BlogUsageSyncPosting {
             throw error
         }
     }
+}
+
+private actor ControlledBlogUsageIndexer: BlogUsageIndexing {
+    private let currentRevision: Int64
+    private let cachedRows: [BlogUsageIngestRow]
+    private let delayNanoseconds: UInt64
+    private var uploadedRevisions: [String: Int64] = [:]
+    private(set) var indexCallCount = 0
+    private(set) var rowsCallCount = 0
+    private(set) var requestedBudgets: [Int] = []
+
+    init(
+        revision: Int64,
+        rows: [BlogUsageIngestRow],
+        delayNanoseconds: UInt64 = 0
+    ) {
+        self.currentRevision = revision
+        self.cachedRows = rows
+        self.delayNanoseconds = delayNanoseconds
+    }
+
+    func index(maximumBytes: Int) async throws -> BlogUsageIndexResult {
+        indexCallCount += 1
+        requestedBudgets.append(maximumBytes)
+        if delayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: delayNanoseconds)
+        }
+        return BlogUsageIndexResult(
+            bytesRead: 0,
+            filesProcessed: 0,
+            filesSkipped: 0,
+            recordsProcessed: 0,
+            changedRecords: 0,
+            cacheRows: cachedRows.count,
+            maximumBufferedBytes: 0,
+            remainingSources: 0
+        )
+    }
+
+    func rows() async throws -> [BlogUsageIngestRow] {
+        rowsCallCount += 1
+        return cachedRows
+    }
+
+    func revision() async throws -> Int64 {
+        currentRevision
+    }
+
+    func uploadedRevision(endpoint: String) async throws -> Int64 {
+        uploadedRevisions[endpoint] ?? -1
+    }
+
+    func markUploaded(revision: Int64, endpoint: String) async throws {
+        uploadedRevisions[endpoint] = revision
+    }
+}
+
+private final class FailingBlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
+    private(set) var savedCheckpointCount = 0
+
+    func withTransaction(_ body: () throws -> Void) throws {
+        try body()
+    }
+
+    func checkpoint(path: String) throws -> BlogUsageFileCheckpoint? { nil }
+    func checkpoints() throws -> [BlogUsageFileCheckpoint] { [] }
+
+    func saveCheckpoint(_ checkpoint: BlogUsageFileCheckpoint) throws {
+        savedCheckpointCount += 1
+    }
+
+    func rebindFile(from oldPath: String, to newPath: String) throws {}
+
+    func replaceRecord(
+        source: BlogUsageIndexedSource,
+        container: String,
+        recordKey: String,
+        dedupeKey: String?,
+        event: BlogUsageEvent
+    ) throws -> Bool {
+        throw BlogUsageTestError.persistenceFailed
+    }
+
+    func deleteRecord(source: BlogUsageIndexedSource, container: String, recordKey: String) throws -> Bool { false }
+    func deleteRecords(source: BlogUsageIndexedSource, container: String) throws -> Bool { false }
+    func aggregateRows() throws -> [BlogUsageIngestRow] { [] }
+    func recordCount() throws -> Int { 0 }
+    func revision() throws -> Int64 { 0 }
+    func advanceRevision() throws -> Int64 { 0 }
+    func uploadedRevision(endpointKey: String) throws -> Int64 { -1 }
+    func markUploaded(revision: Int64, endpointKey: String) throws {}
+    func stringMetadata(forKey key: String) throws -> String? { nil }
+    func setMetadata(_ value: String, forKey key: String) throws {}
 }
 #endif
