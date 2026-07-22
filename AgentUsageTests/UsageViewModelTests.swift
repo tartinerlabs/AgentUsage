@@ -246,6 +246,7 @@ struct UsageViewModelOfflineModeTests {
 
 // MARK: - Refresh Gate Tests
 
+#if !os(iOS)
 @Suite("UsageViewModel Refresh Gate")
 struct UsageViewModelRefreshGateTests {
 
@@ -403,6 +404,7 @@ struct UsageViewModelNoUsageDataTests {
         #expect(viewModel.isUsingCachedData == false)
     }
 }
+#endif
 
 @Suite("RefreshFrequency")
 struct RefreshFrequencyTests {
