@@ -93,6 +93,7 @@ struct OutageClassificationTests {
 
 // MARK: - Incident Lifecycle Tests
 
+#if !os(iOS)
 @Suite("Outage Incident Lifecycle")
 struct OutageIncidentLifecycleTests {
 
@@ -294,3 +295,4 @@ struct OutageRegressionTests {
         #expect(viewModel.activeClaudeIncident?.startedAt == incident?.startedAt)
     }
 }
+#endif

@@ -288,7 +288,7 @@ final class UsageViewModel {
     private let snapshotStore: UsageSnapshotStore
     private let refreshScheduler: RefreshScheduler
     private let notificationService: any NotificationServiceProtocol
-    private static let disabledProviders: Set<Provider> = [.openCode, .openCodeGo]
+    private static let disabledProviders: Set<Provider> = [.openCode]
 
     #if os(macOS)
     private let tokenUsageCoordinator: any TokenUsageCoordinating
