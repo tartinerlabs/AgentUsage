@@ -54,18 +54,18 @@ struct MenuBarView: View {
 
             Spacer()
 
-            railAction("arrow.clockwise", help: "Refresh (⌘R)") {
+            railAction("arrow.clockwise", help: "Refresh (⌘R)", key: "r") {
                 let tapped = Date()
                 if let last = lastRefreshTap, tapped.timeIntervalSince(last) < uiThrottle { return }
                 lastRefreshTap = tapped
                 Task { await viewModel.refresh(force: true) }
             }
-            railAction("gear", help: "Settings (⌘,)") {
+            railAction("gear", help: "Settings (⌘,)", key: ",") {
                 selectedTab = .settings
                 openWindow(id: Constants.mainWindowID)
                 NSApp.activate(ignoringOtherApps: true)
             }
-            railAction("power", help: "Quit (⌘Q)") {
+            railAction("power", help: "Quit (⌘Q)", key: "q") {
                 NSApplication.shared.terminate(nil)
             }
         }
@@ -100,7 +100,12 @@ struct MenuBarView: View {
         .buttonStyle(.plain)
     }
 
-    private func railAction(_ systemImage: String, help: String, action: @escaping () -> Void) -> some View {
+    private func railAction(
+        _ systemImage: String,
+        help: String,
+        key: KeyEquivalent,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 14))
@@ -109,6 +114,9 @@ struct MenuBarView: View {
         }
         .buttonStyle(.plain)
         .help(help)
+        // The popover is its own key window, so the app's main-menu shortcuts do not
+        // reach it. Bind them here to match what each tooltip advertises.
+        .keyboardShortcut(key, modifiers: .command)
     }
 
     // MARK: - Content
