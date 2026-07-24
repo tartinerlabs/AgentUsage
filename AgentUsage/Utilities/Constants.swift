@@ -66,6 +66,12 @@ enum Constants {
     static let initialRetryDelay: TimeInterval = 1.0
     static let retryBackoffMultiplier: Double = 2.0
 
+    /// Upper bound on any single in-loop retry sleep. `Retry-After` can be minutes or
+    /// hours; sleeping that long inside the API actor would serialize every later
+    /// request behind it. Longer backoff is handled by `rateLimitedUntil` in the view
+    /// model, which suppresses auto-refresh without holding the actor.
+    static let maxRetryDelay: TimeInterval = 30
+
     /// Default cooldown after a rate-limit (HTTP 429) response with no `Retry-After`
     /// header. Auto-refresh is suppressed for this long so we stop hammering the
     /// endpoint that just throttled us.
