@@ -63,7 +63,7 @@ struct LargeWidgetView: View {
                         .font(.caption2)
                         .foregroundStyle(trendColor(for: usage.trend))
                 }
-                Text("Resets in \(usage.timeUntilReset)")
+                Text(usage.resetDescription())
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -89,7 +89,7 @@ struct LargeWidgetView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) usage")
         .accessibilityValue("\(usage.percentUsed) percent used, \(usage.status.label), \(usage.trend.accessibilityLabel)")
-        .accessibilityHint("Resets in \(usage.timeUntilReset)")
+        .accessibilityHint(usage.resetDescription())
     }
 
     private func trendColor(for trend: UsageWindow.Trend) -> Color {
