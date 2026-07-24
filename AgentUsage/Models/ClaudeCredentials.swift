@@ -6,11 +6,11 @@
 import Foundation
 
 // Root structure matching ~/.claude/.credentials.json
-struct CredentialsFile: Codable {
+nonisolated struct CredentialsFile: Codable {
     let claudeAiOauth: ClaudeOAuthCredentials?
 }
 
-struct ClaudeOAuthCredentials: Codable {
+nonisolated struct ClaudeOAuthCredentials: Codable {
     let accessToken: String
     let refreshToken: String?
     let expiresAt: Double?  // milliseconds since epoch

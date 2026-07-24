@@ -9,7 +9,7 @@ import Foundation
 import AgentUsageKit
 
 /// A single usage record from a provider's local logs, normalized for aggregation.
-struct ProviderUsageEntry: Sendable {
+nonisolated struct ProviderUsageEntry: Sendable {
     let provider: Provider
     /// Model identifier as reported by the provider (used for pricing + by-model breakdown).
     let model: String

@@ -64,6 +64,8 @@ nonisolated protocol BlogUsageIndexStoring: AnyObject, Sendable {
     func aggregateRows() throws -> [BlogUsageIngestRow]
     func recordCount() throws -> Int
     func revision() throws -> Int64
+    /// Callers commonly want only the side effect of bumping the revision.
+    @discardableResult
     func advanceRevision() throws -> Int64
     func uploadedRevision(endpointKey: String) throws -> Int64
     func markUploaded(revision: Int64, endpointKey: String) throws

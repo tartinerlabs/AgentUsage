@@ -24,6 +24,21 @@ import OSLog
 actor CodexUsageService: ProviderUsageServiceProtocol {
     nonisolated let provider: Provider = .codex
 
+    /// Reset-credit expiry parsers, held as actor-confined instance state. They were
+    /// file-scope globals; `ISO8601DateFormatter` is not `Sendable`, so neither a global
+    /// nor a `static let` (also global storage) is valid under the Swift 6 language mode.
+    private let resetCreditDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private let resetCreditDateFormatterWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
     enum CodexError: LocalizedError {
         case unauthorized
         case sessionExpired
@@ -460,8 +475,8 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
             }
             .compactMap { credit -> Date? in
                 if let str = credit["expires_at"] as? String {
-                    return codexResetCreditDateFormatterWithFractional.date(from: str)
-                        ?? codexResetCreditDateFormatter.date(from: str)
+                    return resetCreditDateFormatterWithFractional.date(from: str)
+                        ?? resetCreditDateFormatter.date(from: str)
                 }
                 if let seconds = credit["expires_at"] as? Double {
                     return Date(timeIntervalSince1970: seconds)
@@ -478,19 +493,8 @@ private struct ResetCreditsDetails {
     let expirations: [Date]
 }
 
-private let codexResetCreditDateFormatter: ISO8601DateFormatter = {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime]
-    return formatter
-}()
 
-private let codexResetCreditDateFormatterWithFractional: ISO8601DateFormatter = {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return formatter
-}()
-
-private extension CharacterSet {
+private nonisolated extension CharacterSet {
     /// URL-query value safe set (excludes `&`, `=`, `+`, etc.).
     static let urlQueryValueAllowed: CharacterSet = {
         var set = CharacterSet.alphanumerics

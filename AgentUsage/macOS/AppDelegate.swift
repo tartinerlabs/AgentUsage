@@ -97,7 +97,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.updateActivationPolicy()
+            // `queue: .main` guarantees main-thread delivery, but the closure is
+            // `@Sendable` and so nonisolated to the compiler. Assert the isolation we
+            // already have rather than hopping and losing ordering.
+            MainActor.assumeIsolated {
+                self?.updateActivationPolicy()
+            }
         }
 
         let willClose = NotificationCenter.default.addObserver(
@@ -105,14 +110,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            if let closingWindow = notification.object as? NSWindow,
-               closingWindow === self?.onboardingWindow {
-                self?.onboardingStore.dismissWithoutCompleting()
-                self?.onboardingWindow = nil
-            }
-            // Delay to allow window to actually close
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self?.updateActivationPolicy()
+            MainActor.assumeIsolated {
+                if let closingWindow = notification.object as? NSWindow,
+                   closingWindow === self?.onboardingWindow {
+                    self?.onboardingStore.dismissWithoutCompleting()
+                    self?.onboardingWindow = nil
+                }
+                // Delay to allow window to actually close
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    MainActor.assumeIsolated {
+                        self?.updateActivationPolicy()
+                    }
+                }
             }
         }
 
@@ -121,7 +130,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.presentDataAccessOnboarding()
+            MainActor.assumeIsolated {
+                self?.presentDataAccessOnboarding()
+            }
         }
 
         windowObservers = [didBecomeVisible, willClose, showOnboarding]

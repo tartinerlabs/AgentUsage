@@ -13,7 +13,7 @@ import SwiftUI
 // MARK: - MetricType
 
 /// The type of usage metric to track
-enum MetricType: String, CaseIterable, Identifiable {
+nonisolated enum MetricType: String, CaseIterable, Identifiable {
     case session
     case opus
     case sonnet
@@ -36,7 +36,9 @@ enum MetricType: String, CaseIterable, Identifiable {
 // MARK: - Live Activity Attributes
 
 /// Attributes for Claude usage Live Activity
-struct AgentUsageLiveActivityAttributes: ActivityAttributes {
+/// `nonisolated` so ActivityKit, which consumes this conformance from its own
+/// concurrent contexts, is not blocked by the project's MainActor default isolation.
+nonisolated struct AgentUsageLiveActivityAttributes: ActivityAttributes {
     /// Fixed properties set when activity starts
     var selectedMetric: String  // "Session", "Opus", or "Sonnet"
 

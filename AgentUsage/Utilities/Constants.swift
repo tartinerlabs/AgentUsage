@@ -6,7 +6,11 @@
 import Foundation
 import SwiftUI
 
-enum Constants {
+/// `nonisolated` because the project builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
+/// Without it every constant here is MainActor-isolated, and the actors that need them
+/// (`ClaudeAPIService`, `CodexUsageService`, `BlogOAuthService`, the log sources) cannot read
+/// them. These are immutable `Sendable` values, safe from any isolation.
+nonisolated enum Constants {
     // MARK: - Branding
     /// User-facing product name shown in the UI (window/nav titles, About and Settings
     /// headings, notifications, share card). Single source of truth for in-app display.
