@@ -7,7 +7,7 @@ import Foundation
 import AgentUsageKit
 
 /// Pricing per million tokens (MTok) for Claude models
-enum ModelPricing: Sendable {
+nonisolated enum ModelPricing: Sendable {
     struct Rates: Sendable {
         let inputPerMTok: Double
         let outputPerMTok: Double
@@ -241,7 +241,7 @@ enum ModelPricing: Sendable {
 /// configured LiteLLM proxy (`LITELLM_PROXY_URL`) when available, otherwise from
 /// LiteLLM's hosted model cost map. The legacy hardcoded table remains only as
 /// an offline fallback before the first successful refresh.
-final class LiteLLMPricingCache: @unchecked Sendable {
+nonisolated final class LiteLLMPricingCache: @unchecked Sendable {
     static let shared = LiteLLMPricingCache()
 
     private static let defaultCostMapURL = URL(string: "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json")!
@@ -319,23 +319,39 @@ final class LiteLLMPricingCache: @unchecked Sendable {
             return
         }
 
+        // The lock is taken and released inside synchronous helpers so it is never
+        // held across a suspension point — `NSLock.lock()`/`unlock()` are unavailable
+        // from async contexts and are a hard error in the Swift 6 language mode.
+        let (task, startedRefresh) = refreshTaskJoiningInFlight(session: session, environment: environment)
+        await task.value
+        if startedRefresh {
+            clearRefreshTask()
+        }
+    }
+
+    /// Joins the in-flight refresh if there is one, otherwise starts a new one.
+    /// - Returns: the task to await, and whether this caller owns it (and so must clear it).
+    private func refreshTaskJoiningInFlight(
+        session: URLSession,
+        environment: [String: String]
+    ) -> (task: Task<Void, Never>, startedRefresh: Bool) {
         lock.lock()
+        defer { lock.unlock() }
+
         if let lastRefreshTask {
-            lock.unlock()
-            await lastRefreshTask.value
-            return
+            return (lastRefreshTask, false)
         }
         let task = Task<Void, Never> {
             await self.refresh(session: session, environment: environment)
         }
         lastRefreshTask = task
-        lock.unlock()
+        return (task, true)
+    }
 
-        await task.value
-
+    private func clearRefreshTask() {
         lock.lock()
+        defer { lock.unlock() }
         lastRefreshTask = nil
-        lock.unlock()
     }
 
     func refresh(
@@ -499,7 +515,7 @@ final class LiteLLMPricingCache: @unchecked Sendable {
     }
 }
 
-private extension String {
+private nonisolated extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
@@ -510,7 +526,7 @@ private extension String {
 }
 
 /// Token counts from a single API request
-struct TokenCount: Sendable {
+nonisolated struct TokenCount: Sendable {
     let inputTokens: Int
     let outputTokens: Int
     let cacheCreationTokens: Int
@@ -556,7 +572,7 @@ nonisolated func + (lhs: TokenCount, rhs: TokenCount) -> TokenCount {
 }
 
 /// Usage entry parsed from JSONL log
-struct UsageEntry: Sendable {
+nonisolated struct UsageEntry: Sendable {
     let model: String
     let tokens: TokenCount
     let timestamp: Date
@@ -572,7 +588,7 @@ struct UsageEntry: Sendable {
 }
 
 /// Time periods for usage aggregation
-enum UsagePeriod: String, Sendable, CaseIterable, Identifiable {
+nonisolated enum UsagePeriod: String, Sendable, CaseIterable, Identifiable {
     case today = "Today"
     case last7Days = "7 Days"
     case last30Days = "30 Days"
@@ -617,7 +633,7 @@ enum UsagePeriod: String, Sendable, CaseIterable, Identifiable {
 }
 
 /// Aggregated token usage with cost calculation
-struct TokenUsageSummary: Sendable {
+nonisolated struct TokenUsageSummary: Sendable {
     let tokens: TokenCount
     let costUSD: Double
     let period: UsagePeriod
@@ -641,14 +657,14 @@ struct TokenUsageSummary: Sendable {
 }
 
 /// A single day's token/cost aggregate (for daily trend sparklines).
-struct DailyTokenPoint: Sendable {
+nonisolated struct DailyTokenPoint: Sendable {
     let date: Date
     let costUSD: Double
     let tokens: Int
 }
 
 /// Full per-provider detail for the detail page.
-struct ProviderDetail: Sendable {
+nonisolated struct ProviderDetail: Sendable {
     let today: TokenUsageSummary
     let yesterday: TokenUsageSummary
     let last30Days: TokenUsageSummary
@@ -669,7 +685,7 @@ struct ProviderDetail: Sendable {
 }
 
 /// Complete token usage snapshot
-struct TokenUsageSnapshot: Sendable {
+nonisolated struct TokenUsageSnapshot: Sendable {
     let today: TokenUsageSummary
     let last30Days: TokenUsageSummary
     let byModel: [String: TokenCount]
@@ -693,7 +709,7 @@ struct TokenUsageSnapshot: Sendable {
 }
 
 /// Errors related to token usage data loading
-enum TokenUsageError: LocalizedError {
+nonisolated enum TokenUsageError: LocalizedError {
     case noLogsDirectory
     case noLogFiles
     case fileReadError(Error)
