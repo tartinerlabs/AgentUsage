@@ -8,7 +8,10 @@
 
 import OSLog
 
-extension Logger {
+/// `nonisolated` because the project builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`,
+/// which would otherwise make every category MainActor-isolated and unreachable from the
+/// actors that do the logging. `Logger` is `Sendable` and safe to use from any isolation.
+nonisolated extension Logger {
     /// Bundle identifier used as subsystem for all loggers
     private static let subsystem = "com.tartinerlabs.AgentUsage"
 

@@ -6,7 +6,7 @@
 import Foundation
 import Observation
 
-enum OnboardingPlatform: String, Sendable {
+nonisolated enum OnboardingPlatform: String, Sendable {
     case mac
     case mobile
 
