@@ -248,6 +248,15 @@ public struct UsageWindow: Sendable, Codable {
         }
     }
 
+    /// Full user-facing reset phrase.
+    ///
+    /// `timeUntilReset` returns the bare word "now" for an elapsed window, which reads
+    /// as "Resets in now" when callers prefix it. Use this wherever the countdown is
+    /// presented as a sentence.
+    public func resetDescription(from now: Date = Date()) -> String {
+        resetsAt <= now ? "Resets now" : "Resets in \(timeUntilReset(from: now))"
+    }
+
     /// Calculate usage status based on absolute usage and consumption rate
     public var status: UsageStatus {
         let timeRemaining = resetsAt.timeIntervalSinceNow

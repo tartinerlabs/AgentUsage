@@ -305,9 +305,10 @@ final class UsageViewModel {
     /// returned HTTP 429. Cleared on the next successful fetch.
     private var rateLimitedUntil: Date?
 
-    /// Overall status computed from the worst status across all usage windows
+    /// Overall status computed from the worst status across every provider's windows,
+    /// not Claude's alone — a single app-wide indicator must reflect Codex too.
     var overallStatus: UsageStatus {
-        UsageCalculations.overallStatus(from: snapshot)
+        UsageCalculations.overallStatus(from: snapshot, providerSnapshots: providerUsage.values)
     }
 
     /// A clear, user-facing summary of the app's connection to Claude's usage API,

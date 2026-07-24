@@ -27,7 +27,7 @@ struct UsageRowView: View {
                         .frame(width: 7, height: 7)
                 }
                 Spacer()
-                Text("Resets in \(usage.timeUntilReset(from: now))")
+                Text(usage.resetDescription(from: now))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -79,7 +79,7 @@ struct UsageRowView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
-        .accessibilityHint("Resets \(usage.timeUntilReset(from: now))")
+        .accessibilityHint(usage.resetDescription(from: now))
     }
 
     // MARK: - Accessibility Helpers

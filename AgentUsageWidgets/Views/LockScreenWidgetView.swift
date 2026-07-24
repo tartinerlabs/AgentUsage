@@ -67,13 +67,13 @@ struct LockScreenWidgetView: View {
             }
             .gaugeStyle(.accessoryLinear)
 
-            Text("Resets in \(usage.timeUntilReset)")
+            Text(usage.resetDescription())
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(entry.metric.displayName) usage")
-        .accessibilityValue("\(usage.percentUsed) percent, resets in \(usage.timeUntilReset)")
+        .accessibilityValue("\(usage.percentUsed) percent, \(usage.resetDescription().lowercased())")
     }
 
     // MARK: - Inline (Single line text)

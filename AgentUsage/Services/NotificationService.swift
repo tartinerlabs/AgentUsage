@@ -61,8 +61,15 @@ actor NotificationService: NotificationServiceProtocol {
     private let notificationCenter: any UserNotificationCenterClient
     private nonisolated let settingsProvider: @Sendable () -> NotificationSettings
 
+    /// Identifies one window's reset period. Keeping `resetsAt` as a field rather than
+    /// baking it into a string lets eviction order by recency instead of by name.
+    private struct WindowPeriodKey: Hashable {
+        let name: String
+        let resetsAt: TimeInterval
+    }
+
     // Track notified thresholds per window type and reset time to avoid duplicates
-    private var notifiedThresholds: [String: Set<Int>] = [:]
+    private var notifiedThresholds: [WindowPeriodKey: Set<Int>] = [:]
 
     // Track whether we've already notified about extra usage activation
     private var notifiedExtraUsage: Bool = false
@@ -204,13 +211,13 @@ actor NotificationService: NotificationServiceProtocol {
         let oldPercent = oldUsage?.percentUsed ?? 0
 
         // Create unique key for this window's reset period (using second precision)
-        let windowKey = "\(name)-\(dateToSeconds(newUsage.resetsAt))"
+        let windowKey = WindowPeriodKey(name: name, resetsAt: dateToSeconds(newUsage.resetsAt))
 
         // Check if reset occurred (new reset time means new window)
         // Compare at second precision to avoid false positives from API timestamp variations
         if let oldUsage, dateToSeconds(oldUsage.resetsAt) != dateToSeconds(newUsage.resetsAt) {
             // Reset period changed, clear notified thresholds for old key
-            let oldKey = "\(name)-\(dateToSeconds(oldUsage.resetsAt))"
+            let oldKey = WindowPeriodKey(name: name, resetsAt: dateToSeconds(oldUsage.resetsAt))
             notifiedThresholds.removeValue(forKey: oldKey)
 
             // Enhanced guards for reset notification:
@@ -254,10 +261,13 @@ actor NotificationService: NotificationServiceProtocol {
             }
         }
 
-        // Clean up old window keys (keep only last 10)
+        // Clean up old window keys (keep the 10 most recent reset periods). Evicting by
+        // reset time rather than by key ordering keeps every live window's dedupe state.
         if notifiedThresholds.count > 10 {
-            let sortedKeys = notifiedThresholds.keys.sorted()
-            for key in sortedKeys.prefix(notifiedThresholds.count - 10) {
+            let staleKeys = notifiedThresholds.keys
+                .sorted { $0.resetsAt < $1.resetsAt }
+                .prefix(notifiedThresholds.count - 10)
+            for key in staleKeys {
                 notifiedThresholds.removeValue(forKey: key)
             }
         }
@@ -334,7 +344,7 @@ actor NotificationService: NotificationServiceProtocol {
         }
 
         if threshold == 100 {
-            content.body = "You've reached your \(windowDescription) limit. Resets in \(usage.timeUntilReset)."
+            content.body = "You've reached your \(windowDescription) limit. \(usage.resetDescription())."
         } else {
             content.body = "You've used \(threshold)% of your \(windowDescription) limit."
         }
