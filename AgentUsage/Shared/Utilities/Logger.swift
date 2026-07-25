@@ -35,6 +35,9 @@ extension Logger {
     /// Usage history service logging
     static let history = Logger(subsystem: subsystem, category: "History")
 
+    /// Blog usage sync logging (log-root discovery, incremental indexing, upload)
+    static let blogUsage = Logger(subsystem: subsystem, category: "BlogUsage")
+
     // MARK: - UI Loggers
 
     /// ViewModel logging (state changes, refresh operations)
