@@ -6,14 +6,17 @@
 import SwiftUI
 
 struct ContinuityOnboardingMap: View {
-    enum State: Equatable {
+    /// Deliberately not named `State`: `@State` is a macro as of SDK 27, so its
+    /// attribute name resolves through normal lookup and a nested `State` shadows
+    /// `SwiftUI.State`, leaving `@State` properties unwrapped.
+    enum ConnectionState: Equatable {
         case idle
         case connecting
         case connected
         case waiting
     }
 
-    let state: State
+    let state: ConnectionState
     let highlightsMobileDevice: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
