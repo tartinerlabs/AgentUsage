@@ -13,7 +13,6 @@
 		D8A11C022F0C000000000002 /* Design/AppIcon/AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */; };
 		D8AB30E12F0AB1E800A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E02F0AB1E800A4BD39 /* AgentUsageKit */; };
 		D8AB30E52F0AB2B800A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E42F0AB2B800A4BD39 /* AgentUsageKit */; };
-		D8AFC0012F0D000000000001 /* AgentUsageProviderCore in Frameworks */ = {isa = PBXBuildFile; productRef = D8AFC0022F0D000000000002 /* AgentUsageProviderCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -128,7 +127,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D8AB30E12F0AB1E800A4BD39 /* AgentUsageKit in Frameworks */,
-				D8AFC0012F0D000000000001 /* AgentUsageProviderCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,7 +227,6 @@
 			name = AgentUsage;
 			packageProductDependencies = (
 				D8AB30E02F0AB1E800A4BD39 /* AgentUsageKit */,
-				D8AFC0022F0D000000000002 /* AgentUsageProviderCore */,
 			);
 			productName = AgentUsage;
 			productReference = D8EFFF722F05796A006A2183 /* AgentUsage.app */;
@@ -922,11 +919,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "AgentUsageKit" */;
 			productName = AgentUsageKit;
-		};
-		D8AFC0022F0D000000000002 /* AgentUsageProviderCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D8AB30DF2F0AB1E800A4BD39 /* XCLocalSwiftPackageReference "AgentUsageKit" */;
-			productName = AgentUsageProviderCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
