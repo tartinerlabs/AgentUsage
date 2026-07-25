@@ -152,11 +152,14 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
     // MARK: - JSONL discovery and incremental parsing
 
     private func discoverJSONLFiles() throws -> [DiscoveredFile] {
+        let xcodeRoot = Constants.xcodeCodingAssistantPath
         let roots: [(BlogUsageIndexedSource, URL)] = [
             (.claude, parser.homeDirectory.appendingPathComponent(".claude/projects")),
             (.claude, parser.homeDirectory.appendingPathComponent(".config/claude/projects")),
+            (.claude, parser.homeDirectory.appendingPathComponent("\(xcodeRoot)/ClaudeAgentConfig/projects")),
             (.codex, parser.homeDirectory.appendingPathComponent(".codex/sessions")),
-            (.codex, parser.homeDirectory.appendingPathComponent(".codex/archived_sessions"))
+            (.codex, parser.homeDirectory.appendingPathComponent(".codex/archived_sessions")),
+            (.codex, parser.homeDirectory.appendingPathComponent("\(xcodeRoot)/codex/sessions"))
         ]
         let keys: Set<URLResourceKey> = [
             .isRegularFileKey,
@@ -176,6 +179,7 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                 continue
             }
 
+            let countBefore = result.count
             for case let url as URL in enumerator where url.pathExtension == "jsonl" {
                 guard let values = try? url.resourceValues(forKeys: keys),
                       values.isRegularFile == true else {
@@ -188,6 +192,11 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                     fileSize: Int64(values.fileSize ?? 0),
                     modificationDate: values.contentModificationDate ?? .distantPast
                 ))
+            }
+            // A root that exists but yields nothing is usually a sandbox read that was
+            // denied, not an empty directory — it looks identical to "no usage" otherwise.
+            if result.count == countBefore {
+                Logger.blogUsage.notice("Log root produced no JSONL files: \(root.path, privacy: .public)")
             }
         }
         return result.sorted { $0.url.path < $1.url.path }
