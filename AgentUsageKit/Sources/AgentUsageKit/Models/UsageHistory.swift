@@ -177,6 +177,231 @@ public struct UsageHistory: Sendable, Codable {
     }
 }
 
+// MARK: - Provider Window Peak
+
+/// The highest utilization observed for a single provider window on a single day.
+///
+/// Provider-neutral replacement for ``DailyUsageRecord``, whose fixed
+/// session/opus/sonnet/fable fields can only describe Claude.
+public struct ProviderWindowPeak: Sendable, Codable, Identifiable, Hashable {
+    public let provider: Provider
+    public let windowID: UsageWindowID
+    /// Window name as the provider reported it when the peak was recorded.
+    public let windowLabel: String
+    /// Start of the day this peak belongs to.
+    public let date: Date
+    public let peakUtilization: Double
+
+    public var id: String {
+        "\(provider.rawValue)|\(windowID.rawValue)|\(Int(date.timeIntervalSince1970))"
+    }
+
+    public init(
+        provider: Provider,
+        windowID: UsageWindowID,
+        windowLabel: String,
+        date: Date,
+        peakUtilization: Double
+    ) {
+        self.provider = provider
+        self.windowID = windowID
+        self.windowLabel = windowLabel
+        self.date = date
+        self.peakUtilization = peakUtilization
+    }
+}
+
+// MARK: - Provider Usage History
+
+/// Daily peak utilization across every monitored provider.
+public struct ProviderUsageHistory: Sendable, Codable {
+    /// Utilization at or above which a day counts as critical.
+    public static let criticalThreshold: Double = 90
+
+    /// Utilization at or above which a day counts as a warning.
+    public static let warningThreshold: Double = 75
+
+    /// Peaks sorted oldest first.
+    public private(set) var peaks: [ProviderWindowPeak]
+
+    public init(peaks: [ProviderWindowPeak] = []) {
+        self.peaks = peaks.sorted { $0.date < $1.date }
+    }
+
+    public var isEmpty: Bool { peaks.isEmpty }
+
+    /// Providers that recorded at least one peak, in `Provider.allCases` order.
+    public var providers: [Provider] {
+        let present = Set(peaks.map(\.provider))
+        return Provider.allCases.filter(present.contains)
+    }
+
+    /// Restrict the history to the last `days` days.
+    public func last(_ days: Int) -> ProviderUsageHistory {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        return ProviderUsageHistory(peaks: peaks.filter { $0.date >= cutoff })
+    }
+
+    public func peaks(for provider: Provider) -> [ProviderWindowPeak] {
+        peaks.filter { $0.provider == provider }
+    }
+
+    // MARK: Plottable series
+
+    /// A named line of daily points, ready to plot.
+    public struct Series: Sendable, Identifiable {
+        public let id: String
+        public let label: String
+        public let provider: Provider
+        public let points: [Point]
+
+        public struct Point: Sendable, Identifiable {
+            public var id: Date { date }
+            public let date: Date
+            public let utilization: Double
+
+            public init(date: Date, utilization: Double) {
+                self.date = date
+                self.utilization = utilization
+            }
+        }
+
+        public init(id: String, label: String, provider: Provider, points: [Point]) {
+            self.id = id
+            self.label = label
+            self.provider = provider
+            self.points = points
+        }
+    }
+
+    /// One series per provider, each point that provider's worst window on the day.
+    ///
+    /// Collapsing to the worst window keeps the all-providers chart readable; the
+    /// per-window detail is available from ``seriesByWindow(for:)``.
+    public func seriesByProvider() -> [Series] {
+        providers.map { provider in
+            Series(
+                id: provider.rawValue,
+                label: provider.displayName,
+                provider: provider,
+                points: dailyMaxima(of: peaks(for: provider))
+            )
+        }
+    }
+
+    /// One series per window for a single provider.
+    ///
+    /// Labels are made unique: charts key a line by its label, so two windows
+    /// reporting the same name would otherwise be drawn as one line.
+    public func seriesByWindow(for provider: Provider) -> [Series] {
+        let series = Dictionary(grouping: peaks(for: provider), by: \.windowID)
+            .map { windowID, entries in
+                Series(
+                    id: "\(provider.rawValue)|\(windowID.rawValue)",
+                    // Labels can change between releases; the newest one wins.
+                    label: entries.max { $0.date < $1.date }?.windowLabel ?? windowID.rawValue,
+                    provider: provider,
+                    points: dailyMaxima(of: entries)
+                )
+            }
+            .sorted { $0.label < $1.label }
+
+        var counts: [String: Int] = [:]
+        for line in series {
+            counts[line.label, default: 0] += 1
+        }
+        return series.map { line in
+            guard counts[line.label, default: 0] > 1 else { return line }
+            let windowID = line.id.split(separator: "|").last.map(String.init) ?? line.id
+            return Series(
+                id: line.id,
+                label: "\(line.label) (\(windowID))",
+                provider: line.provider,
+                points: line.points
+            )
+        }
+    }
+
+    private func dailyMaxima(of entries: [ProviderWindowPeak]) -> [Series.Point] {
+        Dictionary(grouping: entries, by: \.date)
+            .map { Series.Point(date: $0.key, utilization: $0.value.map(\.peakUtilization).max() ?? 0) }
+            .sorted { $0.date < $1.date }
+    }
+
+    // MARK: Statistics
+
+    /// Headline numbers for a slice of history.
+    public struct Stats: Sendable, Equatable {
+        /// Mean of the daily worst-window peaks.
+        public let average: Double
+        /// Highest peak observed.
+        public let peak: Double
+        /// Distinct days that reached ``ProviderUsageHistory/criticalThreshold``.
+        public let criticalDays: Int
+        /// Direction of travel across the slice.
+        public let trend: UsageTrend
+
+        public init(average: Double, peak: Double, criticalDays: Int, trend: UsageTrend) {
+            self.average = average
+            self.peak = peak
+            self.criticalDays = criticalDays
+            self.trend = trend
+        }
+    }
+
+    /// Statistics over this history, optionally narrowed to one provider.
+    ///
+    /// Always computed from the receiver, so a history already narrowed by
+    /// ``last(_:)`` yields statistics for exactly the period on screen.
+    public func stats(for provider: Provider? = nil) -> Stats {
+        let scoped = provider.map(peaks(for:)) ?? peaks
+        guard !scoped.isEmpty else {
+            return Stats(average: 0, peak: 0, criticalDays: 0, trend: .stable)
+        }
+
+        let daily = dailyMaxima(of: scoped)
+        let criticalDays = daily.filter { $0.utilization >= Self.criticalThreshold }.count
+
+        return Stats(
+            average: daily.map(\.utilization).reduce(0, +) / Double(daily.count),
+            peak: scoped.map(\.peakUtilization).max() ?? 0,
+            criticalDays: criticalDays,
+            trend: UsageTrend.calculate(from: daily.map(\.utilization))
+        )
+    }
+
+    // MARK: Previews
+
+    public static let empty = ProviderUsageHistory()
+
+    public static var sample: ProviderUsageHistory {
+        let calendar = Calendar.current
+        let windows: [(Provider, UsageWindowID, String, Double)] = [
+            (.claude, UsageWindowID(rawValue: "session"), "Session", 55),
+            (.claude, UsageWindowID(rawValue: "opus"), "All Models", 40),
+            (.codex, UsageWindowID(rawValue: "session"), "5h Limit", 70),
+        ]
+
+        var peaks: [ProviderWindowPeak] = []
+        for dayOffset in (0..<14).reversed() {
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
+            let day = calendar.startOfDay(for: date)
+            // Deterministic wave so previews and snapshots stay stable.
+            let wave = sin(Double(dayOffset) / 2.2)
+            for (provider, windowID, label, base) in windows {
+                peaks.append(ProviderWindowPeak(
+                    provider: provider,
+                    windowID: windowID,
+                    windowLabel: label,
+                    date: day,
+                    peakUtilization: min(100, max(0, base + wave * 25))
+                ))
+            }
+        }
+        return ProviderUsageHistory(peaks: peaks)
+    }
+}
+
 // MARK: - Usage Trend
 
 /// Represents the trend direction of usage
@@ -201,17 +426,22 @@ public enum UsageTrend: String, Sendable {
         }
     }
 
-    /// Calculate trend from recent records
-    public static func calculate(from records: [DailyUsageRecord], keyPath: KeyPath<DailyUsageRecord, Double>) -> UsageTrend {
-        guard records.count >= 2 else { return .stable }
+    /// Calculate the trend across a time-ordered series of daily values.
+    ///
+    /// The series is split into two non-overlapping halves and their means
+    /// compared. An earlier version sampled `suffix(3)` from each half, which
+    /// could place the same value in both and understate the change.
+    public static func calculate(from values: [Double]) -> UsageTrend {
+        guard values.count >= 2 else { return .stable }
 
-        let recent = records.suffix(3)
-        let older = records.dropLast(min(3, records.count / 2)).suffix(3)
+        let midpoint = values.count / 2
+        let older = values.prefix(midpoint)
+        let recent = values.suffix(values.count - midpoint)
 
         guard !recent.isEmpty && !older.isEmpty else { return .stable }
 
-        let recentAvg = recent.map { $0[keyPath: keyPath] }.reduce(0, +) / Double(recent.count)
-        let olderAvg = older.map { $0[keyPath: keyPath] }.reduce(0, +) / Double(older.count)
+        let recentAvg = recent.reduce(0, +) / Double(recent.count)
+        let olderAvg = older.reduce(0, +) / Double(older.count)
 
         let difference = recentAvg - olderAvg
 

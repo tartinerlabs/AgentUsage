@@ -42,6 +42,18 @@ struct DashboardTabView: View {
                         tokenUsageSectionWithStates
                     }
                 }
+
+                // Hidden until at least one day has been recorded, so a fresh
+                // install does not lead with an empty chart.
+                if !viewModel.usageHistory.isEmpty {
+                    dashboardSection(
+                        title: "Usage Trends",
+                        subtitle: "Daily peak utilization across your providers.",
+                        systemImage: "chart.line.uptrend.xyaxis"
+                    ) {
+                        UsageHistoryView(history: viewModel.usageHistory)
+                    }
+                }
             }
             .frame(maxWidth: contentWidth, alignment: .leading)
             .padding(.horizontal, 32)
