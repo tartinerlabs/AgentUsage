@@ -287,7 +287,8 @@ nonisolated struct BlogUsageSourceParser {
     nonisolated func parseClaudeEvents() throws -> [BlogUsageEvent] {
         let roots = [
             homeDirectory.appendingPathComponent(".claude/projects"),
-            homeDirectory.appendingPathComponent(".config/claude/projects")
+            homeDirectory.appendingPathComponent(".config/claude/projects"),
+            homeDirectory.appendingPathComponent("\(Constants.xcodeCodingAssistantPath)/ClaudeAgentConfig/projects")
         ]
         let files = try roots.flatMap { try jsonlFiles(in: $0) }
         var seen = Set<String>()
@@ -307,7 +308,8 @@ nonisolated struct BlogUsageSourceParser {
     nonisolated func parseCodexEvents() throws -> [BlogUsageEvent] {
         let roots = [
             homeDirectory.appendingPathComponent(".codex/sessions"),
-            homeDirectory.appendingPathComponent(".codex/archived_sessions")
+            homeDirectory.appendingPathComponent(".codex/archived_sessions"),
+            homeDirectory.appendingPathComponent("\(Constants.xcodeCodingAssistantPath)/codex/sessions")
         ]
         let files = try roots.flatMap { try jsonlFiles(in: $0) }
         var events: [BlogUsageEvent] = []
