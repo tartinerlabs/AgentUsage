@@ -9,12 +9,18 @@ import AgentUsageKit
 
 @ModelActor
 actor UsageHistoryRepository {
-    private static let maxDays = 30
+    static let maxDays = 30
     private static let legacyStorageKey = "usageHistory"
     private static let migrationKey = "didMigrateUsageHistoryToSwiftData"
-    private static let genericMigrationKey = "didMigrateProviderWindowHistoryV2"
+    /// Bumped to V3: V2 ran once and then `record(snapshot:)` kept writing Claude
+    /// history to the legacy table only, so anything recorded after V2 never
+    /// reached the provider-neutral table the trends chart reads. Re-running the
+    /// copy is safe because peaks merge with `max`.
+    private static let genericMigrationKey = "didMigrateProviderWindowHistoryV3"
 
     private var hasMigrated = false
+    /// Day the retention scan last ran, so it runs once per day rather than per refresh.
+    private var lastCleanupDay: Date?
 
     func migrateFromUserDefaultsIfNeeded(defaults: UserDefaults = .standard) throws {
         guard !hasMigrated else { return }
@@ -65,16 +71,10 @@ actor UsageHistoryRepository {
         try modelContext.save()
     }
 
+    /// Record Claude's snapshot through the provider-neutral path so its history
+    /// lands in the same table as every other provider.
     func record(snapshot: UsageSnapshot) throws {
-        let id = DailyUsageRecordEntity.id(for: Date())
-        if let existing = try existingEntity(id: id) {
-            existing.update(with: existing.record.mergedWith(snapshot: snapshot))
-        } else {
-            modelContext.insert(DailyUsageRecordEntity(record: .from(snapshot: snapshot)))
-            // Records can only age past the cutoff when a new day starts
-            try cleanupOldRecords()
-        }
-        try modelContext.save()
+        try record(providerSnapshot: ProviderUsageSnapshot(claude: snapshot))
     }
 
     func record(providerSnapshot: ProviderUsageSnapshot) throws {
@@ -86,22 +86,35 @@ actor UsageHistoryRepository {
                 updatedAt: providerSnapshot.fetchedAt
             )
         }
-        try cleanupOldRecords()
+        // Recording runs on every refresh; rows can only age out when the day
+        // rolls over, so the delete scan does not need to run each time.
+        let today = Calendar.current.startOfDay(for: providerSnapshot.fetchedAt)
+        if lastCleanupDay != today {
+            try cleanupOldRecords()
+            lastCleanupDay = today
+        }
         try modelContext.save()
     }
 
-    func fetchHistory() throws -> UsageHistory {
-        let records = try fetchRecords(days: Self.maxDays)
-        return UsageHistory(records: records, maxDays: Self.maxDays)
-    }
-
-    func fetchRecords(days: Int) throws -> [DailyUsageRecord] {
+    /// Daily peaks for every provider over the last `days` days.
+    func fetchProviderPeaks(days: Int = maxDays) throws -> ProviderUsageHistory {
         let cutoffDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
-        let descriptor = FetchDescriptor<DailyUsageRecordEntity>(
+        let descriptor = FetchDescriptor<ProviderWindowDailyPeakEntity>(
             predicate: #Predicate { $0.date >= cutoffDate },
-            sortBy: [SortDescriptor(\DailyUsageRecordEntity.date)]
+            sortBy: [SortDescriptor(\ProviderWindowDailyPeakEntity.date)]
         )
-        return try modelContext.fetch(descriptor).map(\.record)
+        let peaks = try modelContext.fetch(descriptor).compactMap { entity -> ProviderWindowPeak? in
+            // Rows written by a build that knew a provider this one doesn't.
+            guard let provider = Provider(rawValue: entity.providerID) else { return nil }
+            return ProviderWindowPeak(
+                provider: provider,
+                windowID: UsageWindowID(rawValue: entity.windowID),
+                windowLabel: entity.windowLabel,
+                date: entity.date,
+                peakUtilization: entity.peakUtilization
+            )
+        }
+        return ProviderUsageHistory(peaks: peaks)
     }
 
     func clear() throws {

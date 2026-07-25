@@ -69,6 +69,8 @@ final class UsageViewModel {
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
     /// for all providers (Claude, Codex, OpenCode).
     var providerDetails: [Provider: ProviderDetail] = [:]
+    /// Daily peak utilization per provider window, backing the usage trends chart.
+    private(set) var usageHistory: ProviderUsageHistory = .empty
     #endif
     var planType: String = "Free"
     var isLoading = false
@@ -636,6 +638,8 @@ extension UsageViewModel {
         // inside it are already independent of the Claude API.
         async let providersArm: Void = refreshExtraProviders()
         let (outcome, _) = await (claudeArm, providersArm)
+        // Both arms record into history, so reload once they have both landed.
+        usageHistory = await usageHistoryService.getProviderHistory()
         if !appConnectionRevoked, snapshot != nil || !providerUsage.isEmpty {
             Task { [weak self] in
                 await self?.publishContinuitySnapshot()
@@ -972,7 +976,11 @@ extension UsageViewModel {
     private func refreshProviderUsage() async {
         for (provider, service) in providerUsageServices {
             do {
-                providerUsage[provider] = try await service.fetchSnapshot()
+                let providerSnapshot = try await service.fetchSnapshot()
+                providerUsage[provider] = providerSnapshot
+                if let providerSnapshot {
+                    await usageHistoryService.record(providerSnapshot: providerSnapshot)
+                }
                 clearIncident(for: provider)
             } catch {
                 if Self.isOutageError(error) {

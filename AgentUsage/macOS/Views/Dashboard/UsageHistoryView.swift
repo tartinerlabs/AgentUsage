@@ -10,94 +10,117 @@ import SwiftUI
 import Charts
 import AgentUsageKit
 
+/// Daily peak utilization over time, for every provider or one at a time.
+///
+/// Designed to sit inside the dashboard's section chrome, so it draws no card
+/// background of its own.
 struct UsageHistoryView: View {
-    let history: UsageHistory
+    let history: ProviderUsageHistory
+
     @State private var selectedDays: Int = 7
+    /// `nil` shows every provider, collapsed to its worst window per day.
+    @State private var selectedProvider: Provider?
+
+    /// Hues for the per-window breakdown, where every line belongs to the same
+    /// provider and so cannot be distinguished by provider accent.
+    private static let windowPalette: [Color] = [.blue, .orange, .purple, .teal, .pink]
+
+    private static let periods = [7, 14, 30]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header with period selector
-            HStack {
-                Text("Usage Trends")
-                    .font(.headline)
+            controls
 
-                Spacer()
-
-                Picker("Period", selection: $selectedDays) {
-                    Text("7 Days").tag(7)
-                    Text("14 Days").tag(14)
-                    Text("30 Days").tag(30)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 200)
-                .accessibilityLabel("Select time period")
-            }
-
-            if records.isEmpty {
+            if series.isEmpty {
                 emptyState
             } else {
                 chartView
                 statsView
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.regularMaterial)
-        )
     }
 
-    private var records: [DailyUsageRecord] {
+    // MARK: - Data
+
+    /// History narrowed to the selected period. Everything on screen derives
+    /// from this, so the period picker moves the chart and the statistics
+    /// together.
+    private var visibleHistory: ProviderUsageHistory {
         history.last(selectedDays)
     }
 
+    private var series: [ProviderUsageHistory.Series] {
+        if let selectedProvider {
+            return visibleHistory.seriesByWindow(for: selectedProvider)
+        }
+        return visibleHistory.seriesByProvider()
+    }
+
+    private var stats: ProviderUsageHistory.Stats {
+        visibleHistory.stats(for: selectedProvider)
+    }
+
+    private var seriesColors: [Color] {
+        if selectedProvider != nil {
+            return series.indices.map { Self.windowPalette[$0 % Self.windowPalette.count] }
+        }
+        return series.map(\.provider.accentColor)
+    }
+
+    private var scopeName: String {
+        selectedProvider?.displayName ?? "all providers"
+    }
+
+    // MARK: - Controls
+
+    private var controls: some View {
+        HStack(spacing: 12) {
+            if history.providers.count > 1 {
+                Picker("Provider", selection: $selectedProvider) {
+                    Text("All").tag(Provider?.none)
+                    ForEach(history.providers) { provider in
+                        Text(provider.displayName).tag(Provider?.some(provider))
+                    }
+                }
+                .pickerStyle(.menu)
+                .fixedSize()
+                .accessibilityLabel("Select provider")
+            }
+
+            Spacer(minLength: 12)
+
+            Picker("Period", selection: $selectedDays) {
+                ForEach(Self.periods, id: \.self) { days in
+                    Text("\(days) Days").tag(days)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 200)
+            .accessibilityLabel("Select time period")
+        }
+    }
+
+    // MARK: - Chart
+
     private var chartView: some View {
         Chart {
-            ForEach(records) { record in
-                LineMark(
-                    x: .value("Date", record.date, unit: .day),
-                    y: .value("Usage", record.peakOpusUtilization)
-                )
-                .foregroundStyle(by: .value("Type", "All Models"))
-                .symbol(Circle())
-                .interpolationMethod(.catmullRom)
-
-                LineMark(
-                    x: .value("Date", record.date, unit: .day),
-                    y: .value("Usage", record.peakSessionUtilization)
-                )
-                .foregroundStyle(by: .value("Type", "Session"))
-                .symbol(Circle())
-                .interpolationMethod(.catmullRom)
-
-                if let sonnet = record.peakSonnetUtilization {
+            ForEach(series) { line in
+                ForEach(line.points) { point in
                     LineMark(
-                        x: .value("Date", record.date, unit: .day),
-                        y: .value("Usage", sonnet)
+                        x: .value("Date", point.date, unit: .day),
+                        y: .value("Peak", point.utilization)
                     )
-                    .foregroundStyle(by: .value("Type", "Sonnet"))
-                    .symbol(Circle())
-                    .interpolationMethod(.catmullRom)
-                }
-
-                if let fable = record.peakFableUtilization {
-                    LineMark(
-                        x: .value("Date", record.date, unit: .day),
-                        y: .value("Usage", fable)
-                    )
-                    .foregroundStyle(by: .value("Type", "Fable"))
+                    .foregroundStyle(by: .value("Series", line.label))
                     .symbol(Circle())
                     .interpolationMethod(.catmullRom)
                 }
             }
 
-            // Warning threshold line
-            RuleMark(y: .value("Warning", 75))
+            RuleMark(y: .value("Warning", ProviderUsageHistory.warningThreshold))
                 .foregroundStyle(.orange.opacity(0.5))
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
 
-            // Critical threshold line
-            RuleMark(y: .value("Critical", 90))
+            RuleMark(y: .value("Critical", ProviderUsageHistory.criticalThreshold))
                 .foregroundStyle(.red.opacity(0.5))
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
         }
@@ -113,37 +136,46 @@ struct UsageHistoryView: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .day)) { value in
+            // A daily stride is unreadable beyond a week, so thin the labels out
+            // as the period grows.
+            AxisMarks(values: .stride(by: .day, count: axisStride)) { value in
                 AxisGridLine()
-                AxisValueLabel(format: .dateTime.weekday(.abbreviated))
+                AxisValueLabel(format: selectedDays > 7
+                    ? .dateTime.month(.abbreviated).day()
+                    : .dateTime.weekday(.abbreviated))
             }
         }
-        .chartForegroundStyleScale([
-            "Session": Color.blue,
-            "All Models": Color.orange,
-            "Sonnet": Color.purple,
-            "Fable": Color.teal
-        ])
+        .chartForegroundStyleScale(domain: series.map(\.label), range: seriesColors)
         .chartLegend(position: .bottom)
         .frame(height: 200)
-        .accessibilityLabel("Usage trend chart for the last \(selectedDays) days")
+        .accessibilityLabel("Usage trend chart for \(scopeName) over the last \(selectedDays) days")
     }
+
+    private var axisStride: Int {
+        switch selectedDays {
+        case ...7: 1
+        case ...14: 2
+        default: 5
+        }
+    }
+
+    // MARK: - Statistics
 
     private var statsView: some View {
         HStack(spacing: 24) {
             statItem(
-                title: "Avg Session",
-                value: "\(Int(history.averageSessionUtilization))%",
-                trend: UsageTrend.calculate(from: records, keyPath: \.peakSessionUtilization)
+                title: "Average Peak",
+                value: percent(stats.average),
+                trend: stats.trend
             )
 
             Divider()
                 .frame(height: 40)
 
             statItem(
-                title: "Avg All Models",
-                value: "\(Int(history.averageOpusUtilization))%",
-                trend: UsageTrend.calculate(from: records, keyPath: \.peakOpusUtilization)
+                title: "Highest Peak",
+                value: percent(stats.peak),
+                trend: nil
             )
 
             Divider()
@@ -151,12 +183,16 @@ struct UsageHistoryView: View {
 
             statItem(
                 title: "Critical Days",
-                value: "\(history.criticalDays.count)",
+                value: "\(stats.criticalDays)",
                 trend: nil
             )
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Usage statistics")
+        .accessibilityLabel("Usage statistics for \(scopeName) over the last \(selectedDays) days")
+    }
+
+    private func percent(_ value: Double) -> String {
+        "\(Int(value.rounded()))%"
     }
 
     private func statItem(title: String, value: String, trend: UsageTrend?) -> some View {
@@ -196,7 +232,7 @@ struct UsageHistoryView: View {
                 .foregroundStyle(.secondary)
             Text("No history yet")
                 .font(.headline)
-            Text("Usage data will appear here as you use Claude")
+            Text("Daily peaks appear here as your providers report usage")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -209,13 +245,13 @@ struct UsageHistoryView: View {
 
 #Preview {
     UsageHistoryView(history: .sample)
-        .frame(width: 500)
+        .frame(width: 520)
         .padding()
 }
 
 #Preview("Empty") {
     UsageHistoryView(history: .empty)
-        .frame(width: 500)
+        .frame(width: 520)
         .padding()
 }
 #endif
