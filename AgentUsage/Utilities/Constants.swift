@@ -145,11 +145,18 @@ enum Constants {
         realHomeDirectory.appendingPathComponent(".local/share/opencode")
     }
 
+    /// Xcode's Coding Assistant bundles its own Claude Code and Codex agent homes,
+    /// separate from the CLI ones. Sessions run from Xcode write only here, in the
+    /// same on-disk formats. Note this lives outside every per-provider grant root
+    /// above, so it is readable only under Full Disk Access or a home-folder grant.
+    nonisolated static let xcodeCodingAssistantPath = "Library/Developer/Xcode/CodingAssistant"
+
     nonisolated static var claudeProjectsDirectories: [URL] {
         let home = realHomeDirectory
         return [
             home.appendingPathComponent(".claude/projects"),
-            home.appendingPathComponent(".config/claude/projects")
+            home.appendingPathComponent(".config/claude/projects"),
+            home.appendingPathComponent("\(xcodeCodingAssistantPath)/ClaudeAgentConfig/projects")
         ]
     }
 
@@ -157,7 +164,9 @@ enum Constants {
     nonisolated static var codexSessionsDirectories: [URL] {
         let home = realHomeDirectory
         return [
-            home.appendingPathComponent(".codex/sessions")
+            home.appendingPathComponent(".codex/sessions"),
+            home.appendingPathComponent(".codex/archived_sessions"),
+            home.appendingPathComponent("\(xcodeCodingAssistantPath)/codex/sessions")
         ]
     }
 
