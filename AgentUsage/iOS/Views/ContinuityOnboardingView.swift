@@ -12,7 +12,7 @@ struct ContinuityOnboardingView: View {
 
     @Environment(UsageViewModel.self) private var viewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var connectionState: ContinuityOnboardingMap.State = .idle
+    @State private var connectionState: ContinuityOnboardingMap.ConnectionState = .idle
     @State private var statusMessage: String?
 
     var body: some View {

@@ -14,7 +14,7 @@ struct DataAccessOnboardingView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var folderAccess = SandboxFolderAccessService.shared
-    @State private var connectionState: ContinuityOnboardingMap.State = .idle
+    @State private var connectionState: ContinuityOnboardingMap.ConnectionState = .idle
     @State private var accessMessage: AccessMessage?
 
     init(
