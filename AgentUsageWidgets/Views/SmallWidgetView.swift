@@ -14,27 +14,33 @@ struct SmallWidgetView: View {
         entry.selectedWindow
     }
 
+    // Time-dependent values are derived from the entry's date, not `Date()`:
+    // WidgetKit renders every entry of a timeline up front.
+    private var status: UsageStatus { usage.status(from: entry.date) }
+    private var trend: UsageWindow.Trend { usage.trend(from: entry.date) }
+    private var resetText: String { usage.resetDescription(from: entry.date) }
+
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             HStack(spacing: 4) {
                 Text(entry.metric.displayName)
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
 
-                Image(systemName: usage.trend.icon)
+                Image(systemName: trend.icon)
                     .font(.caption2)
                     .foregroundStyle(trendColor)
             }
 
             progressRing
-                .frame(width: 70, height: 70)
+                .frame(width: 62, height: 62)
                 .accessibilityHidden(true)
 
             Text("\(usage.percentUsed)%")
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundStyle(usage.status.color)
+                .foregroundStyle(status.color)
 
             if usage.isUsingExtraUsage {
                 Text("Extra")
@@ -42,19 +48,21 @@ struct SmallWidgetView: View {
                     .foregroundStyle(extraUsageAccentColor)
             }
 
-            Text("Resets \(usage.timeUntilReset)")
+            Text(resetText)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+
+            WidgetFreshnessLabel(entry: entry)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(entry.metric.displayName) usage")
-        .accessibilityValue("\(usage.percentUsed) percent used, \(usage.status.label), \(usage.trend.accessibilityLabel)")
-        .accessibilityHint("Resets \(usage.timeUntilReset)")
+        .accessibilityValue("\(usage.percentUsed) percent used, \(status.label), \(trend.accessibilityLabel)")
+        .accessibilityHint("\(resetText). Updated \(entry.lastUpdatedDescription)")
     }
 
     private var trendColor: Color {
-        switch usage.trend {
+        switch trend {
         case .increasing: return .orange
         case .stable: return .secondary
         case .decreasing: return .green
@@ -68,7 +76,7 @@ struct SmallWidgetView: View {
             Circle()
                 .trim(from: 0, to: usage.normalized)
                 .stroke(
-                    usage.status.color,
+                    status.color,
                     style: StrokeStyle(lineWidth: 6, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))

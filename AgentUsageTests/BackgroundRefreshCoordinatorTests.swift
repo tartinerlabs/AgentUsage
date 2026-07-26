@@ -61,13 +61,17 @@ struct BackgroundRefreshCoordinatorTests {
         #expect(task.completions == [true])
     }
 
+    /// A completed attempt is a successful task regardless of what the refresh
+    /// found. iOS uses the success flag to decide how willingly to wake the app
+    /// again, and "the Mac published nothing new" must not count against us.
     @Test(arguments: [
-        ClaudeRefreshOutcome.noUsageData,
+        ClaudeRefreshOutcome.updated,
+        .noUsageData,
         .failed,
         .skipped,
     ])
     @MainActor
-    func mapsRefreshOutcomeToTaskSuccess(outcome: ClaudeRefreshOutcome) async {
+    func reportsCompletedAttemptAsSuccessForEveryOutcome(outcome: ClaudeRefreshOutcome) async {
         let scheduler = MockBackgroundRefreshScheduler()
         let coordinator = BackgroundRefreshCoordinator(
             scheduler: scheduler,
@@ -80,7 +84,29 @@ struct BackgroundRefreshCoordinatorTests {
         scheduler.launch(task)
         await waitForCompletion(task)
 
-        #expect(task.completions == [outcome.completedSuccessfully])
+        #expect(task.completions == [true])
+    }
+
+    @Test @MainActor func startRegistersAndSubmitsAnInitialRequest() {
+        let scheduler = MockBackgroundRefreshScheduler()
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let coordinator = BackgroundRefreshCoordinator(
+            scheduler: scheduler,
+            refresh: { .updated },
+            refreshFrequency: { .fifteenMinutes },
+            now: { now }
+        )
+
+        #expect(coordinator.start())
+
+        // Without this, an app that never reaches `.background` cleanly leaves no
+        // pending request and iOS has nothing to wake.
+        #expect(scheduler.registeredIdentifier == BackgroundRefreshCoordinator.taskIdentifier)
+        #expect(scheduler.submissions.count == 1)
+        #expect(
+            scheduler.submissions.first?.earliestBeginDate
+                == now.addingTimeInterval(BackgroundRefreshCoordinator.minimumInterval)
+        )
     }
 
     @Test @MainActor func expirationCancelsAndCompletesExactlyOnce() async {
