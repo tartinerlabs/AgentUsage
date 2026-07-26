@@ -11,32 +11,33 @@ struct LockScreenWidgetView: View {
     @Environment(\.widgetFamily) var family
     let entry: WidgetEntry
 
-    private var usage: UsageWindow {
-        entry.selectedWindow
-    }
-
-    /// Derived from the entry's date, not `Date()` — WidgetKit renders every
-    /// entry of a timeline up front.
-    private var resetText: String {
-        usage.resetDescription(from: entry.date)
-    }
-
     var body: some View {
+        if let usage = entry.selectedWindow {
+            content(for: usage)
+        } else {
+            // WidgetNoDataView switches on the same family, so each accessory
+            // shape gets its own empty treatment.
+            WidgetNoDataView()
+        }
+    }
+
+    @ViewBuilder
+    private func content(for usage: UsageWindow) -> some View {
         switch family {
         case .accessoryCircular:
-            circularView
+            circularView(for: usage)
         case .accessoryRectangular:
-            rectangularView
+            rectangularView(for: usage)
         case .accessoryInline:
-            inlineView
+            inlineView(for: usage)
         default:
-            circularView
+            circularView(for: usage)
         }
     }
 
     // MARK: - Circular (Watch-style ring)
 
-    private var circularView: some View {
+    private func circularView(for usage: UsageWindow) -> some View {
         Gauge(value: usage.normalized) {
             Text(entry.metric.displayName.prefix(1))
                 .font(.caption2)
@@ -52,8 +53,12 @@ struct LockScreenWidgetView: View {
 
     // MARK: - Rectangular (Bar with text)
 
-    private var rectangularView: some View {
-        VStack(alignment: .leading, spacing: 2) {
+    private func rectangularView(for usage: UsageWindow) -> some View {
+        // Derived from the entry's date, not `Date()` — WidgetKit renders every
+        // entry of a timeline up front.
+        let resetText = usage.resetDescription(from: entry.date)
+
+        return VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(entry.metric.displayName)
                     .font(.headline)
@@ -94,26 +99,31 @@ struct LockScreenWidgetView: View {
 
     // MARK: - Inline (Single line text)
 
-    private var inlineView: some View {
+    private func inlineView(for usage: UsageWindow) -> some View {
         Text("\(entry.metric.displayName): \(usage.percentUsed)%")
             .accessibilityLabel("\(entry.metric.displayName) usage \(usage.percentUsed) percent")
     }
 }
 
-#Preview(as: .accessoryCircular) {
+#if DEBUG
+#Preview("Circular", as: .accessoryCircular) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
+    WidgetEntry.previewNoData()
 }
 
-#Preview(as: .accessoryRectangular) {
+#Preview("Rectangular", as: .accessoryRectangular) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
+    WidgetEntry.previewNoData()
 }
 
-#Preview(as: .accessoryInline) {
+#Preview("Inline", as: .accessoryInline) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
+    WidgetEntry.previewNoData()
 }
+#endif

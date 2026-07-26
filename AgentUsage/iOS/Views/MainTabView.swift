@@ -20,12 +20,10 @@ struct MainTabView: View {
                 Label("Dashboard", systemImage: "chart.bar")
             }
 
-            NavigationStack {
-                ClaudeWrappedView()
-            }
-            .tabItem {
-                Label("Wrapped", systemImage: "gift")
-            }
+            // The Wrapped tab is intentionally absent: `ClaudeWrappedView` is
+            // still driven entirely by `WrappedSummary.mock`, so shipping it
+            // would show every user a fabricated year. Restore this tab once the
+            // CloudKit sync core (GitHub #8) supplies real yearly totals.
 
             NavigationStack {
                 SettingsView()

@@ -31,14 +31,18 @@ enum WidgetTimelineLoader {
 
     /// The freshest snapshot available, preferring the Mac's CloudKit record and
     /// falling back to the App Group cache when iCloud is unavailable or empty.
-    static func currentSnapshot() async -> UsageSnapshot {
+    ///
+    /// Returns `nil` when neither source has anything. The widget then renders
+    /// its no-data state rather than a fabricated one — showing invented
+    /// percentages here would be indistinguishable from real usage.
+    static func currentSnapshot() async -> UsageSnapshot? {
         if let synced = await syncedSnapshot() {
-            // Cache it so `placeholder`/`snapshot` render real data instantly and
-            // so the widget survives an offline reload.
+            // Cache it so the synchronous `placeholder`/`snapshot` paths render
+            // real data instantly and the widget survives an offline reload.
             WidgetDataStorage.shared.save(synced)
             return synced
         }
-        return WidgetDataManager.load() ?? .placeholder
+        return WidgetDataManager.load()
     }
 
     /// One entry every `entryStride` so reset countdowns and pace-based status
@@ -46,7 +50,7 @@ enum WidgetTimelineLoader {
     /// built, so each view must derive time-dependent values from `entry.date`
     /// rather than `Date()`.
     static func timeline(
-        snapshot: UsageSnapshot,
+        snapshot: UsageSnapshot?,
         metric: MetricType,
         from now: Date = .now
     ) -> Timeline<WidgetEntry> {
@@ -83,13 +87,14 @@ enum WidgetTimelineLoader {
 
 struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> WidgetEntry {
-        WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+        // Synchronous, so the cache is the only source available here. Real
+        // cached numbers when we have them, an honest blank when we don't.
+        WidgetEntry(date: .now, snapshot: WidgetDataManager.load())
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> WidgetEntry {
         // The gallery/transient preview should be instant, so read the cache only.
-        let snapshot = WidgetDataManager.load() ?? .placeholder
-        return WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
+        WidgetEntry(date: .now, snapshot: WidgetDataManager.load(), metric: configuration.metric)
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<WidgetEntry> {
@@ -100,12 +105,13 @@ struct Provider: AppIntentTimelineProvider {
 
 struct LockScreenProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> WidgetEntry {
-        WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+        // Synchronous, so the cache is the only source available here. Real
+        // cached numbers when we have them, an honest blank when we don't.
+        WidgetEntry(date: .now, snapshot: WidgetDataManager.load())
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> WidgetEntry {
-        let snapshot = WidgetDataManager.load() ?? .placeholder
-        return WidgetEntry(date: .now, snapshot: snapshot, metric: configuration.metric)
+        WidgetEntry(date: .now, snapshot: WidgetDataManager.load(), metric: configuration.metric)
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<WidgetEntry> {

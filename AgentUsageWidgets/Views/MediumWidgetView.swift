@@ -11,23 +11,31 @@ struct MediumWidgetView: View {
     let entry: WidgetEntry
 
     var body: some View {
+        if let snapshot = entry.snapshot {
+            content(for: snapshot)
+        } else {
+            WidgetNoDataView()
+        }
+    }
+
+    private func content(for snapshot: UsageSnapshot) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 12) {
-                metricView(title: entry.snapshot.session.windowType.displayName, usage: entry.snapshot.session)
+                metricView(title: snapshot.session.windowType.displayName, usage: snapshot.session)
                 Divider()
-                metricView(title: entry.snapshot.opus.windowType.displayName, usage: entry.snapshot.opus)
+                metricView(title: snapshot.opus.windowType.displayName, usage: snapshot.opus)
 
-                if let sonnet = entry.snapshot.sonnet {
+                if let sonnet = snapshot.sonnet {
                     Divider()
                     metricView(title: sonnet.windowType.displayName, usage: sonnet)
                 }
 
-                if let design = entry.snapshot.design {
+                if let design = snapshot.design {
                     Divider()
                     metricView(title: design.windowType.displayName, usage: design)
                 }
 
-                if let fable = entry.snapshot.fable {
+                if let fable = snapshot.fable {
                     Divider()
                     metricView(title: fable.windowType.displayName, usage: fable)
                 }
@@ -108,8 +116,16 @@ struct MediumWidgetView: View {
     }
 }
 
-#Preview(as: .systemMedium) {
+#if DEBUG
+#Preview("Medium", as: .systemMedium) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
 }
+
+#Preview("Medium — No data", as: .systemMedium) {
+    AgentUsageWidgets()
+} timeline: {
+    WidgetEntry.previewNoData()
+}
+#endif

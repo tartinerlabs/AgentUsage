@@ -58,33 +58,44 @@ struct AgentUsageLockScreenWidget: Widget {
 }
 
 // MARK: - Previews
+//
+// Each timeline pairs the populated state with the no-data state so the empty
+// case stays visible during design work rather than only appearing on a fresh
+// install.
 
+#if DEBUG
 #Preview(as: .systemSmall) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
+    WidgetEntry.previewNoData()
 }
 
 #Preview(as: .systemMedium) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
+    WidgetEntry.previewNoData()
 }
 
 #Preview(as: .systemLarge) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
+    WidgetEntry.previewNoData()
 }
 
 #Preview(as: .accessoryCircular) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
+    WidgetEntry.previewNoData()
 }
 
 #Preview(as: .accessoryRectangular) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
+    WidgetEntry.previewNoData()
 }
+#endif

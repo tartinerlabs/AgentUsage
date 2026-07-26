@@ -10,10 +10,14 @@ import UIKit
 
 /// "Claude Wrapped" — a year-in-review of Claude Code usage.
 ///
-/// Currently driven by ``WrappedSummary/mock``; the CloudKit sync core that will
-/// supply real yearly data is tracked in GitHub #8. Visuals follow DESIGN.md:
-/// `.regularMaterial` cards, Crail (`brandPrimary`) accents, rounded-bold
-/// headline numerals, and no gradients or shadows.
+/// **Not currently reachable.** This view is still driven entirely by
+/// ``WrappedSummary/mock``, so it was unwired from `MainTabView` rather than
+/// ship a fabricated year to every user. It is kept intact so the UI work is not
+/// lost: point ``summary`` at a real aggregation once the CloudKit sync core
+/// (GitHub #8) retains a full year of usage, then restore the tab.
+///
+/// Visuals follow DESIGN.md: `.regularMaterial` cards, Crail (`brandPrimary`)
+/// accents, rounded-bold headline numerals, and no gradients or shadows.
 struct ClaudeWrappedView: View {
     private let summary = WrappedSummary.mock
     @State private var shareImage: UIImage?
