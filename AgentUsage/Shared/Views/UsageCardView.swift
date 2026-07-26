@@ -39,7 +39,7 @@ struct UsageCardView: View {
                             .font(.caption)
                             .foregroundStyle(Constants.extraUsageAccent)
                     }
-                    Text("Resets in \(usage.timeUntilReset(from: now))")
+                    Text(usage.resetDescription(from: now))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -55,7 +55,7 @@ struct UsageCardView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
-        .accessibilityHint("Resets \(usage.timeUntilReset(from: now))")
+        .accessibilityHint(usage.resetDescription(from: now))
     }
 
     private var progressRing: some View {

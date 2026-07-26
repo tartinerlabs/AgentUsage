@@ -61,6 +61,31 @@ actor ClaudeAPIService: APIServiceProtocol {
         }
     }
 
+    /// `ISO8601DateFormatter` treats `.withFractionalSeconds` as *required*, so a
+    /// formatter configured for it rejects `2026-07-25T10:00:00Z`. The usage endpoint
+    /// normally sends fractional seconds, but a response without them would otherwise
+    /// fall back to `Date()` and render every window as already reset.
+    /// Instance-held rather than `static`: a `static let` is global storage even inside
+    /// an actor, and `ISO8601DateFormatter` is not `Sendable`. As instance state it is
+    /// confined to this actor, which is safe under the Swift 6 language mode.
+    private let fractionalTimestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private let wholeSecondTimestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    func parseTimestamp(_ value: String?) -> Date? {
+        guard let value, !value.isEmpty else { return nil }
+        return fractionalTimestampFormatter.date(from: value)
+            ?? wholeSecondTimestampFormatter.date(from: value)
+    }
+
     func fetchUsage(token: String) async throws -> UsageSnapshot {
         var lastError: APIError?
 
@@ -143,17 +168,17 @@ actor ClaudeAPIService: APIServiceProtocol {
         }
     }
 
-    /// Calculate retry delay with exponential backoff
+    /// Calculate retry delay with exponential backoff, capped at `Constants.maxRetryDelay`.
     private func calculateRetryDelay(attempt: Int, error: APIError) -> TimeInterval {
         // For rate limiting, use Retry-After header if available
         if case .rateLimited(let retryAfter) = error, let seconds = retryAfter {
-            return seconds
+            return min(seconds, Constants.maxRetryDelay)
         }
 
         // Exponential backoff: 1s, 2s, 4s, etc.
         let baseDelay = Constants.initialRetryDelay
         let multiplier = pow(Constants.retryBackoffMultiplier, Double(attempt))
-        return baseDelay * multiplier
+        return min(baseDelay * multiplier, Constants.maxRetryDelay)
     }
 
     private func parseUsageResponse(_ data: Data) throws -> UsageSnapshot {
@@ -257,13 +282,10 @@ actor ClaudeAPIService: APIServiceProtocol {
             throw APIError.noUsageData
         }
 
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
         let session = response.fiveHour.map {
             UsageWindow(
                 utilization: $0.utilization,
-                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
+                resetsAt: parseTimestamp($0.resetsAt) ?? Date(),
                 windowType: .session
             )
         } ?? UsageWindow(utilization: 0, resetsAt: Date(), windowType: .session)
@@ -272,7 +294,7 @@ actor ClaudeAPIService: APIServiceProtocol {
         let opus = response.sevenDay.map {
             UsageWindow(
                 utilization: $0.utilization,
-                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
+                resetsAt: parseTimestamp($0.resetsAt) ?? Date(),
                 windowType: .opus
             )
         } ?? UsageWindow(utilization: 0, resetsAt: Date(), windowType: .opus)
@@ -281,7 +303,7 @@ actor ClaudeAPIService: APIServiceProtocol {
         let sonnet = response.sevenDaySonnet.map {
             UsageWindow(
                 utilization: $0.utilization,
-                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
+                resetsAt: parseTimestamp($0.resetsAt) ?? Date(),
                 windowType: .sonnet
             )
         }
@@ -290,7 +312,7 @@ actor ClaudeAPIService: APIServiceProtocol {
         let design = response.sevenDayOmelette.map {
             UsageWindow(
                 utilization: $0.utilization,
-                resetsAt: dateFormatter.date(from: $0.resetsAt) ?? Date(),
+                resetsAt: parseTimestamp($0.resetsAt) ?? Date(),
                 windowType: .design
             )
         }
@@ -303,7 +325,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             .map {
                 UsageWindow(
                     utilization: $0.percent ?? 0,
-                    resetsAt: dateFormatter.date(from: $0.resetsAt ?? "") ?? Date(),
+                    resetsAt: parseTimestamp($0.resetsAt) ?? Date(),
                     windowType: .fable
                 )
             }

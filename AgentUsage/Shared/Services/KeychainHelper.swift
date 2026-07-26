@@ -15,7 +15,7 @@ import Security
 /// present in the iOS and macOS entitlements. iOS reads and writes these
 /// credentials directly; macOS mirrors Claude Code credentials here so iCloud
 /// Keychain can sync them to iOS.
-enum KeychainHelper {
+nonisolated enum KeychainHelper {
     nonisolated static let service = "com.tartinerlabs.AgentUsage"
     static let account = "claude-oauth-credentials"
 
