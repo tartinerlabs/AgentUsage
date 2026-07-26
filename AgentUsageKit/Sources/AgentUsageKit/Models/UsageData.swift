@@ -259,7 +259,17 @@ public struct UsageWindow: Sendable, Codable {
 
     /// Calculate usage status based on absolute usage and consumption rate
     public var status: UsageStatus {
-        let timeRemaining = resetsAt.timeIntervalSinceNow
+        status(from: Date())
+    }
+
+    /// Status as of an explicit moment.
+    ///
+    /// WidgetKit renders every entry of a timeline at the moment the timeline is
+    /// built, so `Date()` inside a widget view body is identical for all entries.
+    /// Widgets must pass their entry's date here for a multi-entry timeline to
+    /// advance the pace-based status over time.
+    public func status(from now: Date) -> UsageStatus {
+        let timeRemaining = resetsAt.timeIntervalSince(now)
         guard timeRemaining > 0 else { return .onTrack }
 
         // Check absolute usage first - high usage is always concerning
@@ -315,7 +325,12 @@ public struct UsageWindow: Sendable, Codable {
 
     /// Calculate trend based on current usage pace
     public var trend: Trend {
-        let timeRemaining = resetsAt.timeIntervalSinceNow
+        trend(from: Date())
+    }
+
+    /// Trend as of an explicit moment. See `status(from:)` for why widgets need this.
+    public func trend(from now: Date) -> Trend {
+        let timeRemaining = resetsAt.timeIntervalSince(now)
         guard timeRemaining > 0 else { return .stable }
 
         guard totalDuration > 0 else { return .stable }
@@ -438,9 +453,20 @@ public struct UsageSnapshot: Sendable, Codable {
     }
 
     public var lastUpdatedDescription: String {
+        lastUpdatedDescription(asOf: Date())
+    }
+
+    /// Relative age as of an explicit moment. See `UsageWindow.status(from:)` for
+    /// why widgets must pass their entry's date rather than rely on `Date()`.
+    public func lastUpdatedDescription(asOf now: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: fetchedAt, relativeTo: Date())
+        return formatter.localizedString(for: fetchedAt, relativeTo: now)
+    }
+
+    /// Seconds between this snapshot's fetch and `now`.
+    public func age(asOf now: Date = Date()) -> TimeInterval {
+        now.timeIntervalSince(fetchedAt)
     }
 
     /// Placeholder data for widget previews

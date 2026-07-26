@@ -100,7 +100,7 @@ struct AgentUsageApp: App {
         )
         _backgroundRefreshCoordinator = State(initialValue: coordinator)
         if !Self.isRunningTests {
-            coordinator.register()
+            coordinator.start()
         }
         #endif
     }
@@ -168,6 +168,12 @@ struct AgentUsageApp: App {
                     } else if newPhase == .background {
                         backgroundRefreshCoordinator.schedule()
                     }
+                }
+                .onChange(of: viewModel.refreshInterval) { _, _ in
+                    // The pending request carries the old interval — and switching
+                    // away from Manual has to submit one, since Manual cancels
+                    // without re-submitting.
+                    backgroundRefreshCoordinator.schedule()
                 }
         }
         #endif

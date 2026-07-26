@@ -15,6 +15,12 @@ struct LockScreenWidgetView: View {
         entry.selectedWindow
     }
 
+    /// Derived from the entry's date, not `Date()` — WidgetKit renders every
+    /// entry of a timeline up front.
+    private var resetText: String {
+        usage.resetDescription(from: entry.date)
+    }
+
     var body: some View {
         switch family {
         case .accessoryCircular:
@@ -51,6 +57,12 @@ struct LockScreenWidgetView: View {
             HStack {
                 Text(entry.metric.displayName)
                     .font(.headline)
+                // Accessory families render monochrome, so staleness is a glyph
+                // rather than the orange label the home-screen widgets use.
+                if entry.isStale {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.caption2)
+                }
                 Spacer()
                 Text("\(usage.percentUsed)%")
                     .font(.headline)
@@ -67,13 +79,17 @@ struct LockScreenWidgetView: View {
             }
             .gaugeStyle(.accessoryLinear)
 
-            Text(usage.resetDescription())
+            Text(entry.isStale ? "Updated \(entry.lastUpdatedDescription)" : resetText)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(entry.metric.displayName) usage")
-        .accessibilityValue("\(usage.percentUsed) percent, \(usage.resetDescription().lowercased())")
+        .accessibilityValue(
+            entry.isStale
+                ? "\(usage.percentUsed) percent, stale, updated \(entry.lastUpdatedDescription)"
+                : "\(usage.percentUsed) percent, \(resetText.lowercased())"
+        )
     }
 
     // MARK: - Inline (Single line text)

@@ -603,10 +603,6 @@ enum ClaudeRefreshOutcome: Equatable, Sendable {
     case noUsageData
     case skipped
     case failed
-
-    var completedSuccessfully: Bool {
-        self == .updated || self == .noUsageData
-    }
 }
 
 extension UsageViewModel {

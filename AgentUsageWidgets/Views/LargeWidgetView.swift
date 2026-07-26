@@ -17,13 +17,8 @@ struct LargeWidgetView: View {
                 Text("Claude Usage")
                     .font(.headline)
                 Spacer()
-                Text(entry.snapshot.lastUpdatedDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                WidgetFreshnessLabel(entry: entry, font: .caption)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Claude Usage")
-            .accessibilityValue("Updated \(entry.snapshot.lastUpdatedDescription)")
 
             Divider()
 
@@ -49,8 +44,14 @@ struct LargeWidgetView: View {
     }
 
     private func usageRow(title: String, usage: UsageWindow) -> some View {
-        HStack(spacing: 12) {
-            progressRing(for: usage)
+        // Time-dependent values come from the entry's date, not `Date()`:
+        // WidgetKit renders every entry of a timeline up front.
+        let status = usage.status(from: entry.date)
+        let trend = usage.trend(from: entry.date)
+        let resetText = usage.resetDescription(from: entry.date)
+
+        return HStack(spacing: 12) {
+            progressRing(for: usage, status: status)
                 .frame(width: 40, height: 40)
                 .accessibilityHidden(true)
 
@@ -59,11 +60,11 @@ struct LargeWidgetView: View {
                     Text(title)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                    Image(systemName: usage.trend.icon)
+                    Image(systemName: trend.icon)
                         .font(.caption2)
-                        .foregroundStyle(trendColor(for: usage.trend))
+                        .foregroundStyle(trendColor(for: trend))
                 }
-                Text(usage.resetDescription())
+                Text(resetText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -74,22 +75,22 @@ struct LargeWidgetView: View {
                 Text("\(usage.percentUsed)%")
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(usage.status.color)
+                    .foregroundStyle(status.color)
                 if usage.isUsingExtraUsage {
                     Text("+\(usage.extraUsagePercent)% extra")
                         .font(.caption2)
                         .foregroundStyle(extraUsageAccentColor)
                 }
-                Label(usage.status.label, systemImage: usage.status.icon)
+                Label(status.label, systemImage: status.icon)
                     .font(.caption2)
-                    .foregroundStyle(usage.status.color)
+                    .foregroundStyle(status.color)
             }
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) usage")
-        .accessibilityValue("\(usage.percentUsed) percent used, \(usage.status.label), \(usage.trend.accessibilityLabel)")
-        .accessibilityHint(usage.resetDescription())
+        .accessibilityValue("\(usage.percentUsed) percent used, \(status.label), \(trend.accessibilityLabel)")
+        .accessibilityHint(resetText)
     }
 
     private func trendColor(for trend: UsageWindow.Trend) -> Color {
@@ -100,14 +101,14 @@ struct LargeWidgetView: View {
         }
     }
 
-    private func progressRing(for usage: UsageWindow) -> some View {
+    private func progressRing(for usage: UsageWindow, status: UsageStatus) -> some View {
         ZStack {
             Circle()
                 .stroke(Color.secondary.opacity(0.2), lineWidth: 4)
             Circle()
                 .trim(from: 0, to: usage.normalized)
                 .stroke(
-                    usage.status.color,
+                    status.color,
                     style: StrokeStyle(lineWidth: 4, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))

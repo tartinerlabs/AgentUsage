@@ -50,6 +50,20 @@ final class BackgroundRefreshCoordinator {
         self.now = now
     }
 
+    /// Register the task handler and immediately queue the first request.
+    ///
+    /// Scheduling only when the app reaches `.background` leaves no pending
+    /// request after a launch that never backgrounds cleanly (crash, force-quit,
+    /// or a session ended by the system), so iOS has nothing to wake. Submitting
+    /// at launch as well means there is always a request outstanding; `schedule()`
+    /// cancels before re-submitting, so the extra call is idempotent.
+    @discardableResult
+    func start() -> Bool {
+        let registered = register()
+        schedule()
+        return registered
+    }
+
     @discardableResult
     func register() -> Bool {
         scheduler.register(identifier: Self.taskIdentifier) { [weak self] task in
@@ -87,8 +101,14 @@ final class BackgroundRefreshCoordinator {
                 completion.finish(success: false)
                 return
             }
-            let outcome = await refresh()
-            completion.finish(success: !Task.isCancelled && outcome.completedSuccessfully)
+            _ = await refresh()
+            // Report success whenever the attempt ran to completion. iOS feeds this
+            // flag into how willingly it wakes the app again, and most non-`.updated`
+            // outcomes — the Mac has not published anything new, the device is
+            // offline, the connection is revoked — are normal results of a completed
+            // attempt, not a task that failed to do its work. Reporting them as
+            // failures trained iOS to stop granting background time at all.
+            completion.finish(success: !Task.isCancelled)
             activeWork = nil
         }
         activeWork = work
