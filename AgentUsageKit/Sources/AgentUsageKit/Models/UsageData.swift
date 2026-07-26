@@ -468,36 +468,6 @@ public struct UsageSnapshot: Sendable, Codable {
     public func age(asOf now: Date = Date()) -> TimeInterval {
         now.timeIntervalSince(fetchedAt)
     }
-
-    /// Placeholder data for widget previews
-    public static let placeholder = UsageSnapshot(
-        session: UsageWindow(
-            utilization: 45,
-            resetsAt: Date().addingTimeInterval(2.5 * 60 * 60),
-            windowType: .session
-        ),
-        opus: UsageWindow(
-            utilization: 32,
-            resetsAt: Date().addingTimeInterval(4 * 24 * 60 * 60),
-            windowType: .opus
-        ),
-        sonnet: UsageWindow(
-            utilization: 28,
-            resetsAt: Date().addingTimeInterval(5 * 24 * 60 * 60),
-            windowType: .sonnet
-        ),
-        design: UsageWindow(
-            utilization: 12,
-            resetsAt: Date().addingTimeInterval(5 * 24 * 60 * 60),
-            windowType: .design
-        ),
-        fable: UsageWindow(
-            utilization: 16,
-            resetsAt: Date().addingTimeInterval(5 * 24 * 60 * 60),
-            windowType: .fable
-        ),
-        fetchedAt: Date()
-    )
 }
 
 // MARK: - Rate Limit Reset Credits

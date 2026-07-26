@@ -11,6 +11,14 @@ struct LargeWidgetView: View {
     let entry: WidgetEntry
 
     var body: some View {
+        if let snapshot = entry.snapshot {
+            content(for: snapshot)
+        } else {
+            WidgetNoDataView()
+        }
+    }
+
+    private func content(for snapshot: UsageSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             HStack {
@@ -23,18 +31,18 @@ struct LargeWidgetView: View {
             Divider()
 
             // Usage rows
-            usageRow(title: entry.snapshot.session.windowType.displayName, usage: entry.snapshot.session)
-            usageRow(title: entry.snapshot.opus.windowType.displayName, usage: entry.snapshot.opus)
+            usageRow(title: snapshot.session.windowType.displayName, usage: snapshot.session)
+            usageRow(title: snapshot.opus.windowType.displayName, usage: snapshot.opus)
 
-            if let sonnet = entry.snapshot.sonnet {
+            if let sonnet = snapshot.sonnet {
                 usageRow(title: sonnet.windowType.displayName, usage: sonnet)
             }
 
-            if let design = entry.snapshot.design {
+            if let design = snapshot.design {
                 usageRow(title: design.windowType.displayName, usage: design)
             }
 
-            if let fable = entry.snapshot.fable {
+            if let fable = snapshot.fable {
                 usageRow(title: fable.windowType.displayName, usage: fable)
             }
 
@@ -116,8 +124,16 @@ struct LargeWidgetView: View {
     }
 }
 
-#Preview(as: .systemLarge) {
+#if DEBUG
+#Preview("Large", as: .systemLarge) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
+    WidgetEntry.preview()
 }
+
+#Preview("Large — No data", as: .systemLarge) {
+    AgentUsageWidgets()
+} timeline: {
+    WidgetEntry.previewNoData()
+}
+#endif

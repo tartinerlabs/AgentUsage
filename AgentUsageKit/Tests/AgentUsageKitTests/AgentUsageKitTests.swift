@@ -514,19 +514,6 @@ struct UsageSnapshotTests {
         #expect(snapshot.sonnet == nil)
     }
 
-    @Test func placeholderHasReasonableValues() {
-        let placeholder = UsageSnapshot.placeholder
-
-        #expect(placeholder.session.utilization == 45)
-        #expect(placeholder.opus.utilization == 32)
-        #expect(placeholder.sonnet?.utilization == 28)
-        #expect(placeholder.fable?.utilization == 16)
-        #expect(placeholder.session.windowType == .session)
-        #expect(placeholder.opus.windowType == .opus)
-        #expect(placeholder.sonnet?.windowType == .sonnet)
-        #expect(placeholder.fable?.windowType == .fable)
-    }
-
     @Test func codable() throws {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()

@@ -10,18 +10,22 @@ import WidgetKit
 struct SmallWidgetView: View {
     let entry: WidgetEntry
 
-    private var usage: UsageWindow {
-        entry.selectedWindow
+    var body: some View {
+        if let usage = entry.selectedWindow {
+            content(for: usage)
+        } else {
+            WidgetNoDataView()
+        }
     }
 
-    // Time-dependent values are derived from the entry's date, not `Date()`:
-    // WidgetKit renders every entry of a timeline up front.
-    private var status: UsageStatus { usage.status(from: entry.date) }
-    private var trend: UsageWindow.Trend { usage.trend(from: entry.date) }
-    private var resetText: String { usage.resetDescription(from: entry.date) }
+    private func content(for usage: UsageWindow) -> some View {
+        // Time-dependent values are derived from the entry's date, not `Date()`:
+        // WidgetKit renders every entry of a timeline up front.
+        let status = usage.status(from: entry.date)
+        let trend = usage.trend(from: entry.date)
+        let resetText = usage.resetDescription(from: entry.date)
 
-    var body: some View {
-        VStack(spacing: 6) {
+        return VStack(spacing: 6) {
             HStack(spacing: 4) {
                 Text(entry.metric.displayName)
                     .font(.caption)
@@ -30,10 +34,10 @@ struct SmallWidgetView: View {
 
                 Image(systemName: trend.icon)
                     .font(.caption2)
-                    .foregroundStyle(trendColor)
+                    .foregroundStyle(trendColor(for: trend))
             }
 
-            progressRing
+            progressRing(for: usage, status: status)
                 .frame(width: 62, height: 62)
                 .accessibilityHidden(true)
 
@@ -61,7 +65,7 @@ struct SmallWidgetView: View {
         .accessibilityHint("\(resetText). Updated \(entry.lastUpdatedDescription)")
     }
 
-    private var trendColor: Color {
+    private func trendColor(for trend: UsageWindow.Trend) -> Color {
         switch trend {
         case .increasing: return .orange
         case .stable: return .secondary
@@ -69,7 +73,7 @@ struct SmallWidgetView: View {
         }
     }
 
-    private var progressRing: some View {
+    private func progressRing(for usage: UsageWindow, status: UsageStatus) -> some View {
         ZStack {
             Circle()
                 .stroke(Color.secondary.opacity(0.2), lineWidth: 6)
@@ -84,9 +88,17 @@ struct SmallWidgetView: View {
     }
 }
 
-#Preview(as: .systemSmall) {
+#if DEBUG
+#Preview("Small", as: .systemSmall) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .session)
-    WidgetEntry(date: .now, snapshot: .placeholder, metric: .opus)
+    WidgetEntry.preview(metric: .session)
+    WidgetEntry.preview(metric: .opus)
 }
+
+#Preview("Small — No data", as: .systemSmall) {
+    AgentUsageWidgets()
+} timeline: {
+    WidgetEntry.previewNoData()
+}
+#endif

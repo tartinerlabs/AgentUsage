@@ -8,11 +8,12 @@ import Foundation
 
 /// A year-in-review summary of Claude Code usage for the "Claude Wrapped" tab.
 ///
-/// Values are currently supplied by ``mock`` while the CloudKit sync core
-/// (GitHub #8) is built out. The shape mirrors what a real aggregation over
-/// persisted `TokenLogEntry` rows would produce — yearly totals, a by-model
-/// breakdown, and per-month buckets — so the view can be pointed at live data
-/// later without any UI changes.
+/// Values are currently supplied by ``mock``, which is why the Wrapped tab is
+/// unwired from `MainTabView` — the numbers are invented and must not reach
+/// users. The shape mirrors what a real aggregation over persisted
+/// `TokenLogEntry` rows would produce — yearly totals, a by-model breakdown, and
+/// per-month buckets — so the view can be pointed at live data later without any
+/// UI changes. Delete ``mock`` when the CloudKit sync core (GitHub #8) lands.
 struct WrappedSummary: Equatable {
     struct ModelShare: Identifiable, Equatable {
         /// Model name; stable identity for `ForEach`.
