@@ -7,6 +7,7 @@
 
 import SwiftUI
 #if os(macOS)
+import OSLog
 import SwiftData
 #endif
 
@@ -67,10 +68,21 @@ struct AgentUsageApp: App {
             )
         }
 
+        // A corrupt store or a failed migration must not be an unrecoverable launch
+        // crash: the persisted token/history data is a local cache rebuilt from the
+        // CLI logs, so fall back to an in-memory store and let the app run degraded.
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not initialize ModelContainer: \(error)")
+            Logger.viewModel.error("Persistent ModelContainer unavailable, falling back to in-memory: \(error.localizedDescription)")
+            do {
+                modelContainer = try ModelContainer(
+                    for: schema,
+                    configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)]
+                )
+            } catch {
+                fatalError("Could not initialize an in-memory ModelContainer: \(error)")
+            }
         }
 
         // Use DependencyContainer for view model creation

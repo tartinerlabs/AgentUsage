@@ -31,13 +31,27 @@ struct DashboardTabView: View {
 
                 providerSections
 
-                if viewModel.snapshot != nil {
+                // Gated on token state, not on the Claude API: this section is built from
+                // local JSONL logs, so an API outage or a reset window must not hide it.
+                if hasTokenUsageContent {
                     dashboardSection(
                         title: "Token Usage & Cost",
                         subtitle: "Local Claude token activity and estimated spend.",
                         systemImage: "square.stack.3d.up"
                     ) {
                         tokenUsageSectionWithStates
+                    }
+                }
+
+                // Hidden until at least one day has been recorded, so a fresh
+                // install does not lead with an empty chart.
+                if !viewModel.usageHistory.isEmpty {
+                    dashboardSection(
+                        title: "Usage Trends",
+                        subtitle: "Daily peak utilization across your providers.",
+                        systemImage: "chart.line.uptrend.xyaxis"
+                    ) {
+                        UsageHistoryView(history: viewModel.usageHistory)
                     }
                 }
             }
@@ -336,6 +350,14 @@ struct DashboardTabView: View {
     }
 
     // MARK: - Token Usage Section with States
+
+    /// Whether `tokenUsageSectionWithStates` has anything to render, so the section
+    /// header is not shown above empty content.
+    private var hasTokenUsageContent: Bool {
+        viewModel.tokenSnapshot != nil
+            || viewModel.isLoadingTokenUsage
+            || viewModel.tokenUsageError != nil
+    }
 
     @ViewBuilder
     private var tokenUsageSectionWithStates: some View {

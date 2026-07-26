@@ -6,7 +6,11 @@
 import Foundation
 import SwiftUI
 
-enum Constants {
+/// `nonisolated` because the project builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
+/// Without it every constant here is MainActor-isolated, and the actors that need them
+/// (`ClaudeAPIService`, `CodexUsageService`, `BlogOAuthService`, the log sources) cannot read
+/// them. These are immutable `Sendable` values, safe from any isolation.
+nonisolated enum Constants {
     // MARK: - Branding
     /// User-facing product name shown in the UI (window/nav titles, About and Settings
     /// headings, notifications, share card). Single source of truth for in-app display.
@@ -65,6 +69,12 @@ enum Constants {
     static let maxRetryAttempts = 3
     static let initialRetryDelay: TimeInterval = 1.0
     static let retryBackoffMultiplier: Double = 2.0
+
+    /// Upper bound on any single in-loop retry sleep. `Retry-After` can be minutes or
+    /// hours; sleeping that long inside the API actor would serialize every later
+    /// request behind it. Longer backoff is handled by `rateLimitedUntil` in the view
+    /// model, which suppresses auto-refresh without holding the actor.
+    static let maxRetryDelay: TimeInterval = 30
 
     /// Default cooldown after a rate-limit (HTTP 429) response with no `Retry-After`
     /// header. Auto-refresh is suppressed for this long so we stop hammering the

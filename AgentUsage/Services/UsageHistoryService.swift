@@ -57,34 +57,21 @@ actor UsageHistoryService {
         }
     }
 
-    /// Get the current usage history
-    func getHistory() async -> UsageHistory {
-        if let repository {
-            do {
-                try await ensureMigrated(repository)
-                return try await repository.fetchHistory()
-            } catch {
-                Self.logger.error("Failed to load SwiftData usage history: \(error.localizedDescription)")
-                return history
-            }
+    /// Daily peak utilization per provider for the last `days` days.
+    ///
+    /// Returns an empty history when there is no SwiftData repository: the
+    /// UserDefaults fallback only ever held Claude's fixed windows, and the
+    /// trends UI that consumes this is macOS-only, where a repository is always
+    /// injected.
+    func getProviderHistory(days: Int = UsageHistoryRepository.maxDays) async -> ProviderUsageHistory {
+        guard let repository else { return .empty }
+        do {
+            try await ensureMigrated(repository)
+            return try await repository.fetchProviderPeaks(days: days)
+        } catch {
+            Self.logger.error("Failed to load provider usage history: \(error.localizedDescription)")
+            return .empty
         }
-
-        return history
-    }
-
-    /// Get records for the last N days
-    func getRecords(days: Int) async -> [DailyUsageRecord] {
-        if let repository {
-            do {
-                try await ensureMigrated(repository)
-                return try await repository.fetchRecords(days: days)
-            } catch {
-                Self.logger.error("Failed to load SwiftData usage records: \(error.localizedDescription)")
-                return history.last(days)
-            }
-        }
-
-        return history.last(days)
     }
 
     /// Clear all history

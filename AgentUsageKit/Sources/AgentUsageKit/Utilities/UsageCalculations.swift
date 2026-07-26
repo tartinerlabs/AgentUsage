@@ -28,4 +28,22 @@ public enum UsageCalculations {
         guard let snapshot else { return .onTrack }
         return overallStatus(from: [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable])
     }
+
+    /// Compute the overall worst status across Claude and every other monitored provider.
+    ///
+    /// Surfaces that present a single "how bad is it" indicator for the whole app must
+    /// use this: reading Claude alone reports on-track while another provider is at 98%.
+    public static func overallStatus(
+        from snapshot: UsageSnapshot?,
+        providerSnapshots: some Sequence<ProviderUsageSnapshot>
+    ) -> UsageStatus {
+        var windows: [UsageWindow?] = []
+        if let snapshot {
+            windows.append(contentsOf: [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable])
+        }
+        for providerSnapshot in providerSnapshots where providerSnapshot.provider != .claude {
+            windows.append(contentsOf: providerSnapshot.windows.map { $0 })
+        }
+        return overallStatus(from: windows)
+    }
 }

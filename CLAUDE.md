@@ -99,7 +99,7 @@ UsageViewModel (@Observable, @MainActor)  +  UpdaterController (@ObservableObjec
     ↓
 MacOSCredentialService (actor)  +  ClaudeAPIService (actor)  +  TokenUsageService (actor)
     +  TokenUsageRepository (@ModelActor)  +  NotificationService (actor)
-    +  LaunchAtLoginService  +  Sparkle
+    +  LaunchAtLoginService
     ↓ (imports)
 AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 ```
@@ -143,7 +143,7 @@ AgentUsageKit (Swift Package) - UsageSnapshot, UsageWindow, UsageStatus, etc.
 | `TokenUsageService`          | Services/        | Scans local JSONL logs from `~/.claude/projects/` for token counts and calculates costs. Persists to SwiftData (macOS only).                                                                                                                            |
 | `TokenUsageRepository`       | Services/        | SwiftData `@ModelActor` for background queries of persisted token usage (macOS only).                                                                                                                                                                   |
 | `NotificationService`        | Services/        | Local threshold-based usage alerts (25%, 50%, 75%, 100%) with reset and extra-usage notifications on macOS and iOS.                                                                                                                                      |
-| `UpdaterController`          | Services/        | Sparkle updater integration for automatic updates. Observes `canCheckForUpdates` state (macOS only).                                                                                                                                                    |
+| `UpdaterController`          | Services/        | Update-check state for the Settings UI (macOS only). No longer wraps Sparkle — the dependency was removed; distribution is via App Store Connect.                                                                                                       |
 | `LaunchAtLoginService`       | macOS/Services/  | Manages Login Items for launching app on macOS startup (macOS 13+).                                                                                                                                                                                     |
 | `LiveActivityManager`        | iOS/Services/    | Manages Live Activities for Dynamic Island on iOS.                                                                                                                                                                                                      |
 | `WidgetDataManager`          | Shared/Services/ | Provides usage data to widgets via App Groups for cross-process communication.                                                                                                                                                                          |
@@ -238,7 +238,7 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 - **App Sandbox enabled** (`ENABLE_APP_SANDBOX = YES`) for Mac App Store / TestFlight distribution. macOS uses its own `AgentUsage/AgentUsage.entitlements` (wired via `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`), which keeps the app-group and adds `com.apple.security.files.user-selected.read-only`. Reading the CLI tools' log directories requires the user to grant folder access (Settings → Local Data Access); see `SandboxFolderAccessService`. Credentials come from the Keychain and need no folder grant.
 - Network client entitlement enabled
 - App Group `group.com.tartinerlabs.AgentUsage` backs the SwiftData store (pinned explicitly via `ModelConfiguration(groupContainer:)`) and widget data sharing
-- Sparkle auto-updates enabled: `SUEnableAutomaticChecks = true`
+- `SU*` keys remain in Info.plist but are inert — Sparkle is no longer linked (see Auto-Updates below)
 
 **iOS:**
 
@@ -306,15 +306,16 @@ Token usage and costs are calculated from Claude Code's local JSONL logs:
 - TabView navigation: Dashboard, Settings, About
 - Window opens via menu bar or keyboard shortcut (⌘,)
 
-## Auto-Updates (Sparkle - macOS only)
+## Auto-Updates (macOS only)
 
-The macOS app uses [Sparkle](https://sparkle-project.org/) framework for automatic updates:
+**Sparkle has been removed.** The package is no longer a dependency (no references
+in `AgentUsage.xcodeproj`), and `UpdaterController` no longer imports it — it now
+only models update-check state for the Settings UI. Updates ship through App Store
+Connect, and the Updates section is shown only in App Store builds.
 
-- **UpdaterController**: Wrapper around `SPUStandardUpdaterController` for SwiftUI integration
-- **Feed URL**: `https://tartinerlabs.github.io/AgentUsage/appcast.xml` (in Info.plist) — served from GitHub Pages off the `gh-pages` branch. Moved off `raw.githubusercontent.com`, which structurally rate-limited (HTTP 429) the constantly-polled feed. The feed is **accumulating**: each release prepends its `<item>` to the existing feed, so it carries the full version history (Sparkle shows past "What's New" notes).
-- **Public Key**: EdDSA public key in Info.plist for signature verification
-- **Check for Updates**: Manual check button in Settings view, disabled when update check is already in progress
-- **Auto-check**: Sparkle automatically checks based on user preferences
+The `SUFeedURL`, `SUPublicEDKey`, `SUEnableAutomaticChecks`, and
+`SUScheduledCheckInterval` keys are still present in `AgentUsage/Info.plist` but are
+inert with Sparkle unlinked. Do not treat them as evidence Sparkle is live.
 
 ### Versioning
 
@@ -328,21 +329,29 @@ CURRENT_PROJECT_VERSION = 1
 - **MARKETING_VERSION**: User-facing version (X.Y.Z format, per Apple guidelines)
 - **CURRENT_PROJECT_VERSION**: Build number (must always increase)
 
-`Config/Version.xcconfig` is wired as the **project-level base configuration** (Debug and Release) in `AgentUsage.xcodeproj`, so all targets inherit these values — no target defines `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` inline. Edit the xcconfig only; the release workflow (`compute-version.sh` / `bump-version`) reads and rewrites it. Do not re-add these keys to per-target build settings, or they will override the xcconfig.
+`Config/Version.xcconfig` is wired as the **project-level base configuration** (Debug and Release) in `AgentUsage.xcodeproj`, so all targets inherit these values — no target defines `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` inline. Edit the xcconfig only. `.github/scripts/release/compute-version.sh` and `.github/actions/bump-version` still exist but no longer run, since the workflows that invoked them are disabled — bump the version by hand or via Xcode Cloud. Do not re-add these keys to per-target build settings, or they will override the xcconfig.
 
-### Release Workflow
+### CI and Release Workflow
 
-Releases use the manually triggered `.github/workflows/release.yml`; a normal push to `main` runs CI only. The default `dry-run` operation has read-only permissions and builds a fully validated ad-hoc-signed archive. Publishing always uses the protected `release` environment and requires the Sparkle private key.
+**CI, build, and release/distribution run on Xcode Cloud** (build/test/archive →
+App Store Connect). Commit `9cf6470` commented out the bodies of
+`.github/workflows/ci.yml`, `release.yml`, and `pages.yml`; a fully commented file
+registers no workflow, so **none of the three can trigger**. `gh workflow run
+release.yml` will not work, and the Sparkle appcast / `gh-pages` pipeline they drove
+is obsolete. The files are kept commented rather than deleted so the original
+definitions stay in version control.
 
-`publish` is the Developer ID path and requires `SIGNED_RELEASES_ENABLED=true` plus the Apple signing and notarization secrets; it signs with Developer ID, notarizes, and staples. `publish-unsigned` is the ad-hoc fallback: it requires `UNSIGNED_RELEASES_ENABLED=true`, creates an ad-hoc code signature, and does not use Apple notarization. Both paths test, compute or resume the version, prepare the changelog, generate and verify the accumulating feed with Sparkle's official `generate_appcast`, commit with compare-and-swap protection, create the tag/prerelease, publish `appcast.xml` to `gh-pages`, and dispatch `pages.yml`.
+Xcode Cloud workflows: Main Integration, PR Validation, Production, Release
+Candidate, TestFlight. Its configuration lives in App Store Connect, not in this
+repo — there is no `ci_scripts/` directory.
 
-Do not manually edit versions, tag, or call `gh release create`. Use:
+**Known gap:** the macOS test action is marked *Not Required To Pass*. Xcode Cloud
+cannot launch a menu bar app (`LSUIElement = true`) as the XCTest host, so it fails
+with `Runningboard error 5` / `Launchd job spawn failed`, and `AgentUsageTests`
+reports `0 tests total` — none of the unit tests execute there. Since 9 of the 20
+test files are `#if os(macOS)`, macOS-specific code (blog sync, Codex/OpenCode log
+sources, macOS credentials) has **no CI coverage**. Run `xcodebuild -project
+AgentUsage.xcodeproj -scheme AgentUsage test` locally before merging macOS changes.
 
-```bash
-gh workflow run release.yml -f operation=dry-run -f bump=auto
-gh workflow run release.yml -f operation=publish-unsigned -f bump=auto
-gh workflow run release.yml -f operation=publish -f bump=auto
-gh workflow run release.yml -f operation=repair-appcast -f tag=vX.Y.Z
-```
-
-Signed, notarized Developer ID releases (`publish`) are the primary distribution mode, gated on `SIGNED_RELEASES_ENABLED=true` plus the Apple signing and notarization secrets in the `release` environment; `publish-unsigned` remains an ad-hoc fallback. An untagged version committed in `Config/Version.xcconfig` is resumed regardless of the requested bump. See `RELEASING.md` and `.claude/skills/release/SKILL.md` for setup, Gatekeeper behaviour, and recovery.
+`RELEASING.md` and `.claude/skills/release/SKILL.md` still describe the retired
+GitHub Actions pipeline and have not been updated.
