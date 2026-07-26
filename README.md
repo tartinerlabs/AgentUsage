@@ -133,17 +133,17 @@ xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test
 
 ## Privacy & Security
 
-No data collection or transmission. All processing is local. Reads credentials from `~/.claude/.credentials.json`. HTTPS API requests only. Sandbox disabled for `~/.claude/` access.
+No data collection or transmission. All processing is local. Reads credentials from the Keychain. HTTPS API requests only. Runs under the App Sandbox; reading CLI log directories requires you to grant folder access in Settings.
 
 ## Technical Details
 
 **Stack:** Swift/SwiftUI, macOS 15+, iOS 18+, MVVM + Actors
 
-**Updates:** [Sparkle 2.8.1](https://sparkle-project.org/) (macOS)
+**Updates:** Distributed through the App Store (macOS)
 
 **Data:** Anthropic OAuth API for rate limits, local JSONL logs for tokens, [Anthropic pricing](https://anthropic.com/pricing)
 
-**Releases:** Manually triggered through GitHub Actions. Archives are Developer ID-signed, Apple-notarised, and Sparkle EdDSA signed; an ad-hoc-signed fallback path remains available. See [RELEASING.md](RELEASING.md) and [releases](https://github.com/tartinerlabs/AgentUsage/releases).
+**Releases:** Built, tested, and distributed by Xcode Cloud to App Store Connect. See [releases](https://github.com/tartinerlabs/AgentUsage/releases).
 
 ## Support
 
