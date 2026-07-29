@@ -210,24 +210,6 @@ struct DashboardTabView: View {
             }
         }
 
-        if viewModel.hasProviderData(.openCodeGo) {
-            let openCodeGoUsage = viewModel.usageSnapshot(for: .openCodeGo)
-            dashboardSection(
-                title: Provider.openCodeGo.displayName,
-                subtitle: "OpenCode Go quota windows and local cost detail.",
-                systemImage: Provider.openCodeGo.iconName,
-                tint: Provider.openCodeGo.accentColor
-            ) {
-                ProviderDetailView(
-                    provider: .openCodeGo,
-                    planName: openCodeGoUsage?.planName,
-                    windows: openCodeGoUsage?.windows ?? [],
-                    detail: viewModel.providerDetails[.openCodeGo],
-                    now: now,
-                    isServiceDown: viewModel.isServiceDown(.openCodeGo)
-                )
-            }
-        }
     }
 
     private func dashboardSection<Content: View>(

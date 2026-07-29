@@ -12,7 +12,7 @@ struct MenuBarView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @EnvironmentObject private var updaterController: UpdaterController
     @Environment(\.openWindow) private var openWindow
-    @AppStorage("selectedMainWindowTab") private var selectedTab: MainWindowTab = .dashboard
+    @AppStorage("selectedMainWindowTab") private var selectedTab: NavigationTarget = .section(.dashboard)
 
     @State private var selectedPage: SidebarPage = .overview
     @State private var lastRefreshTap: Date?
@@ -61,7 +61,7 @@ struct MenuBarView: View {
                 Task { await viewModel.refresh(force: true) }
             }
             railAction("gear", help: "Settings (⌘,)", key: ",") {
-                selectedTab = .settings
+                selectedTab = .section(.settings)
                 openWindow(id: Constants.mainWindowID)
                 NSApp.activate(ignoringOtherApps: true)
             }

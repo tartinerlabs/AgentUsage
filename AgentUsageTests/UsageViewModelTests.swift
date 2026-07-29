@@ -797,7 +797,7 @@ struct UsageViewModelMobileContinuityTests {
         #expect(viewModel.hasProviderData(.codex))
     }
 
-    @Test @MainActor func syncedProviderSnapshotsAreAvailableOnMobileWithoutClaudeSnapshot() async {
+    @Test @MainActor func disabledSyncedProviderSnapshotsStayHiddenOnMobileWithoutClaudeSnapshot() async {
         let fetchedAt = Date()
         let codexWindow = UsageWindow(
             utilization: 54,
@@ -837,10 +837,9 @@ struct UsageViewModelMobileContinuityTests {
         #expect(viewModel.snapshot == nil)
         #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
         #expect(viewModel.usageSnapshot(for: .codex)?.windows.map(\.windowType) == [.codexFiveHour])
-        #expect(viewModel.usageSnapshot(for: .openCodeGo)?.planName == "Go")
-        #expect(viewModel.usageSnapshot(for: .openCodeGo)?.windows.map(\.windowType) == [.openCodeGoFiveHour])
+        #expect(viewModel.usageSnapshot(for: .openCodeGo) == nil)
         #expect(viewModel.hasProviderData(.codex))
-        #expect(viewModel.hasProviderData(.openCodeGo))
+        #expect(!viewModel.hasProviderData(.openCodeGo))
         #expect(!viewModel.hasProviderData(.claude))
     }
 
