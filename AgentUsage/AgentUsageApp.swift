@@ -18,7 +18,7 @@ struct AgentUsageApp: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var updaterController = UpdaterController()
-    @AppStorage("selectedMainWindowTab") private var selectedTab: MainWindowTab = .dashboard
+    @AppStorage("selectedMainWindowTab") private var selectedTab: NavigationTarget = .section(.dashboard)
     @Environment(\.openWindow) private var openWindow
 
     let modelContainer: ModelContainer
@@ -114,7 +114,7 @@ struct AgentUsageApp: App {
         #if os(macOS)
         // Main window (opened from menu bar)
         Window(Constants.appDisplayName, id: Constants.mainWindowID) {
-            MainWindowView()
+            MainNavigationView()
                 .environment(viewModel)
                 .environmentObject(updaterController)
                 .task {
@@ -127,7 +127,7 @@ struct AgentUsageApp: App {
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {
-                    selectedTab = .settings
+                    selectedTab = .section(.settings)
                     openWindow(id: Constants.mainWindowID)
                     NSApp.activate(ignoringOtherApps: true)
                 }
@@ -157,7 +157,7 @@ struct AgentUsageApp: App {
         .menuBarExtraStyle(.window)
         #else
         WindowGroup {
-            MainTabView()
+            MainNavigationView()
                 .environment(viewModel)
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
