@@ -13,21 +13,25 @@ struct AgentUsageWidgets: Widget {
     let kind: String = "AgentUsageWidgets"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
+        AppIntentConfiguration(
+            kind: kind,
+            intent: ConfigurationAppIntent.self,
+            provider: HomeScreenTimelineProvider()
+        ) { entry in
             AgentUsageWidgetsEntryView(entry: entry)
                 .containerBackground(for: .widget) {
-                    WidgetProviderBackground(provider: WidgetDesign.provider)
+                    WidgetProviderBackground(provider: entry.provider)
                 }
         }
-        .configurationDisplayName("Claude Usage")
-        .description("Track Claude usage windows at a glance.")
+        .configurationDisplayName("Agent Usage")
+        .description("Track an AI coding provider's usage windows at a glance.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
 struct AgentUsageWidgetsEntryView: View {
     @Environment(\.widgetFamily) var family
-    var entry: Provider.Entry
+    var entry: HomeScreenTimelineProvider.Entry
 
     var body: some View {
         switch family {
@@ -49,12 +53,16 @@ struct AgentUsageLockScreenWidget: Widget {
     let kind: String = "AgentUsageLockScreenWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: LockScreenProvider()) { entry in
+        AppIntentConfiguration(
+            kind: kind,
+            intent: ConfigurationAppIntent.self,
+            provider: LockScreenTimelineProvider()
+        ) { entry in
             LockScreenWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("Claude Usage")
-        .description("Check a Claude usage window at a glance.")
+        .configurationDisplayName("Agent Usage")
+        .description("Check a provider usage window at a glance.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }

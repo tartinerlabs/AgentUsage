@@ -19,19 +19,19 @@ actor WidgetDataManager: WidgetDataServiceProtocol {
 
     private init() {}
 
-    /// Save snapshot to shared storage and reload widget timelines
-    func save(_ snapshot: UsageSnapshot) {
-        if WidgetDataStorage.shared.save(snapshot) {
-            Logger.widget.debug("Saved snapshot to App Groups")
+    /// Save all provider snapshots to shared storage and reload widget timelines.
+    func save(_ snapshots: [ProviderUsageSnapshot]) {
+        if WidgetDataStorage.shared.save(snapshots) {
+            Logger.widget.debug("Saved provider snapshots to App Groups")
             WidgetCenter.shared.reloadAllTimelines()
         } else {
-            Logger.widget.error("Failed to save snapshot")
+            Logger.widget.error("Failed to save provider snapshots")
         }
     }
 
-    /// Load snapshot from shared storage
-    nonisolated func load() -> UsageSnapshot? {
-        WidgetDataStorage.shared.load()
+    /// Load provider snapshots from shared storage.
+    nonisolated func load() -> [ProviderUsageSnapshot] {
+        WidgetDataStorage.shared.loadProviderSnapshots()
     }
 
     /// Clear cached data and reload widget timelines
