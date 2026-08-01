@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import Foundation
+import AgentUsageKit
 import SQLite3
 import Testing
 @testable import AgentUsage
@@ -57,7 +58,7 @@ struct BlogUsageSyncTests {
         try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
         let log = logDirectory.appendingPathComponent("session.jsonl")
         try """
-        {"timestamp":"2026-06-02T10:00:00Z","payload":{"model":"gpt-5"}}
+        {"timestamp":"2026-06-02T10:00:00Z","payload":{"model":"gpt-5","effort":"  XHIGH  "}}
         {"timestamp":"2026-06-02T10:01:00Z","payload":{"type":"token_count","id":"usage-1","info":{"last_token_usage":{"input_tokens":1000,"cached_input_tokens":250,"output_tokens":700,"reasoning_output_tokens":200}}}}
         """.write(to: log, atomically: true, encoding: .utf8)
 
@@ -73,6 +74,43 @@ struct BlogUsageSyncTests {
         #expect(events.first?.outputTokens == 500)
         #expect(events.first?.reasoningTokens == 200)
         #expect(events.first?.cacheWriteTokens == 0)
+        #expect(events.first?.effortLevel == .xhigh)
+        #expect(events.first?.sessionID == "session")
+    }
+
+    @Test func claudeParserNormalizesEffortAndTracksSessionMetadata() throws {
+        let parser = BlogUsageSourceParser(homeDirectory: try Self.temporaryDirectory(), environment: [:])
+        let line = Data("""
+        {"type":"assistant","timestamp":"2026-06-02T10:00:00Z","sessionId":"  session-1  ","effort":"  Adaptive-Plus  ","message":{"id":"msg-1","model":"claude-sonnet-4-5","usage":{"input_tokens":1,"output_tokens":2}}}
+        """.utf8)
+
+        let parsed = try #require(parser.parseClaudeLine(
+            line,
+            fallbackSessionID: "fallback",
+            isSubagentSession: true
+        ))
+
+        #expect(parsed.event.sessionID == "session-1")
+        #expect(parsed.event.effortLevel?.rawValue == "adaptive-plus")
+        #expect(parsed.event.isSubagentSession)
+    }
+
+    @Test func codexParserClearsEffortWhenANewTurnContextOmitsIt() throws {
+        let home = try Self.temporaryDirectory()
+        let logDirectory = home.appendingPathComponent(".codex/sessions/2026/06", isDirectory: true)
+        try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+        let log = logDirectory.appendingPathComponent("session.jsonl")
+        try """
+        {"timestamp":"2026-06-02T10:00:00Z","payload":{"model":"gpt-5","effort":" HIGH "}}
+        {"timestamp":"2026-06-02T10:01:00Z","payload":{"type":"token_count","id":"usage-1","info":{"last_token_usage":{"input_tokens":1}}}}
+        {"timestamp":"2026-06-02T10:02:00Z","payload":{"model":"gpt-5"}}
+        {"timestamp":"2026-06-02T10:03:00Z","payload":{"type":"token_count","id":"usage-2","info":{"last_token_usage":{"input_tokens":1}}}}
+        """.write(to: log, atomically: true, encoding: .utf8)
+
+        let events = try BlogUsageSourceParser(homeDirectory: home, environment: [:])
+            .parseCodexEvents()
+
+        #expect(events.map(\.effortLevel) == [.high, nil])
     }
 
     @Test func openCodeParserMapsOpenCodeGoProviderModelTimestampAndTokens() throws {
@@ -270,6 +308,53 @@ struct BlogUsageSyncTests {
         #expect(rows.first?.costUsd == nil)
     }
 
+    @Test func effortAggregatorUsesDominantSessionLevelAndExcludesSubagents() throws {
+        let timestamp = try #require(ISO8601DateFormatter().date(from: "2026-06-02T12:00:00Z"))
+        let samples = [
+            EffortUsageSample(
+                provider: .claude,
+                sessionID: "dominant",
+                effortLevel: .high,
+                timestamp: timestamp.addingTimeInterval(-60)
+            ),
+            EffortUsageSample(
+                provider: .claude,
+                sessionID: "dominant",
+                effortLevel: .high,
+                timestamp: timestamp.addingTimeInterval(-50)
+            ),
+            EffortUsageSample(
+                provider: .claude,
+                sessionID: "dominant",
+                effortLevel: .low,
+                timestamp: timestamp.addingTimeInterval(-40)
+            ),
+            EffortUsageSample(
+                provider: .claude,
+                sessionID: "unclassified",
+                effortLevel: nil,
+                timestamp: timestamp.addingTimeInterval(-30)
+            ),
+            EffortUsageSample(
+                provider: .codex,
+                sessionID: "subagent",
+                effortLevel: .ultra,
+                timestamp: timestamp.addingTimeInterval(-20),
+                isSubagentSession: true
+            )
+        ]
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+
+        let rows = BlogUsageEffortAggregator.aggregate(samples, calendar: calendar)
+        let day = try #require(rows.first { $0.agent == "claude" && $0.date == "2026-06-02" })
+
+        #expect(day.levels == [EffortLevelCount(level: .high, sessionCount: 1)])
+        #expect(day.classifiedSessionCount == 1)
+        #expect(day.unclassifiedSessionCount == 1)
+        #expect(!rows.contains { $0.agent == "codex" })
+    }
+
     @Test func syncClientSendsBearerAuthAndWrappedRows() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [BlogUsageURLProtocol.self]
@@ -289,6 +374,13 @@ struct BlogUsageSyncTests {
             costUsd: nil,
             messages: 1
         )
+        let effortRow = BlogUsageEffortIngestRow(
+            date: "2026-06-02",
+            agent: "claude",
+            levels: [EffortLevelCount(level: .high, sessionCount: 2)],
+            classifiedSessionCount: 2,
+            unclassifiedSessionCount: 1
+        )
 
         BlogUsageURLProtocol.handler = { request in
             #expect(request.value(forHTTPHeaderField: "authorization") == "Bearer test-token")
@@ -298,13 +390,24 @@ struct BlogUsageSyncTests {
             let rawRows = try #require(rawPayload["rows"] as? [[String: Any]])
             let rawRow = try #require(rawRows.first)
             #expect(rawRow["costUsd"] is NSNull)
+            let rawEffortRows = try #require(rawPayload["effortRows"] as? [[String: Any]])
+            #expect(rawEffortRows.first?["agent"] as? String == "claude")
+            #expect(rawPayload["effortSnapshotComplete"] as? Bool == true)
 
             let payload = try JSONDecoder().decode(BlogUsageIngestPayload.self, from: body)
             #expect(payload.rows == [row])
+            #expect(payload.effortRows == [effortRow])
+            #expect(payload.effortSnapshotComplete)
             return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, Data())
         }
 
-        try await client.post(rows: [row], endpoint: URL(string: "https://example.com/api/usage/ingest")!, token: "test-token")
+        try await client.post(
+            rows: [row],
+            effortRows: [effortRow],
+            effortSnapshotComplete: true,
+            endpoint: URL(string: "https://example.com/api/usage/ingest")!,
+            token: "test-token"
+        )
     }
 
     @Test func syncClientThrowsUnauthorizedOnAuthFailure() async throws {
@@ -316,7 +419,13 @@ struct BlogUsageSyncTests {
         }
 
         await #expect(throws: BlogUsageSyncError.self) {
-            try await client.post(rows: [Self.minimalRow()], endpoint: URL(string: "https://example.com")!, token: "bad-token")
+            try await client.post(
+                rows: [Self.minimalRow()],
+                effortRows: [],
+                effortSnapshotComplete: true,
+                endpoint: URL(string: "https://example.com")!,
+                token: "bad-token"
+            )
         }
     }
 
@@ -384,9 +493,24 @@ struct BlogUsageSyncTests {
         try FileManager.default.createDirectory(at: claudeDirectory, withIntermediateDirectories: true)
         let claudeLog = claudeDirectory.appendingPathComponent("usage.jsonl")
         try [
-            Self.claudeLine(id: "shared", inputTokens: 10),
-            Self.claudeLine(id: "shared", inputTokens: 999),
-            Self.claudeLine(id: "unique", inputTokens: 20)
+            Self.claudeLine(
+                id: "shared",
+                inputTokens: 10,
+                sessionID: "claude-session",
+                effort: "high"
+            ),
+            Self.claudeLine(
+                id: "shared",
+                inputTokens: 999,
+                sessionID: "claude-session",
+                effort: "high"
+            ),
+            Self.claudeLine(
+                id: "unique",
+                inputTokens: 20,
+                sessionID: "claude-session",
+                effort: "low"
+            )
         ].joined(separator: "\n").appending("\n")
             .write(to: claudeLog, atomically: true, encoding: .utf8)
 
@@ -394,7 +518,7 @@ struct BlogUsageSyncTests {
         try FileManager.default.createDirectory(at: codexDirectory, withIntermediateDirectories: true)
         let codexLog = codexDirectory.appendingPathComponent("session.jsonl")
         try [
-            Self.codexModelLine(model: "gpt-5"),
+            Self.codexModelLine(model: "gpt-5", effort: "xhigh"),
             Self.codexUsageLine(id: "same-id", inputTokens: 100),
             Self.codexUsageLine(id: "same-id", inputTokens: 200)
         ].joined(separator: "\n").appending("\n")
@@ -409,7 +533,22 @@ struct BlogUsageSyncTests {
             homeDirectory: home,
             environment: ["XDG_DATA_HOME": dataHome.path]
         )
-        let expected = BlogUsageAggregator().aggregate(try parser.parseAllSources())
+        let events = try parser.parseAllSources()
+        let expected = BlogUsageAggregator().aggregate(events)
+        let effortSamples = events.compactMap { event -> EffortUsageSample? in
+            guard let provider = Provider(rawValue: event.agent),
+                  provider == .claude || provider == .codex else {
+                return nil
+            }
+            return EffortUsageSample(
+                provider: provider,
+                sessionID: event.sessionID,
+                effortLevel: event.effortLevel,
+                timestamp: event.timestamp,
+                isSubagentSession: event.isSubagentSession
+            )
+        }
+        let expectedEffort = BlogUsageEffortAggregator.aggregate(effortSamples)
         let indexer = BlogUsageSourceIndexer(
             parser: parser,
             databaseURL: home.appendingPathComponent("index.sqlite")
@@ -419,6 +558,67 @@ struct BlogUsageSyncTests {
 
         #expect(!result.isBackfillInProgress)
         #expect(try await indexer.rows() == expected)
+        #expect(try await indexer.effortRows() == expectedEffort)
+    }
+
+    @Test func indexerPreservesCodexEffortAcrossBudgetedResume() async throws {
+        let home = try Self.temporaryDirectory()
+        let directory = home.appendingPathComponent(".codex/sessions/2026/06", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let context = Self.codexModelLine(model: "gpt-5", effort: " XHIGH ")
+        let usage = Self.codexUsageLine(id: "usage", inputTokens: 100)
+        try "\(context)\n\(usage)\n".write(
+            to: directory.appendingPathComponent("rollout-session.jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let first = try await indexer.index(maximumBytes: Data("\(context)\n".utf8).count)
+        #expect(first.recordsProcessed == 1)
+        #expect(try await indexer.rows().isEmpty)
+
+        _ = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        let rows = try await indexer.effortRows()
+        let summary = try #require(rows.first { $0.agent == "codex" && $0.date == "2026-06-02" })
+
+        #expect(summary.levels == [EffortLevelCount(level: .xhigh, sessionCount: 1)])
+        #expect(summary.classifiedSessionCount == 1)
+    }
+
+    @Test func indexerUsesLatestCodexCheckpointEffortAndAdvancesRevision() async throws {
+        let home = try Self.temporaryDirectory()
+        let directory = home.appendingPathComponent(".codex/sessions/2026/06", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let log = directory.appendingPathComponent("rollout-session.jsonl")
+        try [
+            Self.codexModelLine(model: "gpt-5", effort: "high"),
+            Self.codexUsageLine(id: "usage", inputTokens: 100)
+        ].joined(separator: "\n").appending("\n")
+            .write(to: log, atomically: true, encoding: .utf8)
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        _ = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        let initialRevision = try await indexer.revision()
+        try Self.append(
+            Self.codexModelLine(model: "gpt-5", effort: "ultra").appending("\n"),
+            to: log
+        )
+
+        let result = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        let rows = try await indexer.effortRows()
+        let summary = try #require(rows.first { $0.agent == "codex" && $0.date == "2026-06-02" })
+
+        #expect(result.changedRecords == 0)
+        #expect(try await indexer.revision() > initialRevision)
+        #expect(summary.levels == [EffortLevelCount(level: .ultra, sessionCount: 1)])
+        #expect(summary.classifiedSessionCount == 1)
     }
 
     @Test func indexerBoundsOversizedRecordsResumesAndSkipsWarmPayloadReads() async throws {
@@ -666,6 +866,26 @@ struct BlogUsageSyncTests {
         #expect(try store.revision() == 0)
     }
 
+    @Test func versionOneCacheIsRebuiltForEffortMetadata() throws {
+        let root = try Self.temporaryDirectory()
+        let databaseURL = root.appendingPathComponent("index.sqlite")
+        var database: OpaquePointer?
+        guard sqlite3_open(databaseURL.path, &database) == SQLITE_OK, let database else {
+            throw BlogUsageTestError.sqliteOpenFailed
+        }
+        guard sqlite3_exec(database, "CREATE TABLE legacy (value TEXT)", nil, nil, nil) == SQLITE_OK,
+              sqlite3_exec(database, "PRAGMA user_version = 1", nil, nil, nil) == SQLITE_OK else {
+            sqlite3_close(database)
+            throw BlogUsageTestError.sqliteExecFailed
+        }
+        sqlite3_close(database)
+
+        let store = try BlogUsageIndexStore(databaseURL: databaseURL, timeZoneIdentifier: "UTC")
+
+        #expect(try store.recordCount() == 0)
+        #expect(try store.revision() == 0)
+    }
+
     @Test func persistenceFailureDoesNotAdvanceAFileCheckpoint() async throws {
         let home = try Self.temporaryDirectory()
         let projectDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
@@ -752,6 +972,37 @@ struct BlogUsageSyncTests {
         #expect(await service.syncNow().state == .success)
         #expect(await indexer.rowsCallCount == 3)
         #expect(await posting.callCount == 3)
+    }
+
+    @Test func servicePublishesACompleteEffortSnapshotAfterPartialBackfill() async throws {
+        let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
+        let indexer = ControlledBlogUsageIndexer(
+            revision: 1,
+            rows: [Self.minimalRow()],
+            remainingSources: [1, 0, 0]
+        )
+        let posting = CountingPosting()
+        let keychainAccount = "BlogUsageSyncTests-\(UUID().uuidString)"
+        let service = BlogUsageSyncService(
+            indexer: indexer,
+            client: posting,
+            defaults: defaults,
+            keychainAccount: keychainAccount,
+            oauthProvider: nil
+        )
+        defer { KeychainHelper.deleteString(account: keychainAccount) }
+        await service.setEnabled(true)
+        await service.setEndpointURLString("https://example.com/api/usage/ingest")
+        await service.setToken("test-token")
+
+        #expect(await service.syncNow().state == .success)
+        #expect(await posting.callCount == 1)
+        #expect(await posting.effortSnapshotCompleteness == [false])
+        #expect(await service.syncNow().state == .success)
+        #expect(await posting.callCount == 2)
+        #expect(await posting.effortSnapshotCompleteness == [false, true])
+        #expect(await service.syncNow().state == .success)
+        #expect(await posting.callCount == 2)
     }
 
     @Test func concurrentSyncRequestsShareOneIndexingTask() async throws {
@@ -854,15 +1105,26 @@ struct BlogUsageSyncTests {
         )
     }
 
-    private static func claudeLine(id: String, inputTokens: Int, padding: String = "") -> String {
+    private static func claudeLine(
+        id: String,
+        inputTokens: Int,
+        padding: String = "",
+        sessionID: String? = nil,
+        effort: String? = nil
+    ) -> String {
         let paddingField = padding.isEmpty ? "" : ",\"padding\":\"\(padding)\""
+        let sessionField = sessionID.map { ",\"sessionId\":\"\($0)\"" } ?? ""
+        let effortField = effort.map { ",\"effort\":\"\($0)\"" } ?? ""
         return """
-        {"type":"assistant","timestamp":"2026-06-02T10:00:00Z","requestId":"req-\(id)"\(paddingField),"message":{"id":"\(id)","model":"claude-sonnet-4-5","usage":{"input_tokens":\(inputTokens),"output_tokens":2,"cache_read_input_tokens":3,"cache_creation_input_tokens":4}}}
+        {"type":"assistant","timestamp":"2026-06-02T10:00:00Z","requestId":"req-\(id)"\(paddingField)\(sessionField)\(effortField),"message":{"id":"\(id)","model":"claude-sonnet-4-5","usage":{"input_tokens":\(inputTokens),"output_tokens":2,"cache_read_input_tokens":3,"cache_creation_input_tokens":4}}}
         """
     }
 
-    private static func codexModelLine(model: String) -> String {
-        #"{"timestamp":"2026-06-02T10:00:00Z","payload":{"model":"\#(model)"}}"#
+    private static func codexModelLine(model: String, effort: String? = nil) -> String {
+        if let effort {
+            return #"{"timestamp":"2026-06-02T10:00:00Z","payload":{"model":"\#(model)","effort":"\#(effort)"}}"#
+        }
+        return #"{"timestamp":"2026-06-02T10:00:00Z","payload":{"model":"\#(model)"}}"#
     }
 
     private static func codexUsageLine(id: String, inputTokens: Int) -> String {
@@ -1008,14 +1270,22 @@ private final class BlogUsageURLProtocol: URLProtocol {
 
 private actor CountingPosting: BlogUsageSyncPosting {
     private(set) var callCount = 0
+    private(set) var effortSnapshotCompleteness: [Bool] = []
     private var error: Error?
 
     func setError(_ error: Error?) {
         self.error = error
     }
 
-    func post(rows: [BlogUsageIngestRow], endpoint: URL, token: String) async throws {
+    func post(
+        rows: [BlogUsageIngestRow],
+        effortRows: [BlogUsageEffortIngestRow],
+        effortSnapshotComplete: Bool,
+        endpoint: URL,
+        token: String
+    ) async throws {
         callCount += 1
+        effortSnapshotCompleteness.append(effortSnapshotComplete)
         if let error {
             throw error
         }
@@ -1026,6 +1296,7 @@ private actor ControlledBlogUsageIndexer: BlogUsageIndexing {
     private let currentRevision: Int64
     private let cachedRows: [BlogUsageIngestRow]
     private let delayNanoseconds: UInt64
+    private let remainingSources: [Int]
     private var uploadedRevisions: [String: Int64] = [:]
     private(set) var indexCallCount = 0
     private(set) var rowsCallCount = 0
@@ -1034,11 +1305,13 @@ private actor ControlledBlogUsageIndexer: BlogUsageIndexing {
     init(
         revision: Int64,
         rows: [BlogUsageIngestRow],
-        delayNanoseconds: UInt64 = 0
+        delayNanoseconds: UInt64 = 0,
+        remainingSources: [Int] = [0]
     ) {
         self.currentRevision = revision
         self.cachedRows = rows
         self.delayNanoseconds = delayNanoseconds
+        self.remainingSources = remainingSources
     }
 
     func index(maximumBytes: Int) async throws -> BlogUsageIndexResult {
@@ -1055,7 +1328,7 @@ private actor ControlledBlogUsageIndexer: BlogUsageIndexing {
             changedRecords: 0,
             cacheRows: cachedRows.count,
             maximumBufferedBytes: 0,
-            remainingSources: 0
+            remainingSources: remainingSources[min(indexCallCount - 1, remainingSources.count - 1)]
         )
     }
 
@@ -1063,6 +1336,8 @@ private actor ControlledBlogUsageIndexer: BlogUsageIndexing {
         rowsCallCount += 1
         return cachedRows
     }
+
+    func effortRows() async throws -> [BlogUsageEffortIngestRow] { [] }
 
     func revision() async throws -> Int64 {
         currentRevision
@@ -1106,6 +1381,7 @@ private final class FailingBlogUsageIndexStore: BlogUsageIndexStoring, @unchecke
     func deleteRecord(source: BlogUsageIndexedSource, container: String, recordKey: String) throws -> Bool { false }
     func deleteRecords(source: BlogUsageIndexedSource, container: String) throws -> Bool { false }
     func aggregateRows() throws -> [BlogUsageIngestRow] { [] }
+    func effortUsageSamples() throws -> [EffortUsageSample] { [] }
     func recordCount() throws -> Int { 0 }
     func revision() throws -> Int64 { 0 }
     func advanceRevision() throws -> Int64 { 0 }

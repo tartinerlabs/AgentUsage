@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import Foundation
+import AgentUsageKit
 import SQLite3
 
 nonisolated enum BlogUsageIndexedSource: String, Sendable {
@@ -21,9 +22,39 @@ nonisolated struct BlogUsageFileCheckpoint: Sendable, Equatable {
     let modificationTime: TimeInterval
     let byteOffset: Int64
     let currentModel: String
+    let currentEffortLevelRaw: String?
+    let isSubagentSession: Bool
     let tailHash: String
     let sampleHash: String?
     let isComplete: Bool
+
+    init(
+        source: BlogUsageIndexedSource,
+        path: String,
+        fileIdentifier: String?,
+        fileSize: Int64,
+        modificationTime: TimeInterval,
+        byteOffset: Int64,
+        currentModel: String,
+        currentEffortLevelRaw: String? = nil,
+        isSubagentSession: Bool = false,
+        tailHash: String,
+        sampleHash: String?,
+        isComplete: Bool
+    ) {
+        self.source = source
+        self.path = path
+        self.fileIdentifier = fileIdentifier
+        self.fileSize = fileSize
+        self.modificationTime = modificationTime
+        self.byteOffset = byteOffset
+        self.currentModel = currentModel
+        self.currentEffortLevelRaw = currentEffortLevelRaw
+        self.isSubagentSession = isSubagentSession
+        self.tailHash = tailHash
+        self.sampleHash = sampleHash
+        self.isComplete = isComplete
+    }
 }
 
 nonisolated enum BlogUsageIndexStoreError: LocalizedError, Sendable {
@@ -62,6 +93,7 @@ nonisolated protocol BlogUsageIndexStoring: AnyObject, Sendable {
     func deleteRecord(source: BlogUsageIndexedSource, container: String, recordKey: String) throws -> Bool
     func deleteRecords(source: BlogUsageIndexedSource, container: String) throws -> Bool
     func aggregateRows() throws -> [BlogUsageIngestRow]
+    func effortUsageSamples() throws -> [EffortUsageSample]
     func recordCount() throws -> Int
     func revision() throws -> Int64
     /// Callers commonly want only the side effect of bumping the revision.
@@ -77,7 +109,7 @@ nonisolated protocol BlogUsageIndexStoring: AnyObject, Sendable {
 /// The class is `@unchecked Sendable` only so it can be injected into that actor;
 /// all access remains serialized by the actor.
 final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
-    private static let schemaVersion: Int32 = 1
+    private static let schemaVersion: Int32 = 2
 
     private let databaseURL: URL
     private let timeZoneIdentifier: String
@@ -126,7 +158,8 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
     func checkpoint(path: String) throws -> BlogUsageFileCheckpoint? {
         let sql = """
         SELECT source, path, file_identifier, file_size, modification_time,
-               byte_offset, current_model, tail_hash, sample_hash, is_complete
+               byte_offset, current_model, current_effort_level, is_subagent_session,
+               tail_hash, sample_hash, is_complete
         FROM source_files WHERE path = ? LIMIT 1
         """
         let statement = try prepare(sql)
@@ -146,7 +179,8 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
     func checkpoints() throws -> [BlogUsageFileCheckpoint] {
         let statement = try prepare("""
         SELECT source, path, file_identifier, file_size, modification_time,
-               byte_offset, current_model, tail_hash, sample_hash, is_complete
+               byte_offset, current_model, current_effort_level, is_subagent_session,
+               tail_hash, sample_hash, is_complete
         FROM source_files
         """)
         defer { sqlite3_finalize(statement) }
@@ -170,8 +204,9 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
         let statement = try prepare("""
         INSERT INTO source_files (
             source, path, file_identifier, file_size, modification_time,
-            byte_offset, current_model, tail_hash, sample_hash, is_complete
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            byte_offset, current_model, current_effort_level, is_subagent_session,
+            tail_hash, sample_hash, is_complete
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(path) DO UPDATE SET
             source = excluded.source,
             file_identifier = excluded.file_identifier,
@@ -179,6 +214,8 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
             modification_time = excluded.modification_time,
             byte_offset = excluded.byte_offset,
             current_model = excluded.current_model,
+            current_effort_level = excluded.current_effort_level,
+            is_subagent_session = excluded.is_subagent_session,
             tail_hash = excluded.tail_hash,
             sample_hash = excluded.sample_hash,
             is_complete = excluded.is_complete
@@ -192,9 +229,11 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
         sqlite3_bind_double(statement, 5, checkpoint.modificationTime)
         sqlite3_bind_int64(statement, 6, checkpoint.byteOffset)
         bind(checkpoint.currentModel, to: 7, in: statement)
-        bind(checkpoint.tailHash, to: 8, in: statement)
-        bind(checkpoint.sampleHash, to: 9, in: statement)
-        sqlite3_bind_int(statement, 10, checkpoint.isComplete ? 1 : 0)
+        bind(checkpoint.currentEffortLevelRaw, to: 8, in: statement)
+        sqlite3_bind_int(statement, 9, checkpoint.isSubagentSession ? 1 : 0)
+        bind(checkpoint.tailHash, to: 10, in: statement)
+        bind(checkpoint.sampleHash, to: 11, in: statement)
+        sqlite3_bind_int(statement, 12, checkpoint.isComplete ? 1 : 0)
         try finish(statement)
     }
 
@@ -224,8 +263,9 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
         INSERT INTO usage_records (
             source, container, record_key, dedupe_key, timestamp, date,
             agent, provider, model, input_tokens, output_tokens,
-            cache_read_tokens, cache_write_tokens, reasoning_tokens
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            cache_read_tokens, cache_write_tokens, reasoning_tokens,
+            session_id, effort_level, is_subagent_session
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source, container, record_key) DO UPDATE SET
             dedupe_key = excluded.dedupe_key,
             timestamp = excluded.timestamp,
@@ -237,7 +277,10 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
             output_tokens = excluded.output_tokens,
             cache_read_tokens = excluded.cache_read_tokens,
             cache_write_tokens = excluded.cache_write_tokens,
-            reasoning_tokens = excluded.reasoning_tokens
+            reasoning_tokens = excluded.reasoning_tokens,
+            session_id = excluded.session_id,
+            effort_level = excluded.effort_level,
+            is_subagent_session = excluded.is_subagent_session
         """)
         defer { sqlite3_finalize(statement) }
 
@@ -255,6 +298,9 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
         sqlite3_bind_int64(statement, 12, Int64(event.cacheReadTokens))
         sqlite3_bind_int64(statement, 13, Int64(event.cacheWriteTokens))
         sqlite3_bind_int64(statement, 14, Int64(event.reasoningTokens))
+        bind(event.sessionID, to: 15, in: statement)
+        bind(event.effortLevel?.rawValue, to: 16, in: statement)
+        sqlite3_bind_int(statement, 17, event.isSubagentSession ? 1 : 0)
         try finish(statement)
         return sqlite3_changes(database) > 0
     }
@@ -352,6 +398,97 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
                 ))
             case SQLITE_DONE:
                 return rows
+            default:
+                throw stepError()
+            }
+        }
+    }
+
+    func effortUsageSamples() throws -> [EffortUsageSample] {
+        // Claude contributes its canonical request records so the common
+        // aggregator can choose a dominant session effort. Codex contributes
+        // one latest record per session, paired with the file checkpoint's
+        // latest effort/subagent state to mirror CodexLogSource semantics.
+        let statement = try prepare("""
+        WITH canonical AS (
+            SELECT record.*
+            FROM usage_records AS record
+            WHERE record.dedupe_key IS NULL
+               OR NOT EXISTS (
+                    SELECT 1
+                    FROM usage_records AS earlier
+                    WHERE earlier.source = record.source
+                      AND earlier.dedupe_key = record.dedupe_key
+                      AND (
+                          earlier.container < record.container
+                          OR (earlier.container = record.container AND earlier.record_key < record.record_key)
+                      )
+               )
+        ),
+        latest_codex AS (
+            SELECT record.*,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY record.session_id
+                       ORDER BY record.timestamp DESC,
+                                record.container DESC,
+                                record.record_key DESC
+                   ) AS session_rank
+            FROM canonical AS record
+            WHERE record.source = 'codex'
+        ),
+        effort_samples AS (
+            SELECT source, session_id, effort_level, timestamp, is_subagent_session
+            FROM canonical
+            WHERE source = 'claude'
+
+            UNION ALL
+
+            SELECT latest.source,
+                   latest.session_id,
+                   CASE
+                       WHEN file.path IS NULL THEN latest.effort_level
+                       ELSE file.current_effort_level
+                   END,
+                   latest.timestamp,
+                   CASE
+                       WHEN file.path IS NULL THEN latest.is_subagent_session
+                       ELSE file.is_subagent_session
+                   END
+            FROM latest_codex AS latest
+            LEFT JOIN source_files AS file ON file.path = latest.container
+            WHERE latest.session_rank = 1
+        )
+        SELECT source, session_id, effort_level, timestamp, is_subagent_session
+        FROM effort_samples
+        ORDER BY source, session_id, timestamp
+        """)
+        defer { sqlite3_finalize(statement) }
+
+        var samples: [EffortUsageSample] = []
+        while true {
+            switch sqlite3_step(statement) {
+            case SQLITE_ROW:
+                guard let sourceValue = columnString(statement, index: 0),
+                      let source = BlogUsageIndexedSource(rawValue: sourceValue) else {
+                    continue
+                }
+                let provider: Provider
+                switch source {
+                case .claude: provider = .claude
+                case .codex: provider = .codex
+                case .openCode: continue
+                }
+                let effortLevel = columnString(statement, index: 2)
+                    .map(EffortLevel.init(rawValue:))
+                samples.append(EffortUsageSample(
+                    provider: provider,
+                    sessionID: columnString(statement, index: 1) ?? "",
+                    effortLevel: effortLevel,
+                    timestamp: Date(timeIntervalSince1970: sqlite3_column_double(statement, 3)),
+                    isSubagentSession: sqlite3_column_int(statement, 4) != 0
+                ))
+            case SQLITE_DONE:
+                return samples
             default:
                 throw stepError()
             }
@@ -467,6 +604,8 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
             modification_time REAL NOT NULL,
             byte_offset INTEGER NOT NULL,
             current_model TEXT NOT NULL,
+            current_effort_level TEXT,
+            is_subagent_session INTEGER NOT NULL,
             tail_hash TEXT NOT NULL,
             sample_hash TEXT,
             is_complete INTEGER NOT NULL
@@ -488,6 +627,9 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
             cache_read_tokens INTEGER NOT NULL,
             cache_write_tokens INTEGER NOT NULL,
             reasoning_tokens INTEGER NOT NULL,
+            session_id TEXT NOT NULL,
+            effort_level TEXT,
+            is_subagent_session INTEGER NOT NULL,
             PRIMARY KEY (source, container, record_key)
         )
         """)
@@ -560,9 +702,11 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
             modificationTime: sqlite3_column_double(statement, 4),
             byteOffset: sqlite3_column_int64(statement, 5),
             currentModel: columnString(statement, index: 6) ?? "unknown",
-            tailHash: columnString(statement, index: 7) ?? "",
-            sampleHash: columnString(statement, index: 8),
-            isComplete: sqlite3_column_int(statement, 9) != 0
+            currentEffortLevelRaw: columnString(statement, index: 7),
+            isSubagentSession: sqlite3_column_int(statement, 8) != 0,
+            tailHash: columnString(statement, index: 9) ?? "",
+            sampleHash: columnString(statement, index: 10),
+            isComplete: sqlite3_column_int(statement, 11) != 0
         )
     }
 
