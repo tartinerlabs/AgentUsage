@@ -8,6 +8,7 @@
 //  long ago the Mac published the snapshot.
 //
 
+import AgentUsageKit
 import SwiftUI
 
 struct WidgetFreshnessLabel: View {
@@ -22,7 +23,12 @@ struct WidgetFreshnessLabel: View {
             Text("Updated \(entry.lastUpdatedDescription)")
         }
         .font(font)
-        .foregroundStyle(entry.isStale ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
+        .foregroundStyle(
+            entry.isStale
+                ? AnyShapeStyle(UsageStatus.warning.color)
+                : AnyShapeStyle(.secondary)
+        )
+        .lineLimit(1)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(entry.isStale ? "Showing stale data" : "Last updated")
         .accessibilityValue("Updated \(entry.lastUpdatedDescription)")

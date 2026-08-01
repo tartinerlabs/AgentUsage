@@ -146,7 +146,6 @@ struct ContinuityOnboardingMap: View {
                     Circle()
                         .fill(Constants.iconPacificBlue)
                         .frame(width: 10, height: 10)
-                        .shadow(color: Constants.iconPacificBlue.opacity(0.45), radius: 6)
                         .offset(x: max(0, (geometry.size.width - 10) * pulsePosition))
                 }
             }
@@ -202,8 +201,4 @@ struct ContinuityOnboardingMap: View {
             }
         }
     }
-}
-
-private extension Constants {
-    static let iconPacificBlue = Color(red: 113 / 255, green: 151 / 255, blue: 212 / 255)
 }

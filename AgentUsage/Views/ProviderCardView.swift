@@ -74,16 +74,7 @@ struct ProviderCardView: View {
                 costSection
             }
         }
-        .padding(compact ? 12 : 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(provider.accentColor.opacity(0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(provider.accentColor.opacity(0.15), lineWidth: 1)
-        )
+        .providerCardContainer(provider: provider, padding: compact ? 12 : 16)
     }
 
     private var header: some View {
@@ -129,28 +120,78 @@ struct ProviderCardView: View {
     private var costSection: some View {
         VStack(spacing: 8) {
             ForEach(costLines) { line in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(line.label)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                    Spacer()
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.stack.3d.up")
-                            .font(.caption2)
-                        Text(line.tokens)
-                            .font(.footnote)
-                            .fontWeight(.medium)
-                    }
-                    .foregroundStyle(.secondary)
-                    Text(line.cost)
-                        .font(.system(size: compact ? 16 : 20, weight: .bold, design: .rounded))
-                        .foregroundStyle(provider.accentColor)
-                        .frame(minWidth: 60, alignment: .trailing)
-                }
+                ProviderCostRow(
+                    provider: provider,
+                    label: line.label,
+                    cost: line.cost,
+                    tokens: line.tokens,
+                    compact: compact
+                )
             }
         }
+    }
+}
+
+/// Canonical provider cost metric shared by summary and detail presentations.
+struct ProviderCostRow: View {
+    let provider: Provider
+    let label: String
+    let cost: String
+    let tokens: String
+    var compact: Bool = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
+            Spacer()
+            HStack(spacing: 4) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.caption2)
+                Text(tokens)
+                    .font(.footnote)
+                    .fontWeight(.medium)
+            }
+            .foregroundStyle(.secondary)
+            Text(cost)
+                .font(.system(size: compact ? 16 : 20, weight: .bold, design: .rounded))
+                .foregroundStyle(provider.accentColor)
+                .frame(minWidth: 60, alignment: .trailing)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label) cost")
+        .accessibilityValue("\(cost), \(tokens) tokens")
+    }
+}
+
+/// Shared provider-card chrome used by the iOS dashboard and every adapted app
+/// surface. Keeping the fill, border, radius, and padding together prevents a
+/// provider card from changing visual language when its content gets richer.
+struct ProviderCardContainerModifier: ViewModifier {
+    let provider: Provider
+    let padding: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(provider.accentColor.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(provider.accentColor.opacity(0.15), lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    func providerCardContainer(provider: Provider, padding: CGFloat = 16) -> some View {
+        modifier(ProviderCardContainerModifier(provider: provider, padding: padding))
     }
 }
 

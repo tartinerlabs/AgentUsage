@@ -6,6 +6,7 @@
 #if os(macOS)
 import CryptoKit
 import Foundation
+import AgentUsageKit
 import OSLog
 import SQLite3
 
@@ -27,6 +28,7 @@ nonisolated struct BlogUsageIndexResult: Sendable, Equatable {
 nonisolated protocol BlogUsageIndexing: Sendable {
     func index(maximumBytes: Int) async throws -> BlogUsageIndexResult
     func rows() async throws -> [BlogUsageIngestRow]
+    func effortRows() async throws -> [BlogUsageEffortIngestRow]
     func revision() async throws -> Int64
     func uploadedRevision(endpoint: String) async throws -> Int64
     func markUploaded(revision: Int64, endpoint: String) async throws
@@ -120,6 +122,10 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
 
     func rows() throws -> [BlogUsageIngestRow] {
         try store().aggregateRows()
+    }
+
+    func effortRows() throws -> [BlogUsageEffortIngestRow] {
+        BlogUsageEffortAggregator.aggregate(try store().effortUsageSamples())
     }
 
     func revision() throws -> Int64 {
@@ -232,6 +238,8 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                         modificationTime: file.modificationDate.timeIntervalSince1970,
                         byteOffset: match.byteOffset,
                         currentModel: match.currentModel,
+                        currentEffortLevelRaw: match.currentEffortLevelRaw,
+                        isSubagentSession: match.isSubagentSession,
                         tailHash: match.tailHash,
                         sampleHash: match.sampleHash,
                         isComplete: match.isComplete
@@ -278,6 +286,11 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
         let checkpoint = try validatedCheckpoint(for: file, store: store)
         let startOffset = checkpoint?.byteOffset ?? 0
         var currentModel = checkpoint?.currentModel ?? "unknown"
+        var currentEffortLevel = checkpoint?.currentEffortLevelRaw
+            .map(EffortLevel.init(rawValue:))
+        var isSubagentSession = checkpoint?.isSubagentSession ?? false
+        let initialEffortLevelRaw = checkpoint?.currentEffortLevelRaw
+        let initialIsSubagentSession = checkpoint?.isSubagentSession ?? false
         guard let handle = try? FileHandle(forReadingFrom: file.url) else {
             return .unreadable
         }
@@ -321,6 +334,8 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                         container: file.url.path,
                         byteOffset: pendingOffset + Int64(relativeOffset),
                         currentModel: &currentModel,
+                        currentEffortLevel: &currentEffortLevel,
+                        isSubagentSession: &isSubagentSession,
                         store: store
                     ) {
                         changedRecords += 1
@@ -362,12 +377,17 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                 modificationTime: file.modificationDate.timeIntervalSince1970,
                 byteOffset: pendingOffset,
                 currentModel: currentModel,
+                currentEffortLevelRaw: currentEffortLevel?.rawValue,
+                isSubagentSession: isSubagentSession,
                 tailHash: try tailHash(of: file.url, endingAt: pendingOffset),
                 sampleHash: reachedEnd ? try sampledHash(of: file.url, size: file.fileSize) : checkpoint?.sampleHash,
                 isComplete: reachedEnd
             )
             try store.saveCheckpoint(updatedCheckpoint)
-            if changedRecords > 0 {
+            let effortMetadataChanged = file.source == .codex
+                && (currentEffortLevel?.rawValue != initialEffortLevelRaw
+                    || isSubagentSession != initialIsSubagentSession)
+            if changedRecords > 0 || effortMetadataChanged {
                 try store.advanceRevision()
             }
         }
@@ -415,6 +435,8 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                 modificationTime: file.modificationDate.timeIntervalSince1970,
                 byteOffset: 0,
                 currentModel: "unknown",
+                currentEffortLevelRaw: nil,
+                isSubagentSession: false,
                 tailHash: "",
                 sampleHash: nil,
                 isComplete: false
@@ -430,12 +452,23 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
         container: String,
         byteOffset: Int64,
         currentModel: inout String,
+        currentEffortLevel: inout EffortLevel?,
+        isSubagentSession: inout Bool,
         store: any BlogUsageIndexStoring
     ) throws -> Bool {
         let recordKey = String(format: "%020lld", byteOffset)
         switch source {
         case .claude:
-            guard let parsed = autoreleasepool(invoking: { parser.parseClaudeLine(data) }) else {
+            let fallbackSessionID = URL(fileURLWithPath: container)
+                .deletingPathExtension().lastPathComponent
+            let isSubagent = URL(fileURLWithPath: container).pathComponents.contains("subagents")
+            guard let parsed = autoreleasepool(invoking: {
+                parser.parseClaudeLine(
+                    data,
+                    fallbackSessionID: fallbackSessionID,
+                    isSubagentSession: isSubagent
+                )
+            }) else {
                 return false
             }
             return try store.replaceRecord(
@@ -446,8 +479,15 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                 event: parsed.event
             )
         case .codex:
+            let sessionID = parser.codexSessionIdentifier(for: URL(fileURLWithPath: container))
             guard let event = autoreleasepool(invoking: {
-                parser.parseCodexLine(data, currentModel: &currentModel)
+                parser.parseCodexLine(
+                    data,
+                    currentModel: &currentModel,
+                    currentEffortLevel: &currentEffortLevel,
+                    isSubagentSession: &isSubagentSession,
+                    sessionID: sessionID
+                )
             }) else {
                 return false
             }

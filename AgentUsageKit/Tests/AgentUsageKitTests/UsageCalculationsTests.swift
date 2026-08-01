@@ -97,6 +97,21 @@ struct UsageCalculationsTests {
         #expect(status == .onTrack)
     }
 
+    @Test func overallStatusUsesInjectedDateAtResetBoundary() {
+        let reset = Date(timeIntervalSince1970: 2_000_000_000)
+        let window = makeWindow(utilization: 95, resetsAt: reset)
+
+        #expect(
+            UsageCalculations.overallStatus(
+                from: [window],
+                asOf: reset.addingTimeInterval(-1)
+            ) == .critical
+        )
+        #expect(
+            UsageCalculations.overallStatus(from: [window], asOf: reset) == .onTrack
+        )
+    }
+
     // MARK: - Overall Status from Snapshot
 
     @Test func overallStatusFromSnapshotNil() {

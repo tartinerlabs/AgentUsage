@@ -17,7 +17,7 @@ struct LockScreenWidgetView: View {
         } else {
             // WidgetNoDataView switches on the same family, so each accessory
             // shape gets its own empty treatment.
-            WidgetNoDataView()
+            WidgetNoDataView(reason: entry.unavailableReason)
         }
     }
 
@@ -35,20 +35,29 @@ struct LockScreenWidgetView: View {
         }
     }
 
-    // MARK: - Circular (Watch-style ring)
+    // MARK: - Circular
 
     private func circularView(for usage: UsageWindow) -> some View {
-        Gauge(value: usage.normalized) {
-            Text(entry.metric.displayName.prefix(1))
+        let status = usage.status(from: entry.date)
+
+        return Gauge(value: usage.normalized) {
+            Image(systemName: WidgetDesign.provider.iconName)
                 .font(.caption2)
-                .fontWeight(.bold)
         } currentValueLabel: {
-            Text("\(usage.percentUsed)")
-                .font(.system(.body, design: .rounded, weight: .bold))
+            VStack(spacing: 0) {
+                Text("\(usage.percentUsed)")
+                    .font(.system(.body, design: .rounded, weight: .bold))
+                Image(systemName: status.icon)
+                    .font(.system(size: 7, weight: .semibold))
+            }
         }
         .gaugeStyle(.accessoryCircular)
-        .accessibilityLabel("\(entry.metric.displayName) usage")
-        .accessibilityValue("\(usage.percentUsed) percent")
+        .tint(status.color)
+        .widgetAccentable()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(WidgetDesign.provider.displayName), \(entry.metric.displayName) usage")
+        .accessibilityValue(accessibilityValue(for: usage, status: status))
+        .accessibilityHint(accessibilityHint(for: usage))
     }
 
     // MARK: - Rectangular (Bar with text)
@@ -56,52 +65,80 @@ struct LockScreenWidgetView: View {
     private func rectangularView(for usage: UsageWindow) -> some View {
         // Derived from the entry's date, not `Date()` — WidgetKit renders every
         // entry of a timeline up front.
+        let status = usage.status(from: entry.date)
         let resetText = usage.resetDescription(from: entry.date)
 
         return VStack(alignment: .leading, spacing: 2) {
-            HStack {
+            HStack(spacing: 4) {
+                Label(WidgetDesign.provider.displayName, systemImage: WidgetDesign.provider.iconName)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
                 Text(entry.metric.displayName)
-                    .font(.headline)
-                // Accessory families render monochrome, so staleness is a glyph
-                // rather than the orange label the home-screen widgets use.
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 if entry.isStale {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.caption2)
                 }
-                Spacer()
+                Spacer(minLength: 4)
                 Text("\(usage.percentUsed)%")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                if usage.isUsingExtraUsage {
-                    Text("Extra")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                }
+                    .font(.system(.headline, design: .rounded, weight: .bold))
             }
 
             Gauge(value: usage.normalized) {
                 EmptyView()
             }
             .gaugeStyle(.accessoryLinear)
+            .tint(status.color)
 
-            Text(entry.isStale ? "Updated \(entry.lastUpdatedDescription)" : resetText)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Label(status.label, systemImage: status.icon)
+                    .foregroundStyle(status.color)
+                if usage.isUsingExtraUsage {
+                    Text("+\(usage.extraUsagePercent)% extra")
+                        .foregroundStyle(AgentUsageColors.extraUsageAccent)
+                }
+                Spacer(minLength: 4)
+                Text(entry.isStale ? "Updated \(entry.lastUpdatedDescription)" : resetText)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .font(.caption2)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(entry.metric.displayName) usage")
-        .accessibilityValue(
-            entry.isStale
-                ? "\(usage.percentUsed) percent, stale, updated \(entry.lastUpdatedDescription)"
-                : "\(usage.percentUsed) percent, \(resetText.lowercased())"
-        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(WidgetDesign.provider.displayName), \(entry.metric.displayName) usage")
+        .accessibilityValue(accessibilityValue(for: usage, status: status))
+        .accessibilityHint(accessibilityHint(for: usage))
     }
 
     // MARK: - Inline (Single line text)
 
     private func inlineView(for usage: UsageWindow) -> some View {
-        Text("\(entry.metric.displayName): \(usage.percentUsed)%")
-            .accessibilityLabel("\(entry.metric.displayName) usage \(usage.percentUsed) percent")
+        let status = usage.status(from: entry.date)
+
+        return Text("\(Image(systemName: WidgetDesign.provider.iconName)) \(WidgetDesign.provider.displayName) \(usage.percentUsed)% \(Image(systemName: status.icon))")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(WidgetDesign.provider.displayName), \(entry.metric.displayName) usage")
+        .accessibilityValue(accessibilityValue(for: usage, status: status))
+        .accessibilityHint(accessibilityHint(for: usage))
+    }
+
+    private func accessibilityValue(for usage: UsageWindow, status: UsageStatus) -> String {
+        var parts = ["\(usage.percentUsed) percent used", status.label]
+        if usage.isUsingExtraUsage {
+            parts.append("\(usage.extraUsagePercent) percent extra usage")
+        }
+        if entry.isStale {
+            parts.append("stale")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    private func accessibilityHint(for usage: UsageWindow) -> String {
+        let freshness = "Updated \(entry.lastUpdatedDescription)"
+        return "\(usage.resetDescription(from: entry.date)). \(freshness)"
     }
 }
 
