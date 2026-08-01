@@ -58,6 +58,27 @@ struct EffortUsageAggregatorTests {
         #expect(summary.levels == [EffortLevelCount(level: .medium, sessionCount: 1)])
     }
 
+    @Test func ignoresSamplesWithoutStableSessionIdentity() throws {
+        let samples = [
+            sample(provider: .claude, session: "", level: .high, age: 100),
+            sample(provider: .claude, session: "  \n", level: .medium, age: 90),
+            sample(provider: .claude, session: "known", level: nil, age: 80),
+        ]
+
+        let summary = try #require(
+            EffortUsageAggregator.summaries(
+                from: samples,
+                periods: [.today],
+                now: now,
+                calendar: utcCalendar
+            )[.claude]?.first
+        )
+
+        #expect(summary.classifiedSessionCount == 0)
+        #expect(summary.unclassifiedSessionCount == 1)
+        #expect(summary.totalSessionCount == 1)
+    }
+
     @Test func assignsSessionToPeriodUsingItsLatestUsage() throws {
         let eightDays: TimeInterval = 8 * 24 * 60 * 60
         let samples = [

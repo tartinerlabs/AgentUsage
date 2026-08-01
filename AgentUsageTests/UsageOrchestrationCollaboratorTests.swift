@@ -415,10 +415,11 @@ struct TokenUsageCoordinatorTests {
             // Expected mapping.
         }
 
+        let stored = try #require(container.mainContext.fetch(FetchDescriptor<TokenLogEntry>()).first)
+        #expect(stored.id == existing.id)
         let samples = try await TokenUsageQuerier(modelContainer: container)
             .fetchEffortUsageSamples(since: .distantPast)
-        #expect(samples.count == 1)
-        #expect(samples.first?.sessionID == "existing-message:existing-request")
+        #expect(samples.isEmpty)
         #expect(
             testDefaults.defaults.integer(forKey: TokenUsageCoordinator.effortMetadataImportedVersionKey)
                 == 0
@@ -509,6 +510,10 @@ struct TokenUsageCoordinatorTests {
 
     @Test @MainActor func firstEffortRefreshBackfillsLegacyRowsAndMarksComplete() async throws {
         let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(
+            TokenUsageCoordinator.effortMetadataVersion - 1,
+            forKey: TokenUsageCoordinator.effortMetadataImportedVersionKey
+        )
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let container = try Self.makeContainer()
         let legacy = TokenLogEntry(
@@ -524,6 +529,8 @@ struct TokenUsageCoordinatorTests {
         )
         container.mainContext.insert(legacy)
         try container.mainContext.save()
+        #expect(legacy.sessionID == nil)
+        #expect(legacy.isSubagentSession == nil)
 
         let rebuiltEntry = UsageEntry(
             model: "claude-opus-4-6",
@@ -567,6 +574,7 @@ struct TokenUsageCoordinatorTests {
         #expect(samples.count == 1)
         #expect(samples.first?.sessionID == "rebuilt-session")
         #expect(samples.first?.effortLevel == .high)
+        #expect(samples.first?.isSubagentSession == false)
         #expect(
             testDefaults.defaults.integer(forKey: TokenUsageCoordinator.effortMetadataImportedVersionKey)
                 == TokenUsageCoordinator.effortMetadataVersion
@@ -621,6 +629,8 @@ struct TokenUsageCoordinatorTests {
         #expect(details[.claude]?.today.tokens.inputTokens == 25)
         #expect(details[.claude]?.yesterday.tokens.totalTokens == 0)
         #expect(details[.claude]?.dailyCosts == [])
+        #expect(details[.codex]?.hasTokenUsage == true)
+        #expect(details[.claude]?.hasTokenUsage == true)
     }
 
     @Test @MainActor func providerDetailsAttachEffortFromNormalProviderRefresh() async throws {
@@ -668,6 +678,7 @@ struct TokenUsageCoordinatorTests {
         #expect(summary.sessionCount(for: .xhigh) == 0)
         #expect(summary.classifiedSessionCount == 1)
         #expect(summary.unclassifiedSessionCount == 1)
+        #expect(details[.codex]?.hasTokenUsage == false)
     }
 
     private static func makeContainer() throws -> ModelContainer {
@@ -855,6 +866,7 @@ struct UsageViewModelTokenCoordinationTests {
         )
         #expect(relaunched.effortSummary(for: .codex, period: .last30Days) == effortSummary)
         #expect(relaunched.providerDetails[.codex]?.effortSummaries == [effortSummary])
+        #expect(relaunched.providerDetails[.codex]?.hasTokenUsage == false)
     }
 
     private static func makeUsageSnapshot() -> UsageSnapshot {

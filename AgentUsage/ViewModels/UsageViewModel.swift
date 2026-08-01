@@ -534,7 +534,8 @@ final class UsageViewModel {
                 last30Days: TokenUsageSummary(tokens: .zero, costUSD: 0, period: .last30Days),
                 byModel: [:],
                 dailyCosts: [],
-                effortSummaries: providerSnapshot.effortSummaries
+                effortSummaries: providerSnapshot.effortSummaries,
+                hasTokenUsage: false
             )
         }
         #endif

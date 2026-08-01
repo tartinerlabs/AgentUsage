@@ -82,13 +82,19 @@ actor TokenUsageQuerier {
         let descriptor = FetchDescriptor<TokenLogEntry>(
             predicate: #Predicate { $0.timestamp >= startDate }
         )
-        return try modelContext.fetch(descriptor).map { entry in
-            EffortUsageSample(
+        return try modelContext.fetch(descriptor).compactMap { entry in
+            guard let sessionID = entry.sessionID?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                !sessionID.isEmpty
+            else {
+                return nil
+            }
+            return EffortUsageSample(
                 provider: .claude,
-                sessionID: entry.sessionID.isEmpty ? entry.id : entry.sessionID,
+                sessionID: sessionID,
                 effortLevel: entry.effortLevel,
                 timestamp: entry.timestamp,
-                isSubagentSession: entry.isSubagentSession
+                isSubagentSession: entry.isSubagentSession ?? false
             )
         }
     }
