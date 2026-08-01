@@ -48,14 +48,29 @@ struct UsageHistoryServiceTests {
             ],
             fetchedAt: Date()
         ))
+        await service.record(providerSnapshot: ProviderUsageSnapshot(
+            provider: .cursor,
+            windows: [
+                UsageWindow(
+                    utilization: 72,
+                    resetsAt: Date().addingTimeInterval(31 * 24 * 3_600),
+                    windowID: "cursor.total",
+                    displayName: "Total usage",
+                    totalDuration: 31 * 24 * 3_600
+                ),
+            ],
+            fetchedAt: Date()
+        ))
 
         let history = await service.getProviderHistory(days: 30)
-        #expect(history.providers == [.claude, .codex])
+        #expect(history.providers == [.claude, .codex, .cursor])
         #expect(peak(in: history, .codex, .session) == 64)
+        #expect(peak(in: history, .cursor, "cursor.total") == 72)
         // One line per provider, each collapsed to its worst window that day.
         let series = history.seriesByProvider()
-        #expect(series.count == 2)
+        #expect(series.count == 3)
         #expect(series.first { $0.provider == .codex }?.points.first?.utilization == 64)
+        #expect(series.first { $0.provider == .cursor }?.points.first?.utilization == 72)
     }
 
     @Test func migratesLegacyUserDefaultsHistoryToProviderPeaks() async throws {
@@ -128,6 +143,16 @@ struct UsageHistoryServiceTests {
     ) -> Double? {
         history.peaks(for: provider)
             .first { $0.windowID.rawValue == window.rawValue }?
+            .peakUtilization
+    }
+
+    private func peak(
+        in history: ProviderUsageHistory,
+        _ provider: Provider,
+        _ windowID: UsageWindowID
+    ) -> Double? {
+        history.peaks(for: provider)
+            .first { $0.windowID == windowID }?
             .peakUtilization
     }
 

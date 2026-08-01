@@ -50,6 +50,18 @@ struct OutageClassificationTests {
         #expect(UsageViewModel.isOutageError(error) == true)
     }
 
+    #if os(macOS)
+    @Test func cursorServerErrorIsOutage() {
+        let error = CursorUsageService.CursorError.serverError(503)
+        #expect(UsageViewModel.isOutageError(error) == true)
+    }
+
+    @Test func cursorUnauthorizedIsNotOutage() {
+        let error = CursorUsageService.CursorError.unauthorized
+        #expect(UsageViewModel.isOutageError(error) == false)
+    }
+    #endif
+
     @Test func serverError400IsNotOutage() {
         let error = ClaudeAPIService.APIError.serverError(400)
         #expect(UsageViewModel.isOutageError(error) == false)

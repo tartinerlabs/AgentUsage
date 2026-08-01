@@ -29,6 +29,17 @@ struct RefreshSchedulerTests {
 
 @Suite("MenuBarSettingsManager")
 struct MenuBarSettingsManagerTests {
+    @Test @MainActor func compositionRootRegistersCursorUnconditionally() {
+        let services = DependencyContainer.createProviderUsageServices()
+
+        #expect(Set(services.keys) == [.codex, .cursor])
+    }
+
+    @Test @MainActor func cursorStaysOutOfCompactStripPins() {
+        #expect(MenuBarSettingsManager.supportedProviders == [.claude, .codex])
+        #expect(MenuBarSettingsManager.supportedWindows(for: .cursor).isEmpty)
+    }
+
     @Test @MainActor func openCodeOfferingsExposeQuotaWindows() {
         let expected: [UsageWindowType] = [
             .openCodeGoFiveHour,
@@ -177,6 +188,30 @@ struct MenuBarStatusContentTests {
 
         #expect(content.groups.count == 1)
         #expect(content.groups[0].metrics.map(\.percentUsed) == [0])
+    }
+
+    @Test @MainActor func cursorSnapshotIsExcludedFromCompactStatusStrip() {
+        let cursorSnapshot = ProviderUsageSnapshot(
+            provider: .cursor,
+            windows: [
+                UsageWindow(
+                    utilization: 42,
+                    resetsAt: now.addingTimeInterval(3_600),
+                    windowID: "cursor.total",
+                    displayName: "Total usage",
+                    totalDuration: 31 * 24 * 3_600
+                ),
+            ],
+            fetchedAt: now
+        )
+
+        let content = MenuBarStatusContentBuilder.build(
+            snapshots: [.cursor: cursorSnapshot],
+            pinnedWindows: [.cursor: [.custom]],
+            now: now
+        )
+
+        #expect(content.isEmpty)
     }
 
     @Test @MainActor func unavailableFiveHourPinDoesNotHideWeeklyWindow() {

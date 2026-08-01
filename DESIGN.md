@@ -158,7 +158,8 @@ Five families, each with a distinct job:
   accessibility settings. This is deliberate: usage severity must remain legible in every
   appearance, so it is never a hardcoded hex.
 - **Provider accents.** Each provider owns a tint used for its card and glyph: Claude clay
-  `#D97757`, Codex/OpenAI green `#10A37F`, opencode indigo `#6366F1`.
+  `#D97757`, Codex/OpenAI green `#10A37F`, opencode indigo `#6366F1`, Cursor slate
+  `#788494`.
 - **Extra-usage accent (Dusty Plum `#8B5E83`).** The single non-brand, non-status accent,
   reserved **exclusively** for over-limit / billed usage indicators. Its scarcity is what makes
   it meaningful — do not reuse it for decoration. Mirrored publicly as
