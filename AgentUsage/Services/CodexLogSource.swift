@@ -50,7 +50,7 @@ actor CodexLogSource: UsageLogSource {
         static let empty = ParseResult(entry: nil, bytesRead: 0, maximumBufferedBytes: 0)
     }
 
-    private let fileManager = FileManager.default
+    private let fileManager: FileManager
     private let directories: [URL]
     private let readChunkSize: Int
     private var cachedRollouts: [URL: CachedRollout] = [:]
@@ -69,11 +69,13 @@ actor CodexLogSource: UsageLogSource {
 
     init(
         directories: [URL] = Constants.codexSessionsDirectories,
-        readChunkSize: Int = 64 * 1024
+        readChunkSize: Int = 64 * 1024,
+        fileManager: FileManager = .default
     ) {
         precondition(readChunkSize > 0)
         self.directories = directories
         self.readChunkSize = readChunkSize
+        self.fileManager = fileManager
     }
 
     func fetchEntries(since: Date) async throws -> [ProviderUsageEntry] {
@@ -144,13 +146,36 @@ actor CodexLogSource: UsageLogSource {
         var foundReadableDirectory = false
 
         for directory in directories {
-            guard fileManager.fileExists(atPath: directory.path),
-                  fileManager.isReadableFile(atPath: directory.path),
-                  let enumerator = fileManager.enumerator(
+            do {
+                // Use a throwing read instead of `fileExists`, which can collapse
+                // sandbox permission failures into a misleading `false` result.
+                _ = try fileManager.contentsOfDirectory(
                     at: directory,
-                    includingPropertiesForKeys: Array(resourceKeys),
+                    includingPropertiesForKeys: nil,
                     options: [.skipsHiddenFiles]
-                  ) else { continue }
+                )
+            } catch {
+                guard Self.isMissingDirectoryError(error) else {
+                    throw UsageLogSourceError.unavailable
+                }
+                continue
+            }
+
+            // A successful read must cover every existing Codex root. Otherwise
+            // one granted CLI directory could hide inaccessible Xcode sessions
+            // and turn incomplete data into a misleading zero-usage result.
+            var traversalFailed = false
+            guard let enumerator = fileManager.enumerator(
+                at: directory,
+                includingPropertiesForKeys: Array(resourceKeys),
+                options: [.skipsHiddenFiles],
+                errorHandler: { _, _ in
+                    traversalFailed = true
+                    return false
+                }
+            ) else {
+                throw UsageLogSourceError.unavailable
+            }
             foundReadableDirectory = true
 
             for case let url as URL in enumerator {
@@ -171,12 +196,23 @@ actor CodexLogSource: UsageLogSource {
                     )
                 )
             }
+
+            guard !traversalFailed else {
+                throw UsageLogSourceError.unavailable
+            }
         }
 
         guard foundReadableDirectory else {
             throw UsageLogSourceError.unavailable
         }
         return result
+    }
+
+    private nonisolated static func isMissingDirectoryError(_ error: Error) -> Bool {
+        let cocoaError = error as NSError
+        guard cocoaError.domain == NSCocoaErrorDomain else { return false }
+        return cocoaError.code == CocoaError.Code.fileNoSuchFile.rawValue
+            || cocoaError.code == CocoaError.Code.fileReadNoSuchFile.rawValue
     }
 
     // MARK: - Reverse parsing

@@ -34,6 +34,14 @@ nonisolated struct EffortUsageSample: Sendable {
     }
 }
 
+/// One normalized session after request-level effort samples are collapsed.
+nonisolated struct EffortSessionSummary: Sendable {
+    let provider: Provider
+    let sessionID: String
+    let latestTimestamp: Date
+    let effortLevel: EffortLevel?
+}
+
 /// Collapses request-level usage into session-count effort distributions.
 nonisolated enum EffortUsageAggregator {
     private struct SessionKey: Hashable {
@@ -53,28 +61,11 @@ nonisolated enum EffortUsageAggregator {
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> [Provider: [EffortPeriodSummary]] {
-        var sessions: [SessionKey: SessionAccumulator] = [:]
-
-        for sample in samples where !sample.isSubagentSession {
-            // Request rows without a stable session identity cannot contribute to
-            // session-level coverage without inflating one request into one session.
-            let sessionID = sample.sessionID.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !sessionID.isEmpty else { continue }
-            let key = SessionKey(provider: sample.provider, sessionID: sessionID)
-            var accumulator = sessions[key] ?? SessionAccumulator(
-                latestTimestamp: sample.timestamp,
-                levelCounts: [:]
-            )
-            accumulator.latestTimestamp = max(accumulator.latestTimestamp, sample.timestamp)
-            if let effortLevel = sample.effortLevel {
-                accumulator.levelCounts[effortLevel, default: 0] += 1
-            }
-            sessions[key] = accumulator
-        }
+        let sessions = sessionSummaries(from: samples)
 
         var result: [Provider: [EffortPeriodSummary]] = [:]
-        for provider in Set(sessions.keys.map(\.provider)) {
-            let providerSessions = sessions.filter { $0.key.provider == provider }.map(\.value)
+        for provider in Set(sessions.map(\.provider)) {
+            let providerSessions = sessions.filter { $0.provider == provider }
             result[provider] = periods.map { period in
                 let startDate = period.startDate(relativeTo: now, calendar: calendar)
                 let inPeriod = providerSessions.filter { $0.latestTimestamp >= startDate }
@@ -82,7 +73,7 @@ nonisolated enum EffortUsageAggregator {
                 var unclassified = 0
 
                 for session in inPeriod {
-                    guard let level = dominantLevel(in: session.levelCounts) else {
+                    guard let level = session.effortLevel else {
                         unclassified += 1
                         continue
                     }
@@ -107,6 +98,42 @@ nonisolated enum EffortUsageAggregator {
             }
         }
         return result
+    }
+
+    /// Exposes the same session semantics to consumers that need non-rolling
+    /// buckets, such as the blog's durable daily aggregates.
+    static func sessionSummaries(from samples: [EffortUsageSample]) -> [EffortSessionSummary] {
+        var sessions: [SessionKey: SessionAccumulator] = [:]
+
+        for sample in samples where !sample.isSubagentSession {
+            // Request rows without a stable session identity cannot contribute to
+            // session-level coverage without inflating one request into one session.
+            let sessionID = sample.sessionID.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !sessionID.isEmpty else { continue }
+            let key = SessionKey(provider: sample.provider, sessionID: sessionID)
+            var accumulator = sessions[key] ?? SessionAccumulator(
+                latestTimestamp: sample.timestamp,
+                levelCounts: [:]
+            )
+            accumulator.latestTimestamp = max(accumulator.latestTimestamp, sample.timestamp)
+            if let effortLevel = sample.effortLevel {
+                accumulator.levelCounts[effortLevel, default: 0] += 1
+            }
+            sessions[key] = accumulator
+        }
+
+        return sessions.map { key, accumulator in
+            EffortSessionSummary(
+                provider: key.provider,
+                sessionID: key.sessionID,
+                latestTimestamp: accumulator.latestTimestamp,
+                effortLevel: dominantLevel(in: accumulator.levelCounts)
+            )
+        }
+        .sorted {
+            if $0.provider != $1.provider { return $0.provider.rawValue < $1.provider.rawValue }
+            return $0.sessionID < $1.sessionID
+        }
     }
 
     private static func dominantLevel(in counts: [EffortLevel: Int]) -> EffortLevel? {

@@ -11,7 +11,7 @@ colors:
   icon-ice: "#F5F6F8"           # inner fold highlight
   icon-background: "#FAF4EF"    # warm off-white app-icon field
 
-  # Application UI — defined in code, not in Assets.xcassets. See Utilities/Constants.swift:13-17
+  # Application UI — defined in code, not in Assets.xcassets. See AgentUsageKit/.../Design/AgentUsageColors.swift
   # This existing palette remains in scope for the interface until a separate recoloring project.
   primary: "#C15F3C"             # Crail — the app's primary brand color; usage progress-bar fill
   brand-secondary: "#DA7756"     # warm clay accent (near-duplicate of provider-claude)
@@ -133,10 +133,17 @@ radii are **points**, and typography/iconography use **SF Pro Dynamic Type style
 Symbol names** rather than web font stacks. Read `font`/`design`/`style` values as SwiftUI
 `Font` parameters, not CSS.
 
-Application UI colors live in Swift code (`Utilities/Constants.swift`,
-`AgentUsageKit/Sources/AgentUsageKit/Models/`), not in `Assets.xcassets` — the accent-color
-asset sets are intentionally left at system default. App-icon artwork lives separately under
-`Design/AppIcon/`; do not infer its production colors from the application accent tokens.
+Application UI colors live in Swift code
+(`AgentUsageKit/Sources/AgentUsageKit/Design/AgentUsageColors.swift`, with app-target aliases in
+`Utilities/Constants.swift`), not in `Assets.xcassets` — the accent-color asset sets are
+intentionally left at system default. App-icon artwork lives separately under `Design/AppIcon/`;
+do not infer its production colors from the application accent tokens.
+
+**The iOS dashboard is the canonical visual reference for application UI.** Its
+`ProviderCardView` + `UsageRowView` pairing defines provider attribution, hierarchy, spacing,
+linear progress, rounded numerals, and status presentation. macOS and WidgetKit adapt that
+grammar to their native containers and density constraints; compact widget or menu-bar
+treatments must never become the source of a competing product-wide style.
 
 ## Colors
 
@@ -163,7 +170,7 @@ Five families, each with a distinct job:
 - **Extra-usage accent (Dusty Plum `#8B5E83`).** The single non-brand, non-status accent,
   reserved **exclusively** for over-limit / billed usage indicators. Its scarcity is what makes
   it meaningful — do not reuse it for decoration. Mirrored publicly as
-  `extraUsageAccentColor` in AgentUsageKit so widgets can reference it.
+  `AgentUsageColors.extraUsageAccent` in AgentUsageKit so widgets can reference it.
 
 > **Known duplication:** `brand-secondary` `#DA7756` and `provider-claude` `#D97757` are two
 > nearly-identical clay tones that coexist. Treat `provider-claude` as authoritative for Claude
@@ -267,10 +274,14 @@ Corner radius is assigned by component scale:
   available provider snapshots. Start creates one activity, Switch updates that activity in
   place, and Stop ends it. Disabled authorization remains visible with an Open Settings action;
   unavailable-window and start-error states stay inline in the same card.
-- **Widget & Live Activity gauges** — WidgetKit presentations use SwiftUI `Gauge`
-  (`.accessoryCircular` / `.accessoryLinear`) colored by `status.color` with matching
-  `.keylineTint`. Live Activity content carries the selected provider and stable window ID so
-  Claude, Codex, Cursor, and future enabled providers share the same presentation.
+- **Home Screen widgets** — adapt the iOS provider-card hierarchy rather than inventing a
+  widget-only style: provider identity first, compact `UsageProgressBar` rows in Crail, rounded
+  percentage numerals, semantic status icon + label, reset timing, and freshness. Use the widget
+  container itself as the surface instead of nesting a second card inside it.
+- **Accessory widgets & Live Activities** — where the platform shape requires a gauge, use
+  SwiftUI `Gauge` (`.accessoryCircular` / `.accessoryLinear`) colored by `status.color` with
+  matching `.keylineTint`. Live Activity content carries the selected provider and stable window
+  ID so Claude, Codex, Cursor, and future enabled providers share the same presentation.
 
 Status-bearing components use `UsageStatus` as the single source of truth for "how bad is it."
 The menu-bar strip is intentionally neutral: macOS applies the template tint, while its values
@@ -320,3 +331,5 @@ AgentUsage app icon or product-level brand mark.
   or gradients — the system has none, and adding them breaks the flat, translucent look.
 - **Do** pair every status color with its matching SF Symbol; never show one without the other.
   A neutral component such as the template-tinted menu-bar strip may omit both.
+- **Do** take cross-surface visual decisions from the iOS provider card and usage row. **Don't**
+  promote a WidgetKit family-specific compromise into the shared app style.

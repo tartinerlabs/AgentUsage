@@ -163,7 +163,7 @@ struct MenuBarStatusContentTests {
 
         #expect(content.groups.map(\.id) == ["claude", "codex"])
         #expect(content.groups[0].metrics.map(\.id) == ["opus", "session"])
-        #expect(content.groups[0].metrics.map(\.percentUsed) == [16, 12])
+        #expect(content.groups[0].metrics.map(\.percentUsed) == [15, 12])
         #expect(content.groups[1].metrics.map(\.percentUsed) == [2, 0])
     }
 
@@ -245,8 +245,8 @@ struct MenuBarStatusContentTests {
             now: now
         )
 
-        #expect(content.groups[0].metrics[0].value == "116%")
-        #expect(content.accessibilityText == "Claude, Current session 116 percent used")
+        #expect(content.groups[0].metrics[0].value == "115%")
+        #expect(content.accessibilityText == "Claude, Current session 115 percent used")
     }
 
     @Test @MainActor func returnsEmptyContentWhenNothingIsRenderable() {

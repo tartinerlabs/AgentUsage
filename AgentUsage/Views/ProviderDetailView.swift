@@ -40,7 +40,13 @@ struct ProviderDetailView: View {
             if !windows.isEmpty {
                 VStack(spacing: 14) {
                     ForEach(Array(windows.enumerated()), id: \.offset) { _, window in
-                        UsageRowView(title: window.displayName, usage: window, now: now, showStatusDot: true)
+                        UsageRowView(
+                            title: window.displayName,
+                            usage: window,
+                            now: now,
+                            showExtraUsage: showExtraUsage,
+                            showStatusDot: true
+                        )
                     }
                 }
             }
@@ -168,18 +174,12 @@ struct ProviderDetailView: View {
     }
 
     private func costRow(_ label: String, _ summary: TokenUsageSummary) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(summary.formattedCost)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(provider.accentColor)
-            Text("· \(summary.formattedTokens) tokens")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
+        ProviderCostRow(
+            provider: provider,
+            label: label,
+            cost: summary.formattedCost,
+            tokens: summary.formattedTokens
+        )
     }
 
     // MARK: - Trend

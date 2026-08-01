@@ -13,7 +13,7 @@ struct AgentUsageWidgetsLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AgentUsageLiveActivityAttributes.self) { context in
             LockScreenBannerView(context: context)
-                .activityBackgroundTint(Color(.systemBackground).opacity(0.8))
+                .activityBackgroundTint(context.state.provider.accentColor.opacity(0.08))
                 .activitySystemActionForegroundColor(.primary)
         } dynamicIsland: { context in
             let displayState = context.state.displayState(isStale: context.isStale)
@@ -43,8 +43,8 @@ struct AgentUsageWidgetsLiveActivity: Widget {
             } compactTrailing: {
                 CompactValueView(state: context.state, displayState: displayState)
             } minimal: {
-                Image(systemName: context.state.provider.iconName)
-                    .foregroundStyle(context.state.provider.accentColor)
+                MinimalActivityGauge(state: context.state, displayState: displayState)
+                    .accessibilityElement(children: .ignore)
                     .accessibilityLabel(
                         context.state.accessibilityDescription(
                             fallbackWindowName: context.attributes.selectedMetric,
@@ -72,7 +72,7 @@ private struct LockScreenBannerView: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            ProgressRing(state: context.state, displayState: displayState)
+            LiveActivityCircularGauge(state: context.state, displayState: displayState)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -88,21 +88,27 @@ private struct LockScreenBannerView: View {
                 }
 
                 Text(context.state.windowName(fallback: context.attributes.selectedMetric))
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.callout)
+                    .fontWeight(.semibold)
                     .lineLimit(1)
 
                 if displayState == .available {
-                    HStack(alignment: .firstTextBaseline) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(context.state.percentageLabel)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundStyle(context.state.status.color)
+                            .font(.system(.title2, design: .rounded, weight: .bold))
+                        if context.state.isUsingExtraUsage {
+                            Text("+\(context.state.extraUsagePercent)% extra")
+                                .font(.caption2)
+                                .foregroundStyle(AgentUsageColors.extraUsageAccent)
+                        }
                         Spacer(minLength: 8)
                         ResetCountdownView(state: context.state)
                     }
                 } else {
-                    NeutralStateLabel(displayState: displayState)
+                    NeutralStateLabel(
+                        displayState: displayState,
+                        fetchedAt: context.state.fetchedAt
+                    )
                 }
             }
         }
@@ -117,30 +123,24 @@ private struct LockScreenBannerView: View {
     }
 }
 
-private struct ProgressRing: View {
+private struct LiveActivityCircularGauge: View {
     let state: AgentUsageLiveActivityAttributes.ContentState
     let displayState: LiveActivityDisplayState
 
     var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.secondary.opacity(0.3), lineWidth: 6)
-
-            if displayState == .available {
-                Circle()
-                    .trim(from: 0, to: state.normalizedProgress)
-                    .stroke(
-                        state.status.color,
-                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-            }
-
+        Gauge(value: displayState == .available ? state.normalizedProgress : 0) {
             Image(systemName: state.provider.iconName)
-                .font(.headline)
+                .font(.caption)
                 .foregroundStyle(state.provider.accentColor)
+        } currentValueLabel: {
+            Image(systemName: displayState == .available ? state.status.icon : displayState.iconName)
+                .font(.caption2)
+                .foregroundStyle(displayState == .available ? state.status.color : .secondary)
         }
+        .gaugeStyle(.accessoryCircular)
+        .tint(displayState == .available ? state.status.color : .secondary)
         .frame(width: 50, height: 50)
+        .accessibilityHidden(true)
     }
 }
 
@@ -161,6 +161,8 @@ private struct ProviderWindowLabel: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(provider.displayName), \(windowName)")
     }
 }
 
@@ -172,16 +174,19 @@ private struct LiveActivityValueView: View {
         if displayState == .available {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(state.percentageLabel)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(state.status.color)
+                    .font(.system(.title2, design: .rounded, weight: .bold))
                 Image(systemName: state.status.icon)
                     .font(.caption)
                     .foregroundStyle(state.status.color)
-                    .accessibilityLabel(state.status.label)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(state.usageAccessibilityDescription)
         } else {
-            NeutralStateLabel(displayState: displayState, alignment: .trailing)
+            NeutralStateLabel(
+                displayState: displayState,
+                fetchedAt: state.fetchedAt,
+                alignment: .trailing
+            )
         }
     }
 }
@@ -195,11 +200,10 @@ private struct CompactValueView: View {
             HStack(spacing: 2) {
                 Image(systemName: state.status.icon)
                 Text(state.percentageLabel)
-                    .fontWeight(.semibold)
+                    .font(.system(.caption2, design: .rounded, weight: .semibold))
             }
-            .font(.caption2)
             .foregroundStyle(state.status.color)
-            .accessibilityLabel("\(state.status.label), \(state.percentageLabel) used")
+            .accessibilityLabel(state.usageAccessibilityDescription)
         } else {
             Image(systemName: displayState.iconName)
                 .font(.caption2)
@@ -216,29 +220,49 @@ private struct ExpandedDetailView: View {
     var body: some View {
         if displayState == .available {
             VStack(spacing: 8) {
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.secondary.opacity(0.3))
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(state.status.color)
-                            .frame(width: geometry.size.width * state.normalizedProgress)
-                    }
+                Gauge(value: state.normalizedProgress) {
+                    EmptyView()
                 }
-                .frame(height: 8)
+                .gaugeStyle(.accessoryLinear)
+                .tint(state.status.color)
+                .accessibilityHidden(true)
 
                 HStack {
                     Label(state.status.label, systemImage: state.status.icon)
                         .foregroundStyle(state.status.color)
+                    if state.isUsingExtraUsage {
+                        Text("+\(state.extraUsagePercent)% extra")
+                            .foregroundStyle(AgentUsageColors.extraUsageAccent)
+                    }
                     Spacer()
                     ResetCountdownView(state: state)
                 }
                 .font(.caption2)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(state.usageAccessibilityDescription)
+            .accessibilityHint(state.resetAccessibilityDescription)
         } else {
-            NeutralStateLabel(displayState: displayState)
+            NeutralStateLabel(displayState: displayState, fetchedAt: state.fetchedAt)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+private struct MinimalActivityGauge: View {
+    let state: AgentUsageLiveActivityAttributes.ContentState
+    let displayState: LiveActivityDisplayState
+
+    var body: some View {
+        Gauge(value: displayState == .available ? state.normalizedProgress : 0) {
+            Image(systemName: state.provider.iconName)
+                .font(.caption2)
+        } currentValueLabel: {
+            Image(systemName: displayState == .available ? state.status.icon : displayState.iconName)
+                .font(.system(size: 7, weight: .semibold))
+        }
+        .gaugeStyle(.accessoryCircular)
+        .tint(displayState == .available ? state.status.color : .secondary)
     }
 }
 
@@ -265,16 +289,32 @@ private struct ResetCountdownView: View {
 
 private struct NeutralStateLabel: View {
     let displayState: LiveActivityDisplayState
+    var fetchedAt: Date? = nil
     var alignment: HorizontalAlignment = .leading
 
     var body: some View {
         VStack(alignment: alignment, spacing: 2) {
-            Image(systemName: displayState.iconName)
-            Text(displayState.message)
+            Label(displayState.message, systemImage: displayState.iconName)
                 .lineLimit(1)
+            if let fetchedAt {
+                HStack(spacing: 3) {
+                    Text("Updated")
+                    Text(fetchedAt, style: .relative)
+                }
+                .font(.caption2)
+                .lineLimit(1)
+            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(displayState.message)
+        .accessibilityValue(freshnessAccessibilityValue)
+    }
+
+    private var freshnessAccessibilityValue: String {
+        guard let fetchedAt else { return "" }
+        return "Updated \(fetchedAt.formatted(date: .omitted, time: .shortened))"
     }
 }
 
@@ -307,6 +347,22 @@ private extension AgentUsageLiveActivityAttributes.ContentState {
         "\(max(0, percentUsed))%"
     }
 
+    var isUsingExtraUsage: Bool {
+        percentUsed > 100
+    }
+
+    var extraUsagePercent: Int {
+        max(0, percentUsed - 100)
+    }
+
+    var usageAccessibilityDescription: String {
+        var parts = ["\(percentageLabel) used", status.label]
+        if isUsingExtraUsage {
+            parts.append("\(extraUsagePercent) percent extra usage")
+        }
+        return parts.joined(separator: ", ")
+    }
+
     func windowName(fallback: String) -> String {
         guard let windowDisplayName, !windowDisplayName.isEmpty else { return fallback }
         return windowDisplayName
@@ -329,18 +385,29 @@ private extension AgentUsageLiveActivityAttributes.ContentState {
         let prefix = "\(provider.displayName), \(windowName(fallback: fallbackWindowName))"
         switch displayState {
         case .available:
-            let resetDescription: String
-            if let resetsAt {
-                resetDescription = "resets at \(resetsAt.formatted(date: .omitted, time: .shortened))"
-            } else if timeUntilReset == "now" {
-                resetDescription = "resets now"
-            } else {
-                resetDescription = "resets in \(timeUntilReset)"
+            var parts = [prefix, "\(percentageLabel) used", status.label]
+            if isUsingExtraUsage {
+                parts.append("\(extraUsagePercent) percent extra usage")
             }
-            return "\(prefix), \(percentageLabel) used, \(status.label), \(resetDescription)"
+            parts.append(resetAccessibilityDescription)
+            return parts.joined(separator: ", ")
         case .awaitingRefresh, .unavailable:
-            return "\(prefix), \(displayState.message)"
+            var parts = [prefix, displayState.message]
+            if let fetchedAt {
+                parts.append("updated at \(fetchedAt.formatted(date: .omitted, time: .shortened))")
+            }
+            return parts.joined(separator: ", ")
         }
+    }
+
+    var resetAccessibilityDescription: String {
+        if let resetsAt {
+            return "resets at \(resetsAt.formatted(date: .omitted, time: .shortened))"
+        }
+        if timeUntilReset == "now" {
+            return "resets now"
+        }
+        return "resets in \(timeUntilReset)"
     }
 }
 
