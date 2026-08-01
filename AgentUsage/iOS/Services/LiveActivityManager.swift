@@ -18,6 +18,9 @@ final class LiveActivityManager: ObservableObject {
 
     @Published var isRunning = false
     @Published var selectedMetric: MetricType = .session
+    /// Set when a start attempt fails so the UI can explain why nothing appeared
+    /// instead of leaving the buttons looking inert.
+    @Published var startError: String?
 
     private var currentActivity: Activity<AgentUsageLiveActivityAttributes>?
 
@@ -30,8 +33,11 @@ final class LiveActivityManager: ObservableObject {
 
     /// Start a new Live Activity with the given snapshot
     func start(snapshot: UsageSnapshot, metric: MetricType) {
+        startError = nil
+
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             Logger.liveActivity.warning("Live Activities not enabled")
+            startError = "Live Activities are turned off. Enable them in Settings › \(Constants.appDisplayName)."
             return
         }
 
@@ -58,8 +64,16 @@ final class LiveActivityManager: ObservableObject {
             currentActivity = activity
             isRunning = true
             Logger.liveActivity.info("Started Live Activity: \(activity.id)")
+        } catch let error as ActivityAuthorizationError {
+            // `localizedDescription` is a generic string for this error; the
+            // `failureReason` names the actual cause (denied, unsupported,
+            // globalMaximumExceeded, unentitled, visibility, …).
+            let reason = error.failureReason ?? String(describing: error)
+            Logger.liveActivity.error("Failed to start (ActivityAuthorizationError): \(reason)")
+            startError = reason
         } catch {
             Logger.liveActivity.error("Failed to start: \(error.localizedDescription)")
+            startError = error.localizedDescription
         }
     }
 
