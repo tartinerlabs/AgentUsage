@@ -691,6 +691,10 @@ nonisolated struct ProviderDetail: Sendable {
     let dailyCosts: [Double]
     /// Session effort distributions for each supported period.
     let effortSummaries: [EffortPeriodSummary]
+    /// False when this value only carries cached effort metadata. Keeping that
+    /// state distinct prevents an unavailable token refresh from looking like
+    /// a successful refresh with genuine $0 / 0-token totals.
+    let hasTokenUsage: Bool
 
     init(
         today: TokenUsageSummary,
@@ -698,7 +702,8 @@ nonisolated struct ProviderDetail: Sendable {
         last30Days: TokenUsageSummary,
         byModel: [String: TokenCount],
         dailyCosts: [Double],
-        effortSummaries: [EffortPeriodSummary] = []
+        effortSummaries: [EffortPeriodSummary] = [],
+        hasTokenUsage: Bool = true
     ) {
         self.today = today
         self.yesterday = yesterday
@@ -706,6 +711,7 @@ nonisolated struct ProviderDetail: Sendable {
         self.byModel = byModel
         self.dailyCosts = dailyCosts
         self.effortSummaries = effortSummaries
+        self.hasTokenUsage = hasTokenUsage
     }
 
     func effortSummary(for period: EffortPeriod) -> EffortPeriodSummary? {
