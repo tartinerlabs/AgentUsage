@@ -14,7 +14,7 @@ struct SmallWidgetView: View {
         if let usage = entry.selectedWindow {
             content(for: usage)
         } else {
-            WidgetNoDataView(reason: entry.unavailableReason)
+            WidgetNoDataView(reason: entry.unavailableReason, provider: entry.provider)
         }
     }
 
@@ -25,9 +25,9 @@ struct SmallWidgetView: View {
         let resetText = usage.resetDescription(from: entry.date)
 
         return VStack(alignment: .leading, spacing: 8) {
-            WidgetProviderIdentity(provider: WidgetDesign.provider, font: .caption)
+            WidgetProviderIdentity(provider: entry.provider, font: .caption)
             WidgetUsageRow(
-                title: entry.metric.displayName,
+                title: usage.displayName,
                 usage: usage,
                 now: entry.date
             )
@@ -36,7 +36,7 @@ struct SmallWidgetView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(WidgetDesign.provider.displayName), \(entry.metric.displayName) usage")
+        .accessibilityLabel("\(entry.provider.displayName), \(usage.displayName) usage")
         .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint("\(resetText). Updated \(entry.lastUpdatedDescription)")
     }
@@ -57,8 +57,8 @@ struct SmallWidgetView: View {
 #Preview("Small", as: .systemSmall) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry.preview(metric: .session)
-    WidgetEntry.preview(metric: .opus)
+    WidgetEntry.preview(provider: .claude)
+    WidgetEntry.preview(provider: .codex)
 }
 
 #Preview("Small — No data", as: .systemSmall) {
