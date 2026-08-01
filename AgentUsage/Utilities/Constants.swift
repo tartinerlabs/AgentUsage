@@ -58,11 +58,29 @@ nonisolated enum Constants {
     /// headers the endpoint expects: `OpenAI-Beta: codex-1`, `originator: Codex Desktop`.
     static let codexResetCreditsURL = URL(string: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")!
 
+    // MARK: - Cursor (subscription live usage)
+    /// Cursor does not document a personal-usage API. These are the same
+    /// dashboard endpoints used by Cursor's own signed-in clients.
+    static let cursorUsageURL = URL(string: "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage")!
+    static let cursorPlanURL = URL(string: "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo")!
+    static let cursorTokenRefreshURL = URL(string: "https://api2.cursor.sh/oauth/token")!
+    static let cursorUsageSummaryURL = URL(string: "https://cursor.com/api/usage-summary")!
+    static let cursorLegacyUsageURL = URL(string: "https://cursor.com/api/usage")!
+    static let cursorOAuthClientID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB"
+    static let cursorConnectProtocolVersionHeader = "Connect-Protocol-Version"
+    static let cursorKeychainAccessTokenService = "cursor-access-token"
+    static let cursorKeychainRefreshTokenService = "cursor-refresh-token"
+    static let cursorStateAccessTokenKey = "cursorAuth/accessToken"
+    static let cursorStateRefreshTokenKey = "cursorAuth/refreshToken"
+    static let cursorStateMembershipTypeKey = "cursorAuth/stripeMembershipType"
+
     // MARK: - Provider Links (status / console dashboards)
     static let anthropicStatusURL = "https://status.anthropic.com"
     static let anthropicConsoleURL = "https://claude.ai/settings/usage"
     static let openaiStatusURL = "https://status.openai.com"
     static let openaiPlatformURL = "https://platform.openai.com/usage"
+    static let cursorStatusURL = "https://status.cursor.com"
+    static let cursorDashboardURL = "https://cursor.com/dashboard"
 
     // MARK: - Network Configuration
     static let requestTimeout: TimeInterval = 30
@@ -153,6 +171,12 @@ nonisolated enum Constants {
     }
     nonisolated static var openCodeHomeDirectory: URL {
         realHomeDirectory.appendingPathComponent(".local/share/opencode")
+    }
+    nonisolated static var cursorStateDirectory: URL {
+        realHomeDirectory.appendingPathComponent("Library/Application Support/Cursor/User/globalStorage")
+    }
+    nonisolated static var cursorStateDBURLs: [URL] {
+        [cursorStateDirectory.appendingPathComponent("state.vscdb")]
     }
 
     /// Xcode's Coding Assistant bundles its own Claude Code and Codex agent homes,

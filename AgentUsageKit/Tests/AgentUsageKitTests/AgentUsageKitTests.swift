@@ -43,6 +43,16 @@ struct ProviderTests {
         #expect(Provider.openCode.displayName == "OpenCode Zen")
         #expect(Provider.openCodeGo.displayName == "OpenCode Go")
     }
+
+    @Test func cursorIsAnAdditiveRateWindowOnlyProvider() throws {
+        #expect(Provider.cursor.displayName == "Cursor")
+        #expect(Provider.cursor.iconName == "cursorarrow")
+        #expect(Provider.cursor.capabilities == [.rateWindows])
+        #expect(Provider.cursor.supports(.tokenCost) == false)
+
+        let data = try JSONEncoder().encode(Provider.cursor)
+        #expect(try JSONDecoder().decode(Provider.self, from: data) == .cursor)
+    }
 }
 
 @Suite("UsageWindowType")

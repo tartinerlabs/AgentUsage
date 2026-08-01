@@ -32,7 +32,7 @@ xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug
 The app is not Claude-only. Usage is collected per provider through two seams:
 
 - `AgentUsageKit/Sources/AgentUsageKit/Models/Provider.swift` — `Provider` enum
-  (`claude`, `codex`, `openCode`, `openCodeGo`). Each carries a `Capability` set
+  (`claude`, `codex`, `openCode`, `openCodeGo`, `cursor`). Each carries a `Capability` set
   (`.rateWindows` for live quota windows, `.tokenCost` for token/cost from local
   logs), a `pricingProviderKey` ("anthropic" / "openai"), and a `family` rollup.
   Check capabilities before assuming a provider surfaces a given kind of data.
@@ -66,8 +66,10 @@ it and why no folder grant is needed for auth.
 **Reading CLI logs does need a folder grant.**
 `macOS/Services/SandboxFolderAccessService.swift` resolves security-scoped
 bookmarks for `~/.claude`, `~/.codex`, and `~/.local/share/opencode` at launch and
-holds them for the process lifetime; the user grants them in Settings → Local
-Data Access. Under the sandbox, `NSHomeDirectory()` returns the container — use
+holds them for the process lifetime. It also grants read access to Cursor's
+`~/Library/Application Support/Cursor/User/globalStorage` session database; the
+user grants these paths in Settings → Local Data Access. Under the sandbox,
+`NSHomeDirectory()` returns the container — use
 `Constants.realHomeDirectory`, which resolves the true home via
 `getpwuid(getuid())` (`Constants.swift:133`).
 

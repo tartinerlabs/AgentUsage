@@ -184,6 +184,12 @@ final class UsageViewModel {
             default: return nil
             }
         }
+        if let cursorError = error as? CursorUsageService.CursorError {
+            switch cursorError {
+            case .serverError(let code) where (500...599).contains(code): return code
+            default: return nil
+            }
+        }
         #endif
         return nil
     }

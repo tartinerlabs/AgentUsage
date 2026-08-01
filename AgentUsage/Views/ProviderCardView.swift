@@ -67,7 +67,7 @@ struct ProviderCardView: View {
             }
 
             if showExtraUsage, let extraUsage {
-                extraUsageBar(extraUsage)
+                ExtraUsageBarView(extraUsage: extraUsage)
             }
 
             if !costLines.isEmpty {
@@ -126,26 +126,6 @@ struct ProviderCardView: View {
             .help("This provider's service recently returned a server error. Showing cached data.")
     }
 
-    private func extraUsageBar(_ extraUsage: ExtraUsageCost) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 8)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Constants.extraUsageAccent)
-                        .frame(width: geo.size.width * extraUsage.normalized, height: 8)
-                }
-            }
-            .frame(height: 8)
-
-            Text("Extra usage: \(extraUsage.formattedUsed) / \(extraUsage.formattedLimit)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private var costSection: some View {
         VStack(spacing: 8) {
             ForEach(costLines) { line in
@@ -170,6 +150,31 @@ struct ProviderCardView: View {
                         .frame(minWidth: 60, alignment: .trailing)
                 }
             }
+        }
+    }
+}
+
+/// Provider-neutral on-demand spend meter used by cards and detail views.
+struct ExtraUsageBarView: View {
+    let extraUsage: ExtraUsageCost
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(height: 8)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Constants.extraUsageAccent)
+                        .frame(width: geo.size.width * extraUsage.normalized, height: 8)
+                }
+            }
+            .frame(height: 8)
+
+            Text("Extra usage: \(extraUsage.formattedUsed) / \(extraUsage.formattedLimit)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 }
