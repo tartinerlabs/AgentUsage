@@ -11,6 +11,7 @@
 		D835E8552F06D377001A996A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D835E8542F06D377001A996A /* SwiftUI.framework */; };
 		D835E8662F06D378001A996A /* AgentUsageWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D835E8502F06D377001A996A /* AgentUsageWidgetsExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D8A11C022F0C000000000002 /* Design/AppIcon/AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */; };
+		D8A11C042F0C000000000004 /* LiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8A11C032F0C000000000003 /* LiveActivityAttributes.swift */; };
 		D8AB30E12F0AB1E800A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E02F0AB1E800A4BD39 /* AgentUsageKit */; };
 		D8AB30E52F0AB2B800A4BD39 /* AgentUsageKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8AB30E42F0AB2B800A4BD39 /* AgentUsageKit */; };
 /* End PBXBuildFile section */
@@ -58,6 +59,7 @@
 		D835E8522F06D377001A996A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		D835E8542F06D377001A996A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Design/AppIcon/AppIcon.icon; sourceTree = "<group>"; };
+		D8A11C032F0C000000000003 /* LiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentUsage/Shared/Models/LiveActivityAttributes.swift; sourceTree = "<group>"; };
 		D8EE0142300A2A1400A03D4E /* AgentUsageWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AgentUsageWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		D8EFFF722F05796A006A2183 /* AgentUsage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentUsage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8EFFF832F05796C006A2183 /* AgentUsageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentUsageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -161,6 +163,7 @@
 			children = (
 				D8EE0142300A2A1400A03D4E /* AgentUsageWidgetsExtension.entitlements */,
 				D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */,
+				D8A11C032F0C000000000003 /* LiveActivityAttributes.swift */,
 				D8EFFF742F05796A006A2183 /* AgentUsage */,
 				D8EFFF862F05796C006A2183 /* AgentUsageTests */,
 				D8EFFF902F05796C006A2183 /* AgentUsageUITests */,
@@ -366,6 +369,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D8A11C042F0C000000000004 /* LiveActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
