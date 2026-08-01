@@ -150,7 +150,9 @@ struct MenuBarView: View {
                 detail: viewModel.providerDetails[provider],
                 now: now,
                 isServiceDown: viewModel.isServiceDown(provider),
-                rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits
+                rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits,
+                extraUsage: viewModel.usageSnapshot(for: provider)?.extraUsage,
+                showExtraUsage: viewModel.showExtraUsageIndicators
             )
         }
     }
@@ -204,10 +206,12 @@ struct MenuBarView: View {
             provider: provider,
             planName: viewModel.usageSnapshot(for: provider)?.planName,
             windows: viewModel.usageSnapshot(for: provider)?.windows ?? [],
-            extraUsage: provider == .claude && viewModel.showExtraUsageIndicators ? viewModel.snapshot?.extraUsage : nil,
+            extraUsage: viewModel.showExtraUsageIndicators
+                ? viewModel.usageSnapshot(for: provider)?.extraUsage
+                : nil,
             costLines: costLines(for: provider),
             now: now,
-            showExtraUsage: provider == .claude && viewModel.showExtraUsageIndicators,
+            showExtraUsage: viewModel.showExtraUsageIndicators,
             compact: true,
             isServiceDown: viewModel.isServiceDown(provider),
             rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits

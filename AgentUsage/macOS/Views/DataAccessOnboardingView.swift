@@ -160,7 +160,7 @@ struct DataAccessOnboardingView: View {
     }
 
     private var privacyNote: some View {
-        Label("Local logs never leave this Mac", systemImage: "lock.fill")
+        Label("Local provider data never leaves this Mac", systemImage: "lock.fill")
             .font(.caption)
             .foregroundStyle(.secondary)
     }

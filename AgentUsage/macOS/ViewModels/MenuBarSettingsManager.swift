@@ -52,6 +52,8 @@ final class MenuBarSettingsManager {
         case .codex: [.codexFiveHour, .codexWeekly]
         case .openCode, .openCodeGo:
             [.openCodeGoFiveHour, .openCodeGoWeekly, .openCodeGoMonthly]
+        case .cursor:
+            []
         }
     }
 
@@ -145,7 +147,7 @@ final class MenuBarSettingsManager {
         switch provider {
         case .claude: Key.claudePins
         case .codex: Key.codexPins
-        case .openCode, .openCodeGo: "menuBarPinnedWindows.unsupported"
+        case .openCode, .openCodeGo, .cursor: "menuBarPinnedWindows.unsupported"
         }
     }
 

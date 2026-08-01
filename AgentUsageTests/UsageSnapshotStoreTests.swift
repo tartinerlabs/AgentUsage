@@ -58,6 +58,41 @@ struct UsageSnapshotStoreTests {
         #expect(cached.lastSuccessfulFetchTime == fetchedAt)
     }
 
+    @Test func roundTripsCursorDynamicWindowsAndExtraUsage() throws {
+        let testDefaults = TestUserDefaults()
+        let store = UsageSnapshotStore(defaults: testDefaults.defaults)
+        let fetchedAt = Date(timeIntervalSince1970: 1_750_000_000)
+        let providerSnapshot = ProviderUsageSnapshot(
+            provider: .cursor,
+            windows: [
+                UsageWindow(
+                    utilization: 54,
+                    resetsAt: fetchedAt.addingTimeInterval(31 * 24 * 3_600),
+                    windowID: "cursor.total",
+                    displayName: "Total usage",
+                    totalDuration: 31 * 24 * 3_600
+                ),
+            ],
+            extraUsage: ExtraUsageCost(used: 8, limit: 50, currencyCode: "USD"),
+            planName: "Pro",
+            fetchedAt: fetchedAt
+        )
+
+        store.save(
+            snapshot: nil,
+            planType: "Free",
+            providerSnapshots: [providerSnapshot],
+            fetchedAt: fetchedAt
+        )
+        let cached = try #require(store.load()?.providerSnapshots.first)
+
+        #expect(cached.provider == .cursor)
+        #expect(cached.windows.first?.windowID.rawValue == "cursor.total")
+        #expect(cached.windows.first?.windowType == .custom)
+        #expect(cached.extraUsage?.used == 8)
+        #expect(cached.extraUsage?.limit == 50)
+    }
+
     @Test func invalidSnapshotDataIsIgnored() {
         let testDefaults = TestUserDefaults()
         testDefaults.defaults.set(Data("not-json".utf8), forKey: UsageSnapshotStore.snapshotKey)

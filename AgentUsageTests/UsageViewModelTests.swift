@@ -58,10 +58,25 @@ struct UsageViewModelInitialStateTests {
             planName: "Plus",
             fetchedAt: fetchedAt
         )
+        let cursorSnapshot = ProviderUsageSnapshot(
+            provider: .cursor,
+            windows: [
+                UsageWindow(
+                    utilization: 24,
+                    resetsAt: Date().addingTimeInterval(31 * 24 * 3_600),
+                    windowID: "cursor.total",
+                    displayName: "Total usage",
+                    totalDuration: 31 * 24 * 3_600
+                ),
+            ],
+            extraUsage: ExtraUsageCost(used: 7, limit: 50, currencyCode: "USD"),
+            planName: "Pro",
+            fetchedAt: fetchedAt
+        )
         UsageSnapshotStore(defaults: testDefaults.defaults).save(
             snapshot: nil,
             planType: "Free",
-            providerSnapshots: [codexSnapshot],
+            providerSnapshots: [codexSnapshot, cursorSnapshot],
             fetchedAt: fetchedAt
         )
 
@@ -72,7 +87,10 @@ struct UsageViewModelInitialStateTests {
 
         #expect(viewModel.snapshot == nil)
         #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
+        #expect(viewModel.usageSnapshot(for: .cursor)?.planName == "Pro")
+        #expect(viewModel.usageSnapshot(for: .cursor)?.extraUsage?.used == 7)
         #expect(viewModel.hasProviderData(.codex))
+        #expect(viewModel.hasProviderData(.cursor))
         #expect(!viewModel.hasProviderData(.claude))
     }
 

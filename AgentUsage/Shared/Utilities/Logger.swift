@@ -32,6 +32,9 @@ nonisolated extension Logger {
     /// Codex live-usage service logging (ChatGPT /wham/usage fetch, token refresh)
     static let codex = Logger(subsystem: subsystem, category: "Codex")
 
+    /// Cursor live-usage service logging (dashboard usage and auth fallback)
+    static let cursor = Logger(subsystem: subsystem, category: "Cursor")
+
     /// Notification service logging
     static let notifications = Logger(subsystem: subsystem, category: "Notifications")
 

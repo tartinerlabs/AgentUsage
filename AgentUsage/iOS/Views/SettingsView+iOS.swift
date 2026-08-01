@@ -77,7 +77,7 @@ struct SettingsView: View {
             } header: {
                 Text("Display")
             } footer: {
-                Text("Show extra usage badges, banners, and cost sections throughout the app. Requires extra usage to be enabled in your Claude account.")
+                Text("Show extra usage badges, bars, and cost sections when a provider reports on-demand spend.")
             }
 
             Section("Continuity Sync") {

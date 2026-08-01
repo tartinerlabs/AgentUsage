@@ -178,7 +178,7 @@ struct SettingsTabView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Extra Usage Indicators")
                                     .font(.body)
-                                Text("Show extra usage badges, banners, and cost sections. Requires extra usage to be enabled in your Claude account.")
+                                Text("Show extra usage badges, bars, and cost sections when a provider reports on-demand spend.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -633,8 +633,8 @@ struct SettingsTabView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(
                     "\(Constants.appDisplayName) runs sandboxed, so macOS blocks direct reads "
-                        + "from the hidden folders where Claude, Codex, and OpenCode keep local "
-                        + "usage logs. Grant your home folder here, or use Full Disk Access in Privacy & Security as a fallback."
+                        + "from the folders where Claude, Codex, OpenCode, and Cursor keep local "
+                        + "usage logs or session state. Grant your home folder here, or use Full Disk Access in Privacy & Security as a fallback."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

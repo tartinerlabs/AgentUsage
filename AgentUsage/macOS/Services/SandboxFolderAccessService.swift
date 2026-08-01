@@ -25,9 +25,9 @@ import AgentUsageKit
 final class SandboxFolderAccessService {
     static let shared = SandboxFolderAccessService()
 
-    /// Providers whose logs require local disk access.
+    /// Providers whose logs or local session state require disk access.
     /// `.openCodeGo` is remote-only, so it is not included.
-    static let grantableProviders: [Provider] = [.claude, .codex, .openCode]
+    static let grantableProviders: [Provider] = [.claude, .codex, .openCode, .cursor]
 
     /// Whether the app appears to have Full Disk Access to the real home directory.
     private(set) var hasFullAccess = false
@@ -66,6 +66,7 @@ final class SandboxFolderAccessService {
         case .claude: Constants.claudeHomeDirectory
         case .codex: Constants.codexHomeDirectory
         case .openCode, .openCodeGo: Constants.openCodeHomeDirectory
+        case .cursor: Constants.cursorStateDirectory
         }
     }
 
@@ -86,7 +87,7 @@ final class SandboxFolderAccessService {
         panel.canCreateDirectories = false
         panel.showsHiddenFiles = true
         panel.directoryURL = target
-        panel.message = "Grant read access to your home folder so \(Constants.appDisplayName) can read local Claude, Codex, and OpenCode usage logs."
+        panel.message = "Grant read access to your home folder so \(Constants.appDisplayName) can read local Claude, Codex, OpenCode, and Cursor usage data."
         panel.prompt = "Grant Access"
 
         guard panel.runModal() == .OK,
