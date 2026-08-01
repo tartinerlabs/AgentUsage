@@ -92,6 +92,68 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.hasProviderData(.codex))
         #expect(viewModel.hasProviderData(.cursor))
         #expect(!viewModel.hasProviderData(.claude))
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex, .cursor])
+    }
+
+    @Test @MainActor func availableProviderSnapshotsFollowProviderOrderAndBridgeClaude() async {
+        let testDefaults = TestUserDefaults()
+        let fetchedAt = Date()
+        let claudeSnapshot = UsageSnapshot(
+            session: UsageWindow(
+                utilization: 12,
+                resetsAt: fetchedAt.addingTimeInterval(3_600),
+                windowType: .session
+            ),
+            opus: UsageWindow(
+                utilization: 34,
+                resetsAt: fetchedAt.addingTimeInterval(7_200),
+                windowType: .opus
+            ),
+            sonnet: nil,
+            fetchedAt: fetchedAt
+        )
+        let cursorSnapshot = ProviderUsageSnapshot(
+            provider: .cursor,
+            windows: [
+                UsageWindow(
+                    utilization: 56,
+                    resetsAt: fetchedAt.addingTimeInterval(10_800),
+                    windowID: "cursor.total",
+                    displayName: "Total usage",
+                    totalDuration: 30 * 24 * 3_600
+                ),
+            ],
+            planName: "Pro",
+            fetchedAt: fetchedAt
+        )
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 78,
+                    resetsAt: fetchedAt.addingTimeInterval(14_400),
+                    windowType: .codexFiveHour
+                ),
+            ],
+            planName: "Plus",
+            fetchedAt: fetchedAt
+        )
+        UsageSnapshotStore(defaults: testDefaults.defaults).save(
+            snapshot: claudeSnapshot,
+            planType: "Max",
+            providerSnapshots: [cursorSnapshot, codexSnapshot],
+            fetchedAt: fetchedAt
+        )
+
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            defaults: testDefaults.defaults
+        )
+
+        #expect(viewModel.availableProviders == [.claude, .codex, .cursor])
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.claude, .codex, .cursor])
+        #expect(viewModel.availableProviderSnapshots.first?.planName == "Max")
+        #expect(viewModel.availableProviderSnapshots.first?.windows.map(\.windowType) == [.session, .opus])
     }
 
     @Test @MainActor func loadsRefreshIntervalFromUserDefaults() async {
@@ -943,6 +1005,8 @@ struct UsageViewModelMobileContinuityTests {
         #expect(viewModel.snapshot == nil)
         #expect(viewModel.usageSnapshot(for: .claude)?.windows.isEmpty == true)
         #expect(viewModel.effortSummary(for: .claude, period: .last30Days) == effortSummary)
+        #expect(viewModel.hasProviderData(.claude))
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.claude])
 
         let relaunchedViewModel = UsageViewModel(
             credentialProvider: MockCredentialProvider(),
@@ -951,6 +1015,7 @@ struct UsageViewModelMobileContinuityTests {
         )
         #expect(relaunchedViewModel.snapshot == nil)
         #expect(relaunchedViewModel.effortSummary(for: .claude, period: .last30Days) == effortSummary)
+        #expect(relaunchedViewModel.availableProviderSnapshots.map(\.provider) == [.claude])
     }
 
     @Test @MainActor func disabledSyncedProviderSnapshotsStayHiddenOnMobileWithoutClaudeSnapshot() async {
@@ -997,9 +1062,14 @@ struct UsageViewModelMobileContinuityTests {
         #expect(viewModel.hasProviderData(.codex))
         #expect(!viewModel.hasProviderData(.openCodeGo))
         #expect(!viewModel.hasProviderData(.claude))
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex])
+        guard case .syncedFromMac = viewModel.appConnectionStatus else {
+            Issue.record("Expected provider-only sync to be a connected mobile state")
+            return
+        }
     }
 
-    @Test @MainActor func staleSyncedProviderSnapshotsRemainAvailableAsCachedDataOnMobile() async {
+    @Test @MainActor func staleProviderOnlySyncReplacesCachedClaudeDataOnMobile() async {
         let cachedClaude = Self.snapshot(
             session: 15,
             reset: Date().addingTimeInterval(3_600),
@@ -1041,10 +1111,12 @@ struct UsageViewModelMobileContinuityTests {
 
         await viewModel.refreshContinuitySync()
 
-        #expect(viewModel.snapshot?.session.percentUsed == 15)
-        #expect(viewModel.planType == "Max")
+        #expect(viewModel.snapshot == nil)
+        #expect(viewModel.planType == "Free")
         #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
         #expect(viewModel.hasProviderData(.codex))
+        #expect(!viewModel.hasProviderData(.claude))
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex])
         #expect(viewModel.isUsingCachedData)
         #expect(await syncService.acknowledgementCount() == 0)
     }

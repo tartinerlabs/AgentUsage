@@ -55,6 +55,23 @@ struct ProviderTests {
     }
 }
 
+@Suite("UsageActivitySelection")
+struct UsageActivitySelectionTests {
+    @Test func providerSelectionsRoundTripIncludingCursorCustomWindow() throws {
+        let selections = [
+            UsageActivitySelection(provider: .claude, windowID: "session"),
+            UsageActivitySelection(provider: .codex, windowID: "codex-weekly"),
+            UsageActivitySelection(provider: .cursor, windowID: "cursor.dynamic.usage-2026"),
+        ]
+
+        let data = try JSONEncoder().encode(selections)
+        let decoded = try JSONDecoder().decode([UsageActivitySelection].self, from: data)
+
+        #expect(decoded == selections)
+        #expect(decoded.last?.windowID.rawValue == "cursor.dynamic.usage-2026")
+    }
+}
+
 @Suite("UsageWindowType")
 struct UsageWindowTypeTests {
     @Test func displayNames() {
