@@ -84,6 +84,7 @@ enum DependencyContainer {
     static func createProviderUsageServices(defaults: UserDefaults = .standard) -> [Provider: any ProviderUsageServiceProtocol] {
         [
             .codex: CodexUsageService(),
+            .cursor: CursorUsageService(),
             // .openCodeGo: OpenCodeGoLocalUsageService(), // Disabled: OpenCode usage is currently unreliable.
         ]
     }

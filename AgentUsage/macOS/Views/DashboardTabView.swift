@@ -191,6 +191,26 @@ struct DashboardTabView: View {
             }
         }
 
+        if viewModel.hasProviderData(.cursor) {
+            let cursor = viewModel.usageSnapshot(for: .cursor)
+            dashboardSection(
+                title: Provider.cursor.displayName,
+                subtitle: "Subscription windows and optional on-demand spend.",
+                systemImage: Provider.cursor.iconName,
+                tint: Provider.cursor.accentColor
+            ) {
+                ProviderDetailView(
+                    provider: .cursor,
+                    planName: cursor?.planName,
+                    windows: cursor?.windows ?? [],
+                    now: now,
+                    isServiceDown: viewModel.isServiceDown(.cursor),
+                    extraUsage: cursor?.extraUsage,
+                    showExtraUsage: viewModel.showExtraUsageIndicators
+                )
+            }
+        }
+
         if viewModel.hasProviderData(.openCode) {
             let openCodeUsage = viewModel.usageSnapshot(for: .openCode)
             dashboardSection(

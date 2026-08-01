@@ -48,6 +48,52 @@ struct UsageSyncServiceTests {
         #expect(synced.providerSnapshots.first?.windows.map(\.windowType) == [.codexFiveHour])
     }
 
+    @Test func cursorSnapshotRoundTripsWithDynamicWindowsAndExtraUsage() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        let fetchedAt = Date()
+        let reset = fetchedAt.addingTimeInterval(31 * 24 * 3_600)
+        let cursorSnapshot = ProviderUsageSnapshot(
+            provider: .cursor,
+            windows: [
+                UsageWindow(
+                    utilization: 37.5,
+                    resetsAt: reset,
+                    windowID: "cursor.total",
+                    displayName: "Total usage",
+                    totalDuration: 31 * 24 * 3_600
+                ),
+                UsageWindow(
+                    utilization: 8,
+                    resetsAt: reset,
+                    windowID: "cursor.api",
+                    displayName: "API usage",
+                    totalDuration: 31 * 24 * 3_600
+                ),
+            ],
+            extraUsage: ExtraUsageCost(used: 12, limit: 50, currencyCode: "USD"),
+            planName: "Pro",
+            fetchedAt: fetchedAt
+        )
+
+        _ = try await service.publish(
+            snapshot: nil,
+            planType: "Free",
+            providerSnapshots: [cursorSnapshot]
+        )
+        let synced = try #require(await service.fetchLatest())
+        let cursor = try #require(synced.providerSnapshots.first)
+
+        #expect(cursor.provider == .cursor)
+        #expect(cursor.windows.map(\.windowID.rawValue) == ["cursor.total", "cursor.api"])
+        #expect(cursor.windows.map(\.windowType) == [.custom, .custom])
+        #expect(cursor.windows.map(\.displayName) == ["Total usage", "API usage"])
+        #expect(cursor.windows.allSatisfy { $0.totalDuration == 31 * 24 * 3_600 })
+        #expect(cursor.extraUsage?.used == 12)
+        #expect(cursor.extraUsage?.limit == 50)
+        #expect(cursor.extraUsage?.currencyCode == "USD")
+    }
+
     @Test func publishStoresProviderSnapshotsWithoutClaudeSnapshot() async throws {
         let database = StubUsageSyncDatabase()
         let service = UsageSyncService(database: database)

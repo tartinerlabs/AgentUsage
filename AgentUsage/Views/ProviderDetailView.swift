@@ -21,6 +21,8 @@ struct ProviderDetailView: View {
     var isServiceDown: Bool = false
     /// On-demand rate-limit reset credits (Codex only).
     var rateLimitResetCredits: RateLimitResetCredits? = nil
+    var extraUsage: ExtraUsageCost? = nil
+    var showExtraUsage: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -44,6 +46,10 @@ struct ProviderDetailView: View {
 
             if let credits = rateLimitResetCredits {
                 resetCreditsRow(credits)
+            }
+
+            if showExtraUsage, let extraUsage {
+                ExtraUsageBarView(extraUsage: extraUsage)
             }
 
             if let detail {
@@ -227,6 +233,8 @@ struct ProviderDetailView: View {
             return [("Status", Constants.openaiStatusURL), ("Usage", Constants.openaiPlatformURL)]
         case .openCode, .openCodeGo:
             return []
+        case .cursor:
+            return [("Status", Constants.cursorStatusURL), ("Dashboard", Constants.cursorDashboardURL)]
         }
     }
 }
