@@ -14,14 +14,14 @@ struct MediumWidgetView: View {
         if !entry.availableWindows.isEmpty {
             content(for: Array(entry.availableWindows.prefix(2)))
         } else {
-            WidgetNoDataView(reason: entry.snapshot == nil ? .noData : .awaitingRefresh)
+            WidgetNoDataView(reason: entry.unavailableReason, provider: entry.provider)
         }
     }
 
     private func content(for windows: [UsageWindow]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                WidgetProviderIdentity(provider: WidgetDesign.provider, font: .headline)
+                WidgetProviderIdentity(provider: entry.provider, font: .headline)
                 Spacer(minLength: 8)
                 WidgetFreshnessLabel(entry: entry)
             }

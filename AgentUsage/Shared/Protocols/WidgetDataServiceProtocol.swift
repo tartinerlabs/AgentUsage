@@ -10,13 +10,11 @@ import AgentUsageKit
 /// Protocol for managing widget data via App Groups
 /// Enables dependency injection and testing with mock implementations
 protocol WidgetDataServiceProtocol: Actor {
-    /// Save snapshot to shared UserDefaults and reload widget timelines
-    /// - Parameter snapshot: Usage snapshot to cache for widgets
-    func save(_ snapshot: UsageSnapshot) async
+    /// Save all enabled provider snapshots and reload widget timelines.
+    func save(_ snapshots: [ProviderUsageSnapshot]) async
 
-    /// Load snapshot from shared UserDefaults
-    /// - Returns: Cached usage snapshot, or nil if not available
-    nonisolated func load() -> UsageSnapshot?
+    /// Load cached provider snapshots from shared UserDefaults.
+    nonisolated func load() -> [ProviderUsageSnapshot]
 
     /// Clear cached data and reload widget timelines
     func clear() async

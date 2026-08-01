@@ -13,11 +13,11 @@ struct WidgetNoDataView: View {
     @Environment(\.widgetFamily) private var family
 
     let reason: WidgetUnavailableReason
-    var provider: AgentUsageKit.Provider = WidgetDesign.provider
+    let provider: AgentUsageKit.Provider
 
     init(
         reason: WidgetUnavailableReason = .noData,
-        provider: AgentUsageKit.Provider = WidgetDesign.provider
+        provider: AgentUsageKit.Provider
     ) {
         self.reason = reason
         self.provider = provider
@@ -132,11 +132,11 @@ struct WidgetNoDataView: View {
                 hint: "Open Agent Usage on your Mac",
                 iconName: "chart.bar.xaxis"
             )
-        case .metricUnavailable:
+        case .windowUnavailable:
             WidgetUnavailableCopy(
-                title: "Metric unavailable",
-                inlineTitle: "metric unavailable",
-                hint: "Choose another metric",
+                title: "Window unavailable",
+                inlineTitle: "window unavailable",
+                hint: "Choose another usage window",
                 iconName: "questionmark.circle"
             )
         case .awaitingRefresh:

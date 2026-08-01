@@ -816,10 +816,13 @@ extension UsageViewModel {
             // Check for threshold crossings before platform-specific follow-up work.
             await checkUsageNotifications(oldSnapshot: oldSnapshot, newSnapshot: newSnapshot)
 
-            // Cache snapshot for widgets and update Live Activity (iOS only)
+            // Cache every provider for widgets and update Live Activity (iOS only).
             #if os(iOS)
-            if let snapshot {
-                await WidgetDataManager.shared.save(snapshot)
+            let widgetSnapshots = availableProviderSnapshots
+            if widgetSnapshots.isEmpty {
+                await WidgetDataManager.shared.clear()
+            } else {
+                await WidgetDataManager.shared.save(widgetSnapshots)
             }
             await liveActivityManager.refresh(from: availableProviderSnapshots)
             #endif
@@ -952,10 +955,11 @@ extension UsageViewModel {
             fetchedAt: synced.fetchedAt
         )
 
-        if let snapshot {
-            await WidgetDataManager.shared.save(snapshot)
-        } else {
+        let widgetSnapshots = availableProviderSnapshots
+        if widgetSnapshots.isEmpty {
             await WidgetDataManager.shared.clear()
+        } else {
+            await WidgetDataManager.shared.save(widgetSnapshots)
         }
         await liveActivityManager.refresh(from: availableProviderSnapshots)
     }

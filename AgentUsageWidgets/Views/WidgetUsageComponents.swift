@@ -9,10 +9,6 @@ import AgentUsageKit
 import SwiftUI
 import WidgetKit
 
-enum WidgetDesign {
-    static let provider: AgentUsageKit.Provider = .claude
-}
-
 /// Uses the provider-card tint and border as the widget's root chrome. WidgetKit
 /// supplies the outer shape and content margins, so the content does not create
 /// a nested card of its own.
