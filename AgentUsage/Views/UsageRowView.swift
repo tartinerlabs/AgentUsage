@@ -23,7 +23,7 @@ struct UsageRowView: View {
                     .fontWeight(.semibold)
                 if showStatusDot {
                     Circle()
-                        .fill(usage.status.color)
+                        .fill(status.color)
                         .frame(width: 7, height: 7)
                 }
                 Spacer()
@@ -33,29 +33,8 @@ struct UsageRowView: View {
             }
 
             // Progress bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Track
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 8)
-
-                    // Fill
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Constants.brandPrimary)
-                        .frame(width: geometry.size.width * usage.normalized, height: 8)
-
-                    // Dividers at 25%, 50%, 75%
-                    ForEach([0.25, 0.5, 0.75], id: \.self) { position in
-                        Rectangle()
-                            .fill(Color.primary.opacity(0.15))
-                            .frame(width: 1, height: 8)
-                            .offset(x: geometry.size.width * position)
-                    }
-                }
-            }
-            .frame(height: 8)
-            .accessibilityHidden(true) // Progress bar is decorative; info is in text
+            UsageProgressBar(usage: usage)
+                .accessibilityHidden(true) // Progress bar is decorative; info is in text
 
             // Stats row
             HStack {
@@ -70,9 +49,9 @@ struct UsageRowView: View {
                     }
                 }
                 Spacer()
-                Label(usage.status.label, systemImage: usage.status.icon)
+                Label(status.label, systemImage: status.icon)
                     .font(.footnote)
-                    .foregroundStyle(usage.status.color)
+                    .foregroundStyle(status.color)
             }
         }
         // MARK: - Accessibility
@@ -89,7 +68,16 @@ struct UsageRowView: View {
     }
 
     private var accessibilityValue: String {
-        "\(usage.percentUsed) percent used, \(usage.status.label)"
+        var parts = ["\(usage.percentUsed) percent used"]
+        if showExtraUsage, usage.isUsingExtraUsage {
+            parts.append("\(usage.extraUsagePercent) percent extra usage")
+        }
+        parts.append(status.label)
+        return parts.joined(separator: ", ")
+    }
+
+    private var status: UsageStatus {
+        usage.status(from: now)
     }
 }
 

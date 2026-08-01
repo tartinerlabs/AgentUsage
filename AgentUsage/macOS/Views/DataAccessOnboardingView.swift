@@ -76,7 +76,13 @@ struct DataAccessOnboardingView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 580)
 
-            Text(connectionState == .connected ? "2 of 2 · Ready" : "1 of 2 · Connect this Mac")
+            Group {
+                if connectionState == .connected {
+                    Label("2 of 2 · Ready", systemImage: "checkmark.circle.fill")
+                } else {
+                    Text("1 of 2 · Connect this Mac")
+                }
+            }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(connectionState == .connected ? .green : .secondary)
                 .padding(.horizontal, 12)

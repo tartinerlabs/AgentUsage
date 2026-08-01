@@ -17,7 +17,6 @@ struct AboutView: View {
                         .resizable()
                         .frame(width: 100, height: 100)
                         .clipShape(RoundedRectangle(cornerRadius: 22))
-                        .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
                 }
 
                 // App Name and Version

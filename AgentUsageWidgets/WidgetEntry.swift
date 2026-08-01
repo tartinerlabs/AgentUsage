@@ -28,18 +28,46 @@ struct WidgetEntry: TimelineEntry {
 
     var selectedWindow: UsageWindow? {
         guard let snapshot else { return nil }
+        let window: UsageWindow?
         switch metric {
         case .session:
-            return snapshot.session
+            window = snapshot.session
         case .opus:
-            return snapshot.opus
+            window = snapshot.opus
         case .sonnet:
-            return snapshot.sonnet ?? snapshot.opus
+            window = snapshot.sonnet
         case .design:
-            return snapshot.design ?? snapshot.opus
+            window = snapshot.design
         case .fable:
-            return snapshot.fable ?? snapshot.opus
+            window = snapshot.fable
         }
+        guard let window, !window.isExpired(from: date) else { return nil }
+        return window
+    }
+
+    /// Non-expired windows in the same order as the iOS provider card.
+    var availableWindows: [UsageWindow] {
+        guard let snapshot else { return [] }
+        return [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable]
+            .compactMap { $0 }
+            .filter { !$0.isExpired(from: date) }
+    }
+
+    /// Why a selected or summary presentation has no trustworthy value.
+    var unavailableReason: WidgetUnavailableReason {
+        guard let snapshot else { return .noData }
+
+        let configuredWindow: UsageWindow?
+        switch metric {
+        case .session: configuredWindow = snapshot.session
+        case .opus: configuredWindow = snapshot.opus
+        case .sonnet: configuredWindow = snapshot.sonnet
+        case .design: configuredWindow = snapshot.design
+        case .fable: configuredWindow = snapshot.fable
+        }
+
+        guard let configuredWindow else { return .metricUnavailable }
+        return configuredWindow.isExpired(from: date) ? .awaitingRefresh : .noData
     }
 
     /// Relative age of the data, measured from this entry's render time rather
@@ -56,4 +84,10 @@ struct WidgetEntry: TimelineEntry {
         guard let snapshot else { return false }
         return snapshot.age(asOf: date) > Self.staleThreshold
     }
+}
+
+enum WidgetUnavailableReason {
+    case noData
+    case metricUnavailable
+    case awaitingRefresh
 }

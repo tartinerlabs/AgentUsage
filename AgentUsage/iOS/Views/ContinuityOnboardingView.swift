@@ -65,7 +65,13 @@ struct ContinuityOnboardingView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 560)
 
-            Text(connectionState == .connected ? "Ready · Updated from your Mac" : "Companion setup")
+            Group {
+                if connectionState == .connected {
+                    Label("Ready · Updated from your Mac", systemImage: "checkmark.circle.fill")
+                } else {
+                    Text("Companion setup")
+                }
+            }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(connectionState == .connected ? .green : .secondary)
                 .padding(.horizontal, 12)

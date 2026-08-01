@@ -165,6 +165,7 @@ struct MainNavigationView: View {
     private var platformContainer: some View {
         #if os(macOS)
         tabView
+            .tint(Constants.brandPrimary)
             .frame(minWidth: 760, idealWidth: 920, minHeight: 560, idealHeight: 680)
         #else
         tabView
