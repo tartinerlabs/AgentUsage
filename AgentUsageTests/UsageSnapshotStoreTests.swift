@@ -58,6 +58,40 @@ struct UsageSnapshotStoreTests {
         #expect(cached.lastSuccessfulFetchTime == fetchedAt)
     }
 
+    @Test func roundTripsProviderEffortSummaries() throws {
+        let testDefaults = TestUserDefaults()
+        let store = UsageSnapshotStore(defaults: testDefaults.defaults)
+        let fetchedAt = Date(timeIntervalSince1970: 1_750_000_000)
+        let summary = EffortPeriodSummary(
+            period: .last7Days,
+            levels: [
+                EffortLevelCount(level: .high, sessionCount: 3),
+                EffortLevelCount(level: .xhigh, sessionCount: 2),
+            ],
+            classifiedSessionCount: 5,
+            unclassifiedSessionCount: 1
+        )
+        let providerSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [],
+            effortSummaries: [summary],
+            fetchedAt: fetchedAt
+        )
+
+        store.save(
+            snapshot: nil,
+            planType: "Free",
+            providerSnapshots: [providerSnapshot],
+            fetchedAt: fetchedAt
+        )
+        let cached = try #require(store.load())
+        let cachedProvider = try #require(cached.providerSnapshots.first)
+
+        #expect(cachedProvider.effortSummaries == [summary])
+        #expect(cachedProvider.effortSummary(for: .last7Days) == summary)
+        #expect(cachedProvider.effortSummary(for: .last7Days)?.totalSessionCount == 6)
+    }
+
     @Test func invalidSnapshotDataIsIgnored() {
         let testDefaults = TestUserDefaults()
         testDefaults.defaults.set(Data("not-json".utf8), forKey: UsageSnapshotStore.snapshotKey)

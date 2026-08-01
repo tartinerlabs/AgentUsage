@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import AgentUsageKit
 import SwiftData
 
 /// Persisted token usage entry from Claude Code JSONL logs
@@ -21,6 +22,15 @@ final class TokenLogEntry {
 
     /// Model name (e.g., "claude-opus-4-5-20250514")
     var modelName: String
+
+    /// Claude session identifier. Empty for rows imported before session metadata was captured.
+    var sessionID: String = ""
+
+    /// Normalized effort-level value. Optional for logs and migrated rows that do not expose it.
+    var effortLevelRaw: String? = nil
+
+    /// True for entries imported from Claude subagent session files.
+    var isSubagentSession: Bool = false
 
     /// Token counts
     var inputTokens: Int
@@ -50,6 +60,9 @@ final class TokenLogEntry {
         cacheReadTokens: Int,
         timestamp: Date,
         costUSD: Double,
+        sessionID: String = "",
+        effortLevelRaw: String? = nil,
+        isSubagentSession: Bool = false,
         cacheCreation1hTokens: Int = 0,
         isFastMode: Bool = false
     ) {
@@ -57,6 +70,9 @@ final class TokenLogEntry {
         self.messageId = messageId
         self.requestId = requestId
         self.modelName = modelName
+        self.sessionID = sessionID
+        self.effortLevelRaw = effortLevelRaw
+        self.isSubagentSession = isSubagentSession
         self.inputTokens = inputTokens
         self.outputTokens = outputTokens
         self.cacheCreationTokens = cacheCreationTokens
@@ -65,6 +81,10 @@ final class TokenLogEntry {
         self.timestamp = timestamp
         self.costUSD = costUSD
         self.isFastMode = isFastMode
+    }
+
+    var effortLevel: EffortLevel? {
+        effortLevelRaw.map(EffortLevel.init(rawValue:))
     }
 
     /// Total tokens for this entry
@@ -83,4 +103,3 @@ final class TokenLogEntry {
         )
     }
 }
-

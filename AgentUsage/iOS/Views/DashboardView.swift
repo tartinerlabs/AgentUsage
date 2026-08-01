@@ -44,6 +44,10 @@ struct DashboardView: View {
                 } else {
                     emptyStateView
                 }
+
+                if !viewModel.providersWithEffortUsage.isEmpty {
+                    effortLevelsCard
+                }
             }
             .padding()
         }
@@ -57,6 +61,77 @@ struct DashboardView: View {
         }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
             now = date
+        }
+    }
+
+    // MARK: - Effort Levels
+
+    private var effortLevelsCard: some View {
+        let providers = selectedEffortProviders
+
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: "brain.head.profile")
+                    .foregroundStyle(Constants.brandPrimary)
+                    .accessibilityHidden(true)
+                Text("Effort Levels")
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                Picker(
+                    "Effort period",
+                    selection: Binding(
+                        get: { viewModel.selectedTokenPeriod },
+                        set: { viewModel.selectedTokenPeriod = $0 }
+                    )
+                ) {
+                    ForEach(UsagePeriod.allCases) { period in
+                        Text(period.rawValue).tag(period)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .accessibilityLabel("Effort period")
+            }
+
+            Divider()
+
+            if providers.isEmpty {
+                Text("No sessions in this period.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(providers) { provider in
+                    if provider != providers.first {
+                        Divider()
+                    }
+                    if let summary = viewModel.effortSummary(
+                        for: provider,
+                        period: viewModel.selectedTokenPeriod.effortPeriod
+                    ) {
+                        EffortLevelsView(provider: provider, summary: summary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
+        .accessibilityElement(children: .contain)
+    }
+
+    private var selectedEffortProviders: [Provider] {
+        viewModel.providersWithEffortUsage.filter { provider in
+            guard let summary = viewModel.effortSummary(
+                for: provider,
+                period: viewModel.selectedTokenPeriod.effortPeriod
+            ) else {
+                return false
+            }
+            return summary.totalSessionCount > 0
         }
     }
 

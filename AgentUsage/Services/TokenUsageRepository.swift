@@ -77,6 +77,22 @@ actor TokenUsageQuerier {
         }
     }
 
+    /// Fetch normalized Claude effort samples for session-level aggregation.
+    func fetchEffortUsageSamples(since startDate: Date) throws -> [EffortUsageSample] {
+        let descriptor = FetchDescriptor<TokenLogEntry>(
+            predicate: #Predicate { $0.timestamp >= startDate }
+        )
+        return try modelContext.fetch(descriptor).map { entry in
+            EffortUsageSample(
+                provider: .claude,
+                sessionID: entry.sessionID.isEmpty ? entry.id : entry.sessionID,
+                effortLevel: entry.effortLevel,
+                timestamp: entry.timestamp,
+                isSubagentSession: entry.isSubagentSession
+            )
+        }
+    }
+
     /// Fetch complete snapshot for display
     func fetchSnapshot() throws -> TokenUsageSnapshot {
         let today = try fetchSummary(for: .today)
@@ -95,7 +111,7 @@ actor TokenUsageQuerier {
 /// Background actor for importing token usage data
 @ModelActor
 actor TokenUsageImporter {
-    /// Import usage entries idempotently, skipping duplicate composite IDs in one batch.
+    /// Import usage entries idempotently and refresh metadata on existing composite IDs.
     func importEntries(_ entries: [(entry: UsageEntry, messageId: String, requestId: String)]) throws -> Int {
         guard !entries.isEmpty else { return 0 }
 
@@ -107,11 +123,31 @@ actor TokenUsageImporter {
                 id: "\(item.messageId):\(item.requestId)"
             )
         }
-        var existingIDs = try existingEntryIDs(matching: candidates.map(\.id))
+        var existingEntries = try existingEntries(matching: candidates.map(\.id))
+        var seenIDs = Set(existingEntries.keys)
         var insertedCount = 0
+        var updatedMetadata = false
 
-        for candidate in candidates where existingIDs.insert(candidate.id).inserted {
+        for candidate in candidates {
             let entry = candidate.entry
+            if let stored = existingEntries[candidate.id] {
+                if stored.sessionID != entry.sessionID {
+                    stored.sessionID = entry.sessionID
+                    updatedMetadata = true
+                }
+                let effortLevelRaw = entry.effortLevel?.rawValue
+                if stored.effortLevelRaw != effortLevelRaw {
+                    stored.effortLevelRaw = effortLevelRaw
+                    updatedMetadata = true
+                }
+                if stored.isSubagentSession != entry.isSubagentSession {
+                    stored.isSubagentSession = entry.isSubagentSession
+                    updatedMetadata = true
+                }
+                continue
+            }
+
+            guard seenIDs.insert(candidate.id).inserted else { continue }
             let cost = calculateCost(tokens: entry.tokens, model: entry.model, fastMode: entry.fastMode)
 
             let logEntry = TokenLogEntry(
@@ -124,33 +160,39 @@ actor TokenUsageImporter {
                 cacheReadTokens: entry.tokens.cacheReadTokens,
                 timestamp: entry.timestamp,
                 costUSD: cost,
+                sessionID: entry.sessionID,
+                effortLevelRaw: entry.effortLevel?.rawValue,
+                isSubagentSession: entry.isSubagentSession,
                 cacheCreation1hTokens: entry.tokens.cacheCreation1hTokens,
                 isFastMode: entry.fastMode
             )
 
             modelContext.insert(logEntry)
+            existingEntries[candidate.id] = logEntry
             insertedCount += 1
         }
 
-        if insertedCount > 0 {
+        if insertedCount > 0 || updatedMetadata {
             try modelContext.save()
         }
 
         return insertedCount
     }
 
-    private func existingEntryIDs(matching ids: [String]) throws -> Set<String> {
+    private func existingEntries(matching ids: [String]) throws -> [String: TokenLogEntry] {
         let uniqueIDs = Array(Set(ids))
-        guard !uniqueIDs.isEmpty else { return [] }
+        guard !uniqueIDs.isEmpty else { return [:] }
 
-        var result = Set<String>()
+        var result: [String: TokenLogEntry] = [:]
         for startIndex in stride(from: 0, to: uniqueIDs.count, by: 500) {
             let endIndex = min(startIndex + 500, uniqueIDs.count)
             let batch = Array(uniqueIDs[startIndex..<endIndex])
             let descriptor = FetchDescriptor<TokenLogEntry>(
                 predicate: #Predicate { batch.contains($0.id) }
             )
-            result.formUnion(try modelContext.fetch(descriptor).map(\.id))
+            for entry in try modelContext.fetch(descriptor) {
+                result[entry.id] = entry
+            }
         }
         return result
     }
@@ -242,6 +284,7 @@ actor TokenUsageImporter {
         )
         try modelContext.save()
     }
+
 }
 
 /// Repository for querying token usage data via SwiftData (main actor for UI)
@@ -367,6 +410,10 @@ final class TokenUsageRepository {
         try await querier.fetchDailyTokenPoints(days: days)
     }
 
+    func fetchEffortUsageSamples(since startDate: Date) async throws -> [EffortUsageSample] {
+        try await querier.fetchEffortUsageSamples(since: startDate)
+    }
+
     /// Get total entry count (for debugging/stats)
     func getEntryCount() throws -> Int {
         let descriptor = FetchDescriptor<TokenLogEntry>()
@@ -377,6 +424,15 @@ final class TokenUsageRepository {
     /// 13 months ensures a full calendar year is available for the "Wrapped" feature.
     func cleanupOldEntries() async throws {
         try await importer.cleanupOldEntries()
+    }
+
+    /// Reset only incremental cursors in the same context used to read them.
+    /// Token rows stay available and the importer updates their metadata in place.
+    func resetImportedFileStatesForMetadataBackfill() throws {
+        for file in try modelContext.fetch(FetchDescriptor<ImportedFile>()) {
+            modelContext.delete(file)
+        }
+        try modelContext.save()
     }
 }
 #endif
