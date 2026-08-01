@@ -14,7 +14,7 @@ struct SmallWidgetView: View {
         if let usage = entry.selectedWindow {
             content(for: usage)
         } else {
-            WidgetNoDataView()
+            WidgetNoDataView(reason: entry.unavailableReason)
         }
     }
 
@@ -22,69 +22,34 @@ struct SmallWidgetView: View {
         // Time-dependent values are derived from the entry's date, not `Date()`:
         // WidgetKit renders every entry of a timeline up front.
         let status = usage.status(from: entry.date)
-        let trend = usage.trend(from: entry.date)
         let resetText = usage.resetDescription(from: entry.date)
 
-        return VStack(spacing: 6) {
-            HStack(spacing: 4) {
-                Text(entry.metric.displayName)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-
-                Image(systemName: trend.icon)
-                    .font(.caption2)
-                    .foregroundStyle(trendColor(for: trend))
-            }
-
-            progressRing(for: usage, status: status)
-                .frame(width: 62, height: 62)
-                .accessibilityHidden(true)
-
-            Text("\(usage.percentUsed)%")
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundStyle(status.color)
-
-            if usage.isUsingExtraUsage {
-                Text("Extra")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(extraUsageAccentColor)
-            }
-
-            Text(resetText)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
+        return VStack(alignment: .leading, spacing: 8) {
+            WidgetProviderIdentity(provider: WidgetDesign.provider, font: .caption)
+            WidgetUsageRow(
+                title: entry.metric.displayName,
+                usage: usage,
+                now: entry.date
+            )
+            Spacer(minLength: 0)
             WidgetFreshnessLabel(entry: entry)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(entry.metric.displayName) usage")
-        .accessibilityValue("\(usage.percentUsed) percent used, \(status.label), \(trend.accessibilityLabel)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(WidgetDesign.provider.displayName), \(entry.metric.displayName) usage")
+        .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint("\(resetText). Updated \(entry.lastUpdatedDescription)")
     }
 
-    private func trendColor(for trend: UsageWindow.Trend) -> Color {
-        switch trend {
-        case .increasing: return .orange
-        case .stable: return .secondary
-        case .decreasing: return .green
+    private func accessibilityValue(for usage: UsageWindow, status: UsageStatus) -> String {
+        var parts = ["\(usage.percentUsed) percent used", status.label]
+        if usage.isUsingExtraUsage {
+            parts.append("\(usage.extraUsagePercent) percent extra usage")
         }
-    }
-
-    private func progressRing(for usage: UsageWindow, status: UsageStatus) -> some View {
-        ZStack {
-            Circle()
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 6)
-            Circle()
-                .trim(from: 0, to: usage.normalized)
-                .stroke(
-                    status.color,
-                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
+        if entry.isStale {
+            parts.append("stale")
         }
+        return parts.joined(separator: ", ")
     }
 }
 

@@ -29,7 +29,7 @@ struct DashboardTabView: View {
                 }
                 */
 
-                if viewModel.showExtraUsageIndicators, viewModel.snapshot?.isExtraUsageActive == true {
+                if viewModel.showExtraUsageIndicators, hasActiveExtraUsage {
                     extraUsageBanner
                 }
 
@@ -39,8 +39,10 @@ struct DashboardTabView: View {
                 // local JSONL logs, so an API outage or a reset window must not hide it.
                 if hasTokenUsageContent {
                     dashboardSection(
-                        title: "Token Usage & Cost",
-                        subtitle: "Local Claude token activity and estimated spend.",
+                        title: hasClaudeCostDetail ? "Token Detail Period" : "Token Usage & Cost",
+                        subtitle: hasClaudeCostDetail
+                            ? "Choose the local period used by Claude detail and effort summaries."
+                            : "Local Claude token activity and estimated spend.",
                         systemImage: "square.stack.3d.up"
                     ) {
                         tokenUsageSectionWithStates
@@ -111,9 +113,9 @@ struct DashboardTabView: View {
                     Text("Refreshing")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                } else if let snapshot = viewModel.snapshot {
+                } else if let fetchedAt = oldestProviderFetchDate {
                     LastUpdatedLabel(
-                        relativeText: relativeDescription(from: snapshot.fetchedAt, to: now),
+                        relativeText: relativeDescription(from: fetchedAt, to: now),
                         isCached: viewModel.isUsingCachedData,
                         isOffline: viewModel.isOffline,
                         font: .caption,
@@ -146,98 +148,43 @@ struct DashboardTabView: View {
 
     @ViewBuilder
     private var providerSections: some View {
-        let claudeUsage = viewModel.usageSnapshot(for: .claude)
-        if claudeUsage != nil || viewModel.providerDetails[.claude] != nil {
-            dashboardSection(
-                title: Provider.claude.displayName,
-                subtitle: "Subscription windows and local cost detail.",
-                systemImage: Provider.claude.iconName,
-                tint: Provider.claude.accentColor
-            ) {
-                ProviderDetailView(
-                    provider: .claude,
-                    planName: claudeUsage?.planName,
-                    windows: claudeUsage?.windows ?? [],
-                    detail: viewModel.providerDetails[.claude],
-                    now: now,
-                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
-                    isServiceDown: viewModel.isServiceDown(.claude)
-                )
-
-                if viewModel.showExtraUsageIndicators, let extraUsage = claudeUsage?.extraUsage {
-                    Divider()
-                    extraUsageCostSection(extraUsage)
-                }
+        if providersWithDetailContent.isEmpty {
+            if viewModel.isNoUsageData {
+                noUsageDataSection
+            } else if let error = viewModel.errorMessage {
+                errorSection(error: error)
+            } else {
+                loadingSection
             }
-        } else if viewModel.isNoUsageData {
-            noUsageDataSection
-        } else if let error = viewModel.errorMessage {
-            errorSection(error: error)
         } else {
-            loadingSection
-        }
-
-        if viewModel.hasProviderData(.codex) {
-            let codex = viewModel.usageSnapshot(for: .codex)
-            dashboardSection(
-                title: Provider.codex.displayName,
-                subtitle: "ChatGPT subscription windows and local cost detail.",
-                systemImage: Provider.codex.iconName,
-                tint: Provider.codex.accentColor
-            ) {
-                ProviderDetailView(
-                    provider: .codex,
-                    planName: codex?.planName,
-                    windows: codex?.windows ?? [],
-                    detail: viewModel.providerDetails[.codex],
-                    now: now,
-                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
-                    isServiceDown: viewModel.isServiceDown(.codex),
-                    rateLimitResetCredits: codex?.rateLimitResetCredits
-                )
+            ForEach(providersWithDetailContent) { provider in
+                providerDetailCard(provider)
             }
         }
+    }
 
-        if viewModel.hasProviderData(.cursor) {
-            let cursor = viewModel.usageSnapshot(for: .cursor)
-            dashboardSection(
-                title: Provider.cursor.displayName,
-                subtitle: "Subscription windows and optional on-demand spend.",
-                systemImage: Provider.cursor.iconName,
-                tint: Provider.cursor.accentColor
-            ) {
-                ProviderDetailView(
-                    provider: .cursor,
-                    planName: cursor?.planName,
-                    windows: cursor?.windows ?? [],
-                    now: now,
-                    isServiceDown: viewModel.isServiceDown(.cursor),
-                    extraUsage: cursor?.extraUsage,
-                    showExtraUsage: viewModel.showExtraUsageIndicators
-                )
-            }
+    private var providersWithDetailContent: [Provider] {
+        viewModel.availableProviders.filter { provider in
+            viewModel.usageSnapshot(for: provider) != nil
+                || viewModel.providerDetails[provider] != nil
         }
+    }
 
-        if viewModel.hasProviderData(.openCode) {
-            let openCodeUsage = viewModel.usageSnapshot(for: .openCode)
-            dashboardSection(
-                title: Provider.openCode.displayName,
-                subtitle: "Local OpenCode activity and optional quota data.",
-                systemImage: Provider.openCode.iconName,
-                tint: Provider.openCode.accentColor
-            ) {
-                ProviderDetailView(
-                    provider: .openCode,
-                    planName: openCodeUsage?.planName,
-                    windows: openCodeUsage?.windows ?? [],
-                    detail: viewModel.providerDetails[.openCode],
-                    now: now,
-                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
-                    isServiceDown: viewModel.isServiceDown(.openCode)
-                )
-            }
-        }
-
+    private func providerDetailCard(_ provider: Provider) -> some View {
+        let usage = viewModel.usageSnapshot(for: provider)
+        return ProviderDetailView(
+            provider: provider,
+            planName: usage?.planName,
+            windows: usage?.windows ?? [],
+            detail: viewModel.providerDetails[provider],
+            now: now,
+            effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
+            isServiceDown: viewModel.isServiceDown(provider),
+            rateLimitResetCredits: usage?.rateLimitResetCredits,
+            extraUsage: usage?.extraUsage,
+            showExtraUsage: viewModel.showExtraUsageIndicators
+        )
+        .providerCardContainer(provider: provider)
     }
 
     private func dashboardSection<Content: View>(
@@ -302,27 +249,34 @@ struct DashboardTabView: View {
                 .frame(width: 112)
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
-                tokenCard(
-                    title: "Today",
-                    cost: tokenSnapshot.today.formattedCost,
-                    tokens: tokenSnapshot.today.formattedTokens
-                )
+            if hasClaudeCostDetail {
+                Text("Cost summaries are shown in the Claude provider card above.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
+                    tokenCard(
+                        title: "Today",
+                        cost: tokenSnapshot.today.formattedCost,
+                        tokens: tokenSnapshot.today.formattedTokens
+                    )
 
-                let summary = viewModel.selectedPeriodSummary
-                let title = viewModel.selectedTokenPeriod.rawValue
-                if let summary {
-                    tokenCard(
-                        title: title,
-                        cost: summary.formattedCost,
-                        tokens: summary.formattedTokens
-                    )
-                } else {
-                    tokenCard(
-                        title: title,
-                        cost: tokenSnapshot.last30Days.formattedCost,
-                        tokens: tokenSnapshot.last30Days.formattedTokens
-                    )
+                    let summary = viewModel.selectedPeriodSummary
+                    let title = viewModel.selectedTokenPeriod.rawValue
+                    if let summary {
+                        tokenCard(
+                            title: title,
+                            cost: summary.formattedCost,
+                            tokens: summary.formattedTokens
+                        )
+                    } else {
+                        tokenCard(
+                            title: title,
+                            cost: tokenSnapshot.last30Days.formattedCost,
+                            tokens: tokenSnapshot.last30Days.formattedTokens
+                        )
+                    }
                 }
             }
         }
@@ -367,6 +321,10 @@ struct DashboardTabView: View {
         viewModel.tokenSnapshot != nil
             || viewModel.isLoadingTokenUsage
             || viewModel.tokenUsageError != nil
+    }
+
+    private var hasClaudeCostDetail: Bool {
+        viewModel.providerDetails[.claude] != nil
     }
 
     @ViewBuilder
@@ -476,40 +434,13 @@ struct DashboardTabView: View {
     }
     */
 
-    // MARK: - Extra Usage Cost Section
+    // MARK: - Extra Usage Banner
 
-    private func extraUsageCostSection(_ extraUsage: ExtraUsageCost) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Extra usage")
-                .font(.subheadline.weight(.semibold))
-
-            VStack(alignment: .leading, spacing: 8) {
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.secondary.opacity(0.2))
-                            .frame(height: 8)
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Constants.extraUsageAccent)
-                            .frame(width: geometry.size.width * extraUsage.normalized, height: 8)
-                    }
-                }
-                .frame(height: 8)
-
-                HStack {
-                    Text("Monthly: \(extraUsage.formattedUsed) / \(extraUsage.formattedLimit)")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(Int(min(100, max(0, extraUsage.percentUsed))))% used")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
+    private var hasActiveExtraUsage: Bool {
+        viewModel.availableProviderSnapshots.contains { snapshot in
+            snapshot.windows.contains(where: \.isUsingExtraUsage)
         }
     }
-
-    // MARK: - Extra Usage Banner
 
     private var extraUsageBanner: some View {
         HStack(spacing: 10) {
@@ -536,7 +467,7 @@ struct DashboardTabView: View {
     private var noUsageDataSection: some View {
         dashboardSection(
             title: "No usage data",
-            subtitle: "Your usage limits will appear after your next Claude prompt.",
+            subtitle: "Usage limits will appear when a connected provider reports a new window.",
             systemImage: "chart.bar.xaxis"
         ) {
             Text("\(Constants.appDisplayName) has not received an active provider window yet.")
@@ -583,6 +514,12 @@ struct DashboardTabView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: past, relativeTo: current)
+    }
+
+    /// The aggregate badge reports the oldest visible snapshot so partial
+    /// refreshes never make a stale provider appear current.
+    private var oldestProviderFetchDate: Date? {
+        viewModel.availableProviderSnapshots.map(\.fetchedAt).min()
     }
 }
 

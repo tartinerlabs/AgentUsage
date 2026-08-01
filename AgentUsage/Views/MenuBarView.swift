@@ -23,6 +23,15 @@ struct MenuBarView: View {
     private enum SidebarPage: Hashable {
         case overview
         case provider(Provider)
+
+        var accessibilityLabel: String {
+            switch self {
+            case .overview:
+                "Overview"
+            case .provider(let provider):
+                provider.displayName
+            }
+        }
     }
 
     var body: some View {
@@ -73,7 +82,7 @@ struct MenuBarView: View {
         .padding(.vertical, 12)
         .frame(width: 56)
         .frame(maxHeight: .infinity)
-        .background(Color.black.opacity(0.18))
+        .background(.bar)
     }
 
     private func railTab(_ page: SidebarPage, systemImage: String, tint: Color) -> some View {
@@ -89,16 +98,10 @@ struct MenuBarView: View {
                     RoundedRectangle(cornerRadius: 7)
                         .fill(isSelected ? tint.opacity(0.15) : .clear)
                 )
-                .overlay(alignment: .leading) {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 1.5)
-                            .fill(tint)
-                            .frame(width: 3, height: 18)
-                            .offset(x: -8)
-                    }
-                }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(page.accessibilityLabel)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func railAction(
@@ -159,6 +162,7 @@ struct MenuBarView: View {
                 extraUsage: viewModel.usageSnapshot(for: provider)?.extraUsage,
                 showExtraUsage: viewModel.showExtraUsageIndicators
             )
+            .providerCardContainer(provider: provider, padding: 12)
         }
     }
 
@@ -289,9 +293,9 @@ struct MenuBarView: View {
                     .foregroundStyle(.tertiary)
             }
             Spacer()
-            if let snapshot = viewModel.snapshot {
+            if let fetchedAt = oldestProviderFetchDate {
                 LastUpdatedLabel(
-                    relativeText: DateFormatters.relativeDescription(from: snapshot.fetchedAt, to: now),
+                    relativeText: DateFormatters.relativeDescription(from: fetchedAt, to: now),
                     isCached: viewModel.isUsingCachedData,
                     isOffline: viewModel.isOffline
                 )
@@ -302,6 +306,12 @@ struct MenuBarView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    /// Global freshness must describe the stalest visible provider so a recent
+    /// refresh from one service cannot mask old data from another.
+    private var oldestProviderFetchDate: Date? {
+        viewModel.availableProviderSnapshots.map(\.fetchedAt).min()
     }
 }
 

@@ -8,11 +8,6 @@
 import Foundation
 import SwiftUI
 
-// MARK: - Colors
-
-/// Dusty Plum accent for extra usage indicators (#8B5E83)
-public let extraUsageAccentColor = Color(red: 139/255, green: 94/255, blue: 131/255)
-
 // MARK: - Usage Status
 
 public enum UsageStatus: String, Sendable, Codable {
@@ -319,6 +314,15 @@ public struct UsageWindow: Sendable, Codable {
             case .increasing: return "increasing"
             case .stable: return "stable"
             case .decreasing: return "decreasing"
+            }
+        }
+
+        /// System-semantic color paired with the trend arrow in every surface.
+        public var color: Color {
+            switch self {
+            case .increasing: return .orange
+            case .stable: return .secondary
+            case .decreasing: return .green
             }
         }
     }

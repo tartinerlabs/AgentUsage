@@ -38,7 +38,9 @@ struct DashboardView: View {
                     effortLevelsCard
                 }
             }
+            .frame(maxWidth: 760)
             .padding()
+            .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(Color(.systemGroupedBackground))
         .refreshable {
@@ -327,7 +329,7 @@ private struct LiveActivityControlCard: View {
                 .font(.headline)
             Spacer()
             if manager.isRunning {
-                Text("Active")
+                Label("Active", systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundStyle(.green)

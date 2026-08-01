@@ -15,10 +15,12 @@ struct AgentUsageWidgets: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             AgentUsageWidgetsEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(for: .widget) {
+                    WidgetProviderBackground(provider: WidgetDesign.provider)
+                }
         }
         .configurationDisplayName("Claude Usage")
-        .description("Monitor your Claude API usage limits.")
+        .description("Track Claude usage windows at a glance.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -52,7 +54,7 @@ struct AgentUsageLockScreenWidget: Widget {
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Claude Usage")
-        .description("Quick glance at your Claude usage.")
+        .description("Check a Claude usage window at a glance.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }

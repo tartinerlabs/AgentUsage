@@ -5,7 +5,74 @@
 
 import Testing
 import Foundation
+import SwiftUI
 @testable import AgentUsageKit
+
+private func expectSameColor(
+    _ actual: Color,
+    _ expected: Color,
+    sourceLocation: SourceLocation = #_sourceLocation
+) {
+    let environment = EnvironmentValues()
+    let actual = actual.resolve(in: environment)
+    let expected = expected.resolve(in: environment)
+    let tolerance: Float = 0.0001
+
+    #expect(abs(actual.red - expected.red) < tolerance, sourceLocation: sourceLocation)
+    #expect(abs(actual.green - expected.green) < tolerance, sourceLocation: sourceLocation)
+    #expect(abs(actual.blue - expected.blue) < tolerance, sourceLocation: sourceLocation)
+    #expect(abs(actual.opacity - expected.opacity) < tolerance, sourceLocation: sourceLocation)
+}
+
+// MARK: - Design Token Tests
+
+@Suite("AgentUsageColors")
+struct AgentUsageColorsTests {
+    @Test func fixedApplicationRolesMatchDesignSystem() {
+        expectSameColor(
+            AgentUsageColors.iconPacificBlue,
+            Color(red: 113 / 255, green: 151 / 255, blue: 212 / 255)
+        )
+        expectSameColor(
+            AgentUsageColors.iconGraphite,
+            Color(red: 55 / 255, green: 58 / 255, blue: 65 / 255)
+        )
+        expectSameColor(
+            AgentUsageColors.iconIce,
+            Color(red: 245 / 255, green: 246 / 255, blue: 248 / 255)
+        )
+        expectSameColor(
+            AgentUsageColors.iconBackground,
+            Color(red: 250 / 255, green: 244 / 255, blue: 239 / 255)
+        )
+        expectSameColor(
+            AgentUsageColors.usageProgress,
+            Color(red: 193 / 255, green: 95 / 255, blue: 60 / 255)
+        )
+        expectSameColor(
+            AgentUsageColors.brandSecondary,
+            Color(red: 218 / 255, green: 119 / 255, blue: 86 / 255)
+        )
+        expectSameColor(
+            AgentUsageColors.brandBackground,
+            Color(red: 244 / 255, green: 243 / 255, blue: 238 / 255)
+        )
+        expectSameColor(
+            AgentUsageColors.extraUsageAccent,
+            Color(red: 139 / 255, green: 94 / 255, blue: 131 / 255)
+        )
+        expectSameColor(extraUsageAccentColor, AgentUsageColors.extraUsageAccent)
+    }
+}
+
+@Suite("UsageProgressBar")
+struct UsageProgressBarTests {
+    @Test @MainActor func progressIsClampedToValidGaugeRange() {
+        #expect(UsageProgressBar(progress: -0.1).progress == 0)
+        #expect(UsageProgressBar(progress: 0.42).progress == 0.42)
+        #expect(UsageProgressBar(progress: 1.1).progress == 1)
+    }
+}
 
 // MARK: - UsageStatus Tests
 
@@ -23,6 +90,12 @@ struct UsageStatusTests {
         #expect(UsageStatus.critical.icon == "xmark.circle.fill")
     }
 
+    @Test func colorsUseSystemSemanticRoles() {
+        expectSameColor(UsageStatus.onTrack.color, .green)
+        expectSameColor(UsageStatus.warning.color, .orange)
+        expectSameColor(UsageStatus.critical.color, .red)
+    }
+
     @Test func codable() throws {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
@@ -35,10 +108,58 @@ struct UsageStatusTests {
     }
 }
 
+@Suite("UsageWindow.Trend")
+struct UsageWindowTrendTests {
+    @Test func presentationMappingsStayInParityAcrossSurfaces() {
+        #expect(UsageWindow.Trend.increasing.icon == "arrow.up.right")
+        #expect(UsageWindow.Trend.stable.icon == "arrow.right")
+        #expect(UsageWindow.Trend.decreasing.icon == "arrow.down.right")
+
+        #expect(UsageWindow.Trend.increasing.accessibilityLabel == "increasing")
+        #expect(UsageWindow.Trend.stable.accessibilityLabel == "stable")
+        #expect(UsageWindow.Trend.decreasing.accessibilityLabel == "decreasing")
+
+        expectSameColor(UsageWindow.Trend.increasing.color, .orange)
+        expectSameColor(UsageWindow.Trend.stable.color, .secondary)
+        expectSameColor(UsageWindow.Trend.decreasing.color, .green)
+    }
+}
+
 // MARK: - UsageWindowType Tests
 
 @Suite("Provider")
 struct ProviderTests {
+    @Test func presentationMappingsMatchDesignSystem() {
+        #expect(Provider.claude.displayName == "Claude")
+        #expect(Provider.claude.iconName == "sparkles")
+        expectSameColor(
+            Provider.claude.accentColor,
+            Color(red: 217 / 255, green: 119 / 255, blue: 87 / 255)
+        )
+
+        #expect(Provider.codex.displayName == "Codex")
+        #expect(Provider.codex.iconName == "chevron.left.forwardslash.chevron.right")
+        expectSameColor(
+            Provider.codex.accentColor,
+            Color(red: 16 / 255, green: 163 / 255, blue: 127 / 255)
+        )
+
+        #expect(Provider.openCode.iconName == "curlybraces")
+        #expect(Provider.openCodeGo.iconName == "curlybraces")
+        expectSameColor(
+            Provider.openCode.accentColor,
+            Color(red: 99 / 255, green: 102 / 255, blue: 241 / 255)
+        )
+        expectSameColor(Provider.openCodeGo.accentColor, Provider.openCode.accentColor)
+
+        #expect(Provider.cursor.displayName == "Cursor")
+        #expect(Provider.cursor.iconName == "cursorarrow")
+        expectSameColor(
+            Provider.cursor.accentColor,
+            Color(red: 120 / 255, green: 132 / 255, blue: 148 / 255)
+        )
+    }
+
     @Test func displayNamesDistinguishOpenCodeOfferings() {
         #expect(Provider.openCode.displayName == "OpenCode Zen")
         #expect(Provider.openCodeGo.displayName == "OpenCode Go")

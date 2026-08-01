@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftUI
+import AgentUsageKit
 
 /// `nonisolated` because the project builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
 /// Without it every constant here is MainActor-isolated, and the actors that need them
@@ -28,10 +29,11 @@ nonisolated enum Constants {
     static let appGroupIdentifier = "group.com.tartinerlabs.AgentUsage"
 
     // MARK: - Brand Colors
-    static let brandPrimary = Color(red: 193/255, green: 95/255, blue: 60/255)  // #C15F3C (Crail)
-    static let brandSecondary = Color(red: 218/255, green: 119/255, blue: 86/255)  // #DA7756
-    static let brandBackground = Color(red: 244/255, green: 243/255, blue: 238/255)  // #F4F3EE (Pampas)
-    static let extraUsageAccent = Color(red: 139/255, green: 94/255, blue: 131/255)  // #8B5E83 (Dusty Plum)
+    static let iconPacificBlue = AgentUsageColors.iconPacificBlue
+    static let brandPrimary = AgentUsageColors.usageProgress
+    static let brandSecondary = AgentUsageColors.brandSecondary
+    static let brandBackground = AgentUsageColors.brandBackground
+    static let extraUsageAccent = AgentUsageColors.extraUsageAccent
 
     // MARK: - API
     static let apiBaseURL = "https://api.anthropic.com"

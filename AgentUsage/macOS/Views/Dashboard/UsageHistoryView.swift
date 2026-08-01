@@ -23,7 +23,7 @@ struct UsageHistoryView: View {
 
     /// Hues for the per-window breakdown, where every line belongs to the same
     /// provider and so cannot be distinguished by provider accent.
-    private static let windowPalette: [Color] = [.blue, .orange, .purple, .teal, .pink]
+    private static let windowPalette: [Color] = [.blue, .teal, .indigo, .cyan, .mint]
 
     private static let periods = [7, 14, 30]
 
@@ -117,12 +117,28 @@ struct UsageHistoryView: View {
             }
 
             RuleMark(y: .value("Warning", ProviderUsageHistory.warningThreshold))
-                .foregroundStyle(.orange.opacity(0.5))
+                .foregroundStyle(UsageStatus.warning.color.opacity(0.5))
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                .annotation(position: .top, alignment: .trailing) {
+                    Label(
+                        "Warning \(Int(ProviderUsageHistory.warningThreshold))%",
+                        systemImage: UsageStatus.warning.icon
+                    )
+                        .font(.caption2)
+                        .foregroundStyle(UsageStatus.warning.color)
+                }
 
             RuleMark(y: .value("Critical", ProviderUsageHistory.criticalThreshold))
-                .foregroundStyle(.red.opacity(0.5))
+                .foregroundStyle(UsageStatus.critical.color.opacity(0.5))
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                .annotation(position: .top, alignment: .trailing) {
+                    Label(
+                        "Critical \(Int(ProviderUsageHistory.criticalThreshold))%",
+                        systemImage: UsageStatus.critical.icon
+                    )
+                        .font(.caption2)
+                        .foregroundStyle(UsageStatus.critical.color)
+                }
         }
         .chartYScale(domain: 0...100)
         .chartYAxis {

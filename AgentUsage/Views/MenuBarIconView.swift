@@ -64,7 +64,7 @@ enum MenuBarStatusContentBuilder {
                     return MenuBarStatusContent.Metric(
                         id: windowType.rawValue,
                         label: windowType.displayName,
-                        percentUsed: Int(window.utilization.rounded())
+                        percentUsed: window.percentUsed
                     )
                 }
 
