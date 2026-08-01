@@ -23,14 +23,17 @@ final class TokenLogEntry {
     /// Model name (e.g., "claude-opus-4-5-20250514")
     var modelName: String
 
-    /// Claude session identifier. Empty for rows imported before session metadata was captured.
-    var sessionID: String = ""
+    /// Claude session identifier. Nil or empty for legacy rows imported before
+    /// session metadata was captured. This stays optional so rows written by an
+    /// older app binary after a lightweight migration remain materializable.
+    var sessionID: String? = nil
 
     /// Normalized effort-level value. Optional for logs and migrated rows that do not expose it.
     var effortLevelRaw: String? = nil
 
-    /// True for entries imported from Claude subagent session files.
-    var isSubagentSession: Bool = false
+    /// True for entries imported from Claude subagent session files. Nil is the
+    /// migration-safe legacy representation and is treated as false by readers.
+    var isSubagentSession: Bool? = nil
 
     /// Token counts
     var inputTokens: Int
@@ -60,9 +63,9 @@ final class TokenLogEntry {
         cacheReadTokens: Int,
         timestamp: Date,
         costUSD: Double,
-        sessionID: String = "",
+        sessionID: String? = nil,
         effortLevelRaw: String? = nil,
-        isSubagentSession: Bool = false,
+        isSubagentSession: Bool? = nil,
         cacheCreation1hTokens: Int = 0,
         isFastMode: Bool = false
     ) {

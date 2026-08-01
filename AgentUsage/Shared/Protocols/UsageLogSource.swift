@@ -8,6 +8,10 @@
 import Foundation
 import AgentUsageKit
 
+nonisolated enum UsageLogSourceError: Error {
+    case unavailable
+}
+
 /// A single usage record from a provider's local logs, normalized for aggregation.
 nonisolated struct ProviderUsageEntry: Sendable {
     let provider: Provider

@@ -128,6 +128,74 @@ struct CodexLogSourceTests {
         #expect(EffortUsageAggregator.summaries(from: samples).isEmpty)
     }
 
+    @Test @MainActor func successfulEmptyThirtyDayReadRemainsAvailableAlongsideOlderEffort() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let missingDirectory = directory.appendingPathComponent("optional-missing-root")
+        let file = directory.appendingPathComponent("rollout-older-effort.jsonl")
+        let now = Date()
+        let olderTimestamp = now.addingTimeInterval(-60 * 24 * 60 * 60)
+        let content = [
+            Self.turnContext(model: "gpt-5.6-codex", effort: "high"),
+            Self.tokenCount(timestamp: olderTimestamp, input: 15),
+        ].joined(separator: "\n")
+        try Self.write(content, to: file)
+        try Self.setModificationDate(olderTimestamp, for: file)
+
+        let service = TokenUsageService(
+            extraSources: [CodexLogSource(directories: [directory, missingDirectory])]
+        )
+        let coordinator = TokenUsageCoordinator(
+            tokenService: service,
+            defaults: TestUserDefaults().defaults,
+            now: { now }
+        )
+
+        let details = await coordinator.providerDetails(using: nil)
+        let detail = try #require(details[.codex])
+        let effort = try #require(detail.effortSummary(for: .last90Days))
+
+        #expect(detail.hasTokenUsage)
+        #expect(detail.last30Days.tokens.totalTokens == 0)
+        #expect(effort.sessionCount(for: .high) == 1)
+    }
+
+    @Test func partiallyReadableSourceDoesNotSynthesizeZeroTokenDetail() async throws {
+        let readableDirectory = try Self.temporaryDirectory()
+        let inaccessibleDirectory = try Self.temporaryDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: readableDirectory)
+            try? FileManager.default.removeItem(at: inaccessibleDirectory)
+        }
+        let fileManager = SandboxDeniedFileManager(
+            deniedDirectory: inaccessibleDirectory
+        )
+        let service = TokenUsageService(
+            extraSources: [
+                CodexLogSource(
+                    directories: [readableDirectory, inaccessibleDirectory],
+                    fileManager: fileManager
+                ),
+            ]
+        )
+
+        let details = await service.fetchExtraProviderDetails(since: .distantPast)
+
+        #expect(details[.codex] == nil)
+    }
+
+    @Test func unavailableSourceDoesNotSynthesizeZeroTokenDetail() async {
+        let missingDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CodexLogSourceTests-missing-\(UUID().uuidString)")
+        let service = TokenUsageService(
+            extraSources: [CodexLogSource(directories: [missingDirectory])]
+        )
+
+        let details = await service.fetchExtraProviderDetails(since: .distantPast)
+
+        #expect(details[.codex] == nil)
+    }
+
     @Test func usesModificationDateWhenTokenTimestampIsMissing() async throws {
         let directory = try Self.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -441,6 +509,52 @@ struct CodexLogSourceTests {
 
     private static func tokenCountWithoutTimestamp(input: Int) -> String {
         #"{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":\#(input)}}}}"#
+    }
+}
+
+private final class SandboxDeniedFileManager: FileManager, @unchecked Sendable {
+    private let deniedPath: String
+
+    init(deniedDirectory: URL) {
+        self.deniedPath = deniedDirectory.standardizedFileURL.path
+        super.init()
+    }
+
+    override func fileExists(atPath path: String) -> Bool {
+        guard standardizedPath(path) != deniedPath else {
+            return false
+        }
+        return super.fileExists(atPath: path)
+    }
+
+    override func fileExists(
+        atPath path: String,
+        isDirectory: UnsafeMutablePointer<ObjCBool>?
+    ) -> Bool {
+        guard standardizedPath(path) != deniedPath else {
+            isDirectory?.pointee = true
+            return false
+        }
+        return super.fileExists(atPath: path, isDirectory: isDirectory)
+    }
+
+    override func contentsOfDirectory(
+        at url: URL,
+        includingPropertiesForKeys keys: [URLResourceKey]?,
+        options mask: FileManager.DirectoryEnumerationOptions = []
+    ) throws -> [URL] {
+        guard url.standardizedFileURL.path != deniedPath else {
+            throw CocoaError(.fileReadNoPermission)
+        }
+        return try super.contentsOfDirectory(
+            at: url,
+            includingPropertiesForKeys: keys,
+            options: mask
+        )
+    }
+
+    private func standardizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.path
     }
 }
 #endif

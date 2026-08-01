@@ -230,7 +230,7 @@ struct MenuBarView: View {
     // MARK: - Per-provider data
 
     private func costLines(for provider: Provider) -> [ProviderCostLine] {
-        guard let detail = viewModel.providerDetails[provider] else { return [] }
+        guard let detail = viewModel.providerDetails[provider], detail.hasTokenUsage else { return [] }
         return [
             ProviderCostLine(label: "Today", cost: detail.today.formattedCost, tokens: detail.today.formattedTokens),
             ProviderCostLine(label: "30 Days", cost: detail.last30Days.formattedCost, tokens: detail.last30Days.formattedTokens)
