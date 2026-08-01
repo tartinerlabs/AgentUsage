@@ -16,6 +16,7 @@ struct ProviderDetailView: View {
     var windows: [UsageWindow] = []
     var detail: ProviderDetail? = nil
     var now: Date = Date()
+    var effortPeriod: EffortPeriod = .last30Days
     /// Max models to list in the breakdown.
     var maxModels: Int = 6
     var isServiceDown: Bool = false
@@ -50,6 +51,9 @@ struct ProviderDetailView: View {
                 costSection(detail)
                 if detail.dailyCosts.contains(where: { $0 > 0 }) {
                     trendSection(detail)
+                }
+                if let effortSummary = detail.effortSummaries.first(where: { $0.period == effortPeriod }) {
+                    effortSection(effortSummary)
                 }
                 if !detail.modelShares.isEmpty {
                     modelsSection(detail)
@@ -186,6 +190,20 @@ struct ProviderDetailView: View {
                 )
             }
             .frame(height: 36)
+        }
+    }
+
+    // MARK: - Effort Levels
+
+    private func effortSection(_ summary: EffortPeriodSummary) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Effort Levels \u{00b7} \(summary.period.displayName)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
+                .accessibilityAddTraits(.isHeader)
+            EffortLevelsView(provider: provider, summary: summary, showsProviderHeader: false)
         }
     }
 

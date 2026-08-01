@@ -19,6 +19,12 @@ nonisolated struct ProviderUsageEntry: Sendable {
     let timestamp: Date
     /// Provider-scoped unique key for deduplication.
     let dedupKey: String
+    /// Provider session identifier used for session-level usage aggregation.
+    let sessionID: String
+    /// Configured reasoning effort recorded by the provider, when available.
+    let effortLevel: EffortLevel?
+    /// True when this record belongs to a provider-spawned subagent session.
+    let isSubagentSession: Bool
     /// Cost already computed by the provider, if trustworthy; nil → compute via `ModelPricing`.
     let precomputedCostUSD: Double?
     /// True when served in fast mode (Claude only); premium pricing applies. Non-Claude sources pass false.
@@ -31,6 +37,9 @@ nonisolated struct ProviderUsageEntry: Sendable {
         tokens: TokenCount,
         timestamp: Date,
         dedupKey: String,
+        sessionID: String? = nil,
+        effortLevel: EffortLevel? = nil,
+        isSubagentSession: Bool = false,
         precomputedCostUSD: Double? = nil,
         fastMode: Bool = false
     ) {
@@ -40,6 +49,9 @@ nonisolated struct ProviderUsageEntry: Sendable {
         self.tokens = tokens
         self.timestamp = timestamp
         self.dedupKey = dedupKey
+        self.sessionID = sessionID ?? dedupKey
+        self.effortLevel = effortLevel
+        self.isSubagentSession = isSubagentSession
         self.precomputedCostUSD = precomputedCostUSD
         self.fastMode = fastMode
     }

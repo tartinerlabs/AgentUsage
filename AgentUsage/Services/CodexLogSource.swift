@@ -109,7 +109,20 @@ actor CodexLogSource: UsageLogSource {
             }
         }
 
-        cachedRollouts = cachedRollouts.filter { currentURLs.contains($0.key) }
+        // A narrow consumer (the 30-day cost view) must not evict unchanged
+        // sessions retained for the one-year effort view. Cap that preservation
+        // at the same 13-month window as persisted usage so naturally aged-out
+        // rollouts do not stay in memory for the actor's lifetime.
+        let retentionCutoff = Calendar.current.date(
+            byAdding: .month,
+            value: -13,
+            to: Date()
+        ) ?? since
+        cachedRollouts = cachedRollouts.filter { url, cached in
+            currentURLs.contains(url)
+                || (cached.fingerprint.modificationDate < since
+                    && cached.fingerprint.modificationDate >= retentionCutoff)
+        }
         diagnostics = nextDiagnostics
         return entries
     }
@@ -172,14 +185,20 @@ actor CodexLogSource: UsageLogSource {
         }
         defer { try? handle.close() }
 
+        let metadataProbe = probeSubagentMetadata(
+            handle: handle,
+            fileSize: file.fingerprint.size
+        )
+        let isSubagentSession = metadataProbe.isSubagentSession
         var latestModel: String?
+        var latestEffortLevel: EffortLevel?
         var latestTokenUsage: [String: Any]?
         var latestTimestamp: Date?
         var position = UInt64(file.fingerprint.size)
         var pendingLineFragments: [Data] = []
         var pendingLineByteCount = 0
-        var bytesRead = 0
-        var maximumBufferedBytes = 0
+        var bytesRead = metadataProbe.bytesRead
+        var maximumBufferedBytes = metadataProbe.bytesRead
 
         do {
             while position > 0,
@@ -210,6 +229,7 @@ actor CodexLogSource: UsageLogSource {
                             inspect(
                                 line: chunk[lineStart..<lineEnd],
                                 latestModel: &latestModel,
+                                latestEffortLevel: &latestEffortLevel,
                                 latestTokenUsage: &latestTokenUsage,
                                 latestTimestamp: &latestTimestamp
                             )
@@ -223,6 +243,7 @@ actor CodexLogSource: UsageLogSource {
                             inspect(
                                 line: line,
                                 latestModel: &latestModel,
+                                latestEffortLevel: &latestEffortLevel,
                                 latestTokenUsage: &latestTokenUsage,
                                 latestTimestamp: &latestTimestamp
                             )
@@ -264,6 +285,7 @@ actor CodexLogSource: UsageLogSource {
                     inspect(
                         line: line,
                         latestModel: &latestModel,
+                        latestEffortLevel: &latestEffortLevel,
                         latestTokenUsage: &latestTokenUsage,
                         latestTimestamp: &latestTimestamp
                     )
@@ -299,13 +321,17 @@ actor CodexLogSource: UsageLogSource {
             reasoningTokens: reasoning
         )
 
+        let sessionID = Self.sessionIdentifier(for: file.url)
         let entry = ProviderUsageEntry(
             provider: .codex,
             model: latestModel ?? "gpt-5-codex",
             pricingProviderKey: "openai",
             tokens: tokens,
             timestamp: latestTimestamp ?? file.fingerprint.modificationDate,
-            dedupKey: "codex:\(Self.sessionIdentifier(for: file.url))"
+            dedupKey: "codex:\(sessionID)",
+            sessionID: sessionID,
+            effortLevel: latestEffortLevel,
+            isSubagentSession: isSubagentSession
         )
         return ParseResult(
             entry: entry,
@@ -344,6 +370,7 @@ actor CodexLogSource: UsageLogSource {
     private func inspect(
         line: Data,
         latestModel: inout String?,
+        latestEffortLevel: inout EffortLevel?,
         latestTokenUsage: inout [String: Any]?,
         latestTimestamp: inout Date?
     ) {
@@ -360,6 +387,7 @@ actor CodexLogSource: UsageLogSource {
            let model = payload?["model"] as? String,
            !model.isEmpty {
             latestModel = model
+            latestEffortLevel = Self.normalizedEffortLevel(payload?["effort"])
         }
 
         guard mayContainTokens,
@@ -378,8 +406,42 @@ actor CodexLogSource: UsageLogSource {
         }
     }
 
+    private nonisolated static func normalizedEffortLevel(_ value: Any?) -> EffortLevel? {
+        guard let rawValue = value as? String else { return nil }
+        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized.isEmpty ? nil : EffortLevel(rawValue: normalized)
+    }
+
     private static let turnContextMarker = Data(#""turn_context""#.utf8)
     private static let tokenCountMarker = Data(#""token_count""#.utf8)
+    private static let sessionMetaMarker = Data(#""session_meta""#.utf8)
+    private static let subagentThreadMarker = Data(#""thread_source":"subagent""#.utf8)
+    private static let subagentSourceMarker = Data(#""source":{"subagent""#.utf8)
+    private static let metadataProbeSize = 8 * 1_024
+
+    /// `session_meta` is the first rollout record. It can contain megabytes of
+    /// base instructions, but its source fields occur near the beginning, so a
+    /// fixed prefix is enough to identify spawned subagent sessions.
+    private func probeSubagentMetadata(
+        handle: FileHandle,
+        fileSize: Int64
+    ) -> (isSubagentSession: Bool, bytesRead: Int) {
+        do {
+            try handle.seek(toOffset: 0)
+            let count = min(Self.metadataProbeSize, Int(fileSize))
+            guard let prefix = try handle.read(upToCount: count) else {
+                return (false, 0)
+            }
+            guard prefix.range(of: Self.sessionMetaMarker) != nil else {
+                return (false, prefix.count)
+            }
+            let isSubagent = prefix.range(of: Self.subagentThreadMarker) != nil
+                || prefix.range(of: Self.subagentSourceMarker) != nil
+            return (isSubagent, prefix.count)
+        } catch {
+            return (false, 0)
+        }
+    }
 
     /// Rollout filenames end in the session UUID. Using it avoids reading the
     /// potentially multi-megabyte `session_meta` record at the start of the file.

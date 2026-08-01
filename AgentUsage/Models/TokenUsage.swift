@@ -576,13 +576,30 @@ nonisolated struct UsageEntry: Sendable {
     let model: String
     let tokens: TokenCount
     let timestamp: Date
+    /// Provider session identifier. Empty only when parsing standalone content without file context.
+    let sessionID: String
+    /// Configured reasoning effort recorded on this assistant entry, when available.
+    let effortLevel: EffortLevel?
+    /// True for Claude subagent logs stored beneath a `subagents` directory.
+    let isSubagentSession: Bool
     /// True when the request was served in fast mode (`usage.speed == "fast"`); premium pricing applies.
     let fastMode: Bool
 
-    init(model: String, tokens: TokenCount, timestamp: Date, fastMode: Bool = false) {
+    init(
+        model: String,
+        tokens: TokenCount,
+        timestamp: Date,
+        sessionID: String = "",
+        effortLevel: EffortLevel? = nil,
+        isSubagentSession: Bool = false,
+        fastMode: Bool = false
+    ) {
         self.model = model
         self.tokens = tokens
         self.timestamp = timestamp
+        self.sessionID = sessionID
+        self.effortLevel = effortLevel
+        self.isSubagentSession = isSubagentSession
         self.fastMode = fastMode
     }
 }
@@ -672,6 +689,28 @@ nonisolated struct ProviderDetail: Sendable {
     let byModel: [String: TokenCount]
     /// Daily cost for the last 30 days, oldest → newest (sparkline).
     let dailyCosts: [Double]
+    /// Session effort distributions for each supported period.
+    let effortSummaries: [EffortPeriodSummary]
+
+    init(
+        today: TokenUsageSummary,
+        yesterday: TokenUsageSummary,
+        last30Days: TokenUsageSummary,
+        byModel: [String: TokenCount],
+        dailyCosts: [Double],
+        effortSummaries: [EffortPeriodSummary] = []
+    ) {
+        self.today = today
+        self.yesterday = yesterday
+        self.last30Days = last30Days
+        self.byModel = byModel
+        self.dailyCosts = dailyCosts
+        self.effortSummaries = effortSummaries
+    }
+
+    func effortSummary(for period: EffortPeriod) -> EffortPeriodSummary? {
+        effortSummaries.first { $0.period == period }
+    }
 
     /// Models sorted by total tokens, descending, with share of the 30-day total.
     var modelShares: [(model: String, tokens: Int, percent: Double)] {

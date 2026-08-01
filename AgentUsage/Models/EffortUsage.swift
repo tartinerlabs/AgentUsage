@@ -1,0 +1,152 @@
+//
+//  EffortUsage.swift
+//  AgentUsage
+//
+//  Provider-neutral session effort aggregation.
+//
+
+import Foundation
+import AgentUsageKit
+
+/// One effort-bearing (or explicitly unclassified) local usage record.
+///
+/// Claude contributes one sample per deduplicated assistant usage record. Codex
+/// contributes its existing single cumulative record per session.
+nonisolated struct EffortUsageSample: Sendable {
+    let provider: Provider
+    let sessionID: String
+    let effortLevel: EffortLevel?
+    let timestamp: Date
+    let isSubagentSession: Bool
+
+    init(
+        provider: Provider,
+        sessionID: String,
+        effortLevel: EffortLevel?,
+        timestamp: Date,
+        isSubagentSession: Bool = false
+    ) {
+        self.provider = provider
+        self.sessionID = sessionID
+        self.effortLevel = effortLevel
+        self.timestamp = timestamp
+        self.isSubagentSession = isSubagentSession
+    }
+}
+
+/// Collapses request-level usage into session-count effort distributions.
+nonisolated enum EffortUsageAggregator {
+    private struct SessionKey: Hashable {
+        let provider: Provider
+        let sessionID: String
+    }
+
+    private struct SessionAccumulator {
+        var latestTimestamp: Date
+        var levelCounts: [EffortLevel: Int]
+    }
+
+    /// Builds every requested period in one pass over normalized usage samples.
+    static func summaries(
+        from samples: [EffortUsageSample],
+        periods: [EffortPeriod] = EffortPeriod.allCases,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [Provider: [EffortPeriodSummary]] {
+        var sessions: [SessionKey: SessionAccumulator] = [:]
+
+        for (index, sample) in samples.enumerated() where !sample.isSubagentSession {
+            // A parser should always supply a stable session id. Keep malformed or
+            // migrated records independent rather than merging every empty id.
+            let sessionID = sample.sessionID.isEmpty
+                ? "legacy-\(index)-\(sample.timestamp.timeIntervalSince1970)"
+                : sample.sessionID
+            let key = SessionKey(provider: sample.provider, sessionID: sessionID)
+            var accumulator = sessions[key] ?? SessionAccumulator(
+                latestTimestamp: sample.timestamp,
+                levelCounts: [:]
+            )
+            accumulator.latestTimestamp = max(accumulator.latestTimestamp, sample.timestamp)
+            if let effortLevel = sample.effortLevel {
+                accumulator.levelCounts[effortLevel, default: 0] += 1
+            }
+            sessions[key] = accumulator
+        }
+
+        var result: [Provider: [EffortPeriodSummary]] = [:]
+        for provider in Set(sessions.keys.map(\.provider)) {
+            let providerSessions = sessions.filter { $0.key.provider == provider }.map(\.value)
+            result[provider] = periods.map { period in
+                let startDate = period.startDate(relativeTo: now, calendar: calendar)
+                let inPeriod = providerSessions.filter { $0.latestTimestamp >= startDate }
+                var counts: [EffortLevel: Int] = [:]
+                var unclassified = 0
+
+                for session in inPeriod {
+                    guard let level = dominantLevel(in: session.levelCounts) else {
+                        unclassified += 1
+                        continue
+                    }
+                    counts[level, default: 0] += 1
+                }
+
+                let levels = counts
+                    .map { EffortLevelCount(level: $0.key, sessionCount: $0.value) }
+                    .sorted {
+                        if $0.level.sortOrder == $1.level.sortOrder {
+                            return $0.level.rawValue < $1.level.rawValue
+                        }
+                        return $0.level.sortOrder < $1.level.sortOrder
+                    }
+
+                return EffortPeriodSummary(
+                    period: period,
+                    levels: levels,
+                    classifiedSessionCount: counts.values.reduce(0, +),
+                    unclassifiedSessionCount: unclassified
+                )
+            }
+        }
+        return result
+    }
+
+    private static func dominantLevel(in counts: [EffortLevel: Int]) -> EffortLevel? {
+        guard let maximum = counts.values.max() else { return nil }
+        let leaders = counts.compactMap { level, count in
+            count == maximum ? level : nil
+        }
+        return leaders.count == 1 ? leaders[0] : .mixed
+    }
+}
+
+nonisolated extension EffortPeriod {
+    func startDate(relativeTo now: Date, calendar: Calendar) -> Date {
+        switch self {
+        case .today:
+            calendar.startOfDay(for: now)
+        case .last7Days:
+            calendar.date(byAdding: .day, value: -7, to: now) ?? now
+        case .last30Days:
+            calendar.date(byAdding: .day, value: -30, to: now) ?? now
+        case .last90Days:
+            calendar.date(byAdding: .day, value: -90, to: now) ?? now
+        case .last180Days:
+            calendar.date(byAdding: .day, value: -180, to: now) ?? now
+        case .lastYear:
+            calendar.date(byAdding: .year, value: -1, to: now) ?? now
+        }
+    }
+}
+
+nonisolated extension UsagePeriod {
+    var effortPeriod: EffortPeriod {
+        switch self {
+        case .today: .today
+        case .last7Days: .last7Days
+        case .last30Days: .last30Days
+        case .last90Days: .last90Days
+        case .last180Days: .last180Days
+        case .lastYear: .lastYear
+        }
+    }
+}

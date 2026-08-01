@@ -142,7 +142,8 @@ struct DashboardTabView: View {
 
     @ViewBuilder
     private var providerSections: some View {
-        if let usage = viewModel.usageSnapshot(for: .claude) {
+        let claudeUsage = viewModel.usageSnapshot(for: .claude)
+        if claudeUsage != nil || viewModel.providerDetails[.claude] != nil {
             dashboardSection(
                 title: Provider.claude.displayName,
                 subtitle: "Subscription windows and local cost detail.",
@@ -151,14 +152,15 @@ struct DashboardTabView: View {
             ) {
                 ProviderDetailView(
                     provider: .claude,
-                    planName: usage.planName,
-                    windows: usage.windows,
+                    planName: claudeUsage?.planName,
+                    windows: claudeUsage?.windows ?? [],
                     detail: viewModel.providerDetails[.claude],
                     now: now,
+                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
                     isServiceDown: viewModel.isServiceDown(.claude)
                 )
 
-                if viewModel.showExtraUsageIndicators, let extraUsage = usage.extraUsage {
+                if viewModel.showExtraUsageIndicators, let extraUsage = claudeUsage?.extraUsage {
                     Divider()
                     extraUsageCostSection(extraUsage)
                 }
@@ -185,6 +187,7 @@ struct DashboardTabView: View {
                     windows: codex?.windows ?? [],
                     detail: viewModel.providerDetails[.codex],
                     now: now,
+                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
                     isServiceDown: viewModel.isServiceDown(.codex),
                     rateLimitResetCredits: codex?.rateLimitResetCredits
                 )
@@ -205,6 +208,7 @@ struct DashboardTabView: View {
                     windows: openCodeUsage?.windows ?? [],
                     detail: viewModel.providerDetails[.openCode],
                     now: now,
+                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
                     isServiceDown: viewModel.isServiceDown(.openCode)
                 )
             }
