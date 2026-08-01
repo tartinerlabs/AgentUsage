@@ -30,7 +30,7 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
     static let lastZeroCostRecalcDateKey = "lastZeroCostRecalcDate"
     static let effortMetadataImportedVersionKey = "effortMetadataImportedVersion"
     static let costModelVersion = 3
-    static let effortMetadataVersion = 1
+    static let effortMetadataVersion = 2
     static let effortHistoryRetentionMonths = 13
 
     private let tokenService: (any TokenUsageServiceProtocol)?
@@ -149,7 +149,8 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
                     ?? TokenUsageSummary(tokens: .zero, costUSD: 0, period: .last30Days),
                 byModel: existing?.byModel ?? [:],
                 dailyCosts: existing?.dailyCosts ?? [],
-                effortSummaries: summaries
+                effortSummaries: summaries,
+                hasTokenUsage: existing?.hasTokenUsage ?? false
             )
         }
 

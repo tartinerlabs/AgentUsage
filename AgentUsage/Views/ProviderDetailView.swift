@@ -54,14 +54,20 @@ struct ProviderDetailView: View {
             }
 
             if let detail {
-                costSection(detail)
-                if detail.dailyCosts.contains(where: { $0 > 0 }) {
-                    trendSection(detail)
+                if detail.hasTokenUsage {
+                    costSection(detail)
+                    if detail.dailyCosts.contains(where: { $0 > 0 }) {
+                        trendSection(detail)
+                    }
+                } else if provider.supports(.tokenCost) {
+                    Text("Local token usage is unavailable.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 if let effortSummary = detail.effortSummaries.first(where: { $0.period == effortPeriod }) {
                     effortSection(effortSummary)
                 }
-                if !detail.modelShares.isEmpty {
+                if detail.hasTokenUsage, !detail.modelShares.isEmpty {
                     modelsSection(detail)
                 }
             }

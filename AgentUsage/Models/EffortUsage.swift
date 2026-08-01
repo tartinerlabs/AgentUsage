@@ -55,12 +55,11 @@ nonisolated enum EffortUsageAggregator {
     ) -> [Provider: [EffortPeriodSummary]] {
         var sessions: [SessionKey: SessionAccumulator] = [:]
 
-        for (index, sample) in samples.enumerated() where !sample.isSubagentSession {
-            // A parser should always supply a stable session id. Keep malformed or
-            // migrated records independent rather than merging every empty id.
-            let sessionID = sample.sessionID.isEmpty
-                ? "legacy-\(index)-\(sample.timestamp.timeIntervalSince1970)"
-                : sample.sessionID
+        for sample in samples where !sample.isSubagentSession {
+            // Request rows without a stable session identity cannot contribute to
+            // session-level coverage without inflating one request into one session.
+            let sessionID = sample.sessionID.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !sessionID.isEmpty else { continue }
             let key = SessionKey(provider: sample.provider, sessionID: sessionID)
             var accumulator = sessions[key] ?? SessionAccumulator(
                 latestTimestamp: sample.timestamp,
