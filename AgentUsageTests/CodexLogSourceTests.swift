@@ -7,6 +7,7 @@
 import Foundation
 import Testing
 @testable import AgentUsage
+@testable import AgentUsageKit
 
 @MainActor
 @Suite("Codex Log Source")
@@ -19,11 +20,11 @@ struct CodexLogSourceTests {
         let oldTimestamp = Date(timeIntervalSince1970: 1_752_969_600)
         let latestTimestamp = oldTimestamp.addingTimeInterval(60)
         let content = [
-            Self.turnContext(model: "gpt-old"),
+            Self.turnContext(model: "gpt-old", effort: "xhigh"),
             Self.tokenCount(timestamp: oldTimestamp, input: 20, cached: 5, output: 8, reasoning: 2),
             "not-json",
             Self.tokenCount(timestamp: latestTimestamp, input: 100, cached: 30, output: 50, reasoning: 10),
-            Self.turnContext(model: "gpt-latest"),
+            Self.turnContext(model: "gpt-latest", effort: "  MeDiuM  "),
         ].joined(separator: "\n") + "\n"
         try Self.write(content, to: file)
 
@@ -39,6 +40,8 @@ struct CodexLogSourceTests {
         #expect(entry.tokens.reasoningTokens == 10)
         #expect(entry.timestamp == latestTimestamp)
         #expect(entry.dedupKey == "codex:\(sessionID)")
+        #expect(entry.sessionID == sessionID)
+        #expect(entry.effortLevel?.rawValue == "medium")
     }
 
     @Test func skipsMalformedCandidatesAndFallsBackWithoutModelOrSessionUUID() async throws {
@@ -61,6 +64,68 @@ struct CodexLogSourceTests {
         #expect(entry.tokens.totalTokens == 22)
         #expect(entry.timestamp == timestamp)
         #expect(entry.dedupKey == "codex:rollout-custom")
+        #expect(entry.sessionID == "rollout-custom")
+        #expect(entry.effortLevel == nil)
+    }
+
+    @Test func latestTurnContextWithoutEffortDoesNotReuseOlderEffort() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("rollout-effort.jsonl")
+        let timestamp = Date(timeIntervalSince1970: 1_752_969_600)
+        let content = [
+            Self.turnContext(model: "gpt-old", effort: "xhigh"),
+            Self.tokenCount(timestamp: timestamp, input: 15),
+            Self.turnContext(model: "gpt-latest"),
+        ].joined(separator: "\n")
+        try Self.write(content, to: file)
+
+        let source = CodexLogSource(directories: [directory], readChunkSize: 37)
+        let entries = try await source.fetchEntries(since: Date(timeIntervalSince1970: 0))
+        let entry = try #require(entries.first)
+
+        #expect(entry.model == "gpt-latest")
+        #expect(entry.effortLevel == nil)
+    }
+
+    @Test func preservesUnknownNormalizedEffortValue() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("rollout-future-effort.jsonl")
+        let timestamp = Date(timeIntervalSince1970: 1_752_969_600)
+        let content = [
+            Self.tokenCount(timestamp: timestamp, input: 15),
+            Self.turnContext(model: "gpt-future", effort: "  Adaptive-Plus "),
+        ].joined(separator: "\n")
+        try Self.write(content, to: file)
+
+        let source = CodexLogSource(directories: [directory], readChunkSize: 41)
+        let entry = try #require(try await source.fetchEntries(since: .distantPast).first)
+
+        #expect(entry.effortLevel?.rawValue == "adaptive-plus")
+    }
+
+    @Test func marksSpawnedSubagentSessionsForEffortExclusion() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("rollout-subagent.jsonl")
+        let timestamp = Date(timeIntervalSince1970: 1_752_969_600)
+        let content = [
+            #"{"timestamp":"2026-07-20T00:00:00Z","type":"session_meta","payload":{"id":"subagent","source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent"}}},"thread_source":"subagent"}}"#,
+            Self.turnContext(model: "gpt-subagent", effort: "ultra"),
+            Self.tokenCount(timestamp: timestamp, input: 15),
+        ].joined(separator: "\n")
+        try Self.write(content, to: file)
+
+        let source = CodexLogSource(directories: [directory], readChunkSize: 41)
+        let entry = try #require(try await source.fetchEntries(since: .distantPast).first)
+        let service = TokenUsageService(extraSources: [source])
+        let samples = await service.fetchExtraProviderEffortSamples(since: .distantPast)
+
+        #expect(entry.isSubagentSession)
+        #expect(samples.count == 1)
+        #expect(samples.first?.isSubagentSession == true)
+        #expect(EffortUsageAggregator.summaries(from: samples).isEmpty)
     }
 
     @Test func usesModificationDateWhenTokenTimestampIsMissing() async throws {
@@ -112,6 +177,69 @@ struct CodexLogSourceTests {
         #expect(secondDiagnostics.parsedFileCount == 0)
         #expect(secondDiagnostics.cacheHitCount == 2)
         #expect(secondDiagnostics.bytesRead == 0)
+    }
+
+    @Test func narrowQueryKeepsOlderEntriesCachedForEffortHistory() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let now = Date()
+        let recent = directory.appendingPathComponent("rollout-recent.jsonl")
+        let older = directory.appendingPathComponent("rollout-older.jsonl")
+        let sixtyDays: TimeInterval = 60 * 24 * 60 * 60
+
+        try Self.write(
+            [
+                Self.turnContext(model: "gpt-recent", effort: "xhigh"),
+                Self.tokenCount(timestamp: now, input: 10),
+            ].joined(separator: "\n"),
+            to: recent
+        )
+        try Self.write(
+            [
+                Self.turnContext(model: "gpt-older", effort: "high"),
+                Self.tokenCount(timestamp: now.addingTimeInterval(-sixtyDays), input: 20),
+            ].joined(separator: "\n"),
+            to: older
+        )
+        try Self.setModificationDate(now, for: recent)
+        try Self.setModificationDate(now.addingTimeInterval(-sixtyDays), for: older)
+
+        let source = CodexLogSource(directories: [directory])
+        let broadCutoff = now.addingTimeInterval(-365 * 24 * 60 * 60)
+        _ = try await source.fetchEntries(since: broadCutoff)
+        _ = try await source.fetchEntries(since: now.addingTimeInterval(-30 * 24 * 60 * 60))
+        let entries = try await source.fetchEntries(since: broadCutoff)
+        let diagnostics = await source.latestDiagnostics()
+
+        #expect(entries.count == 2)
+        #expect(diagnostics.parsedFileCount == 0)
+        #expect(diagnostics.cacheHitCount == 2)
+    }
+
+    @Test func narrowQueryPrunesEntriesBeyondRetainedHistory() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let now = Date()
+        let file = directory.appendingPathComponent("rollout-beyond-retention.jsonl")
+        let oldDate = Calendar.current.date(byAdding: .month, value: -14, to: now)
+            ?? now.addingTimeInterval(-400 * 24 * 60 * 60)
+        try Self.write(
+            [
+                Self.turnContext(model: "gpt-old", effort: "high"),
+                Self.tokenCount(timestamp: oldDate, input: 10),
+            ].joined(separator: "\n"),
+            to: file
+        )
+        try Self.setModificationDate(oldDate, for: file)
+
+        let source = CodexLogSource(directories: [directory])
+        _ = try await source.fetchEntries(since: .distantPast)
+        _ = try await source.fetchEntries(since: now.addingTimeInterval(-30 * 24 * 60 * 60))
+        _ = try await source.fetchEntries(since: .distantPast)
+        let diagnostics = await source.latestDiagnostics()
+
+        #expect(diagnostics.parsedFileCount == 1)
+        #expect(diagnostics.cacheHitCount == 0)
     }
 
     @Test func invalidatesCacheForAppendTruncationAndModificationDateChanges() async throws {
@@ -232,9 +360,11 @@ struct CodexLogSourceTests {
 
         #expect(entries.first?.model == "gpt-tail")
         #expect(entries.first?.tokens.inputTokens == 40)
-        #expect(diagnostics.bytesRead <= 4 * 1024)
-        #expect(diagnostics.maximumBufferedBytes <= 4 * 1024)
-        #expect(diagnostics.bytesRead < data.count / 1_000)
+        // One fixed 8 KiB prefix probes `session_meta`; the existing reverse
+        // parser still needs at most one 4 KiB tail chunk for this fixture.
+        #expect(diagnostics.bytesRead <= 12 * 1024)
+        #expect(diagnostics.maximumBufferedBytes <= 8 * 1024)
+        #expect(diagnostics.bytesRead < data.count / 500)
     }
 
     @Test func buffersAtMostOneLargeLineAcrossChunkBoundaries() async throws {
@@ -291,8 +421,11 @@ struct CodexLogSourceTests {
         return try #require(values.contentModificationDate)
     }
 
-    private static func turnContext(model: String) -> String {
-        #"{"type":"turn_context","payload":{"model":"\#(model)"}}"#
+    private static func turnContext(model: String, effort: String? = nil) -> String {
+        if let effort {
+            return #"{"type":"turn_context","payload":{"model":"\#(model)","effort":"\#(effort)"}}"#
+        }
+        return #"{"type":"turn_context","payload":{"model":"\#(model)"}}"#
     }
 
     private static func tokenCount(

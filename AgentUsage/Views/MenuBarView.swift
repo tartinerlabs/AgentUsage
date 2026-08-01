@@ -149,6 +149,7 @@ struct MenuBarView: View {
                 windows: viewModel.usageSnapshot(for: provider)?.windows ?? [],
                 detail: viewModel.providerDetails[provider],
                 now: now,
+                effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
                 isServiceDown: viewModel.isServiceDown(provider),
                 rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits,
                 extraUsage: viewModel.usageSnapshot(for: provider)?.extraUsage,

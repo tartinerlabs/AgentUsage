@@ -28,7 +28,10 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
     static let costModelRepricedVersionKey = "costModelRepricedVersion"
     static let lastCleanupDateKey = "lastTokenCleanupDate"
     static let lastZeroCostRecalcDateKey = "lastZeroCostRecalcDate"
+    static let effortMetadataImportedVersionKey = "effortMetadataImportedVersion"
     static let costModelVersion = 3
+    static let effortMetadataVersion = 1
+    static let effortHistoryRetentionMonths = 13
 
     private let tokenService: (any TokenUsageServiceProtocol)?
     private let tokenRepository: TokenUsageRepository?
@@ -85,9 +88,9 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
 
     func providerDetails(using snapshot: TokenUsageSnapshot?) async -> [Provider: ProviderDetail] {
         var details: [Provider: ProviderDetail] = [:]
+        let currentDate = now()
 
         if let tokenService {
-            let currentDate = now()
             let since = Calendar.current.date(byAdding: .day, value: -30, to: currentDate) ?? currentDate
             details = await tokenService.fetchExtraProviderDetails(since: since)
         }
@@ -113,6 +116,43 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
             )
         }
 
+        // Pull the full retained request history before collapsing to sessions.
+        // Period membership is based on each session's latest activity, while its
+        // dominant effort uses all requests still retained in the local cache.
+        let effortSince = Calendar.current.date(
+            byAdding: .month,
+            value: -Self.effortHistoryRetentionMonths,
+            to: currentDate
+        ) ?? currentDate
+        var effortSamples: [EffortUsageSample] = []
+        if let tokenQuerier,
+           let claudeSamples = try? await tokenQuerier.fetchEffortUsageSamples(since: effortSince) {
+            effortSamples.append(contentsOf: claudeSamples)
+        }
+        if let tokenService {
+            effortSamples.append(
+                contentsOf: await tokenService.fetchExtraProviderEffortSamples(since: effortSince)
+            )
+        }
+
+        let effortSummaries = EffortUsageAggregator.summaries(
+            from: effortSamples,
+            now: currentDate
+        )
+        for (provider, summaries) in effortSummaries {
+            let existing = details[provider]
+            let emptyToday = TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today)
+            details[provider] = ProviderDetail(
+                today: existing?.today ?? emptyToday,
+                yesterday: existing?.yesterday ?? emptyToday,
+                last30Days: existing?.last30Days
+                    ?? TokenUsageSummary(tokens: .zero, costUSD: 0, period: .last30Days),
+                byModel: existing?.byModel ?? [:],
+                dailyCosts: existing?.dailyCosts ?? [],
+                effortSummaries: summaries
+            )
+        }
+
         return details
     }
 
@@ -121,6 +161,16 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
         service: any TokenUsageServiceProtocol,
         selectedPeriod: UsagePeriod
     ) async throws -> TokenUsageRefreshUpdate {
+        let requiresEffortBackfill = defaults.integer(forKey: Self.effortMetadataImportedVersionKey)
+            < Self.effortMetadataVersion
+        if requiresEffortBackfill {
+            do {
+                try repository.resetImportedFileStatesForMetadataBackfill()
+            } catch {
+                throw TokenUsageError.swiftDataError(error)
+            }
+        }
+
         let fileStates: [String: TokenUsageService.FileState]
         do {
             fileStates = try repository.getAllFileStates()
@@ -160,6 +210,13 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
             }
         } catch {
             throw TokenUsageError.swiftDataError(error)
+        }
+
+        if requiresEffortBackfill {
+            defaults.set(
+                Self.effortMetadataVersion,
+                forKey: Self.effortMetadataImportedVersionKey
+            )
         }
 
         var summaries: [UsagePeriod: TokenUsageSummary] = [

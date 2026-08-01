@@ -383,6 +383,48 @@ struct TokenUsageCoordinatorTests {
         }
     }
 
+    @Test @MainActor func failedEffortBackfillPreservesExistingUsageRows() async throws {
+        let testDefaults = TestUserDefaults()
+        let container = try Self.makeContainer()
+        let existing = TokenLogEntry(
+            messageId: "existing-message",
+            requestId: "existing-request",
+            modelName: "claude-opus-4-6",
+            inputTokens: 10,
+            outputTokens: 2,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
+            timestamp: Date(),
+            costUSD: 0
+        )
+        container.mainContext.insert(existing)
+        try container.mainContext.save()
+        let coordinator = TokenUsageCoordinator(
+            tokenService: StubTokenUsageService(
+                snapshot: Self.makeTokenSnapshot(inputTokens: 0),
+                shouldFailParsedEntries: true
+            ),
+            modelContext: container.mainContext,
+            defaults: testDefaults.defaults
+        )
+
+        do {
+            _ = try await coordinator.refresh(selectedPeriod: .last30Days)
+            Issue.record("Expected a file-read error")
+        } catch TokenUsageError.fileReadError {
+            // Expected mapping.
+        }
+
+        let samples = try await TokenUsageQuerier(modelContainer: container)
+            .fetchEffortUsageSamples(since: .distantPast)
+        #expect(samples.count == 1)
+        #expect(samples.first?.sessionID == "existing-message:existing-request")
+        #expect(
+            testDefaults.defaults.integer(forKey: TokenUsageCoordinator.effortMetadataImportedVersionKey)
+                == 0
+        )
+    }
+
     @Test @MainActor func malformedJSONLineDoesNotDiscardValidAssistantEntry() async {
         let service = TokenUsageService()
         let content = """
@@ -396,6 +438,139 @@ struct TokenUsageCoordinatorTests {
         #expect(parsed.count == 1)
         #expect(parsed.first?.entry.tokens.inputTokens == 10)
         #expect(parsed.first?.entry.tokens.outputTokens == 2)
+    }
+
+    @Test @MainActor func claudeParserCapturesAndNormalizesSessionEffortMetadata() async {
+        let service = TokenUsageService()
+        let content = """
+        {"type":"assistant","timestamp":"2026-07-12T00:00:00.000Z","sessionId":"  session-from-log  ","effort":"  HIGH  ","message":{"id":"msg-1","model":"claude-opus-4-6","usage":{"input_tokens":10,"output_tokens":2}}}
+        """
+
+        let parsed = await service.parseJSONLines(
+            content,
+            fallbackSessionID: "session-from-file",
+            isSubagentSession: true
+        )
+        let entry = parsed.first?.entry
+
+        #expect(parsed.count == 1)
+        #expect(entry?.sessionID == "session-from-log")
+        #expect(entry?.effortLevel?.rawValue == "high")
+        #expect(entry?.isSubagentSession == true)
+    }
+
+    @Test @MainActor func claudeParserUsesFileSessionFallbackAndLeavesMissingEffortNil() async {
+        let service = TokenUsageService()
+        let content = """
+        {"type":"assistant","timestamp":"2026-07-12T00:00:00.000Z","message":{"id":"msg-1","model":"claude-opus-4-6","usage":{"input_tokens":10,"output_tokens":2}}}
+        """
+
+        let entry = await service.parseJSONLines(
+            content,
+            fallbackSessionID: "file-session-id"
+        ).first?.entry
+
+        #expect(entry?.sessionID == "file-session-id")
+        #expect(entry?.effortLevel == nil)
+        #expect(entry?.isSubagentSession == false)
+    }
+
+    @Test @MainActor func importerPersistsEffortSessionAndSubagentMetadata() async throws {
+        let container = try Self.makeContainer()
+        let repository = TokenUsageRepository(modelContext: container.mainContext)
+        let entry = UsageEntry(
+            model: "claude-opus-4-6",
+            tokens: TokenCount(
+                inputTokens: 10,
+                outputTokens: 2,
+                cacheCreationTokens: 0,
+                cacheReadTokens: 0
+            ),
+            timestamp: Date(timeIntervalSince1970: 1_752_969_600),
+            sessionID: "session-persisted",
+            effortLevel: EffortLevel(rawValue: "medium"),
+            isSubagentSession: true
+        )
+
+        try await repository.importEntries(
+            [(entry: entry, messageId: "msg-persisted", requestId: "req-persisted")],
+            forFile: URL(fileURLWithPath: "/tmp/session-persisted.jsonl"),
+            newByteOffset: 100,
+            newFileSize: 100,
+            newModified: entry.timestamp
+        )
+
+        let stored = try #require(container.mainContext.fetch(FetchDescriptor<TokenLogEntry>()).first)
+        #expect(stored.sessionID == "session-persisted")
+        #expect(stored.effortLevelRaw == "medium")
+        #expect(stored.effortLevel?.rawValue == "medium")
+        #expect(stored.isSubagentSession == true)
+    }
+
+    @Test @MainActor func firstEffortRefreshBackfillsLegacyRowsAndMarksComplete() async throws {
+        let testDefaults = TestUserDefaults()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let container = try Self.makeContainer()
+        let legacy = TokenLogEntry(
+            messageId: "rebuilt-message",
+            requestId: "rebuilt-request",
+            modelName: "claude-opus-4-6",
+            inputTokens: 10,
+            outputTokens: 2,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
+            timestamp: now.addingTimeInterval(-300),
+            costUSD: 0
+        )
+        container.mainContext.insert(legacy)
+        try container.mainContext.save()
+
+        let rebuiltEntry = UsageEntry(
+            model: "claude-opus-4-6",
+            tokens: TokenCount(
+                inputTokens: 10,
+                outputTokens: 2,
+                cacheCreationTokens: 0,
+                cacheReadTokens: 0
+            ),
+            timestamp: now.addingTimeInterval(-60),
+            sessionID: "rebuilt-session",
+            effortLevel: .high
+        )
+        let fileURL = URL(fileURLWithPath: "/tmp/rebuilt-session.jsonl")
+        let service = StubTokenUsageService(
+            snapshot: Self.makeTokenSnapshot(inputTokens: 0),
+            parsedResults: [
+                fileURL: TokenUsageService.IncrementalParseResult(
+                    entries: [(
+                        entry: rebuiltEntry,
+                        messageId: "rebuilt-message",
+                        requestId: "rebuilt-request"
+                    )],
+                    newByteOffset: 100,
+                    newFileSize: 100,
+                    newModified: now
+                ),
+            ]
+        )
+        let coordinator = TokenUsageCoordinator(
+            tokenService: service,
+            modelContext: container.mainContext,
+            defaults: testDefaults.defaults,
+            now: { now }
+        )
+
+        _ = try await coordinator.refresh(selectedPeriod: .last30Days)
+        let samples = try await TokenUsageQuerier(modelContainer: container)
+            .fetchEffortUsageSamples(since: now.addingTimeInterval(-3_600))
+
+        #expect(samples.count == 1)
+        #expect(samples.first?.sessionID == "rebuilt-session")
+        #expect(samples.first?.effortLevel == .high)
+        #expect(
+            testDefaults.defaults.integer(forKey: TokenUsageCoordinator.effortMetadataImportedVersionKey)
+                == TokenUsageCoordinator.effortMetadataVersion
+        )
     }
 
     @Test @MainActor func maintenancePersistsDailyGatesAndCostModelVersion() async throws {
@@ -446,6 +621,53 @@ struct TokenUsageCoordinatorTests {
         #expect(details[.claude]?.today.tokens.inputTokens == 25)
         #expect(details[.claude]?.yesterday.tokens.totalTokens == 0)
         #expect(details[.claude]?.dailyCosts == [])
+    }
+
+    @Test @MainActor func providerDetailsAttachEffortFromNormalProviderRefresh() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let samples = [
+            EffortUsageSample(
+                provider: .codex,
+                sessionID: "codex-cross-boundary",
+                effortLevel: .xhigh,
+                timestamp: now.addingTimeInterval(-60)
+            ),
+            EffortUsageSample(
+                provider: .codex,
+                sessionID: "codex-cross-boundary",
+                effortLevel: .high,
+                timestamp: now.addingTimeInterval(-370 * 24 * 60 * 60)
+            ),
+            EffortUsageSample(
+                provider: .codex,
+                sessionID: "codex-cross-boundary",
+                effortLevel: .high,
+                timestamp: now.addingTimeInterval(-369 * 24 * 60 * 60)
+            ),
+            EffortUsageSample(
+                provider: .codex,
+                sessionID: "codex-unclassified",
+                effortLevel: nil,
+                timestamp: now.addingTimeInterval(-120)
+            ),
+        ]
+        let service = StubTokenUsageService(
+            snapshot: Self.makeTokenSnapshot(inputTokens: 0),
+            extraEffortSamples: samples
+        )
+        let coordinator = TokenUsageCoordinator(
+            tokenService: service,
+            defaults: TestUserDefaults().defaults,
+            now: { now }
+        )
+
+        let details = await coordinator.providerDetails(using: nil)
+        let summary = try #require(details[.codex]?.effortSummary(for: .last30Days))
+
+        #expect(summary.sessionCount(for: .high) == 1)
+        #expect(summary.sessionCount(for: .xhigh) == 0)
+        #expect(summary.classifiedSessionCount == 1)
+        #expect(summary.unclassifiedSessionCount == 1)
     }
 
     private static func makeContainer() throws -> ModelContainer {
@@ -585,6 +807,56 @@ struct UsageViewModelTokenCoordinationTests {
         #expect(!viewModel.isLoadingTokenUsage)
     }
 
+    @Test @MainActor func enrichedEffortPayloadSurvivesMacRelaunch() async {
+        let testDefaults = TestUserDefaults()
+        let tokenSnapshot = TokenUsageCoordinatorTests.makeTokenSnapshot(inputTokens: 25)
+        let effortSummary = EffortPeriodSummary(
+            period: .last30Days,
+            levels: [EffortLevelCount(level: .xhigh, sessionCount: 5)],
+            classifiedSessionCount: 5,
+            unclassifiedSessionCount: 1
+        )
+        let baseDetail = TokenUsageCoordinatorTests.makeProviderDetail(inputTokens: 40, costUSD: 2.5)
+        let codexDetail = ProviderDetail(
+            today: baseDetail.today,
+            yesterday: baseDetail.yesterday,
+            last30Days: baseDetail.last30Days,
+            byModel: baseDetail.byModel,
+            dailyCosts: baseDetail.dailyCosts,
+            effortSummaries: [effortSummary]
+        )
+        let coordinator = StubTokenUsageCoordinator(
+            update: TokenUsageRefreshUpdate(
+                snapshot: tokenSnapshot,
+                periodSummaries: [.today: tokenSnapshot.today, .last30Days: tokenSnapshot.last30Days],
+                selectedPeriodSummary: tokenSnapshot.last30Days
+            ),
+            details: [.codex: codexDetail]
+        )
+        let credentials = MockCredentialProvider()
+        await credentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let apiService = MockAPIService()
+        await apiService.setMockSnapshot(Self.makeUsageSnapshot())
+        let viewModel = UsageViewModel(
+            credentialProvider: credentials,
+            apiService: apiService,
+            tokenUsageCoordinator: coordinator,
+            usageHistoryService: UsageHistoryService(defaults: testDefaults.defaults),
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.refresh(force: true)
+
+        let relaunched = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            tokenUsageCoordinator: coordinator,
+            usageHistoryService: UsageHistoryService(defaults: testDefaults.defaults),
+            defaults: testDefaults.defaults
+        )
+        #expect(relaunched.effortSummary(for: .codex, period: .last30Days) == effortSummary)
+        #expect(relaunched.providerDetails[.codex]?.effortSummaries == [effortSummary])
+    }
+
     private static func makeUsageSnapshot() -> UsageSnapshot {
         UsageSnapshot(
             session: UsageWindow(
@@ -640,17 +912,20 @@ private actor StubTokenUsageService: TokenUsageServiceProtocol {
     private let snapshot: TokenUsageSnapshot
     private let parsedResults: [URL: TokenUsageService.IncrementalParseResult]
     private let extraDetails: [Provider: ProviderDetail]
+    private let extraEffortSamples: [EffortUsageSample]
     private let shouldFailParsedEntries: Bool
 
     init(
         snapshot: TokenUsageSnapshot,
         parsedResults: [URL: TokenUsageService.IncrementalParseResult] = [:],
         extraDetails: [Provider: ProviderDetail] = [:],
+        extraEffortSamples: [EffortUsageSample] = [],
         shouldFailParsedEntries: Bool = false
     ) {
         self.snapshot = snapshot
         self.parsedResults = parsedResults
         self.extraDetails = extraDetails
+        self.extraEffortSamples = extraEffortSamples
         self.shouldFailParsedEntries = shouldFailParsedEntries
     }
 
@@ -669,6 +944,10 @@ private actor StubTokenUsageService: TokenUsageServiceProtocol {
 
     func fetchExtraProviderDetails(since: Date) async -> [Provider: ProviderDetail] {
         extraDetails
+    }
+
+    func fetchExtraProviderEffortSamples(since: Date) async -> [EffortUsageSample] {
+        extraEffortSamples.filter { $0.timestamp >= since }
     }
 }
 

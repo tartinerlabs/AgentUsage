@@ -200,6 +200,33 @@ struct UsageViewModelInitialStateTests {
         #expect(providerSnapshot?.planName == "Pro")
         #expect(providerSnapshot?.windows.map(\.windowType) == [.session, .opus])
     }
+
+    @Test @MainActor func claudeEffortOnlyDetailCountsAsProviderData() {
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            defaults: TestUserDefaults().defaults
+        )
+        let zeroToday = TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today)
+        viewModel.providerDetails[.claude] = ProviderDetail(
+            today: zeroToday,
+            yesterday: zeroToday,
+            last30Days: TokenUsageSummary(tokens: .zero, costUSD: 0, period: .last30Days),
+            byModel: [:],
+            dailyCosts: [],
+            effortSummaries: [
+                EffortPeriodSummary(
+                    period: .last30Days,
+                    levels: [EffortLevelCount(level: .high, sessionCount: 2)],
+                    classifiedSessionCount: 2,
+                    unclassifiedSessionCount: 0
+                ),
+            ]
+        )
+
+        #expect(viewModel.snapshot == nil)
+        #expect(viewModel.hasProviderData(.claude))
+        #expect(viewModel.providersWithEffortUsage.contains(.claude))
+    }
     #endif
 }
 
@@ -711,6 +738,34 @@ struct UsageViewModelVerifiedContinuitySyncTests {
         #expect(viewModel.continuitySyncErrorMessage == nil)
     }
 
+    @Test @MainActor func effortOnlyLocalUsagePublishesThroughProviderSnapshots() async throws {
+        let syncService = MockUsageSyncService()
+        let viewModel = makeViewModel(syncService: syncService)
+        let summary = EffortPeriodSummary(
+            period: .last30Days,
+            levels: [EffortLevelCount(level: .xhigh, sessionCount: 3)],
+            classifiedSessionCount: 3,
+            unclassifiedSessionCount: 1
+        )
+        let zeroToday = TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today)
+        viewModel.providerDetails[.codex] = ProviderDetail(
+            today: zeroToday,
+            yesterday: zeroToday,
+            last30Days: TokenUsageSummary(tokens: .zero, costUSD: 0, period: .last30Days),
+            byModel: [:],
+            dailyCosts: [],
+            effortSummaries: [summary]
+        )
+
+        await viewModel.refreshContinuitySync()
+
+        let publishedSnapshots = await syncService.lastPublishedProviderSnapshots()
+        let published = try #require(publishedSnapshots)
+        let codex = try #require(published.first { $0.provider == .codex })
+        #expect(codex.windows.isEmpty)
+        #expect(codex.effortSummaries == [summary])
+    }
+
     @Test @MainActor func macRevokeRemovesTheWholeContinuitySetup() async {
         let syncService = MockUsageSyncService()
         let viewModel = makeViewModel(syncService: syncService)
@@ -847,6 +902,12 @@ struct UsageViewModelMobileContinuityTests {
 
     @Test @MainActor func syncedProviderSnapshotsAreAvailableOnMobile() async {
         let snapshot = Self.snapshot()
+        let effortSummary = EffortPeriodSummary(
+            period: .last30Days,
+            levels: [EffortLevelCount(level: .xhigh, sessionCount: 12)],
+            classifiedSessionCount: 12,
+            unclassifiedSessionCount: 2
+        )
         let codexWindow = UsageWindow(
             utilization: 54,
             resetsAt: Date().addingTimeInterval(3_600),
@@ -856,6 +917,7 @@ struct UsageViewModelMobileContinuityTests {
             provider: .codex,
             windows: [codexWindow],
             planName: "Plus",
+            effortSummaries: [effortSummary],
             fetchedAt: snapshot.fetchedAt
         )
         let syncService = MockUsageSyncService()
@@ -868,13 +930,92 @@ struct UsageViewModelMobileContinuityTests {
                 syncGeneration: "mobile-generation"
             )
         )
-        let viewModel = Self.makeViewModel(syncService: syncService)
+        let testDefaults = TestUserDefaults()
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            defaults: testDefaults.defaults
+        )
 
         await viewModel.refreshContinuitySync()
 
         #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
         #expect(viewModel.usageSnapshot(for: .codex)?.windows.map(\.windowType) == [.codexFiveHour])
+        #expect(viewModel.effortSummary(for: .codex, period: .last30Days) == effortSummary)
         #expect(viewModel.hasProviderData(.codex))
+
+        let relaunchedViewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: MockUsageSyncService(),
+            defaults: testDefaults.defaults
+        )
+
+        #expect(relaunchedViewModel.effortSummary(for: .codex, period: .last30Days) == effortSummary)
+    }
+
+    @Test @MainActor func newerEffortOnlySyncClearsStaleClaudeQuota() async {
+        let testDefaults = TestUserDefaults()
+        let syncService = MockUsageSyncService()
+        let oldQuota = Self.snapshot(
+            session: 72,
+            reset: Date().addingTimeInterval(3_600),
+            fetchedAt: Date().addingTimeInterval(-60)
+        )
+        await syncService.configureFetchedSnapshot(
+            SyncedUsageSnapshot(
+                snapshot: oldQuota,
+                planType: "Pro",
+                fetchedAt: oldQuota.fetchedAt,
+                syncGeneration: "quota-generation"
+            )
+        )
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            defaults: testDefaults.defaults
+        )
+        await viewModel.refreshContinuitySync()
+        #expect(viewModel.snapshot?.session.percentUsed == 72)
+
+        let effortSummary = EffortPeriodSummary(
+            period: .last30Days,
+            levels: [EffortLevelCount(level: .high, sessionCount: 4)],
+            classifiedSessionCount: 4,
+            unclassifiedSessionCount: 1
+        )
+        let effortFetchedAt = Date()
+        let effortOnlyClaude = ProviderUsageSnapshot(
+            provider: .claude,
+            windows: [],
+            planName: "Pro",
+            effortSummaries: [effortSummary],
+            fetchedAt: effortFetchedAt
+        )
+        await syncService.configureFetchedSnapshot(
+            SyncedUsageSnapshot(
+                planType: "Pro",
+                providerSnapshots: [effortOnlyClaude],
+                fetchedAt: effortFetchedAt,
+                syncGeneration: "effort-generation"
+            )
+        )
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.snapshot == nil)
+        #expect(viewModel.usageSnapshot(for: .claude)?.windows.isEmpty == true)
+        #expect(viewModel.effortSummary(for: .claude, period: .last30Days) == effortSummary)
+        #expect(viewModel.hasProviderData(.claude))
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.claude])
+
+        let relaunchedViewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: MockUsageSyncService(),
+            defaults: testDefaults.defaults
+        )
+        #expect(relaunchedViewModel.snapshot == nil)
+        #expect(relaunchedViewModel.effortSummary(for: .claude, period: .last30Days) == effortSummary)
+        #expect(relaunchedViewModel.availableProviderSnapshots.map(\.provider) == [.claude])
     }
 
     @Test @MainActor func disabledSyncedProviderSnapshotsStayHiddenOnMobileWithoutClaudeSnapshot() async {
@@ -1124,6 +1265,7 @@ actor MockUsageSyncService: UsageSyncServicing {
     private var acknowledgedDevices: [UsageSyncDevice] = []
     private var revokedDevices: [UsageSyncDevice] = []
     private var revokedAll = false
+    private var publishedProviderSnapshots: [ProviderUsageSnapshot]?
 
     func configurePublication(generation: String) {
         publication = PublishedUsageSnapshot(syncGeneration: generation, fetchedAt: Date())
@@ -1165,12 +1307,17 @@ actor MockUsageSyncService: UsageSyncServicing {
         revokedAll
     }
 
+    func lastPublishedProviderSnapshots() -> [ProviderUsageSnapshot]? {
+        publishedProviderSnapshots
+    }
+
     func publish(
         snapshot: UsageSnapshot?,
         planType: String,
         providerSnapshots: [ProviderUsageSnapshot]
     ) async throws -> PublishedUsageSnapshot {
         if let publishError { throw publishError }
+        publishedProviderSnapshots = providerSnapshots
         return publication
     }
 
