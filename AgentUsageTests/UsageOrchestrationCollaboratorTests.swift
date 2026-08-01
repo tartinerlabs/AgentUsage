@@ -818,6 +818,61 @@ struct UsageViewModelTokenCoordinationTests {
         #expect(!viewModel.isLoadingTokenUsage)
     }
 
+    @Test @MainActor func failedLocalReadKeepsCachedQuotaProviderUnavailableDetail() async {
+        let testDefaults = TestUserDefaults()
+        let fetchedAt = Date()
+        UsageSnapshotStore(defaults: testDefaults.defaults).save(
+            snapshot: nil,
+            planType: "Free",
+            providerSnapshots: [
+                ProviderUsageSnapshot(
+                    provider: .codex,
+                    windows: [
+                        UsageWindow(
+                            utilization: 42,
+                            resetsAt: fetchedAt.addingTimeInterval(3_600),
+                            windowType: .codexFiveHour
+                        ),
+                    ],
+                    planName: "Plus",
+                    fetchedAt: fetchedAt
+                ),
+            ],
+            fetchedAt: fetchedAt
+        )
+        let tokenSnapshot = TokenUsageCoordinatorTests.makeTokenSnapshot(inputTokens: 0)
+        let coordinator = StubTokenUsageCoordinator(
+            update: TokenUsageRefreshUpdate(
+                snapshot: tokenSnapshot,
+                periodSummaries: [:],
+                selectedPeriodSummary: nil
+            ),
+            details: [:],
+            refreshError: TokenUsageError.fileReadError(
+                NSError(domain: "TokenUsageTests", code: 2)
+            )
+        )
+        let credentials = MockCredentialProvider()
+        await credentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let apiService = MockAPIService()
+        await apiService.setMockSnapshot(Self.makeUsageSnapshot())
+        let viewModel = UsageViewModel(
+            credentialProvider: credentials,
+            apiService: apiService,
+            tokenUsageCoordinator: coordinator,
+            usageHistoryService: UsageHistoryService(defaults: testDefaults.defaults),
+            defaults: testDefaults.defaults
+        )
+
+        #expect(viewModel.providerDetails[.codex]?.hasTokenUsage == false)
+        await viewModel.refresh(force: true)
+
+        #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
+        #expect(viewModel.providerDetails[.codex]?.hasTokenUsage == false)
+        #expect(viewModel.providerDetails[.codex]?.effortSummaries.isEmpty == true)
+        #expect(viewModel.tokenUsageError != nil)
+    }
+
     @Test @MainActor func enrichedEffortPayloadSurvivesMacRelaunch() async {
         let testDefaults = TestUserDefaults()
         let tokenSnapshot = TokenUsageCoordinatorTests.makeTokenSnapshot(inputTokens: 25)

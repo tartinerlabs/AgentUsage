@@ -29,8 +29,11 @@ actor OpenCodeLogSource: UsageLogSource {
     }
 
     func fetchEntries(since: Date) async throws -> [ProviderUsageEntry] {
-        guard let dbURL = candidatePaths.first(where: { fileManager.fileExists(atPath: $0.path) }) else {
-            return []
+        guard let dbURL = candidatePaths.first(where: {
+            fileManager.fileExists(atPath: $0.path)
+                && fileManager.isReadableFile(atPath: $0.path)
+        }) else {
+            throw UsageLogSourceError.unavailable
         }
         return try query(dbURL: dbURL, since: since)
     }
@@ -45,7 +48,7 @@ actor OpenCodeLogSource: UsageLogSource {
             let msg = db.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown"
             if let db { sqlite3_close(db) }
             Logger.tokenUsage.warning("OpenCode DB open failed: \(msg)")
-            return []
+            throw UsageLogSourceError.unavailable
         }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 2000)
@@ -61,7 +64,7 @@ actor OpenCodeLogSource: UsageLogSource {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             Logger.tokenUsage.warning("OpenCode query prepare failed: \(String(cString: sqlite3_errmsg(db)))")
-            return []
+            throw UsageLogSourceError.unavailable
         }
         defer { sqlite3_finalize(stmt) }
         sqlite3_bind_int64(stmt, 1, sinceMillis)
