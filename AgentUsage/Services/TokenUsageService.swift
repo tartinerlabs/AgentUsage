@@ -71,6 +71,12 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         var entriesByProvider: [Provider: [ProviderUsageEntry]] = [:]
         for source in extraSources {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
+            // An empty result is still a successful read. Preserve the source
+            // provider so callers can distinguish genuine zero usage from an
+            // unavailable local source.
+            if entries.isEmpty, entriesByProvider[source.provider] == nil {
+                entriesByProvider[source.provider] = []
+            }
             for entry in entries {
                 entriesByProvider[entry.provider, default: []].append(entry)
             }

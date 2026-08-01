@@ -526,18 +526,10 @@ final class UsageViewModel {
         planType = cached.planType
         providerUsage = providerUsageDictionary(from: cached.providerSnapshots)
         #if os(macOS)
-        let zeroToday = TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today)
-        for providerSnapshot in cached.providerSnapshots where !providerSnapshot.effortSummaries.isEmpty {
-            providerDetails[providerSnapshot.provider] = ProviderDetail(
-                today: zeroToday,
-                yesterday: zeroToday,
-                last30Days: TokenUsageSummary(tokens: .zero, costUSD: 0, period: .last30Days),
-                byModel: [:],
-                dailyCosts: [],
-                effortSummaries: providerSnapshot.effortSummaries,
-                hasTokenUsage: false
-            )
-        }
+        providerDetails = addingUnavailableLocalUsageDetails(
+            to: [:],
+            from: providerUsage.values
+        )
         #endif
         isUsingCachedData = true
         Logger.viewModel.debug("Loaded cached snapshot from \(self.timeSinceLastUpdate ?? "unknown time")")
@@ -570,6 +562,46 @@ final class UsageViewModel {
             .filter { !Self.disabledProviders.contains($0.provider) }
             .sorted { $0.provider.rawValue < $1.provider.rawValue }
     }
+
+    #if os(macOS)
+    private func addingUnavailableLocalUsageDetails(
+        to details: [Provider: ProviderDetail],
+        from snapshots: some Sequence<ProviderUsageSnapshot>
+    ) -> [Provider: ProviderDetail] {
+        var resolved = details
+        for providerSnapshot in snapshots {
+            let provider = providerSnapshot.provider
+            guard resolved[provider] == nil,
+                  provider.supports(.tokenCost) || !providerSnapshot.effortSummaries.isEmpty
+            else {
+                continue
+            }
+
+            let previousEffort = providerDetails[provider]?.effortSummaries ?? []
+            resolved[provider] = Self.unavailableLocalUsageDetail(
+                effortSummaries: previousEffort.isEmpty
+                    ? providerSnapshot.effortSummaries
+                    : previousEffort
+            )
+        }
+        return resolved
+    }
+
+    private static func unavailableLocalUsageDetail(
+        effortSummaries: [EffortPeriodSummary]
+    ) -> ProviderDetail {
+        let zeroToday = TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today)
+        return ProviderDetail(
+            today: zeroToday,
+            yesterday: zeroToday,
+            last30Days: TokenUsageSummary(tokens: .zero, costUSD: 0, period: .last30Days),
+            byModel: [:],
+            dailyCosts: [],
+            effortSummaries: effortSummaries,
+            hasTokenUsage: false
+        )
+    }
+    #endif
 
     // MARK: - Notifications
 
@@ -1118,7 +1150,11 @@ extension UsageViewModel {
             }
         }
 
-        providerDetails = await tokenUsageCoordinator.providerDetails(using: tokenSnapshot)
+        let refreshedDetails = await tokenUsageCoordinator.providerDetails(using: tokenSnapshot)
+        providerDetails = addingUnavailableLocalUsageDetails(
+            to: refreshedDetails,
+            from: providerUsage.values
+        )
     }
 
     #endif

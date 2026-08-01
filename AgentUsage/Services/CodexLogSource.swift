@@ -77,7 +77,7 @@ actor CodexLogSource: UsageLogSource {
     }
 
     func fetchEntries(since: Date) async throws -> [ProviderUsageEntry] {
-        let files = rolloutFiles(modifiedAfter: since)
+        let files = try rolloutFiles(modifiedAfter: since)
         let currentURLs = Set(files.map(\.url))
         var nextDiagnostics = CodexLogSourceDiagnostics(discoveredFileCount: files.count)
         var entries: [ProviderUsageEntry] = []
@@ -134,21 +134,24 @@ actor CodexLogSource: UsageLogSource {
 
     // MARK: - File discovery
 
-    private func rolloutFiles(modifiedAfter cutoff: Date) -> [RolloutFile] {
+    private func rolloutFiles(modifiedAfter cutoff: Date) throws -> [RolloutFile] {
         let resourceKeys: Set<URLResourceKey> = [
             .isRegularFileKey,
             .contentModificationDateKey,
             .fileSizeKey,
         ]
         var result: [RolloutFile] = []
+        var foundReadableDirectory = false
 
         for directory in directories {
             guard fileManager.fileExists(atPath: directory.path),
+                  fileManager.isReadableFile(atPath: directory.path),
                   let enumerator = fileManager.enumerator(
                     at: directory,
                     includingPropertiesForKeys: Array(resourceKeys),
                     options: [.skipsHiddenFiles]
                   ) else { continue }
+            foundReadableDirectory = true
 
             for case let url as URL in enumerator {
                 guard url.pathExtension == "jsonl",
@@ -170,6 +173,9 @@ actor CodexLogSource: UsageLogSource {
             }
         }
 
+        guard foundReadableDirectory else {
+            throw UsageLogSourceError.unavailable
+        }
         return result
     }
 

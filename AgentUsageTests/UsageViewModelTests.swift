@@ -93,6 +93,11 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.hasProviderData(.cursor))
         #expect(!viewModel.hasProviderData(.claude))
         #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex, .cursor])
+        #if os(macOS)
+        #expect(viewModel.providerDetails[.codex]?.hasTokenUsage == false)
+        #expect(viewModel.providerDetails[.codex]?.effortSummaries.isEmpty == true)
+        #expect(viewModel.providerDetails[.cursor] == nil)
+        #endif
     }
 
     @Test @MainActor func availableProviderSnapshotsFollowProviderOrderAndBridgeClaude() async {

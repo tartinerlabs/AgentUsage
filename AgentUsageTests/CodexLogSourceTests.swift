@@ -128,6 +128,47 @@ struct CodexLogSourceTests {
         #expect(EffortUsageAggregator.summaries(from: samples).isEmpty)
     }
 
+    @Test @MainActor func successfulEmptyThirtyDayReadRemainsAvailableAlongsideOlderEffort() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("rollout-older-effort.jsonl")
+        let now = Date()
+        let olderTimestamp = now.addingTimeInterval(-60 * 24 * 60 * 60)
+        let content = [
+            Self.turnContext(model: "gpt-5.6-codex", effort: "high"),
+            Self.tokenCount(timestamp: olderTimestamp, input: 15),
+        ].joined(separator: "\n")
+        try Self.write(content, to: file)
+        try Self.setModificationDate(olderTimestamp, for: file)
+
+        let service = TokenUsageService(extraSources: [CodexLogSource(directories: [directory])])
+        let coordinator = TokenUsageCoordinator(
+            tokenService: service,
+            defaults: TestUserDefaults().defaults,
+            now: { now }
+        )
+
+        let details = await coordinator.providerDetails(using: nil)
+        let detail = try #require(details[.codex])
+        let effort = try #require(detail.effortSummary(for: .last90Days))
+
+        #expect(detail.hasTokenUsage)
+        #expect(detail.last30Days.tokens.totalTokens == 0)
+        #expect(effort.sessionCount(for: .high) == 1)
+    }
+
+    @Test func unavailableSourceDoesNotSynthesizeZeroTokenDetail() async {
+        let missingDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CodexLogSourceTests-missing-\(UUID().uuidString)")
+        let service = TokenUsageService(
+            extraSources: [CodexLogSource(directories: [missingDirectory])]
+        )
+
+        let details = await service.fetchExtraProviderDetails(since: .distantPast)
+
+        #expect(details[.codex] == nil)
+    }
+
     @Test func usesModificationDateWhenTokenTimestampIsMissing() async throws {
         let directory = try Self.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
