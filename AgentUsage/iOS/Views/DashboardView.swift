@@ -147,6 +147,13 @@ struct DashboardView: View {
                             .accessibilityHint("Shows \(metric.displayName) usage in Dynamic Island")
                         }
                     }
+
+                    if let startError = liveActivityManager.startError {
+                        Label(startError, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Live Activity could not start: \(startError)")
+                    }
                 }
             }
             .padding()
