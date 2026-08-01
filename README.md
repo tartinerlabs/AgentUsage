@@ -9,7 +9,7 @@ A multi-platform app (macOS + iOS) that monitors your Claude Code API usage in r
 Multi-platform app that monitors Claude Code API usage in real-time. Tracks session (5-hour) and weekly (7-day) rate limits for Opus and Sonnet models, plus token usage and cost from local logs.
 
 **Platforms:**
-- **macOS 15+**: Menu bar app with local notifications and auto-updates
+- **macOS 15+**: Menu bar app with local notifications
 - **iOS 18+**: Dashboard app with local notifications, widgets, and Live Activity
 
 ## Features
@@ -25,8 +25,10 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 **macOS Only:**
 - Menu bar app with dynamic color-coded icon
 - Launch at login option
+<!-- Dormant until a direct-distribution build returns:
 - Auto-updates via Sparkle
 - Orange badge when update available
+-->
 - Keyboard shortcuts (⌘, for Settings)
 
 **iOS Only:**
@@ -94,7 +96,9 @@ xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Relea
 - **Refresh**: Manual, 1, 2, 5 (default), or 15 minutes
 - **Notifications**: Threshold alerts (25%, 50%, 75%, 100%) and reset notifications
 - **Launch at Login**: Auto-start on macOS startup
+<!-- Dormant until a direct-distribution build returns:
 - **Updates**: Manual check or automatic background checks (orange badge when available)
+-->
 
 **Settings (iOS):**
 - Refresh intervals, usage notifications, and version info via Settings tab

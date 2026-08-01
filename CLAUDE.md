@@ -88,13 +88,14 @@ publishes over CloudKit
 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` is set project-wide. Mark types
 `nonisolated` when they need to cross actor boundaries.
 
-**Sparkle is unlinked but not deleted.** There are zero Sparkle references in
-`AgentUsage.xcodeproj`, so the `#else` stub in `UpdaterController.swift` is what
-compiles — but the file still contains a full `#if canImport(Sparkle)` branch
-with an `SPUUpdaterDelegate` implementation (`UpdaterController.swift:46`). The
+**Sparkle is dormant and unlinked.** There are zero Sparkle references in
+`AgentUsage.xcodeproj`. The complete implementation remains inside an outer
+comment in `UpdaterController.swift`, and its app wiring, settings UI, debug
+action, and update banners are commented at their former call sites. The
 `SUFeedURL`, `SUPublicEDKey`, `SUEnableAutomaticChecks`, and
-`SUScheduledCheckInterval` keys remain in `AgentUsage/Info.plist` and are inert.
-Don't treat either as evidence Sparkle is live.
+`SUScheduledCheckInterval` entries remain XML-commented in `AgentUsage/Info.plist`.
+Restore these pieces only for a separate direct-distribution build; App Store and
+TestFlight builds must continue using Apple's update path.
 
 **The GitHub Actions workflows cannot trigger.** `.github/workflows/ci.yml`,
 `release.yml`, and `pages.yml` contain zero non-comment lines, and a fully

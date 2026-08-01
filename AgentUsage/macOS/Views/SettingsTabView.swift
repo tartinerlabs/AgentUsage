@@ -11,7 +11,8 @@ import SwiftUI
 /// Settings content for the main window tab
 struct SettingsTabView: View {
     @Environment(UsageViewModel.self) private var viewModel
-    @EnvironmentObject private var updaterController: UpdaterController
+    // Direct-distribution updater support is dormant while releases use App Store/TestFlight.
+    // @EnvironmentObject private var updaterController: UpdaterController
     @StateObject private var launchAtLogin = LaunchAtLoginService.shared
     @State private var notificationSettings = NotificationSettings.load()
     @State private var blogSyncTokenDraft = ""
@@ -392,6 +393,8 @@ struct SettingsTabView: View {
                             }
                         }
 
+                        // Restore with the updater integration for a future direct-distribution build.
+                        /*
                         Divider()
 
                         HStack {
@@ -407,12 +410,15 @@ struct SettingsTabView: View {
                                 updaterController.checkForUpdatesInBackground()
                             }
                         }
+                        */
                     }
                 }
                 #endif
 
-                // Updates Section (App Store Connect builds only)
-                if Bundle.main.isAppStoreBuild {
+                // App Store and TestFlight own update discovery and installation. Restore this
+                // card only if a separate direct-distribution build brings Sparkle back.
+                /*
+                if !Bundle.main.isAppStoreBuild {
                     settingsCard(title: "Updates", systemImage: "arrow.down.circle") {
                         VStack(spacing: 12) {
                             HStack {
@@ -499,6 +505,7 @@ struct SettingsTabView: View {
                         }
                     }
                 }
+                */
 
                 Spacer(minLength: 0)
             }
@@ -579,6 +586,8 @@ struct SettingsTabView: View {
         return parts.joined(separator: " • ")
     }
 
+    // Used by the dormant direct-distribution Updates card above.
+    /*
     private func resultColor(for result: UpdateCheckResult) -> Color {
         switch result {
         case .upToDate:
@@ -589,12 +598,14 @@ struct SettingsTabView: View {
             return .orange
         }
     }
+    */
 
     private var settingsHeader: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Settings")
                 .font(.title2.weight(.semibold))
-            Text("Control refresh cadence, notifications, syncing, and updates.")
+            // Text("Control refresh cadence, notifications, syncing, and updates.")
+            Text("Control refresh cadence, notifications, and syncing.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -717,7 +728,7 @@ struct SettingsTabView: View {
 #Preview {
     SettingsTabView()
         .environment(UsageViewModel(credentialProvider: MacOSCredentialService()))
-        .environmentObject(UpdaterController())
+        // .environmentObject(UpdaterController())
         .frame(width: 500, height: 400)
 }
 #endif

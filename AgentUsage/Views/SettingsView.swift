@@ -8,7 +8,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(UsageViewModel.self) private var viewModel
-    @EnvironmentObject private var updaterController: UpdaterController
+    // Direct-distribution updater support is dormant while releases use App Store/TestFlight.
+    // @EnvironmentObject private var updaterController: UpdaterController
 
     var body: some View {
         TabView {
@@ -24,13 +25,16 @@ struct SettingsView: View {
                     Label("Notifications", systemImage: "bell")
                 }
 
-            if Bundle.main.isAppStoreBuild {
+            // Restore with the updater integration for a future direct-distribution build.
+            /*
+            if !Bundle.main.isAppStoreBuild {
                 UpdatesTab()
                     .environmentObject(updaterController)
                     .tabItem {
                         Label("Updates", systemImage: "arrow.triangle.2.circlepath")
                     }
             }
+            */
 
             AboutTab()
                 .tabItem {
@@ -167,8 +171,9 @@ private struct NotificationsTab: View {
     }
 }
 
-// MARK: - Updates Tab
+// MARK: - Updates Tab (direct-distribution updater dormant)
 
+/*
 private struct UpdatesTab: View {
     @EnvironmentObject private var updaterController: UpdaterController
 
@@ -221,6 +226,7 @@ private struct UpdatesTab: View {
         }
     }
 }
+*/
 
 // MARK: - About Tab
 
@@ -279,6 +285,8 @@ extension Bundle {
         return "\(version) (\(build))"
     }
 
+    // Used by the dormant direct-distribution Updates UI above.
+    /*
     /// True only when distributed through App Store Connect (Mac App Store or
     /// TestFlight), detected by the presence of an App Store receipt.
     /// Developer ID / direct-download / ad-hoc / dev builds have no receipt.
@@ -286,11 +294,12 @@ extension Bundle {
         guard let receiptURL = appStoreReceiptURL else { return false }
         return FileManager.default.fileExists(atPath: receiptURL.path)
     }
+    */
 }
 
 #Preview {
     SettingsView()
         .environment(UsageViewModel(credentialProvider: MacOSCredentialService()))
-        .environmentObject(UpdaterController())
+        // .environmentObject(UpdaterController())
 }
 #endif

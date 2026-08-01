@@ -3,6 +3,11 @@
 //  AgentUsage
 //
 
+/*
+ Direct-distribution updater support is intentionally dormant while macOS releases use
+ App Store/TestFlight distribution. Remove this outer comment and restore the commented
+ integration points if a separate Sparkle-enabled distribution returns.
+
 #if os(macOS)
 internal import Combine
 import Foundation
@@ -387,3 +392,4 @@ final class UpdaterController: ObservableObject {
 }
 #endif
 #endif
+*/

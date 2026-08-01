@@ -17,7 +17,8 @@ struct AgentUsageApp: App {
 
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var updaterController = UpdaterController()
+    // Direct-distribution updater support is dormant while releases use App Store/TestFlight.
+    // @StateObject private var updaterController = UpdaterController()
     @AppStorage("selectedMainWindowTab") private var selectedTab: NavigationTarget = .section(.dashboard)
     @Environment(\.openWindow) private var openWindow
 
@@ -116,7 +117,7 @@ struct AgentUsageApp: App {
         Window(Constants.appDisplayName, id: Constants.mainWindowID) {
             MainNavigationView()
                 .environment(viewModel)
-                .environmentObject(updaterController)
+                // .environmentObject(updaterController)
                 .task {
                     await viewModel.initializeIfNeeded()
                 }
@@ -139,7 +140,7 @@ struct AgentUsageApp: App {
         MenuBarExtra {
             MenuBarView()
                 .environment(viewModel)
-                .environmentObject(updaterController)
+                // .environmentObject(updaterController)
         } label: {
             MenuBarIconView()
                 .environment(viewModel)
