@@ -11,7 +11,8 @@ internal import Combine
 /// Dashboard view for the main window, displaying usage stats and token costs
 struct DashboardTabView: View {
     @Environment(UsageViewModel.self) private var viewModel
-    @EnvironmentObject private var updaterController: UpdaterController
+    // Direct-distribution updater support is dormant while releases use App Store/TestFlight.
+    // @EnvironmentObject private var updaterController: UpdaterController
     @State private var now = Date()
 
     private let contentWidth: CGFloat = 760
@@ -21,9 +22,12 @@ struct DashboardTabView: View {
             VStack(alignment: .leading, spacing: 24) {
                 overviewHeader
 
+                // Restore with the updater integration for a future direct-distribution build.
+                /*
                 if updaterController.updateAvailable {
                     updateBanner
                 }
+                */
 
                 if viewModel.showExtraUsageIndicators, viewModel.snapshot?.isExtraUsageActive == true {
                     extraUsageBanner
@@ -443,8 +447,9 @@ struct DashboardTabView: View {
         )
     }
 
-    // MARK: - Update Banner
+    // MARK: - Update Banner (direct-distribution updater dormant)
 
+    /*
     private var updateBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.down.circle.fill")
@@ -469,6 +474,7 @@ struct DashboardTabView: View {
                 .fill(Color.orange.opacity(0.1))
         )
     }
+    */
 
     // MARK: - Extra Usage Cost Section
 
@@ -583,7 +589,7 @@ struct DashboardTabView: View {
 #Preview {
     DashboardTabView()
         .environment(UsageViewModel(credentialProvider: MacOSCredentialService()))
-        .environmentObject(UpdaterController())
+        // .environmentObject(UpdaterController())
         .frame(width: 760, height: 640)
 }
 #endif

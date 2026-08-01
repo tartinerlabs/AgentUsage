@@ -10,7 +10,8 @@ internal import Combine
 
 struct MenuBarView: View {
     @Environment(UsageViewModel.self) private var viewModel
-    @EnvironmentObject private var updaterController: UpdaterController
+    // Direct-distribution updater support is dormant while releases use App Store/TestFlight.
+    // @EnvironmentObject private var updaterController: UpdaterController
     @Environment(\.openWindow) private var openWindow
     @AppStorage("selectedMainWindowTab") private var selectedTab: NavigationTarget = .section(.dashboard)
 
@@ -123,9 +124,12 @@ struct MenuBarView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
+            // Restore with the updater integration for a future direct-distribution build.
+            /*
             if updaterController.updateAvailable {
                 updateBanner.padding([.horizontal, .top], 16)
             }
+            */
 
             ScrollView {
                 pageContent
@@ -255,6 +259,8 @@ struct MenuBarView: View {
         .padding(.vertical, 40)
     }
 
+    // Restore with the updater integration for a future direct-distribution build.
+    /*
     private var updateBanner: some View {
         HStack {
             Image(systemName: "arrow.down.circle.fill")
@@ -273,6 +279,7 @@ struct MenuBarView: View {
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange))
     }
+    */
 
     private var footer: some View {
         HStack {
@@ -301,6 +308,6 @@ struct MenuBarView: View {
 #Preview {
     MenuBarView()
         .environment(UsageViewModel(credentialProvider: MacOSCredentialService()))
-        .environmentObject(UpdaterController())
+        // .environmentObject(UpdaterController())
 }
 #endif
