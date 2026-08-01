@@ -17,7 +17,7 @@ struct LockScreenWidgetView: View {
         } else {
             // WidgetNoDataView switches on the same family, so each accessory
             // shape gets its own empty treatment.
-            WidgetNoDataView(reason: entry.unavailableReason)
+            WidgetNoDataView(reason: entry.unavailableReason, provider: entry.provider)
         }
     }
 
@@ -41,7 +41,7 @@ struct LockScreenWidgetView: View {
         let status = usage.status(from: entry.date)
 
         return Gauge(value: usage.normalized) {
-            Image(systemName: WidgetDesign.provider.iconName)
+            Image(systemName: entry.provider.iconName)
                 .font(.caption2)
         } currentValueLabel: {
             VStack(spacing: 0) {
@@ -55,7 +55,7 @@ struct LockScreenWidgetView: View {
         .tint(status.color)
         .widgetAccentable()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(WidgetDesign.provider.displayName), \(entry.metric.displayName) usage")
+        .accessibilityLabel("\(entry.provider.displayName), \(usage.displayName) usage")
         .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint(accessibilityHint(for: usage))
     }
@@ -70,11 +70,11 @@ struct LockScreenWidgetView: View {
 
         return VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
-                Label(WidgetDesign.provider.displayName, systemImage: WidgetDesign.provider.iconName)
+                Label(entry.provider.displayName, systemImage: entry.provider.iconName)
                     .font(.caption)
                     .fontWeight(.semibold)
                     .lineLimit(1)
-                Text(entry.metric.displayName)
+                Text(usage.displayName)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -108,7 +108,7 @@ struct LockScreenWidgetView: View {
             .font(.caption2)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(WidgetDesign.provider.displayName), \(entry.metric.displayName) usage")
+        .accessibilityLabel("\(entry.provider.displayName), \(usage.displayName) usage")
         .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint(accessibilityHint(for: usage))
     }
@@ -118,9 +118,9 @@ struct LockScreenWidgetView: View {
     private func inlineView(for usage: UsageWindow) -> some View {
         let status = usage.status(from: entry.date)
 
-        return Text("\(Image(systemName: WidgetDesign.provider.iconName)) \(WidgetDesign.provider.displayName) \(usage.percentUsed)% \(Image(systemName: status.icon))")
+        return Text("\(Image(systemName: entry.provider.iconName)) \(entry.provider.displayName) \(usage.percentUsed)% \(Image(systemName: status.icon))")
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(WidgetDesign.provider.displayName), \(entry.metric.displayName) usage")
+        .accessibilityLabel("\(entry.provider.displayName), \(usage.displayName) usage")
         .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint(accessibilityHint(for: usage))
     }
