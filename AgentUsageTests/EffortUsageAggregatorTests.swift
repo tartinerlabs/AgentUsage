@@ -6,6 +6,11 @@ import AgentUsageKit
 @Suite("Effort usage aggregation")
 struct EffortUsageAggregatorTests {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private var utcCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
 
     @Test func groupsBySessionUsesDominantLevelAndMarksExactTiesMixed() throws {
         let samples = [
@@ -17,7 +22,12 @@ struct EffortUsageAggregatorTests {
         ]
 
         let summary = try #require(
-            EffortUsageAggregator.summaries(from: samples, periods: [.today], now: now)[.claude]?.first
+            EffortUsageAggregator.summaries(
+                from: samples,
+                periods: [.today],
+                now: now,
+                calendar: utcCalendar
+            )[.claude]?.first
         )
 
         #expect(summary.classifiedSessionCount == 2)
@@ -34,7 +44,12 @@ struct EffortUsageAggregatorTests {
         ]
 
         let summary = try #require(
-            EffortUsageAggregator.summaries(from: samples, periods: [.today], now: now)[.claude]?.first
+            EffortUsageAggregator.summaries(
+                from: samples,
+                periods: [.today],
+                now: now,
+                calendar: utcCalendar
+            )[.claude]?.first
         )
 
         #expect(summary.classifiedSessionCount == 1)
@@ -52,7 +67,12 @@ struct EffortUsageAggregatorTests {
         ]
 
         let summary = try #require(
-            EffortUsageAggregator.summaries(from: samples, periods: [.last7Days], now: now)[.codex]?.first
+            EffortUsageAggregator.summaries(
+                from: samples,
+                periods: [.last7Days],
+                now: now,
+                calendar: utcCalendar
+            )[.codex]?.first
         )
 
         #expect(summary.classifiedSessionCount == 1)
@@ -67,7 +87,8 @@ struct EffortUsageAggregatorTests {
         let summaries = EffortUsageAggregator.summaries(
             from: samples,
             periods: [.today, .last30Days],
-            now: now
+            now: now,
+            calendar: utcCalendar
         )
 
         #expect(summaries[.claude]?.count == 2)
