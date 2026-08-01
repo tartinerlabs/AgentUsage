@@ -525,16 +525,37 @@ final class UsageViewModel {
         snapshot = cached.snapshot
         planType = cached.planType
         providerUsage = providerUsageDictionary(from: cached.providerSnapshots)
+        #if os(macOS)
+        let zeroToday = TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today)
+        for providerSnapshot in cached.providerSnapshots where !providerSnapshot.effortSummaries.isEmpty {
+            providerDetails[providerSnapshot.provider] = ProviderDetail(
+                today: zeroToday,
+                yesterday: zeroToday,
+                last30Days: TokenUsageSummary(tokens: .zero, costUSD: 0, period: .last30Days),
+                byModel: [:],
+                dailyCosts: [],
+                effortSummaries: providerSnapshot.effortSummaries
+            )
+        }
+        #endif
         isUsingCachedData = true
         Logger.viewModel.debug("Loaded cached snapshot from \(self.timeSinceLastUpdate ?? "unknown time")")
     }
 
-    private func cacheSnapshot(_ snapshot: UsageSnapshot, planType: String) {
+    private func cacheSnapshot(_ snapshot: UsageSnapshot?, planType: String) {
+        #if os(macOS)
+        let providerSnapshots = continuityProviderSnapshots()
+        #else
+        let providerSnapshots = enabledProviderSnapshots(from: providerUsage.values)
+        #endif
+        let fetchedAt = ([snapshot?.fetchedAt] + providerSnapshots.map { Optional($0.fetchedAt) })
+            .compactMap { $0 }
+            .max() ?? Date()
         snapshotStore.save(
             snapshot: snapshot,
             planType: planType,
-            providerSnapshots: enabledProviderSnapshots(from: providerUsage.values),
-            fetchedAt: Date()
+            providerSnapshots: providerSnapshots,
+            fetchedAt: fetchedAt
         )
         Logger.viewModel.debug("Cached snapshot successfully")
     }
@@ -647,7 +668,11 @@ extension UsageViewModel {
         let (outcome, _) = await (claudeArm, providersArm)
         // Both arms record into history, so reload once they have both landed.
         usageHistory = await usageHistoryService.getProviderHistory()
-        if !appConnectionRevoked, snapshot != nil || !providerUsage.isEmpty {
+        // Persist the enriched provider payload after local log aggregation has
+        // finished so effort summaries survive a relaunch before the next refresh.
+        cacheSnapshot(snapshot, planType: planType)
+        if !appConnectionRevoked,
+           snapshot != nil || !providerUsage.isEmpty || !providersWithEffortUsage.isEmpty {
             Task { [weak self] in
                 await self?.publishContinuitySnapshot()
             }
@@ -665,17 +690,56 @@ extension UsageViewModel {
     func usageSnapshot(for provider: Provider) -> ProviderUsageSnapshot? {
         guard !Self.disabledProviders.contains(provider) else { return nil }
         if provider == .claude {
-            return snapshot.map { ProviderUsageSnapshot(claude: $0, planName: planType) }
+            #if os(macOS)
+            if let snapshot {
+                return ProviderUsageSnapshot(
+                    claude: snapshot,
+                    planName: planType,
+                    effortSummaries: providerDetails[.claude]?.effortSummaries
+                        ?? providerUsage[.claude]?.effortSummaries
+                        ?? []
+                )
+            }
+            #endif
+            return providerUsage[.claude]
+                ?? snapshot.map { ProviderUsageSnapshot(claude: $0, planName: planType) }
         }
         return providerUsage[provider]
+    }
+
+    /// Session effort distribution received from local logs (macOS) or Continuity Sync (iOS).
+    func effortSummary(for provider: Provider, period: EffortPeriod) -> EffortPeriodSummary? {
+        #if os(macOS)
+        if let summary = providerDetails[provider]?.effortSummary(for: period) {
+            return summary
+        }
+        #endif
+        return providerUsage[provider]?.effortSummary(for: period)
+    }
+
+    /// Providers with at least one classified or explicitly unclassified effort session.
+    var providersWithEffortUsage: [Provider] {
+        Provider.allCases.filter { provider in
+            guard !Self.disabledProviders.contains(provider) else { return false }
+            return EffortPeriod.allCases.contains { period in
+                (effortSummary(for: provider, period: period)?.totalSessionCount ?? 0) > 0
+            }
+        }
     }
 
     /// Providers that have rate-limit data or token-cost detail to present.
     var availableProviders: [Provider] {
         var providers: [Provider] = []
-        if snapshot != nil || isNoUsageData {
+        #if os(macOS)
+        if snapshot != nil || isNoUsageData || providerUsage[.claude] != nil
+            || providerDetails[.claude] != nil {
             providers.append(.claude)
         }
+        #else
+        if usageSnapshot(for: .claude) != nil || isNoUsageData {
+            providers.append(.claude)
+        }
+        #endif
         providers.append(contentsOf: Provider.allCases.filter { provider in
             guard provider != .claude else { return false }
             guard !Self.disabledProviders.contains(provider) else { return false }
@@ -768,6 +832,7 @@ extension UsageViewModel {
                case .noUsageData = apiError {
                 Logger.viewModel.info("No usage data yet (window reset, no prompt sent)")
                 snapshot = nil
+                providerUsage[.claude] = nil
                 isNoUsageData = true
                 isUsingCachedData = false
                 errorMessage = nil
@@ -867,8 +932,8 @@ extension UsageViewModel {
     /// freshness and offline fallback reflect the Mac's fetch time, and hand it to
     /// the widgets and Live Activity.
     private func applySyncedSnapshot(_ synced: SyncedUsageSnapshot, isCached: Bool = false) async {
-        // A sync record is a full provider payload. `nil` means Claude is absent,
-        // not that an older local Claude snapshot should be retained.
+        // A sync record is a full provider payload. `nil` means Claude has no
+        // quota snapshot, including when the record contains effort data only.
         snapshot = synced.snapshot
         planType = synced.planType
         let syncedProviderSnapshots = enabledProviderSnapshots(from: synced.providerSnapshots)
@@ -882,12 +947,12 @@ extension UsageViewModel {
 
         snapshotStore.save(
             snapshot: snapshot,
-            planType: synced.planType,
+            planType: planType,
             providerSnapshots: syncedProviderSnapshots,
             fetchedAt: synced.fetchedAt
         )
 
-        if let snapshot = synced.snapshot {
+        if let snapshot {
             await WidgetDataManager.shared.save(snapshot)
         } else {
             await WidgetDataManager.shared.clear()
@@ -907,7 +972,7 @@ extension UsageViewModel {
         }
 
         #if os(macOS)
-        guard snapshot != nil || !providerUsage.isEmpty else {
+        guard snapshot != nil || !providerUsage.isEmpty || !providersWithEffortUsage.isEmpty else {
             continuitySyncErrorMessage = "Refresh usage once before sharing it with iPhone and iPad."
             return
         }
@@ -939,13 +1004,57 @@ extension UsageViewModel {
             let publication = try await usageSyncService.publish(
                 snapshot: snapshot,
                 planType: planType,
-                providerSnapshots: enabledProviderSnapshots(from: providerUsage.values)
+                providerSnapshots: continuityProviderSnapshots()
             )
             publishedSyncGeneration = publication.syncGeneration
             await refreshContinuityReceipts()
         } catch {
             continuitySyncErrorMessage = "This Mac could not share usage through iCloud: \(error.localizedDescription)"
         }
+    }
+
+    /// Builds the normal provider payload with local effort summaries attached.
+    /// The payload remains the single Continuity Sync source for quota and local-usage metadata.
+    private func continuityProviderSnapshots() -> [ProviderUsageSnapshot] {
+        var snapshots = providerUsage
+        let effortFetchedAt = tokenSnapshot?.fetchedAt ?? Date()
+
+        if let snapshot {
+            snapshots[.claude] = ProviderUsageSnapshot(
+                claude: snapshot,
+                planName: planType,
+                effortSummaries: providerDetails[.claude]?.effortSummaries ?? []
+            )
+        }
+
+        // Local-log usage can remain available when a provider's quota endpoint
+        // is unavailable. Carry effort through the same provider payload even if
+        // there are no rate-limit windows to attach it to.
+        for (provider, detail) in providerDetails
+        where snapshots[provider] == nil && !detail.effortSummaries.isEmpty {
+            snapshots[provider] = ProviderUsageSnapshot(
+                provider: provider,
+                windows: [],
+                planName: provider == .claude ? planType : nil,
+                effortSummaries: detail.effortSummaries,
+                fetchedAt: effortFetchedAt
+            )
+        }
+
+        for (provider, providerSnapshot) in snapshots where provider != .claude {
+            snapshots[provider] = ProviderUsageSnapshot(
+                provider: providerSnapshot.provider,
+                windows: providerSnapshot.windows,
+                extraUsage: providerSnapshot.extraUsage,
+                planName: providerSnapshot.planName,
+                rateLimitResetCredits: providerSnapshot.rateLimitResetCredits,
+                effortSummaries: providerDetails[provider]?.effortSummaries
+                    ?? providerSnapshot.effortSummaries,
+                fetchedAt: providerSnapshot.fetchedAt
+            )
+        }
+
+        return enabledProviderSnapshots(from: snapshots.values)
     }
     #endif
 

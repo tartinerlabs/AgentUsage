@@ -25,5 +25,12 @@ protocol TokenUsageServiceProtocol: Actor {
 
     /// Fetch full detail for non-Claude providers discovered from local sources.
     func fetchExtraProviderDetails(since: Date) async -> [Provider: ProviderDetail]
+
+    /// Fetch session metadata for effort aggregation from non-Claude local sources.
+    func fetchExtraProviderEffortSamples(since: Date) async -> [EffortUsageSample]
+}
+
+extension TokenUsageServiceProtocol {
+    func fetchExtraProviderEffortSamples(since _: Date) async -> [EffortUsageSample] { [] }
 }
 #endif

@@ -97,6 +97,27 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         return result
     }
 
+    func fetchExtraProviderEffortSamples(since: Date) async -> [EffortUsageSample] {
+        var samples: [EffortUsageSample] = []
+        for source in extraSources {
+            guard let entries = try? await source.fetchEntries(since: since) else { continue }
+            // Codex is currently the only extra provider whose local log format
+            // exposes a reasoning-effort setting. Do not turn providers without
+            // that concept into a misleading all-unclassified distribution.
+            samples.append(contentsOf: entries.compactMap { entry in
+                guard entry.provider == .codex else { return nil }
+                return EffortUsageSample(
+                    provider: entry.provider,
+                    sessionID: entry.sessionID,
+                    effortLevel: entry.effortLevel,
+                    timestamp: entry.timestamp,
+                    isSubagentSession: entry.isSubagentSession
+                )
+            })
+        }
+        return samples
+    }
+
     /// Bucket entries into a `days`-length daily cost series (oldest → newest).
     private func dailyCosts(from entries: [ProviderUsageEntry], days: Int, todayStart: Date, calendar: Calendar) -> [Double] {
         var byDay: [Date: Double] = [:]
@@ -237,9 +258,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         skippingFirstLine: Bool = false,
         cutoff: Date? = nil
     ) throws -> [ParsedFields] {
-        guard let handle = try? FileHandle(forReadingFrom: url) else {
-            return []
-        }
+        let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
 
         if offset > 0 {
@@ -249,6 +268,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         var parsed: [ParsedFields] = []
         var pending = Data()
         var shouldSkipLine = skippingFirstLine
+        let fallbackSessionID = url.deletingPathExtension().lastPathComponent
+        let isSubagentSession = url.pathComponents.contains("subagents")
 
         while let chunk = try handle.read(upToCount: readChunkSize), !chunk.isEmpty {
             pending.append(chunk)
@@ -258,7 +279,14 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             while let newline = pending[scanStart...].firstIndex(of: 0x0A) {
                 var line = Data(pending[scanStart..<newline])
                 if line.last == 0x0D { line.removeLast() }
-                appendParsedLine(line, skipping: &shouldSkipLine, cutoff: cutoff, into: &parsed)
+                appendParsedLine(
+                    line,
+                    skipping: &shouldSkipLine,
+                    cutoff: cutoff,
+                    fallbackSessionID: fallbackSessionID,
+                    isSubagentSession: isSubagentSession,
+                    into: &parsed
+                )
                 consumedThrough = pending.index(after: newline)
                 scanStart = consumedThrough
             }
@@ -269,7 +297,14 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         }
 
         if !pending.isEmpty {
-            appendParsedLine(pending, skipping: &shouldSkipLine, cutoff: cutoff, into: &parsed)
+            appendParsedLine(
+                pending,
+                skipping: &shouldSkipLine,
+                cutoff: cutoff,
+                fallbackSessionID: fallbackSessionID,
+                isSubagentSession: isSubagentSession,
+                into: &parsed
+            )
         }
 
         return parsed
@@ -279,6 +314,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         _ line: Data,
         skipping shouldSkipLine: inout Bool,
         cutoff: Date?,
+        fallbackSessionID: String,
+        isSubagentSession: Bool,
         into parsed: inout [ParsedFields]
     ) {
         if shouldSkipLine {
@@ -286,7 +323,11 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             return
         }
         guard !line.isEmpty,
-              let fields = parseCommonFields(data: line),
+              let fields = parseCommonFields(
+                data: line,
+                fallbackSessionID: fallbackSessionID,
+                isSubagentSession: isSubagentSession
+              ),
               cutoff.map({ fields.entry.timestamp >= $0 }) ?? true else {
             return
         }
@@ -317,7 +358,9 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     func parseJSONLines(
         _ content: String,
         skippingFirstLine: Bool = false,
-        cutoff: Date? = nil
+        cutoff: Date? = nil,
+        fallbackSessionID: String = "",
+        isSubagentSession: Bool = false
     ) -> [ParsedFields] {
         var parsed: [ParsedFields] = []
         var shouldSkipLine = skippingFirstLine
@@ -328,7 +371,11 @@ actor TokenUsageService: TokenUsageServiceProtocol {
                 continue
             }
             guard let lineData = line.data(using: .utf8),
-                  let fields = parseCommonFields(data: lineData),
+                  let fields = parseCommonFields(
+                    data: lineData,
+                    fallbackSessionID: fallbackSessionID,
+                    isSubagentSession: isSubagentSession
+                  ),
                   cutoff.map({ fields.entry.timestamp >= $0 }) ?? true else {
                 continue
             }
@@ -337,8 +384,12 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         return parsed
     }
 
-    /// Parse a single assistant log line into common fields (tokens incl. 1h cache, fast mode, sidechain).
-    private func parseCommonFields(data: Data) -> ParsedFields? {
+    /// Parse a single assistant log line into common fields, including optional session effort metadata.
+    private func parseCommonFields(
+        data: Data,
+        fallbackSessionID: String = "",
+        isSubagentSession: Bool = false
+    ) -> ParsedFields? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String,
               type == "assistant",
@@ -358,6 +409,10 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let cacheCreation1hTokens = (usage["cache_creation"] as? [String: Any])?["ephemeral_1h_input_tokens"] as? Int ?? 0
         let fastMode = (usage["speed"] as? String) == "fast"
         let isSidechain = json["isSidechain"] as? Bool ?? false
+        let recordedSessionID = (json["sessionId"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let sessionID = recordedSessionID.flatMap { $0.isEmpty ? nil : $0 } ?? fallbackSessionID
+        let effortLevel = Self.normalizedEffortLevel(json["effort"])
 
         let entry = UsageEntry(
             model: model,
@@ -369,6 +424,9 @@ actor TokenUsageService: TokenUsageServiceProtocol {
                 cacheCreation1hTokens: cacheCreation1hTokens
             ),
             timestamp: timestamp,
+            sessionID: sessionID,
+            effortLevel: effortLevel,
+            isSubagentSession: isSubagentSession,
             fastMode: fastMode
         )
 
@@ -379,6 +437,12 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             isSidechain: isSidechain,
             fallbackId: fallbackIdentifier(for: data)
         )
+    }
+
+    private nonisolated static func normalizedEffortLevel(_ value: Any?) -> EffortLevel? {
+        guard let rawValue = value as? String else { return nil }
+        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized.isEmpty ? nil : EffortLevel(rawValue: normalized)
     }
 
     /// Dedup keys for one entry: the exact `messageId:requestId` plus a `messageId`-only fallback that
@@ -498,6 +562,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
                 tokens: entry.tokens,
                 timestamp: entry.timestamp,
                 dedupKey: "claude:\(index)",  // Claude entries are already deduped during parse
+                sessionID: entry.sessionID,
+                effortLevel: entry.effortLevel,
                 fastMode: entry.fastMode
             )
         }

@@ -545,6 +545,8 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
     /// On-demand rate-limit reset credits (Codex only). nil when the provider
     /// doesn't report them or the account has no reset-credit balance.
     public let rateLimitResetCredits: RateLimitResetCredits?
+    /// Session effort distributions, grouped by aggregation period.
+    public let effortSummaries: [EffortPeriodSummary]
     public let fetchedAt: Date
 
     public var id: String { provider.id }
@@ -555,6 +557,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         extraUsage: ExtraUsageCost? = nil,
         planName: String? = nil,
         rateLimitResetCredits: RateLimitResetCredits? = nil,
+        effortSummaries: [EffortPeriodSummary] = [],
         fetchedAt: Date
     ) {
         self.provider = provider
@@ -562,17 +565,65 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.extraUsage = extraUsage
         self.planName = planName
         self.rateLimitResetCredits = rateLimitResetCredits
+        self.effortSummaries = effortSummaries
         self.fetchedAt = fetchedAt
     }
 
     /// Bridge an existing Claude `UsageSnapshot` into the provider-agnostic shape.
-    public init(claude snapshot: UsageSnapshot, planName: String? = nil) {
+    public init(
+        claude snapshot: UsageSnapshot,
+        planName: String? = nil,
+        effortSummaries: [EffortPeriodSummary] = []
+    ) {
         self.provider = .claude
         self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable].compactMap { $0 }
         self.extraUsage = snapshot.extraUsage
         self.planName = planName
         self.rateLimitResetCredits = nil
+        self.effortSummaries = effortSummaries
         self.fetchedAt = snapshot.fetchedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case provider
+        case windows
+        case extraUsage
+        case planName
+        case rateLimitResetCredits
+        case effortSummaries
+        case fetchedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try container.decode(Provider.self, forKey: .provider)
+        windows = try container.decode([UsageWindow].self, forKey: .windows)
+        extraUsage = try container.decodeIfPresent(ExtraUsageCost.self, forKey: .extraUsage)
+        planName = try container.decodeIfPresent(String.self, forKey: .planName)
+        rateLimitResetCredits = try container.decodeIfPresent(
+            RateLimitResetCredits.self,
+            forKey: .rateLimitResetCredits
+        )
+        effortSummaries = try container.decodeIfPresent(
+            [EffortPeriodSummary].self,
+            forKey: .effortSummaries
+        ) ?? []
+        fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(provider, forKey: .provider)
+        try container.encode(windows, forKey: .windows)
+        try container.encodeIfPresent(extraUsage, forKey: .extraUsage)
+        try container.encodeIfPresent(planName, forKey: .planName)
+        try container.encodeIfPresent(rateLimitResetCredits, forKey: .rateLimitResetCredits)
+        try container.encode(effortSummaries, forKey: .effortSummaries)
+        try container.encode(fetchedAt, forKey: .fetchedAt)
+    }
+
+    public func effortSummary(for period: EffortPeriod) -> EffortPeriodSummary? {
+        effortSummaries.first { $0.period == period }
     }
 
     /// Worst (highest-utilization) window, useful for compact status indicators.
