@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: AgentUsage
-description: Visual identity for AgentUsage — a multi-platform SwiftUI usage "weather station" (macOS menu bar + iOS + widgets) for Claude/Codex/opencode usage.
+description: Visual identity for AgentUsage — a multi-platform SwiftUI usage "weather station" (macOS menu bar + iOS + widgets) for Claude, Codex, Cursor, and enabled OpenCode usage.
 
 colors:
   # Provider-neutral identity — approved app-icon color anchors.
@@ -28,6 +28,7 @@ colors:
   provider-claude: "#D97757"     # Claude clay (note: near-duplicate of brand-secondary)
   provider-codex: "#10A37F"      # OpenAI green
   provider-open-code: "#6366F1"  # Indigo
+  provider-cursor: "#788494"     # Slate
 
 typography:
   # Base is SwiftUI semantic Dynamic Type (SF Pro). Do NOT hardcode point sizes for body text.
@@ -74,7 +75,7 @@ rounded:
   # Corner radii; px == SwiftUI points.
   sm: 4px   # progress bars, badges, extra-usage bars
   md: 12px  # provider cards
-  lg: 16px  # iOS usage cards
+  lg: 16px  # iOS utility and state cards
 
 components:
   # Only spec sub-tokens are used here (backgroundColor, textColor, typography,
@@ -92,8 +93,9 @@ components:
     backgroundColor: "{colors.provider-open-code}"
     rounded: "{rounded.md}"
     padding: "{spacing.lg}"
-  card-usage:                    # UsageCardView.swift:49-53 — background is .regularMaterial
-    rounded: "{rounded.lg}"
+  card-provider-cursor:          # same card, Cursor accent
+    backgroundColor: "{colors.provider-cursor}"
+    rounded: "{rounded.md}"
     padding: "{spacing.lg}"
   badge:                         # plan-name / service-down pills
     backgroundColor: "{colors.provider-claude}"  # accent at 0.12 opacity
@@ -106,8 +108,6 @@ components:
     backgroundColor: "{colors.primary}"
     rounded: "{rounded.sm}"
     height: "8px"
-  progress-ring:                 # UsageCardView.swift — status-colored, lineWidth 8, round cap
-    size: "60px"
 ---
 
 # AgentUsage Design System
@@ -242,20 +242,19 @@ Corner radius is assigned by component scale:
 
 - **4pt** — small elements: progress-bar tracks and fills, plan badges, extra-usage bars.
 - **12pt** — provider cards (`ProviderCardView`).
-- **16pt** — iOS usage cards (`UsageCardView`).
+- **16pt** — iOS utility cards, including Live Activity controls and dashboard states.
 
 ## Components
 
 - **`UsageRowView`** — the linear progress row: title + reset time, a `primary` (Crail) fill over a
   `secondary` @ 0.2 track (height 8, radius 4) with 1pt tick dividers at 25/50/75%, plus a
   `% used` + status `Label` stats row. Optional 7×7 status dot.
-- **`ProviderCardView`** — the primary card. Header (provider glyph + name + plan badge + optional
-  service-down badge), a stack of `UsageRowView`s, optional reset-credits line, optional
-  extra-usage bar, and a cost section. Fill = provider accent @ 0.06, border @ 0.15. Has a
-  `compact` mode toggling paddings/fonts.
-- **`UsageCardView`** — iOS/widget card built around a **circular progress ring** (60×60,
-  lineWidth 8, round cap, animated) with a large `.title`-bold percentage in the status color,
-  over `.regularMaterial` at radius 16.
+- **`ProviderCardView`** — the primary card on both macOS and iOS. Header (provider glyph + name +
+  plan badge + optional service-down badge), a stack of linear `UsageRowView`s, optional
+  reset-credits line, optional extra-usage bar, and a cost section. Fill = provider accent @ 0.06,
+  border @ 0.15. Has a `compact` mode toggling paddings/fonts. The iOS dashboard is one linear
+  stack of these cards in `availableProviders` order; Claude uses the same card through its
+  `ProviderUsageSnapshot` bridge rather than a provider-specific ring layout.
 - **`SparklineView`** (macOS) — Canvas-drawn line/bar sparkline (30×10, lineWidth 1); drawn at
   `white` @ 0.8, empty state at `color` @ 0.25.
 - **`MenuBarIconView`** (macOS) — an adaptive monochrome template `NSImage`. Claude and Codex
@@ -263,8 +262,15 @@ Corner radius is assigned by component scale:
   9pt percentages. Up to two windows are pinned per provider; missing and expired values consume
   no space. Visible labels, trend arrows, reset countdowns, and extra-usage cost stay in the
   popover rather than the status strip.
-- **Widget & Live Activity gauges** — lock-screen uses SwiftUI `Gauge` (`.accessoryCircular` /
-  `.accessoryLinear`) colored by `status.color` with matching `.keylineTint`.
+- **Live Activity control card** (iOS) — one `.regularMaterial`, 16pt-radius utility card below
+  the provider stack. Native Provider and Window pickers list only non-expired windows from all
+  available provider snapshots. Start creates one activity, Switch updates that activity in
+  place, and Stop ends it. Disabled authorization remains visible with an Open Settings action;
+  unavailable-window and start-error states stay inline in the same card.
+- **Widget & Live Activity gauges** — WidgetKit presentations use SwiftUI `Gauge`
+  (`.accessoryCircular` / `.accessoryLinear`) colored by `status.color` with matching
+  `.keylineTint`. Live Activity content carries the selected provider and stable window ID so
+  Claude, Codex, Cursor, and future enabled providers share the same presentation.
 
 Status-bearing components use `UsageStatus` as the single source of truth for "how bad is it."
 The menu-bar strip is intentionally neutral: macOS applies the template tint, while its values

@@ -296,6 +296,9 @@ final class UsageViewModel {
     private let snapshotStore: UsageSnapshotStore
     private let refreshScheduler: RefreshScheduler
     private let notificationService: any NotificationServiceProtocol
+    #if os(iOS)
+    let liveActivityManager: LiveActivityManager
+    #endif
     private static let disabledProviders: Set<Provider> = [.openCode, .openCodeGo]
 
     #if os(macOS)
@@ -371,7 +374,7 @@ final class UsageViewModel {
             return .waitingForDevices(message: nil)
         }
         #else
-        if snapshot != nil || isNoUsageData {
+        if !availableProviderSnapshots.isEmpty || isNoUsageData {
             return .linked(lastUpdatedText: timeSinceLastUpdate)
         }
         #endif
@@ -492,6 +495,7 @@ final class UsageViewModel {
         usageHistoryService: UsageHistoryService? = nil,
         usageSyncService: any UsageSyncServicing = InactiveUsageSyncService.shared,
         notificationService: any NotificationServiceProtocol = NotificationService.shared,
+        liveActivityManager: LiveActivityManager? = nil,
         defaults: UserDefaults = .standard
     ) {
         self.credentialProvider = credentialProvider
@@ -502,6 +506,7 @@ final class UsageViewModel {
         self.snapshotStore = UsageSnapshotStore(defaults: defaults)
         self.refreshScheduler = RefreshScheduler(defaults: defaults)
         self.notificationService = notificationService
+        self.liveActivityManager = liveActivityManager ?? .shared
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
         self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
@@ -683,6 +688,13 @@ extension UsageViewModel {
         return providers
     }
 
+    /// Provider snapshots in the same deterministic order as `availableProviders`.
+    /// Claude is bridged from its richer legacy snapshot so every provider-facing
+    /// surface can render one uniform model without reimplementing that bridge.
+    var availableProviderSnapshots: [ProviderUsageSnapshot] {
+        availableProviders.compactMap { usageSnapshot(for: $0) }
+    }
+
     func hasProviderData(_ provider: Provider) -> Bool {
         availableProviders.contains(provider)
     }
@@ -744,8 +756,8 @@ extension UsageViewModel {
             #if os(iOS)
             if let snapshot {
                 await WidgetDataManager.shared.save(snapshot)
-                await LiveActivityManager.shared.update(snapshot: snapshot)
             }
+            await liveActivityManager.refresh(from: availableProviderSnapshots)
             #endif
             return .updated
         } catch {
@@ -801,7 +813,7 @@ extension UsageViewModel {
         }
 
         if isOffline {
-            if snapshot != nil {
+            if !availableProviderSnapshots.isEmpty {
                 isUsingCachedData = true
                 errorMessage = nil
             } else {
@@ -810,11 +822,14 @@ extension UsageViewModel {
             return .failed
         }
 
+        isLoading = true
+        defer { isLoading = false }
+
         if let synced = await usageSyncService.fetchLatest() {
             let oldSnapshot = snapshot
             let hasNewSnapshot = synced.snapshot.map { oldSnapshot?.fetchedAt != $0.fetchedAt } ?? false
             let isCached = synced.age() > Constants.syncFallbackThreshold
-            applySyncedSnapshot(synced, isCached: isCached)
+            await applySyncedSnapshot(synced, isCached: isCached)
             if !isCached, hasNewSnapshot, let newSnapshot = synced.snapshot {
                 await checkUsageNotifications(
                     oldSnapshot: oldSnapshot,
@@ -838,7 +853,7 @@ extension UsageViewModel {
             return isCached ? .failed : .updated
         }
 
-        if snapshot != nil {
+        if !availableProviderSnapshots.isEmpty {
             isUsingCachedData = true
             errorMessage = nil
         } else {
@@ -851,11 +866,11 @@ extension UsageViewModel {
     /// Apply a snapshot received from the Mac: update UI state, persist it so
     /// freshness and offline fallback reflect the Mac's fetch time, and hand it to
     /// the widgets and Live Activity.
-    private func applySyncedSnapshot(_ synced: SyncedUsageSnapshot, isCached: Bool = false) {
-        if let syncedSnapshot = synced.snapshot {
-            snapshot = syncedSnapshot
-            planType = synced.planType
-        }
+    private func applySyncedSnapshot(_ synced: SyncedUsageSnapshot, isCached: Bool = false) async {
+        // A sync record is a full provider payload. `nil` means Claude is absent,
+        // not that an older local Claude snapshot should be retained.
+        snapshot = synced.snapshot
+        planType = synced.planType
         let syncedProviderSnapshots = enabledProviderSnapshots(from: synced.providerSnapshots)
         providerUsage = providerUsageDictionary(from: syncedProviderSnapshots)
         isUsingCachedData = isCached
@@ -872,12 +887,12 @@ extension UsageViewModel {
             fetchedAt: synced.fetchedAt
         )
 
-        Task {
-            if let snapshot = synced.snapshot {
-                await WidgetDataManager.shared.save(snapshot)
-                await LiveActivityManager.shared.update(snapshot: snapshot)
-            }
+        if let snapshot = synced.snapshot {
+            await WidgetDataManager.shared.save(snapshot)
+        } else {
+            await WidgetDataManager.shared.clear()
         }
+        await liveActivityManager.refresh(from: availableProviderSnapshots)
     }
     #endif
 
@@ -954,7 +969,7 @@ extension UsageViewModel {
         activeIncidents.removeAll()
         receivedMacSyncedSnapshot = false
         await WidgetDataManager.shared.clear()
-        LiveActivityManager.shared.stop()
+        await liveActivityManager.stop()
         #endif
 
         #if os(macOS)
