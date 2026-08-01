@@ -6,6 +6,7 @@
 #if os(macOS)
 import CryptoKit
 import Foundation
+import AgentUsageKit
 import SQLite3
 
 nonisolated struct BlogUsageEvent: Sendable, Equatable {
@@ -19,6 +20,40 @@ nonisolated struct BlogUsageEvent: Sendable, Equatable {
     let cacheReadTokens: Int
     let cacheWriteTokens: Int
     let reasoningTokens: Int
+    /// Stable local session identity used only to build privacy-preserving aggregates.
+    let sessionID: String
+    let effortLevel: EffortLevel?
+    let isSubagentSession: Bool
+
+    init(
+        id: String,
+        timestamp: Date,
+        agent: String,
+        provider: String,
+        model: String,
+        inputTokens: Int,
+        outputTokens: Int,
+        cacheReadTokens: Int,
+        cacheWriteTokens: Int,
+        reasoningTokens: Int,
+        sessionID: String = "",
+        effortLevel: EffortLevel? = nil,
+        isSubagentSession: Bool = false
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.agent = agent
+        self.provider = provider
+        self.model = model
+        self.inputTokens = inputTokens
+        self.outputTokens = outputTokens
+        self.cacheReadTokens = cacheReadTokens
+        self.cacheWriteTokens = cacheWriteTokens
+        self.reasoningTokens = reasoningTokens
+        self.sessionID = sessionID
+        self.effortLevel = effortLevel
+        self.isSubagentSession = isSubagentSession
+    }
 }
 
 nonisolated struct BlogUsageIngestRow: Codable, Sendable, Equatable {
@@ -74,6 +109,19 @@ nonisolated struct BlogUsageIngestRow: Codable, Sendable, Equatable {
 
 nonisolated struct BlogUsageIngestPayload: Codable, Sendable, Equatable {
     let rows: [BlogUsageIngestRow]
+    /// Full daily snapshot when true; partial backfill rows when false.
+    let effortRows: [BlogUsageEffortIngestRow]
+    let effortSnapshotComplete: Bool
+}
+
+/// A daily session-level effort summary. This remains separate from token rows:
+/// token rows count requests, while effort usage deliberately counts sessions.
+nonisolated struct BlogUsageEffortIngestRow: Codable, Sendable, Equatable {
+    let date: String
+    let agent: String
+    let levels: [EffortLevelCount]
+    let classifiedSessionCount: Int
+    let unclassifiedSessionCount: Int
 }
 
 nonisolated enum BlogUsageSyncState: String, Codable, Sendable {
@@ -246,6 +294,63 @@ nonisolated struct BlogUsageAggregator {
     }
 }
 
+nonisolated enum BlogUsageEffortAggregator {
+    private struct Key: Hashable {
+        let date: String
+        let agent: String
+    }
+
+    private struct Counts {
+        var levels: [EffortLevel: Int] = [:]
+        var unclassified = 0
+    }
+
+    static func aggregate(
+        _ samples: [EffortUsageSample],
+        calendar: Calendar = .current
+    ) -> [BlogUsageEffortIngestRow] {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        var buckets: [Key: Counts] = [:]
+        for session in EffortUsageAggregator.sessionSummaries(from: samples) {
+            let key = Key(
+                date: formatter.string(from: session.latestTimestamp),
+                agent: session.provider.rawValue
+            )
+            var counts = buckets[key] ?? Counts()
+            if let effortLevel = session.effortLevel {
+                counts.levels[effortLevel, default: 0] += 1
+            } else {
+                counts.unclassified += 1
+            }
+            buckets[key] = counts
+        }
+
+        return buckets.map { key, counts in
+            let levels = counts.levels
+                .map { EffortLevelCount(level: $0.key, sessionCount: $0.value) }
+                .sorted {
+                    if $0.level.sortOrder == $1.level.sortOrder {
+                        return $0.level.rawValue < $1.level.rawValue
+                    }
+                    return $0.level.sortOrder < $1.level.sortOrder
+                }
+            return BlogUsageEffortIngestRow(
+                date: key.date,
+                agent: key.agent,
+                levels: levels,
+                classifiedSessionCount: counts.levels.values.reduce(0, +),
+                unclassifiedSessionCount: counts.unclassified
+            )
+        }
+        .sorted { ($0.date, $0.agent) < ($1.date, $1.agent) }
+    }
+}
+
 nonisolated struct BlogUsageSourceParser {
     let fileManager: FileManager
     let homeDirectory: URL
@@ -296,7 +401,11 @@ nonisolated struct BlogUsageSourceParser {
 
         for file in files {
             for line in try lines(in: file) {
-                guard let parsed = parseClaudeLine(Data(line.utf8)) else { continue }
+                guard let parsed = parseClaudeLine(
+                    Data(line.utf8),
+                    fallbackSessionID: file.deletingPathExtension().lastPathComponent,
+                    isSubagentSession: file.pathComponents.contains("subagents")
+                ) else { continue }
                 guard seen.insert(parsed.dedupeID).inserted else { continue }
                 events.append(parsed.event)
             }
@@ -316,8 +425,17 @@ nonisolated struct BlogUsageSourceParser {
 
         for file in files {
             var currentModel = "unknown"
+            var currentEffortLevel: EffortLevel?
+            var isSubagentSession = false
+            let sessionID = codexSessionIdentifier(for: file)
             for line in try lines(in: file) {
-                if let event = parseCodexLine(Data(line.utf8), currentModel: &currentModel) {
+                if let event = parseCodexLine(
+                    Data(line.utf8),
+                    currentModel: &currentModel,
+                    currentEffortLevel: &currentEffortLevel,
+                    isSubagentSession: &isSubagentSession,
+                    sessionID: sessionID
+                ) {
                     events.append(event)
                 }
             }
@@ -326,7 +444,13 @@ nonisolated struct BlogUsageSourceParser {
         return events
     }
 
-    nonisolated func parseCodexLine(_ data: Data, currentModel: inout String) -> BlogUsageEvent? {
+    nonisolated func parseCodexLine(
+        _ data: Data,
+        currentModel: inout String,
+        currentEffortLevel: inout EffortLevel?,
+        isSubagentSession: inout Bool,
+        sessionID: String
+    ) -> BlogUsageEvent? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let payload = json["payload"] as? [String: Any] else {
             return nil
@@ -334,6 +458,15 @@ nonisolated struct BlogUsageSourceParser {
 
         if let model = payload["model"] as? String, !model.isEmpty {
             currentModel = model
+            // A new turn context supersedes the previous setting. Missing effort
+            // therefore means explicitly unclassified until another context appears.
+            currentEffortLevel = Self.normalizedEffortLevel(payload["effort"])
+        }
+
+        if json["type"] as? String == "session_meta" {
+            let source = payload["source"] as? [String: Any]
+            isSubagentSession = payload["thread_source"] as? String == "subagent"
+                || source?["subagent"] != nil
         }
 
         guard let type = payload["type"] as? String,
@@ -364,7 +497,10 @@ nonisolated struct BlogUsageSourceParser {
             outputTokens: max(0, outputTokensRaw - reasoningTokens),
             cacheReadTokens: max(0, cachedInputTokens),
             cacheWriteTokens: 0,
-            reasoningTokens: max(0, reasoningTokens)
+            reasoningTokens: max(0, reasoningTokens),
+            sessionID: sessionID,
+            effortLevel: currentEffortLevel,
+            isSubagentSession: isSubagentSession
         )
     }
 
@@ -374,7 +510,11 @@ nonisolated struct BlogUsageSourceParser {
         return try OpenCodeDatabaseReader(databaseURL: databaseURL, now: now).readEvents()
     }
 
-    nonisolated func parseClaudeLine(_ data: Data) -> (event: BlogUsageEvent, dedupeID: String)? {
+    nonisolated func parseClaudeLine(
+        _ data: Data,
+        fallbackSessionID: String = "",
+        isSubagentSession: Bool = false
+    ) -> (event: BlogUsageEvent, dedupeID: String)? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String,
               type == "assistant",
@@ -391,6 +531,10 @@ nonisolated struct BlogUsageSourceParser {
             ?? stringValue(json["request_id"])
             ?? stringValue(json["uuid"])
             ?? stableHash(data)
+        let recordedSessionID = stringValue(json["sessionId"])?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let sessionID = recordedSessionID.flatMap { $0.isEmpty ? nil : $0 }
+            ?? fallbackSessionID
 
         let event = BlogUsageEvent(
             id: "claude-\(dedupeID)",
@@ -402,7 +546,10 @@ nonisolated struct BlogUsageSourceParser {
             outputTokens: intValue(usage["output_tokens"]),
             cacheReadTokens: intValue(usage["cache_read_input_tokens"]),
             cacheWriteTokens: intValue(usage["cache_creation_input_tokens"]),
-            reasoningTokens: 0
+            reasoningTokens: 0,
+            sessionID: sessionID,
+            effortLevel: Self.normalizedEffortLevel(json["effort"]),
+            isSubagentSession: isSubagentSession
         )
 
         return (event, dedupeID)
@@ -458,6 +605,18 @@ nonisolated struct BlogUsageSourceParser {
             return URL(fileURLWithPath: xdgDataHome).appendingPathComponent("opencode/opencode.db")
         }
         return homeDirectory.appendingPathComponent(".local/share/opencode/opencode.db")
+    }
+
+    nonisolated func codexSessionIdentifier(for url: URL) -> String {
+        let stem = url.deletingPathExtension().lastPathComponent
+        let candidate = String(stem.suffix(36))
+        return UUID(uuidString: candidate) == nil ? stem : candidate.lowercased()
+    }
+
+    private nonisolated static func normalizedEffortLevel(_ value: Any?) -> EffortLevel? {
+        guard let rawValue = value as? String else { return nil }
+        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized.isEmpty ? nil : EffortLevel(rawValue: normalized)
     }
 
     private nonisolated func jsonlFiles(in root: URL) throws -> [URL] {
@@ -654,7 +813,13 @@ nonisolated struct BlogUsageSourceParser {
 }
 
 nonisolated protocol BlogUsageSyncPosting: Sendable {
-    nonisolated func post(rows: [BlogUsageIngestRow], endpoint: URL, token: String) async throws
+    nonisolated func post(
+        rows: [BlogUsageIngestRow],
+        effortRows: [BlogUsageEffortIngestRow],
+        effortSnapshotComplete: Bool,
+        endpoint: URL,
+        token: String
+    ) async throws
 }
 
 nonisolated struct BlogUsageSyncClient: BlogUsageSyncPosting {
@@ -666,12 +831,22 @@ nonisolated struct BlogUsageSyncClient: BlogUsageSyncPosting {
         self.encoder = JSONEncoder()
     }
 
-    nonisolated func post(rows: [BlogUsageIngestRow], endpoint: URL, token: String) async throws {
+    nonisolated func post(
+        rows: [BlogUsageIngestRow],
+        effortRows: [BlogUsageEffortIngestRow],
+        effortSnapshotComplete: Bool,
+        endpoint: URL,
+        token: String
+    ) async throws {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
-        request.httpBody = try encoder.encode(BlogUsageIngestPayload(rows: rows))
+        request.httpBody = try encoder.encode(BlogUsageIngestPayload(
+            rows: rows,
+            effortRows: effortRows,
+            effortSnapshotComplete: effortSnapshotComplete
+        ))
 
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -856,7 +1031,9 @@ actor BlogUsageSyncService {
 
             let rows = try await indexer.rows()
             guard !rows.isEmpty else {
-                try await indexer.markUploaded(revision: revision, endpoint: endpoint.absoluteString)
+                if !indexResult.isBackfillInProgress {
+                    try await indexer.markUploaded(revision: revision, endpoint: endpoint.absoluteString)
+                }
                 return updateStatus(
                     .success,
                     message: indexResult.isBackfillInProgress
@@ -866,8 +1043,20 @@ actor BlogUsageSyncService {
                 )
             }
 
-            try await client.post(rows: rows, endpoint: endpoint, token: token)
-            try await indexer.markUploaded(revision: revision, endpoint: endpoint.absoluteString)
+            let effortRows = try await indexer.effortRows()
+            try await client.post(
+                rows: rows,
+                effortRows: effortRows,
+                effortSnapshotComplete: !indexResult.isBackfillInProgress,
+                endpoint: endpoint,
+                token: token
+            )
+            // A partial daily effort snapshot cannot be treated as uploaded:
+            // the final indexing pass may only cross EOF and leave the token
+            // revision unchanged, but still must publish snapshot-complete=true.
+            if !indexResult.isBackfillInProgress {
+                try await indexer.markUploaded(revision: revision, endpoint: endpoint.absoluteString)
+            }
             let suffix = indexResult.isBackfillInProgress
                 ? "; indexing history (\(indexResult.remainingSources) source\(indexResult.remainingSources == 1 ? "" : "s") remaining)"
                 : ""
