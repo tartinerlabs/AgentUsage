@@ -70,8 +70,10 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
         let startedAt = Date()
         let store = try store()
         let budget = max(1, maximumBytes)
-        let databaseBudget = min(Self.yieldByteInterval, max(1, budget / 4))
-        let cursorResult = try processCursor(maximumBytes: databaseBudget, store: store)
+        // Cursor's state.vscdb is large and rewritten often; give it a larger slice
+        // so initial backfill / live refresh can finish without starving JSONL work.
+        let cursorBudget = min(Self.yieldByteInterval * 2, max(1, budget / 2))
+        let cursorResult = try processCursor(maximumBytes: cursorBudget, store: store)
         var metrics = MutableMetrics(cursorResult)
         await Task.yield()
 
@@ -546,32 +548,49 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
         maximumBytes: Int,
         store: any BlogUsageIndexStoring
     ) throws -> OpenCodeProcessResult {
-        let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .fileResourceIdentifierKey])
-        let fileSize = Int64(values?.fileSize ?? 0)
-        let modificationTime = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
-        let fingerprint = "\(fileSize)|\(modificationTime)"
+        let values = try? url.resourceValues(forKeys: [.fileResourceIdentifierKey])
+        let fingerprint = cursorDatabaseFingerprint(url: url)
         let namespace = try cursorNamespace(url: url, fileIdentifier: Self.fileIdentifier(values?.fileResourceIdentifier))
         let fingerprintKey = "cursor:\(namespace):fingerprint"
         let backfillKey = "cursor:\(namespace):backfill-index"
         let backfillCompleteKey = "cursor:\(namespace):backfill-complete"
+        let refreshActiveKey = "cursor:\(namespace):refresh-active"
+        let refreshKey = "cursor:\(namespace):refresh-index"
         let container = url.path
 
         let previousFingerprint = try store.stringMetadata(forKey: fingerprintKey)
-        if previousFingerprint != fingerprint {
-            try store.withTransaction {
-                _ = try store.deleteRecords(source: .cursor, container: container)
-                try store.setMetadata(fingerprint, forKey: fingerprintKey)
-                try store.setMetadata("0", forKey: backfillKey)
-                try store.setMetadata("0", forKey: backfillCompleteKey)
-                try store.advanceRevision()
-            }
-        } else if try store.stringMetadata(forKey: backfillCompleteKey) == "1" {
+        let backfillComplete = try store.stringMetadata(forKey: backfillCompleteKey) == "1"
+        let fingerprintChanged = previousFingerprint != fingerprint
+        let refreshActive = try store.stringMetadata(forKey: refreshActiveKey) == "1"
+
+        // Cursor keeps state.vscdb open in WAL mode, so size/mtime (and the WAL)
+        // change frequently. Never wipe indexed rows or reset backfill progress on
+        // those changes — that left "1 source remaining" stuck forever while Cursor
+        // was running. Diff composers in place instead.
+        if backfillComplete && !fingerprintChanged && !refreshActive {
             return .empty
+        }
+
+        let isRefresh: Bool
+        let startIndex: Int
+        if backfillComplete {
+            isRefresh = true
+            if fingerprintChanged && !refreshActive {
+                try store.withTransaction {
+                    try store.setMetadata("1", forKey: refreshActiveKey)
+                    try store.setMetadata("0", forKey: refreshKey)
+                }
+                startIndex = 0
+            } else {
+                startIndex = Int(try store.stringMetadata(forKey: refreshKey) ?? "0") ?? 0
+            }
+        } else {
+            isRefresh = false
+            startIndex = Int(try store.stringMetadata(forKey: backfillKey) ?? "0") ?? 0
         }
 
         let database = BlogUsageSourceParser.CursorStateDatabase(databaseURL: url)
         let summaries = database.loadComposerSummaries()
-        let startIndex = Int(try store.stringMetadata(forKey: backfillKey) ?? "0") ?? 0
         var result = OpenCodeProcessResult.empty
         var nextIndex = startIndex
 
@@ -619,10 +638,24 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                 }
             }
 
-            try store.setMetadata(String(nextIndex), forKey: backfillKey)
-            if nextIndex >= summaries.count {
-                try store.setMetadata("1", forKey: backfillCompleteKey)
-                result.exhausted = true
+            let finishedPass = nextIndex >= summaries.count
+            if isRefresh {
+                try store.setMetadata(String(nextIndex), forKey: refreshKey)
+                if finishedPass {
+                    // Capture the fingerprint after the walk so writes during the
+                    // pass schedule exactly one follow-up refresh.
+                    try store.setMetadata(cursorDatabaseFingerprint(url: url), forKey: fingerprintKey)
+                    try store.setMetadata("0", forKey: refreshActiveKey)
+                    try store.setMetadata("0", forKey: refreshKey)
+                    result.exhausted = true
+                }
+            } else {
+                try store.setMetadata(String(nextIndex), forKey: backfillKey)
+                if finishedPass {
+                    try store.setMetadata("1", forKey: backfillCompleteKey)
+                    try store.setMetadata(cursorDatabaseFingerprint(url: url), forKey: fingerprintKey)
+                    result.exhausted = true
+                }
             }
             if result.changedRecords > 0 {
                 try store.advanceRevision()
@@ -630,6 +663,25 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
         }
 
         return result
+    }
+
+    /// Fingerprint main DB + WAL/SHM so live Cursor writes are visible even when
+    /// the primary file's mtime lags a checkpoint.
+    private func cursorDatabaseFingerprint(url: URL) -> String {
+        let candidates = [
+            url,
+            URL(fileURLWithPath: url.path + "-wal"),
+            URL(fileURLWithPath: url.path + "-shm")
+        ]
+        return candidates.map { candidate in
+            let values = try? candidate.resourceValues(
+                forKeys: [.fileSizeKey, .contentModificationDateKey]
+            )
+            let size = values?.fileSize ?? 0
+            let modificationTime = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
+            return "\(size)|\(modificationTime)"
+        }
+        .joined(separator: ";")
     }
 
     private func cursorRecordKey(for event: BlogUsageEvent) -> String {
