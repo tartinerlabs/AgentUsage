@@ -386,7 +386,7 @@ nonisolated struct BlogUsageSourceParser {
     }
 
     nonisolated func parseAllSources() throws -> [BlogUsageEvent] {
-        try parseClaudeEvents() + parseCodexEvents() + parseOpenCodeEvents()
+        try parseClaudeEvents() + parseCodexEvents() + parseOpenCodeEvents() + parseCursorEvents()
     }
 
     nonisolated func parseClaudeEvents() throws -> [BlogUsageEvent] {
@@ -619,6 +619,146 @@ nonisolated struct BlogUsageSourceParser {
         return normalized.isEmpty ? nil : EffortLevel(rawValue: normalized)
     }
 
+    /// Cursor `state.vscdb` paths. Uses `Constants.cursorStateDBURLs` when parsing the
+    /// real home directory; otherwise derives the same relative path under `homeDirectory`
+    /// so tests can inject a fixture database.
+    nonisolated func cursorStateDBURLs() -> [URL] {
+        if homeDirectory.standardizedFileURL.path == Constants.realHomeDirectory.standardizedFileURL.path {
+            return Constants.cursorStateDBURLs
+        }
+        return [
+            homeDirectory.appendingPathComponent(
+                "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+            )
+        ]
+    }
+
+    nonisolated func parseCursorEvents() throws -> [BlogUsageEvent] {
+        var seen = Set<String>()
+        var events: [BlogUsageEvent] = []
+
+        for databaseURL in cursorStateDBURLs() {
+            guard fileManager.fileExists(atPath: databaseURL.path) else { continue }
+            let composers = CursorStateDatabase(databaseURL: databaseURL).loadComposers()
+            for composer in composers {
+                let mapped = mapCursorComposerEvents(
+                    composerID: composer.composerID,
+                    composerJSON: composer.json,
+                    bubbles: composer.bubbles.map { (id: $0.id, json: $0.json) }
+                )
+                for event in mapped where seen.insert(event.id).inserted {
+                    events.append(event)
+                }
+            }
+        }
+
+        return events
+    }
+
+    /// Maps one Cursor composer + its bubbles to blog usage events.
+    ///
+    /// Prefers explicit non-zero `bubble.tokenCount` rows. When every bubble is
+    /// zero/missing, emits a single context-meter input credit from
+    /// `contextTokensUsed` / `promptTokenBreakdown.totalUsedTokens`. Cache buckets
+    /// stay 0; composers with neither signal are skipped.
+    nonisolated func mapCursorComposerEvents(
+        composerID: String,
+        composerJSON: [String: Any],
+        bubbles: [(id: String, json: [String: Any])]
+    ) -> [BlogUsageEvent] {
+        let composerModel = cursorModelName(from: composerJSON)
+        var bubbleEvents: [BlogUsageEvent] = []
+
+        for bubble in bubbles {
+            guard let tokenCount = bubble.json["tokenCount"] as? [String: Any]
+                    ?? bubble.json["tokenCounts"] as? [String: Any] else {
+                continue
+            }
+
+            let inputTokens = intValue(tokenCount["inputTokens"] ?? tokenCount["input"])
+            let outputTokens = intValue(tokenCount["outputTokens"] ?? tokenCount["output"])
+            guard inputTokens > 0 || outputTokens > 0 else { continue }
+
+            let bubbleID = stringValue(bubble.json["bubbleId"]) ?? bubble.id
+            let timestamp = dateValue(bubble.json["createdAt"])
+                ?? dateValue(composerJSON["createdAt"])
+                ?? now()
+            let model = cursorModelName(from: composerJSON, bubbleJSON: bubble.json)
+
+            bubbleEvents.append(
+                BlogUsageEvent(
+                    id: "cursor-bubble-\(composerID)-\(bubbleID)",
+                    timestamp: timestamp,
+                    agent: "cursor",
+                    provider: "cursor",
+                    model: model,
+                    inputTokens: inputTokens,
+                    outputTokens: outputTokens,
+                    cacheReadTokens: 0,
+                    cacheWriteTokens: 0,
+                    reasoningTokens: 0
+                )
+            )
+        }
+
+        if !bubbleEvents.isEmpty {
+            return bubbleEvents
+        }
+
+        let meterTokens = cursorMeterTokens(from: composerJSON)
+        guard meterTokens > 0 else { return [] }
+
+        let timestamp = dateValue(composerJSON["createdAt"]) ?? now()
+        return [
+            BlogUsageEvent(
+                id: "cursor-meter-\(composerID)",
+                timestamp: timestamp,
+                agent: "cursor",
+                provider: "cursor",
+                model: composerModel,
+                inputTokens: meterTokens,
+                outputTokens: 0,
+                cacheReadTokens: 0,
+                cacheWriteTokens: 0,
+                reasoningTokens: 0
+            )
+        ]
+    }
+
+    private nonisolated func cursorMeterTokens(from composerJSON: [String: Any]) -> Int {
+        let contextTokens = intValue(composerJSON["contextTokensUsed"])
+        if contextTokens > 0 {
+            return contextTokens
+        }
+        let breakdown = composerJSON["promptTokenBreakdown"] as? [String: Any]
+        return intValue(breakdown?["totalUsedTokens"])
+    }
+
+    private nonisolated func cursorModelName(
+        from composerJSON: [String: Any],
+        bubbleJSON: [String: Any]? = nil
+    ) -> String {
+        if let bubbleJSON,
+           let modelInfo = bubbleJSON["modelInfo"] as? [String: Any],
+           let name = stringValue(modelInfo["modelName"]),
+           name != "default" {
+            return name
+        }
+
+        if let config = composerJSON["modelConfig"] as? [String: Any] {
+            if let selected = (config["selectedModels"] as? [[String: Any]])?.first,
+               let modelID = stringValue(selected["modelId"]),
+               modelID != "default" {
+                return modelID
+            }
+            if let name = stringValue(config["modelName"]), name != "default" {
+                return name
+            }
+        }
+
+        return "cursor-auto"
+    }
+
     private nonisolated func jsonlFiles(in root: URL) throws -> [URL] {
         guard fileManager.fileExists(atPath: root.path) else { return [] }
         guard let enumerator = fileManager.enumerator(
@@ -808,6 +948,202 @@ nonisolated struct BlogUsageSourceParser {
                 return nil
             }
             return String(cString: text)
+        }
+    }
+
+    struct CursorComposerRecord {
+        let composerID: String
+        let json: [String: Any]
+        let data: Data
+        let createdAt: Date?
+        let bubbles: [CursorBubbleRecord]
+    }
+
+    struct CursorBubbleRecord {
+        let id: String
+        let json: [String: Any]
+        let data: Data
+    }
+
+    /// Read-only Cursor `state.vscdb` access. Uses `immutable=1` so Cursor's WAL
+    /// lock is never taken, matching `CursorAuthLoader`.
+    struct CursorStateDatabase {
+        let databaseURL: URL
+
+        func loadComposers() -> [CursorComposerRecord] {
+            guard let database = openDatabase() else { return [] }
+            defer { sqlite3_close(database) }
+
+            let composerRows = loadKeyValues(database: database, prefix: "composerData:")
+            let parser = BlogUsageSourceParser()
+            var composers: [CursorComposerRecord] = []
+            composers.reserveCapacity(composerRows.count)
+
+            for row in composerRows {
+                let composerID = String(row.key.dropFirst("composerData:".count))
+                guard !composerID.isEmpty,
+                      let json = try? JSONSerialization.jsonObject(with: row.data) as? [String: Any] else {
+                    continue
+                }
+                composers.append(
+                    CursorComposerRecord(
+                        composerID: composerID,
+                        json: json,
+                        data: row.data,
+                        createdAt: parser.dateValue(json["createdAt"]),
+                        bubbles: loadBubbles(database: database, composerID: composerID)
+                    )
+                )
+            }
+
+            return composers.sorted {
+                ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast)
+            }
+        }
+
+        func loadComposerSummaries() -> [(composerID: String, data: Data, createdAt: Date?)] {
+            guard let database = openDatabase() else { return [] }
+            defer { sqlite3_close(database) }
+
+            let parser = BlogUsageSourceParser()
+            return loadKeyValues(database: database, prefix: "composerData:").compactMap { row in
+                let composerID = String(row.key.dropFirst("composerData:".count))
+                guard !composerID.isEmpty,
+                      let json = try? JSONSerialization.jsonObject(with: row.data) as? [String: Any] else {
+                    return nil
+                }
+                return (
+                    composerID: composerID,
+                    data: row.data,
+                    createdAt: parser.dateValue(json["createdAt"])
+                )
+            }
+            .sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
+        }
+
+        func loadComposer(composerID: String) -> CursorComposerRecord? {
+            guard let database = openDatabase() else { return nil }
+            defer { sqlite3_close(database) }
+
+            let parser = BlogUsageSourceParser()
+            guard let data = loadValue(database: database, key: "composerData:\(composerID)"),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return nil
+            }
+            return CursorComposerRecord(
+                composerID: composerID,
+                json: json,
+                data: data,
+                createdAt: parser.dateValue(json["createdAt"]),
+                bubbles: loadBubbles(database: database, composerID: composerID)
+            )
+        }
+
+        private func openDatabase() -> OpaquePointer? {
+            var database: OpaquePointer?
+            let encodedPath = databaseURL.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+                ?? databaseURL.path
+            let uri = "file:\(encodedPath)?immutable=1"
+            let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_URI
+            guard sqlite3_open_v2(uri, &database, flags, nil) == SQLITE_OK,
+                  let database else {
+                if let database {
+                    sqlite3_close(database)
+                }
+                return nil
+            }
+            sqlite3_busy_timeout(database, 2_000)
+            guard tableExists("cursorDiskKV", database: database) else {
+                sqlite3_close(database)
+                return nil
+            }
+            return database
+        }
+
+        private func loadBubbles(
+            database: OpaquePointer,
+            composerID: String
+        ) -> [CursorBubbleRecord] {
+            let prefix = "bubbleId:\(composerID):"
+            return loadKeyValues(database: database, prefix: prefix).compactMap { row in
+                let bubbleID = String(row.key.dropFirst(prefix.count))
+                guard !bubbleID.isEmpty,
+                      let json = try? JSONSerialization.jsonObject(with: row.data) as? [String: Any] else {
+                    return nil
+                }
+                return CursorBubbleRecord(id: bubbleID, json: json, data: row.data)
+            }
+        }
+
+        private func tableExists(_ name: String, database: OpaquePointer) -> Bool {
+            var statement: OpaquePointer?
+            let sql = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
+            guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK,
+                  let statement else {
+                return false
+            }
+            defer { sqlite3_finalize(statement) }
+            let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(statement, 1, name, -1, transient)
+            return sqlite3_step(statement) == SQLITE_ROW
+        }
+
+        private func loadKeyValues(
+            database: OpaquePointer,
+            prefix: String
+        ) -> [(key: String, data: Data)] {
+            var statement: OpaquePointer?
+            let sql = "SELECT key, value FROM cursorDiskKV WHERE key LIKE ? ESCAPE '\\'"
+            guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK,
+                  let statement else {
+                return []
+            }
+            defer { sqlite3_finalize(statement) }
+
+            let escaped = prefix
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "%", with: "\\%")
+                .replacingOccurrences(of: "_", with: "\\_")
+            let pattern = "\(escaped)%"
+            let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(statement, 1, pattern, -1, transient)
+
+            var rows: [(key: String, data: Data)] = []
+            while sqlite3_step(statement) == SQLITE_ROW {
+                guard let keyPointer = sqlite3_column_text(statement, 0) else { continue }
+                let key = String(cString: keyPointer)
+                guard let data = columnData(statement, index: 1) else { continue }
+                rows.append((key, data))
+            }
+            return rows
+        }
+
+        private func loadValue(database: OpaquePointer, key: String) -> Data? {
+            var statement: OpaquePointer?
+            let sql = "SELECT value FROM cursorDiskKV WHERE key = ? LIMIT 1"
+            guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK,
+                  let statement else {
+                return nil
+            }
+            defer { sqlite3_finalize(statement) }
+            let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(statement, 1, key, -1, transient)
+            guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
+            return columnData(statement, index: 0)
+        }
+
+        private func columnData(_ statement: OpaquePointer, index: Int32) -> Data? {
+            let type = sqlite3_column_type(statement, index)
+            if type == SQLITE_NULL {
+                return nil
+            }
+            if type == SQLITE_BLOB {
+                guard let bytes = sqlite3_column_blob(statement, index) else { return nil }
+                let count = Int(sqlite3_column_bytes(statement, index))
+                return Data(bytes: bytes, count: count)
+            }
+            guard let text = sqlite3_column_text(statement, index) else { return nil }
+            return Data(String(cString: text).utf8)
         }
     }
 }

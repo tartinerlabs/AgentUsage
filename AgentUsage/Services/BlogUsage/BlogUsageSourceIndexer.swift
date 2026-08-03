@@ -70,9 +70,17 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
         let startedAt = Date()
         let store = try store()
         let budget = max(1, maximumBytes)
-        let openCodeBudget = min(Self.yieldByteInterval, max(1, budget / 4))
+        let databaseBudget = min(Self.yieldByteInterval, max(1, budget / 4))
+        let cursorResult = try processCursor(maximumBytes: databaseBudget, store: store)
+        var metrics = MutableMetrics(cursorResult)
+        await Task.yield()
+
+        let openCodeBudget = min(
+            Self.yieldByteInterval,
+            max(1, (budget - metrics.bytesRead) / 3)
+        )
         let openCodeResult = try processOpenCode(maximumBytes: openCodeBudget, store: store)
-        var metrics = MutableMetrics(openCodeResult)
+        metrics.merge(openCodeResult)
         await Task.yield()
 
         let remainingBudget = max(1, budget - metrics.bytesRead)
@@ -96,7 +104,7 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
             while !isComplete, metrics.bytesRead < budget {
                 let sliceBudget = min(
                     Self.yieldByteInterval,
-                    max(1, remainingBudget - max(0, metrics.bytesRead - openCodeResult.bytesRead))
+                    max(1, remainingBudget - max(0, metrics.bytesRead - cursorResult.bytesRead - openCodeResult.bytesRead))
                 )
                 let result = try processJSONLFile(file, maximumBytes: sliceBudget, store: store)
                 metrics.merge(result, countFile: !countedFile)
@@ -111,6 +119,7 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
         )
         metrics.remainingSources = remainingSourceCount(files: files, checkpoints: updatedCheckpoints)
             + (try openCodeBackfillIsComplete(store: store) ? 0 : 1)
+            + (try cursorBackfillIsComplete(store: store) ? 0 : 1)
         metrics.cacheRows = try store.recordCount()
 
         let elapsed = Date().timeIntervalSince(startedAt)
@@ -498,7 +507,7 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                 dedupeKey: nil,
                 event: event
             )
-        case .openCode:
+        case .openCode, .cursor:
             return false
         }
     }
@@ -516,6 +525,142 @@ actor BlogUsageSourceIndexer: BlogUsageIndexing {
                 return
             }
         }
+    }
+
+    // MARK: - Cursor incremental indexing
+
+    private func processCursor(maximumBytes: Int, store: any BlogUsageIndexStoring) throws -> OpenCodeProcessResult {
+        var aggregate = OpenCodeProcessResult.empty
+        for url in parser.cursorStateDBURLs() {
+            guard parser.fileManager.fileExists(atPath: url.path) else { continue }
+            let remaining = maximumBytes - aggregate.bytesRead
+            guard remaining > 0 else { break }
+            let result = try processCursorDatabase(url: url, maximumBytes: remaining, store: store)
+            aggregate.merge(result)
+        }
+        return aggregate
+    }
+
+    private func processCursorDatabase(
+        url: URL,
+        maximumBytes: Int,
+        store: any BlogUsageIndexStoring
+    ) throws -> OpenCodeProcessResult {
+        let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .fileResourceIdentifierKey])
+        let fileSize = Int64(values?.fileSize ?? 0)
+        let modificationTime = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
+        let fingerprint = "\(fileSize)|\(modificationTime)"
+        let namespace = try cursorNamespace(url: url, fileIdentifier: Self.fileIdentifier(values?.fileResourceIdentifier))
+        let fingerprintKey = "cursor:\(namespace):fingerprint"
+        let backfillKey = "cursor:\(namespace):backfill-index"
+        let backfillCompleteKey = "cursor:\(namespace):backfill-complete"
+        let container = url.path
+
+        let previousFingerprint = try store.stringMetadata(forKey: fingerprintKey)
+        if previousFingerprint != fingerprint {
+            try store.withTransaction {
+                _ = try store.deleteRecords(source: .cursor, container: container)
+                try store.setMetadata(fingerprint, forKey: fingerprintKey)
+                try store.setMetadata("0", forKey: backfillKey)
+                try store.setMetadata("0", forKey: backfillCompleteKey)
+                try store.advanceRevision()
+            }
+        } else if try store.stringMetadata(forKey: backfillCompleteKey) == "1" {
+            return .empty
+        }
+
+        let database = BlogUsageSourceParser.CursorStateDatabase(databaseURL: url)
+        let summaries = database.loadComposerSummaries()
+        let startIndex = Int(try store.stringMetadata(forKey: backfillKey) ?? "0") ?? 0
+        var result = OpenCodeProcessResult.empty
+        var nextIndex = startIndex
+
+        try store.withTransaction {
+            while nextIndex < summaries.count, result.bytesRead < maximumBytes {
+                let summary = summaries[nextIndex]
+                nextIndex += 1
+                guard let composer = database.loadComposer(composerID: summary.composerID) else {
+                    continue
+                }
+
+                let bytes = composer.data.count + composer.bubbles.reduce(0) { $0 + $1.data.count }
+                result.bytesRead += bytes
+                result.maximumBufferedBytes = max(result.maximumBufferedBytes, bytes)
+                result.recordsProcessed += 1
+
+                let events = autoreleasepool(invoking: {
+                    parser.mapCursorComposerEvents(
+                        composerID: composer.composerID,
+                        composerJSON: composer.json,
+                        bubbles: composer.bubbles.map { (id: $0.id, json: $0.json) }
+                    )
+                })
+
+                let expectedKeys = Set(events.map { cursorRecordKey(for: $0) })
+                // Drop stale meter/bubble rows for this composer when the mapping flips.
+                for staleKey in [
+                    "meter:\(composer.composerID)"
+                ] where !expectedKeys.contains(staleKey) {
+                    if try store.deleteRecord(source: .cursor, container: container, recordKey: staleKey) {
+                        result.changedRecords += 1
+                    }
+                }
+
+                for event in events {
+                    let recordKey = cursorRecordKey(for: event)
+                    let changed = try store.replaceRecord(
+                        source: .cursor,
+                        container: container,
+                        recordKey: recordKey,
+                        dedupeKey: event.id,
+                        event: event
+                    )
+                    if changed { result.changedRecords += 1 }
+                }
+            }
+
+            try store.setMetadata(String(nextIndex), forKey: backfillKey)
+            if nextIndex >= summaries.count {
+                try store.setMetadata("1", forKey: backfillCompleteKey)
+                result.exhausted = true
+            }
+            if result.changedRecords > 0 {
+                try store.advanceRevision()
+            }
+        }
+
+        return result
+    }
+
+    private func cursorRecordKey(for event: BlogUsageEvent) -> String {
+        if event.id.hasPrefix("cursor-meter-") {
+            return "meter:\(String(event.id.dropFirst("cursor-meter-".count)))"
+        }
+        if event.id.hasPrefix("cursor-bubble-") {
+            return "bubble:\(String(event.id.dropFirst("cursor-bubble-".count)))"
+        }
+        return event.id
+    }
+
+    private func cursorBackfillIsComplete(store: any BlogUsageIndexStoring) throws -> Bool {
+        let urls = parser.cursorStateDBURLs().filter { parser.fileManager.fileExists(atPath: $0.path) }
+        guard !urls.isEmpty else { return true }
+        for url in urls {
+            let values = try? url.resourceValues(forKeys: [.fileResourceIdentifierKey])
+            let namespace = try cursorNamespace(
+                url: url,
+                fileIdentifier: Self.fileIdentifier(values?.fileResourceIdentifier)
+            )
+            if try store.stringMetadata(forKey: "cursor:\(namespace):backfill-complete") != "1" {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func cursorNamespace(url: URL, fileIdentifier: String?) throws -> String {
+        let identity = fileIdentifier ?? "path"
+        return Self.sha256("\(url.path)|\(identity)")
     }
 
     // MARK: - OpenCode incremental indexing
@@ -846,11 +991,18 @@ private nonisolated struct MutableMetrics {
     var maximumBufferedBytes = 0
     var remainingSources = 0
 
-    init(_ openCode: OpenCodeProcessResult) {
-        bytesRead = openCode.bytesRead
-        recordsProcessed = openCode.recordsProcessed
-        changedRecords = openCode.changedRecords
-        maximumBufferedBytes = openCode.maximumBufferedBytes
+    init(_ database: OpenCodeProcessResult = .empty) {
+        bytesRead = database.bytesRead
+        recordsProcessed = database.recordsProcessed
+        changedRecords = database.changedRecords
+        maximumBufferedBytes = database.maximumBufferedBytes
+    }
+
+    mutating func merge(_ value: OpenCodeProcessResult) {
+        bytesRead += value.bytesRead
+        recordsProcessed += value.recordsProcessed
+        changedRecords += value.changedRecords
+        maximumBufferedBytes = max(maximumBufferedBytes, value.maximumBufferedBytes)
     }
 
     mutating func merge(_ value: FileProcessResult, countFile: Bool) {

@@ -12,6 +12,7 @@ nonisolated enum BlogUsageIndexedSource: String, Sendable {
     case claude
     case codex
     case openCode = "opencode"
+    case cursor
 }
 
 nonisolated struct BlogUsageFileCheckpoint: Sendable, Equatable {
