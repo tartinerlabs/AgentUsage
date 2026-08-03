@@ -418,6 +418,99 @@ struct BlogUsageSyncTests {
         #expect(rows.first?.messages == 2)
     }
 
+    @Test func cursorIndexerContinuesBackfillAfterDatabaseFingerprintChanges() async throws {
+        let home = try Self.temporaryDirectory()
+        let cursorDirectory = home.appendingPathComponent(
+            "Library/Application Support/Cursor/User/globalStorage",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: cursorDirectory, withIntermediateDirectories: true)
+        let database = cursorDirectory.appendingPathComponent("state.vscdb")
+        try Self.createCursorDatabase(
+            at: database,
+            composers: [
+                (
+                    id: "composer-new",
+                    json: #"{"createdAt":3000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":30}"#
+                ),
+                (
+                    id: "composer-old",
+                    json: #"{"createdAt":1000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":10}"#
+                )
+            ]
+        )
+
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let first = try await indexer.index(maximumBytes: 1)
+        #expect(first.recordsProcessed == 1)
+        #expect(first.isBackfillInProgress)
+
+        // Simulate Cursor rewriting state.vscdb mid-backfill (WAL/mtime churn).
+        try Self.upsertCursorComposer(
+            at: database,
+            id: "composer-mid",
+            json: #"{"createdAt":2000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":20}"#
+        )
+
+        let second = try await indexer.index(maximumBytes: 1)
+        #expect(second.recordsProcessed == 1)
+        #expect(second.isBackfillInProgress)
+
+        let third = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        #expect(!third.isBackfillInProgress)
+        let rows = try await indexer.rows()
+        #expect(rows.first?.inputTokens == 60)
+        #expect(rows.first?.messages == 3)
+    }
+
+    @Test func cursorIndexerRefreshesMetersWithoutWipingPriorComposers() async throws {
+        let home = try Self.temporaryDirectory()
+        let cursorDirectory = home.appendingPathComponent(
+            "Library/Application Support/Cursor/User/globalStorage",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: cursorDirectory, withIntermediateDirectories: true)
+        let database = cursorDirectory.appendingPathComponent("state.vscdb")
+        try Self.createCursorDatabase(
+            at: database,
+            composers: [
+                (
+                    id: "composer-a",
+                    json: #"{"createdAt":1000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":10}"#
+                ),
+                (
+                    id: "composer-b",
+                    json: #"{"createdAt":2000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":20}"#
+                )
+            ]
+        )
+
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let initial = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        #expect(!initial.isBackfillInProgress)
+        #expect(try await indexer.rows().first?.inputTokens == 30)
+
+        try Self.upsertCursorComposer(
+            at: database,
+            id: "composer-b",
+            json: #"{"createdAt":2000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":50}"#
+        )
+
+        let refreshed = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        #expect(refreshed.changedRecords >= 1)
+        let rows = try await indexer.rows()
+        #expect(rows.first?.inputTokens == 60)
+        #expect(rows.first?.messages == 2)
+    }
+
     @Test func aggregatorProducesExactPayloadShape() {
         let timestamp = ISO8601DateFormatter().date(from: "2026-06-02T10:00:00Z")!
         let events = [
@@ -1407,32 +1500,49 @@ struct BlogUsageSyncTests {
         }
 
         for composer in composers {
-            let key = "composerData:\(composer.id)".replacingOccurrences(of: "'", with: "''")
-            let value = composer.json.replacingOccurrences(of: "'", with: "''")
-            guard sqlite3_exec(
-                database,
-                "INSERT INTO cursorDiskKV (key, value) VALUES ('\(key)', '\(value)')",
-                nil,
-                nil,
-                nil
-            ) == SQLITE_OK else {
-                throw BlogUsageTestError.sqliteExecFailed
-            }
+            try insertCursorKeyValue(
+                database: database,
+                key: "composerData:\(composer.id)",
+                value: composer.json
+            )
         }
 
         for bubble in bubbles {
-            let key = "bubbleId:\(bubble.composerID):\(bubble.bubbleID)"
-                .replacingOccurrences(of: "'", with: "''")
-            let value = bubble.json.replacingOccurrences(of: "'", with: "''")
-            guard sqlite3_exec(
-                database,
-                "INSERT INTO cursorDiskKV (key, value) VALUES ('\(key)', '\(value)')",
-                nil,
-                nil,
-                nil
-            ) == SQLITE_OK else {
-                throw BlogUsageTestError.sqliteExecFailed
-            }
+            try insertCursorKeyValue(
+                database: database,
+                key: "bubbleId:\(bubble.composerID):\(bubble.bubbleID)",
+                value: bubble.json
+            )
+        }
+    }
+
+    private static func upsertCursorComposer(at url: URL, id: String, json: String) throws {
+        var database: OpaquePointer?
+        guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {
+            throw BlogUsageTestError.sqliteOpenFailed
+        }
+        defer { sqlite3_close(database) }
+        try insertCursorKeyValue(
+            database: database,
+            key: "composerData:\(id)",
+            value: json,
+            replace: true
+        )
+    }
+
+    private static func insertCursorKeyValue(
+        database: OpaquePointer,
+        key: String,
+        value: String,
+        replace: Bool = false
+    ) throws {
+        let escapedKey = key.replacingOccurrences(of: "'", with: "''")
+        let escapedValue = value.replacingOccurrences(of: "'", with: "''")
+        let sql = replace
+            ? "INSERT OR REPLACE INTO cursorDiskKV (key, value) VALUES ('\(escapedKey)', '\(escapedValue)')"
+            : "INSERT INTO cursorDiskKV (key, value) VALUES ('\(escapedKey)', '\(escapedValue)')"
+        guard sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK else {
+            throw BlogUsageTestError.sqliteExecFailed
         }
     }
 
