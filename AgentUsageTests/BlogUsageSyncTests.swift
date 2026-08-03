@@ -160,7 +160,7 @@ struct BlogUsageSyncTests {
         #expect(events.first?.model == "gpt-5.5")
     }
 
-    @Test func parseAllSourcesCoversClaudeCodexAndOpenCodeGo() throws {
+    @Test func parseAllSourcesCoversClaudeCodexOpenCodeGoAndCursor() throws {
         let home = try Self.temporaryDirectory()
 
         let claudeDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
@@ -181,6 +181,21 @@ struct BlogUsageSyncTests {
         try FileManager.default.createDirectory(at: databaseDirectory, withIntermediateDirectories: true)
         try Self.createOpenCodeDatabase(at: databaseDirectory.appendingPathComponent("opencode.db"))
 
+        let cursorDirectory = home.appendingPathComponent(
+            "Library/Application Support/Cursor/User/globalStorage",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: cursorDirectory, withIntermediateDirectories: true)
+        try Self.createCursorDatabase(
+            at: cursorDirectory.appendingPathComponent("state.vscdb"),
+            composers: [
+                (
+                    id: "composer-meter",
+                    json: #"{"createdAt":1717329600000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":75098}"#
+                )
+            ]
+        )
+
         let parser = BlogUsageSourceParser(
             homeDirectory: home,
             environment: ["XDG_DATA_HOME": dataHome.path]
@@ -190,7 +205,217 @@ struct BlogUsageSyncTests {
             "\(event.agent)/\(event.provider)"
         }
 
-        #expect(Set(agentProviders) == ["claude/anthropic", "codex/openai", "opencode/opencode-go"])
+        #expect(Set(agentProviders) == [
+            "claude/anthropic",
+            "codex/openai",
+            "opencode/opencode-go",
+            "cursor/cursor"
+        ])
+    }
+
+    @Test func cursorMapperEmitsContextMeterCreditWhenBubbleTokensAreZero() {
+        let parser = BlogUsageSourceParser()
+        let composer: [String: Any] = [
+            "createdAt": 1_717_329_600_000,
+            "modelConfig": ["modelName": "composer-2.5"],
+            "contextTokensUsed": 75_098,
+            "promptTokenBreakdown": ["totalUsedTokens": 75_098]
+        ]
+        let bubbles: [(id: String, json: [String: Any])] = [
+            (
+                id: "bubble-1",
+                json: [
+                    "bubbleId": "bubble-1",
+                    "createdAt": "2026-06-02T10:00:00.000Z",
+                    "tokenCount": ["inputTokens": 0, "outputTokens": 0]
+                ]
+            )
+        ]
+
+        let events = parser.mapCursorComposerEvents(
+            composerID: "composer-1",
+            composerJSON: composer,
+            bubbles: bubbles
+        )
+
+        #expect(events.count == 1)
+        #expect(events.first?.id == "cursor-meter-composer-1")
+        #expect(events.first?.agent == "cursor")
+        #expect(events.first?.provider == "cursor")
+        #expect(events.first?.model == "composer-2.5")
+        #expect(events.first?.inputTokens == 75_098)
+        #expect(events.first?.outputTokens == 0)
+        #expect(events.first?.cacheReadTokens == 0)
+        #expect(events.first?.cacheWriteTokens == 0)
+        #expect(events.first?.reasoningTokens == 0)
+        #expect(events.first?.timestamp == Date(timeIntervalSince1970: 1_717_329_600))
+    }
+
+    @Test func cursorMapperPrefersExplicitNonZeroBubbleTokensOverMeter() {
+        let parser = BlogUsageSourceParser()
+        let composer: [String: Any] = [
+            "createdAt": 1_717_329_600_000,
+            "modelConfig": ["modelName": "default"],
+            "contextTokensUsed": 99_999
+        ]
+        let bubbles: [(id: String, json: [String: Any])] = [
+            (
+                id: "bubble-user",
+                json: [
+                    "bubbleId": "bubble-user",
+                    "createdAt": "2026-06-02T10:00:00.000Z",
+                    "tokenCount": ["inputTokens": 0, "outputTokens": 0]
+                ]
+            ),
+            (
+                id: "bubble-assistant",
+                json: [
+                    "bubbleId": "bubble-assistant",
+                    "createdAt": "2026-06-02T10:01:00.000Z",
+                    "modelInfo": ["modelName": "grok-4.5"],
+                    "tokenCount": ["inputTokens": 120, "outputTokens": 40]
+                ]
+            )
+        ]
+
+        let events = parser.mapCursorComposerEvents(
+            composerID: "composer-2",
+            composerJSON: composer,
+            bubbles: bubbles
+        )
+
+        #expect(events.count == 1)
+        #expect(events.first?.id == "cursor-bubble-composer-2-bubble-assistant")
+        #expect(events.first?.agent == "cursor")
+        #expect(events.first?.provider == "cursor")
+        #expect(events.first?.model == "grok-4.5")
+        #expect(events.first?.inputTokens == 120)
+        #expect(events.first?.outputTokens == 40)
+        #expect(events.first?.cacheReadTokens == 0)
+        #expect(events.first?.cacheWriteTokens == 0)
+    }
+
+    @Test func cursorMapperUsesPromptTokenBreakdownWhenContextTokensMissing() {
+        let parser = BlogUsageSourceParser()
+        let composer: [String: Any] = [
+            "createdAt": 1_717_329_600_000,
+            "modelConfig": ["modelName": "default", "selectedModels": [["modelId": "default"]]],
+            "promptTokenBreakdown": ["totalUsedTokens": 61_168]
+        ]
+
+        let events = parser.mapCursorComposerEvents(
+            composerID: "composer-3",
+            composerJSON: composer,
+            bubbles: []
+        )
+
+        #expect(events.count == 1)
+        #expect(events.first?.model == "cursor-auto")
+        #expect(events.first?.inputTokens == 61_168)
+        #expect(events.first?.provider == "cursor")
+    }
+
+    @Test func cursorMapperSkipsZeroTokenComposersWithoutMeter() {
+        let parser = BlogUsageSourceParser()
+        let composer: [String: Any] = [
+            "createdAt": 1_717_329_600_000,
+            "modelConfig": ["modelName": "composer-2.5"]
+        ]
+        let bubbles: [(id: String, json: [String: Any])] = [
+            (
+                id: "bubble-1",
+                json: [
+                    "bubbleId": "bubble-1",
+                    "tokenCount": ["inputTokens": 0, "outputTokens": 0]
+                ]
+            )
+        ]
+
+        let events = parser.mapCursorComposerEvents(
+            composerID: "composer-empty",
+            composerJSON: composer,
+            bubbles: bubbles
+        )
+
+        #expect(events.isEmpty)
+    }
+
+    @Test func cursorParserReadsStateDatabaseWithMeterCredit() throws {
+        let home = try Self.temporaryDirectory()
+        let cursorDirectory = home.appendingPathComponent(
+            "Library/Application Support/Cursor/User/globalStorage",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: cursorDirectory, withIntermediateDirectories: true)
+        try Self.createCursorDatabase(
+            at: cursorDirectory.appendingPathComponent("state.vscdb"),
+            composers: [
+                (
+                    id: "composer-a",
+                    json: #"{"createdAt":1717329600000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":1234}"#
+                ),
+                (
+                    id: "composer-empty",
+                    json: #"{"createdAt":1717329601000,"modelConfig":{"modelName":"default"}}"#
+                )
+            ],
+            bubbles: [
+                (
+                    composerID: "composer-a",
+                    bubbleID: "bubble-zero",
+                    json: #"{"bubbleId":"bubble-zero","tokenCount":{"inputTokens":0,"outputTokens":0}}"#
+                )
+            ]
+        )
+
+        let parser = BlogUsageSourceParser(homeDirectory: home, environment: [:])
+        let events = try parser.parseCursorEvents()
+
+        #expect(events.count == 1)
+        #expect(events.first?.id == "cursor-meter-composer-a")
+        #expect(events.first?.inputTokens == 1234)
+        #expect(events.first?.provider == "cursor")
+    }
+
+    @Test func cursorIndexerIndexesMeterEventsIncrementally() async throws {
+        let home = try Self.temporaryDirectory()
+        let cursorDirectory = home.appendingPathComponent(
+            "Library/Application Support/Cursor/User/globalStorage",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: cursorDirectory, withIntermediateDirectories: true)
+        let database = cursorDirectory.appendingPathComponent("state.vscdb")
+        try Self.createCursorDatabase(
+            at: database,
+            composers: [
+                (
+                    id: "composer-new",
+                    json: #"{"createdAt":3000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":30}"#
+                ),
+                (
+                    id: "composer-old",
+                    json: #"{"createdAt":1000,"modelConfig":{"modelName":"composer-2.5"},"contextTokensUsed":10}"#
+                )
+            ]
+        )
+
+        let indexer = BlogUsageSourceIndexer(
+            parser: BlogUsageSourceParser(homeDirectory: home, environment: [:]),
+            databaseURL: home.appendingPathComponent("index.sqlite")
+        )
+
+        let first = try await indexer.index(maximumBytes: 1)
+        #expect(first.recordsProcessed == 1)
+        #expect(first.isBackfillInProgress)
+        #expect(try await indexer.rows().first?.inputTokens == 30)
+
+        let second = try await indexer.index(maximumBytes: 1_024 * 1_024)
+        #expect(second.recordsProcessed >= 1)
+        let rows = try await indexer.rows()
+        #expect(rows.first?.agent == "cursor")
+        #expect(rows.first?.provider == "cursor")
+        #expect(rows.first?.inputTokens == 40)
+        #expect(rows.first?.messages == 2)
     }
 
     @Test func aggregatorProducesExactPayloadShape() {
@@ -1154,6 +1379,60 @@ struct BlogUsageSyncTests {
         let escaped = data.replacingOccurrences(of: "'", with: "''")
         guard sqlite3_exec(database, "INSERT INTO message (id, createdAt, data) VALUES ('msg-1', '2026-06-02T10:00:00Z', '\(escaped)')", nil, nil, nil) == SQLITE_OK else {
             throw BlogUsageTestError.sqliteExecFailed
+        }
+    }
+
+    private static func createCursorDatabase(
+        at url: URL,
+        composers: [(id: String, json: String)],
+        bubbles: [(composerID: String, bubbleID: String, json: String)] = []
+    ) throws {
+        var database: OpaquePointer?
+        guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {
+            throw BlogUsageTestError.sqliteOpenFailed
+        }
+        defer { sqlite3_close(database) }
+
+        guard sqlite3_exec(
+            database,
+            """
+            CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT);
+            CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value BLOB);
+            """,
+            nil,
+            nil,
+            nil
+        ) == SQLITE_OK else {
+            throw BlogUsageTestError.sqliteExecFailed
+        }
+
+        for composer in composers {
+            let key = "composerData:\(composer.id)".replacingOccurrences(of: "'", with: "''")
+            let value = composer.json.replacingOccurrences(of: "'", with: "''")
+            guard sqlite3_exec(
+                database,
+                "INSERT INTO cursorDiskKV (key, value) VALUES ('\(key)', '\(value)')",
+                nil,
+                nil,
+                nil
+            ) == SQLITE_OK else {
+                throw BlogUsageTestError.sqliteExecFailed
+            }
+        }
+
+        for bubble in bubbles {
+            let key = "bubbleId:\(bubble.composerID):\(bubble.bubbleID)"
+                .replacingOccurrences(of: "'", with: "''")
+            let value = bubble.json.replacingOccurrences(of: "'", with: "''")
+            guard sqlite3_exec(
+                database,
+                "INSERT INTO cursorDiskKV (key, value) VALUES ('\(key)', '\(value)')",
+                nil,
+                nil,
+                nil
+            ) == SQLITE_OK else {
+                throw BlogUsageTestError.sqliteExecFailed
+            }
         }
     }
 
