@@ -477,7 +477,7 @@ final class BlogUsageIndexStore: BlogUsageIndexStoring, @unchecked Sendable {
                 switch source {
                 case .claude: provider = .claude
                 case .codex: provider = .codex
-                case .openCode: continue
+                case .openCode, .cursor: continue
                 }
                 let effortLevel = columnString(statement, index: 2)
                     .map(EffortLevel.init(rawValue:))
