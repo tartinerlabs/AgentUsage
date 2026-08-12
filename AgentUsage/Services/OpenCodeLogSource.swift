@@ -116,6 +116,7 @@ actor OpenCodeLogSource: UsageLogSource {
     ///   - `openai` → Codex: these are ChatGPT-subscription sessions (their model ids are
     ///     ChatGPT-internal codenames like `gpt-5.6-terra-pro`, not public API models),
     ///     drawing the same ChatGPT quota as Codex.
+    ///   - `xai` / `grok` → Grok.
     ///   - `opencode-go` → OpenCode Go.
     ///   - `opencode` (Zen) and everything else → OpenCode.
     static func parseModel(_ json: String) -> (id: String, providerID: String, provider: Provider) {
@@ -135,6 +136,8 @@ actor OpenCodeLogSource: UsageLogSource {
         switch providerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "openai":
             return .codex
+        case "xai", "grok":
+            return .grok
         case "opencode-go":
             return .openCodeGo
         default:

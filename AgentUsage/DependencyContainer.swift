@@ -43,6 +43,7 @@ enum DependencyContainer {
     static func createTokenUsageService(defaults: UserDefaults = .standard) -> TokenUsageService {
         let sources: [any UsageLogSource] = [
             CodexLogSource(),
+            GrokLogSource(),
             // OpenCodeLogSource(), // Disabled: OpenCode usage is currently unreliable.
         ]
         return TokenUsageService(extraSources: sources)

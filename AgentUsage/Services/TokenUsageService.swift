@@ -107,11 +107,11 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         var samples: [EffortUsageSample] = []
         for source in extraSources {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
-            // Codex is currently the only extra provider whose local log format
-            // exposes a reasoning-effort setting. Do not turn providers without
-            // that concept into a misleading all-unclassified distribution.
+            // Codex and Grok are the extra providers whose local logs expose a
+            // reasoning-effort setting. Do not turn providers without that
+            // concept into a misleading all-unclassified distribution.
             samples.append(contentsOf: entries.compactMap { entry in
-                guard entry.provider == .codex else { return nil }
+                guard entry.provider == .codex || entry.provider == .grok else { return nil }
                 return EffortUsageSample(
                     provider: entry.provider,
                     sessionID: entry.sessionID,

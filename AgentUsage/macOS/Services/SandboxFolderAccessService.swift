@@ -3,7 +3,7 @@
 //  AgentUsage
 //
 //  Tracks whether the sandboxed macOS app can read the CLI tools' log directories
-//  (`~/.claude`, `~/.codex`, `~/.local/share/opencode`) through Full Disk Access
+//  (`~/.claude`, `~/.codex`, `~/.local/share/opencode`, `~/.grok`) through Full Disk Access
 //  or previously saved security-scoped bookmarks.
 //
 
@@ -27,7 +27,7 @@ final class SandboxFolderAccessService {
 
     /// Providers whose logs or local session state require disk access.
     /// `.openCodeGo` is remote-only, so it is not included.
-    static let grantableProviders: [Provider] = [.claude, .codex, .openCode, .cursor]
+    static let grantableProviders: [Provider] = [.claude, .codex, .openCode, .cursor, .grok]
 
     /// Whether the app appears to have Full Disk Access to the real home directory.
     private(set) var hasFullAccess = false
@@ -67,6 +67,7 @@ final class SandboxFolderAccessService {
         case .codex: Constants.codexHomeDirectory
         case .openCode, .openCodeGo: Constants.openCodeHomeDirectory
         case .cursor: Constants.cursorStateDirectory
+        case .grok: Constants.grokHomeDirectory
         }
     }
 
@@ -87,7 +88,7 @@ final class SandboxFolderAccessService {
         panel.canCreateDirectories = false
         panel.showsHiddenFiles = true
         panel.directoryURL = target
-        panel.message = "Grant read access to your home folder so \(Constants.appDisplayName) can read local Claude, Codex, OpenCode, and Cursor usage data."
+        panel.message = "Grant read access to your home folder so \(Constants.appDisplayName) can read local Claude, Codex, OpenCode, Cursor, and Grok usage data."
         panel.prompt = "Grant Access"
 
         guard panel.runModal() == .OK,

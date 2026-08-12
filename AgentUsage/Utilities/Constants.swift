@@ -83,6 +83,8 @@ nonisolated enum Constants {
     static let openaiPlatformURL = "https://platform.openai.com/usage"
     static let cursorStatusURL = "https://status.cursor.com"
     static let cursorDashboardURL = "https://cursor.com/dashboard"
+    static let xaiStatusURL = "https://status.x.ai"
+    static let xaiConsoleURL = "https://console.x.ai"
 
     // MARK: - Network Configuration
     static let requestTimeout: TimeInterval = 30
@@ -177,6 +179,14 @@ nonisolated enum Constants {
     nonisolated static var cursorStateDirectory: URL {
         realHomeDirectory.appendingPathComponent("Library/Application Support/Cursor/User/globalStorage")
     }
+    /// Grok Build home (`GROK_HOME`, default `~/.grok`).
+    nonisolated static var grokHomeDirectory: URL {
+        let env = ProcessInfo.processInfo.environment
+        if let grokHome = env["GROK_HOME"], !grokHome.isEmpty {
+            return URL(fileURLWithPath: grokHome, isDirectory: true)
+        }
+        return realHomeDirectory.appendingPathComponent(".grok")
+    }
     nonisolated static var cursorStateDBURLs: [URL] {
         [cursorStateDirectory.appendingPathComponent("state.vscdb")]
     }
@@ -218,6 +228,11 @@ nonisolated enum Constants {
         urls.append(home.appendingPathComponent(".codex/auth.json"))
         urls.append(home.appendingPathComponent(".config/codex/auth.json"))
         return urls
+    }
+
+    /// Grok Build session directories (`summary.json` + `updates.jsonl` per session).
+    nonisolated static var grokSessionsDirectories: [URL] {
+        [grokHomeDirectory.appendingPathComponent("sessions")]
     }
 
     /// OpenCode SQLite database (XDG data home, with fallback).

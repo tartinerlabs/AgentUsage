@@ -20,6 +20,14 @@ struct OpenCodeLogSourceTests {
         #expect(model.provider == .codex)
     }
 
+    @Test func mapsXAIProviderIDToGrokBucket() throws {
+        let model = OpenCodeLogSource.parseModel(#"{"id":"grok-4.6","providerID":"xai"}"#)
+
+        #expect(model.id == "grok-4.6")
+        #expect(model.providerID == "xai")
+        #expect(model.provider == .grok)
+    }
+
     @Test func parsesOpenCodeProviderIDsForPricing() throws {
         let goModel = OpenCodeLogSource.parseModel(#"{"id":"qwen3-coder","providerID":"opencode-go"}"#)
         let zenModel = OpenCodeLogSource.parseModel(#"{"id":"gpt-5.1-codex","providerID":"opencode-zen"}"#)

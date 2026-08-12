@@ -158,6 +158,13 @@ struct ProviderTests {
             Provider.cursor.accentColor,
             Color(red: 120 / 255, green: 132 / 255, blue: 148 / 255)
         )
+
+        #expect(Provider.grok.displayName == "Grok")
+        #expect(Provider.grok.iconName == "bolt.fill")
+        expectSameColor(
+            Provider.grok.accentColor,
+            Color(red: 154 / 255, green: 128 / 255, blue: 102 / 255)
+        )
     }
 
     @Test func displayNamesDistinguishOpenCodeOfferings() {
@@ -173,6 +180,17 @@ struct ProviderTests {
 
         let data = try JSONEncoder().encode(Provider.cursor)
         #expect(try JSONDecoder().decode(Provider.self, from: data) == .cursor)
+    }
+
+    @Test func grokIsAnAdditiveTokenCostProvider() throws {
+        #expect(Provider.grok.displayName == "Grok")
+        #expect(Provider.grok.iconName == "bolt.fill")
+        #expect(Provider.grok.capabilities == [.tokenCost])
+        #expect(Provider.grok.supports(.rateWindows) == false)
+        #expect(Provider.grok.pricingProviderKey == "xai")
+
+        let data = try JSONEncoder().encode(Provider.grok)
+        #expect(try JSONDecoder().decode(Provider.self, from: data) == .grok)
     }
 }
 

@@ -93,7 +93,7 @@ extension WidgetEntry {
         case .claude: "session"
         case .codex: "codexFiveHour"
         case .cursor: "cursor.monthly.requests"
-        case .openCode, .openCodeGo: "custom"
+        case .openCode, .openCodeGo, .grok: "custom"
         }
         return WidgetEntry(
             date: .now,

@@ -116,6 +116,14 @@ nonisolated enum ModelPricing: Sendable {
         cacheReadPerMTok: 0.175
     )
 
+    /// Grok 4.6 published API rates (< 200k prompt tokens).
+    nonisolated static let grok46 = Rates(
+        inputPerMTok: 2.0,
+        outputPerMTok: 6.0,
+        cacheWritePerMTok: 2.0,
+        cacheReadPerMTok: 0.50
+    )
+
     /// Get pricing rates for a model name
     nonisolated static func rates(for model: String) -> Rates? {
         if let rates = LiteLLMPricingCache.shared.rates(forProvider: "anthropic", model: model) {
@@ -184,6 +192,12 @@ nonisolated enum ModelPricing: Sendable {
                 return gpt54Mini
             } else if lowercasedModel.contains("gpt-5.4") {
                 return gpt54
+            }
+        }
+
+        if lowercasedProvider == "xai" || lowercasedProvider == "grok" {
+            if lowercasedModel.contains("grok") {
+                return grok46
             }
         }
 
@@ -734,7 +748,7 @@ nonisolated struct TokenUsageSnapshot: Sendable {
     let today: TokenUsageSummary
     let last30Days: TokenUsageSummary
     let byModel: [String: TokenCount]
-    /// Per-provider 30-day breakdown (Claude / Codex / OpenCode).
+    /// Per-provider 30-day breakdown (Claude / Codex / OpenCode / Grok).
     let byProvider: [Provider: TokenUsageSummary]
     let fetchedAt: Date
 

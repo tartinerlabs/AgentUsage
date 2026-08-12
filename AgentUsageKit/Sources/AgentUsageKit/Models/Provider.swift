@@ -17,6 +17,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
     case openCode
     case openCodeGo
     case cursor
+    case grok
 
     public var id: String { rawValue }
 
@@ -28,6 +29,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCode: "OpenCode Zen"
         case .openCodeGo: "OpenCode Go"
         case .cursor: "Cursor"
+        case .grok: "Grok"
         }
     }
 
@@ -38,6 +40,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .codex: "chevron.left.forwardslash.chevron.right"
         case .openCode, .openCodeGo: "curlybraces"
         case .cursor: "cursorarrow"
+        case .grok: "bolt.fill"
         }
     }
 
@@ -48,6 +51,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .codex: Color(red: 16/255, green: 163/255, blue: 127/255)    // OpenAI green
         case .openCode, .openCodeGo: Color(red: 99/255, green: 102/255, blue: 241/255) // Indigo
         case .cursor: Color(red: 120/255, green: 132/255, blue: 148/255)  // Slate
+        case .grok: Color(red: 154/255, green: 128/255, blue: 102/255)    // Grok warm stone
         }
     }
 
@@ -68,6 +72,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCode: [.rateWindows, .tokenCost]
         case .openCodeGo: [.rateWindows, .tokenCost]
         case .cursor: [.rateWindows]
+        case .grok: [.tokenCost]
         }
     }
 
@@ -85,6 +90,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .codex: "openai"
         case .openCode, .openCodeGo: "openai"
         case .cursor: "cursor"
+        case .grok: "xai"
         }
     }
 

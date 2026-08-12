@@ -174,6 +174,14 @@ struct ModelPricingTests {
         #expect(ModelPricing.rates(forProvider: "openai", model: "gpt-5.3-codex")?.inputPerMTok == 1.75)
     }
 
+    @Test func matchesXAIProviderModels() {
+        #expect(ModelPricing.fallbackRates(forProvider: "xai", model: "grok-4.6")?.inputPerMTok == 2.0)
+        #expect(ModelPricing.fallbackRates(forProvider: "xai", model: "grok-4.6")?.outputPerMTok == 6.0)
+        #expect(ModelPricing.fallbackRates(forProvider: "xai", model: "grok-4.6")?.cacheReadPerMTok == 0.50)
+        #expect(ModelPricing.fallbackRates(forProvider: "xai", model: "GROK-4.6")?.inputPerMTok == 2.0)
+        #expect(ModelPricing.fallbackRates(forProvider: "grok", model: "grok-4.5")?.inputPerMTok == 2.0)
+    }
+
     @Test func liteLLMHostedCostMapPricesModels() async throws {
         LiteLLMPricingCache.shared.clearForTesting()
         defer { LiteLLMPricingCache.shared.clearForTesting() }
