@@ -287,12 +287,33 @@ struct BlogUsageSyncTests {
         #expect(events.count == 1)
         #expect(events.first?.id == "cursor-bubble-composer-2-bubble-assistant")
         #expect(events.first?.agent == "cursor")
-        #expect(events.first?.provider == "cursor")
+        #expect(events.first?.provider == "xai")
         #expect(events.first?.model == "grok-4.5")
         #expect(events.first?.inputTokens == 120)
         #expect(events.first?.outputTokens == 40)
         #expect(events.first?.cacheReadTokens == 0)
         #expect(events.first?.cacheWriteTokens == 0)
+    }
+
+    @Test func cursorMapperAttributesGrok46ToXAI() {
+        let parser = BlogUsageSourceParser()
+        let composer: [String: Any] = [
+            "createdAt": 1_717_329_600_000,
+            "modelConfig": ["modelName": "grok-4.6"],
+            "contextTokensUsed": 8_192
+        ]
+
+        let events = parser.mapCursorComposerEvents(
+            composerID: "composer-grok-46",
+            composerJSON: composer,
+            bubbles: []
+        )
+
+        #expect(events.count == 1)
+        #expect(events.first?.agent == "cursor")
+        #expect(events.first?.provider == "xai")
+        #expect(events.first?.model == "grok-4.6")
+        #expect(events.first?.inputTokens == 8_192)
     }
 
     @Test func cursorMapperUsesPromptTokenBreakdownWhenContextTokensMissing() {

@@ -259,7 +259,7 @@ struct SettingsTabView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Enable Sync")
                                     .font(.body)
-                                Text("Passively sync daily Claude, Codex, Cursor, and OpenCode usage to the blog backend")
+                                Text("Passively sync daily Claude, Codex, Cursor, OpenCode, and Grok usage to the blog backend")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -644,7 +644,7 @@ struct SettingsTabView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(
                     "\(Constants.appDisplayName) runs sandboxed, so macOS blocks direct reads "
-                        + "from the folders where Claude, Codex, OpenCode, and Cursor keep local "
+                        + "from the folders where Claude, Codex, OpenCode, Cursor, and Grok keep local "
                         + "usage logs or session state. Grant your home folder here, or use Full Disk Access in Privacy & Security as a fallback."
                 )
                 .font(.caption)

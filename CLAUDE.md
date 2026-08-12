@@ -32,9 +32,9 @@ xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug
 The app is not Claude-only. Usage is collected per provider through two seams:
 
 - `AgentUsageKit/Sources/AgentUsageKit/Models/Provider.swift` — `Provider` enum
-  (`claude`, `codex`, `openCode`, `openCodeGo`, `cursor`). Each carries a `Capability` set
+  (`claude`, `codex`, `openCode`, `openCodeGo`, `cursor`, `grok`). Each carries a `Capability` set
   (`.rateWindows` for live quota windows, `.tokenCost` for token/cost from local
-  logs), a `pricingProviderKey` ("anthropic" / "openai"), and a `family` rollup.
+  logs), a `pricingProviderKey` ("anthropic" / "openai" / "xai"), and a `family` rollup.
   Check capabilities before assuming a provider surfaces a given kind of data.
 - `AgentUsage/Shared/Protocols/UsageLogSource.swift` — `protocol UsageLogSource: Actor`,
   which normalizes each CLI's local logs into `ProviderUsageEntry` (provider,
@@ -65,13 +65,18 @@ it and why no folder grant is needed for auth.
 
 **Reading CLI logs does need a folder grant.**
 `macOS/Services/SandboxFolderAccessService.swift` resolves security-scoped
-bookmarks for `~/.claude`, `~/.codex`, and `~/.local/share/opencode` at launch and
+bookmarks for `~/.claude`, `~/.codex`, `~/.local/share/opencode`, and `~/.grok` at launch and
 holds them for the process lifetime. It also grants read access to Cursor's
 `~/Library/Application Support/Cursor/User/globalStorage` session database; the
 user grants these paths in Settings → Local Data Access. Under the sandbox,
 `NSHomeDirectory()` returns the container — use
 `Constants.realHomeDirectory`, which resolves the true home via
 `getpwuid(getuid())` (`Constants.swift:133`).
+
+**Grok has no live quota API.** `Provider.grok` is `.tokenCost` only. Grok Build
+does not log billable input/output tokens; `GrokLogSource` estimates them from
+the per-turn context-fill curve in `updates.jsonl`. Do not add an unofficial
+grok.com billing scrape to make rate windows "work".
 
 **The SwiftData store is pinned to the App Group.** `AgentUsageApp.swift:66`
 passes `ModelConfiguration(groupContainer: .identifier(Constants.appGroupIdentifier))`

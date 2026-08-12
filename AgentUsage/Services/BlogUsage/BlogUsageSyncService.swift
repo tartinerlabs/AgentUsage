@@ -690,7 +690,7 @@ nonisolated struct BlogUsageSourceParser {
                     id: "cursor-bubble-\(composerID)-\(bubbleID)",
                     timestamp: timestamp,
                     agent: "cursor",
-                    provider: "cursor",
+                    provider: cursorInferenceProvider(for: model),
                     model: model,
                     inputTokens: inputTokens,
                     outputTokens: outputTokens,
@@ -714,7 +714,7 @@ nonisolated struct BlogUsageSourceParser {
                 id: "cursor-meter-\(composerID)",
                 timestamp: timestamp,
                 agent: "cursor",
-                provider: "cursor",
+                provider: cursorInferenceProvider(for: composerModel),
                 model: composerModel,
                 inputTokens: meterTokens,
                 outputTokens: 0,
@@ -757,6 +757,15 @@ nonisolated struct BlogUsageSourceParser {
         }
 
         return "cursor-auto"
+    }
+
+    /// Inference provider that billed a Cursor session.
+    ///
+    /// Cursor is a multi-provider agent: composer models stay on Cursor, while
+    /// Grok sessions are billed by xAI and must stamp `provider: "xai"` so the
+    /// blog `/usage` page can price and group them under xAI.
+    private nonisolated func cursorInferenceProvider(for model: String) -> String {
+        model.lowercased().contains("grok") ? "xai" : "cursor"
     }
 
     private nonisolated func jsonlFiles(in root: URL) throws -> [URL] {

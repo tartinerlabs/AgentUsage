@@ -259,6 +259,8 @@ struct ProviderDetailView: View {
             return []
         case .cursor:
             return [("Status", Constants.cursorStatusURL), ("Dashboard", Constants.cursorDashboardURL)]
+        case .grok:
+            return [("Status", Constants.xaiStatusURL), ("Console", Constants.xaiConsoleURL)]
         }
     }
 }

@@ -264,11 +264,7 @@ private struct MenuBarProviderMark: View {
     }
 
     private var fallbackSymbol: String {
-        switch providerID {
-        case Provider.claude.rawValue: Provider.claude.iconName
-        case Provider.codex.rawValue: Provider.codex.iconName
-        default: "gauge.medium"
-        }
+        Provider(rawValue: providerID)?.iconName ?? "gauge.medium"
     }
 
     var body: some View {

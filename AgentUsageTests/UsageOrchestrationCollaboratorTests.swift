@@ -38,6 +38,7 @@ struct MenuBarSettingsManagerTests {
     @Test @MainActor func cursorStaysOutOfCompactStripPins() {
         #expect(MenuBarSettingsManager.supportedProviders == [.claude, .codex])
         #expect(MenuBarSettingsManager.supportedWindows(for: .cursor).isEmpty)
+        #expect(MenuBarSettingsManager.supportedWindows(for: .grok).isEmpty)
     }
 
     @Test @MainActor func openCodeOfferingsExposeQuotaWindows() {

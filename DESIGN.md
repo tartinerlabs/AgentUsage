@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: AgentUsage
-description: Visual identity for AgentUsage — a multi-platform SwiftUI usage "weather station" (macOS menu bar + iOS + widgets) for Claude, Codex, Cursor, and enabled OpenCode usage.
+description: Visual identity for AgentUsage — a multi-platform SwiftUI usage "weather station" (macOS menu bar + iOS + widgets) for Claude, Codex, Cursor, Grok, and enabled OpenCode usage.
 
 colors:
   # Provider-neutral identity — approved app-icon color anchors.
@@ -29,6 +29,7 @@ colors:
   provider-codex: "#10A37F"      # OpenAI green
   provider-open-code: "#6366F1"  # Indigo
   provider-cursor: "#788494"     # Slate
+  provider-grok: "#9A8066"       # Grok warm stone
 
 typography:
   # Base is SwiftUI semantic Dynamic Type (SF Pro). Do NOT hardcode point sizes for body text.
@@ -95,6 +96,10 @@ components:
     padding: "{spacing.lg}"
   card-provider-cursor:          # same card, Cursor accent
     backgroundColor: "{colors.provider-cursor}"
+    rounded: "{rounded.md}"
+    padding: "{spacing.lg}"
+  card-provider-grok:            # same card, Grok accent
+    backgroundColor: "{colors.provider-grok}"
     rounded: "{rounded.md}"
     padding: "{spacing.lg}"
   badge:                         # plan-name / service-down pills
@@ -166,7 +171,7 @@ Five families, each with a distinct job:
   appearance, so it is never a hardcoded hex.
 - **Provider accents.** Each provider owns a tint used for its card and glyph: Claude clay
   `#D97757`, Codex/OpenAI green `#10A37F`, opencode indigo `#6366F1`, Cursor slate
-  `#788494`.
+  `#788494`, Grok warm stone `#9A8066`.
 - **Extra-usage accent (Dusty Plum `#8B5E83`).** The single non-brand, non-status accent,
   reserved **exclusively** for over-limit / billed usage indicators. Its scarcity is what makes
   it meaningful — do not reuse it for decoration. Mirrored publicly as
@@ -281,7 +286,7 @@ Corner radius is assigned by component scale:
 - **Accessory widgets & Live Activities** — where the platform shape requires a gauge, use
   SwiftUI `Gauge` (`.accessoryCircular` / `.accessoryLinear`) colored by `status.color` with
   matching `.keylineTint`. Live Activity content carries the selected provider and stable window
-  ID so Claude, Codex, Cursor, and future enabled providers share the same presentation.
+  ID so Claude, Codex, Cursor, Grok, and future enabled providers share the same presentation.
 
 Status-bearing components use `UsageStatus` as the single source of truth for "how bad is it."
 The menu-bar strip is intentionally neutral: macOS applies the template tint, while its values
