@@ -40,6 +40,46 @@ struct ClaudeAPIServiceTests {
         let error = ClaudeAPIService.APIError.serverError(500)
         #expect(error.errorDescription?.contains("500") == true)
     }
+
+    @Test func mapsUsageSnapshotToProviderUsageSnapshot() {
+        let fetchedAt = Date()
+        let snapshot = UsageSnapshot(
+            session: UsageWindow(
+                utilization: 12,
+                resetsAt: fetchedAt.addingTimeInterval(3_600),
+                windowType: .session
+            ),
+            opus: UsageWindow(
+                utilization: 34,
+                resetsAt: fetchedAt.addingTimeInterval(7_200),
+                windowType: .opus
+            ),
+            sonnet: nil,
+            extraUsage: ExtraUsageCost(used: 1.5, limit: 10, currencyCode: "USD"),
+            fetchedAt: fetchedAt
+        )
+        let effort = EffortPeriodSummary(
+            period: .last30Days,
+            levels: [EffortLevelCount(level: .high, sessionCount: 2)],
+            classifiedSessionCount: 2,
+            unclassifiedSessionCount: 0
+        )
+
+        let mapped = ClaudeAPIService.providerSnapshot(
+            from: snapshot,
+            planName: "Max",
+            effortSummaries: [effort]
+        )
+
+        #expect(mapped.provider == .claude)
+        #expect(mapped.planName == "Max")
+        #expect(mapped.windows.map(\.windowType) == [.session, .opus])
+        #expect(mapped.windows.map(\.utilization) == [12, 34])
+        #expect(mapped.extraUsage?.used == 1.5)
+        #expect(mapped.effortSummaries == [effort])
+        #expect(mapped.fetchedAt == fetchedAt)
+        #expect(mapped.rateLimitResetCredits == nil)
+    }
 }
 
 // MARK: - API Response Parsing Tests
