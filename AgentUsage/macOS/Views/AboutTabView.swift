@@ -210,6 +210,14 @@ struct AboutTabView: View {
     }
 }
 
+extension Bundle {
+    var appVersion: String {
+        let version = infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "\(version) (\(build))"
+    }
+}
+
 #Preview {
     AboutTabView()
         .frame(width: 720, height: 560)

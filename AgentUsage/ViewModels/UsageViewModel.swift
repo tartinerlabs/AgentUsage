@@ -61,9 +61,9 @@ final class UsageViewModel {
     #if os(macOS)
     var periodSummaries: [UsagePeriod: TokenUsageSummary] = [:]
     #endif
-    /// Rate-limit windows for optional providers. Claude remains backed by its
-    /// cached `UsageSnapshot` because its API model is richer and shared with
-    /// iOS and WidgetKit.
+    /// Rate-limit windows per provider, including Claude dual-written from
+    /// `refreshClaude()`. `UsageSnapshot` remains the live Claude API model
+    /// and fallback; it is not the only Claude store.
     private(set) var providerUsage: [Provider: ProviderUsageSnapshot] = [:]
     #if os(macOS)
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
@@ -525,6 +525,13 @@ final class UsageViewModel {
         snapshot = cached.snapshot
         planType = cached.planType
         providerUsage = providerUsageDictionary(from: cached.providerSnapshots)
+        // Older caches stored Claude only as `UsageSnapshot`.
+        if providerUsage[.claude] == nil, let snapshot {
+            providerUsage[.claude] = ClaudeAPIService.providerSnapshot(
+                from: snapshot,
+                planName: planType
+            )
+        }
         #if os(macOS)
         providerDetails = addingUnavailableLocalUsageDetails(
             to: [:],
@@ -718,24 +725,46 @@ extension UsageViewModel {
     }
 
     /// Returns the provider-neutral usage snapshot used by provider surfaces.
-    /// Claude is bridged from its existing cached snapshot; other providers come
-    /// from local macOS services or macOS-published continuity sync.
+    /// Claude prefers the dual-written `providerUsage[.claude]` entry and falls
+    /// back to bridging `UsageSnapshot`. Other providers come from local macOS
+    /// services or macOS-published continuity sync.
     func usageSnapshot(for provider: Provider) -> ProviderUsageSnapshot? {
         guard !Self.disabledProviders.contains(provider) else { return nil }
         if provider == .claude {
+            if let stored = providerUsage[.claude] {
+                #if os(macOS)
+                let effortSummaries = providerDetails[.claude]?.effortSummaries
+                    ?? stored.effortSummaries
+                #else
+                let effortSummaries = stored.effortSummaries
+                #endif
+                // Credentials can refresh `planType` before `fetchUsage` fails.
+                // Surfaces read `planName` from this snapshot, so overlay the live plan.
+                if effortSummaries != stored.effortSummaries || stored.planName != planType {
+                    return ProviderUsageSnapshot(
+                        provider: stored.provider,
+                        windows: stored.windows,
+                        extraUsage: stored.extraUsage,
+                        planName: planType,
+                        rateLimitResetCredits: stored.rateLimitResetCredits,
+                        effortSummaries: effortSummaries,
+                        fetchedAt: stored.fetchedAt
+                    )
+                }
+                return stored
+            }
             #if os(macOS)
             if let snapshot {
-                return ProviderUsageSnapshot(
-                    claude: snapshot,
+                return ClaudeAPIService.providerSnapshot(
+                    from: snapshot,
                     planName: planType,
-                    effortSummaries: providerDetails[.claude]?.effortSummaries
-                        ?? providerUsage[.claude]?.effortSummaries
-                        ?? []
+                    effortSummaries: providerDetails[.claude]?.effortSummaries ?? []
                 )
             }
             #endif
-            return providerUsage[.claude]
-                ?? snapshot.map { ProviderUsageSnapshot(claude: $0, planName: planType) }
+            return snapshot.map {
+                ClaudeAPIService.providerSnapshot(from: $0, planName: planType)
+            }
         }
         return providerUsage[provider]
     }
@@ -840,6 +869,19 @@ extension UsageViewModel {
             rateLimitedUntil = nil  // Successful fetch ends any rate-limit cooldown
             clearIncident(for: .claude)  // Successful fetch ends any active outage
 
+            #if os(macOS)
+            let effortSummaries = providerDetails[.claude]?.effortSummaries
+                ?? providerUsage[.claude]?.effortSummaries
+                ?? []
+            #else
+            let effortSummaries = providerUsage[.claude]?.effortSummaries ?? []
+            #endif
+            providerUsage[.claude] = ClaudeAPIService.providerSnapshot(
+                from: newSnapshot,
+                planName: planType,
+                effortSummaries: effortSummaries
+            )
+
             // Cache the successful response
             cacheSnapshot(newSnapshot, planType: planType)
 
@@ -893,6 +935,7 @@ extension UsageViewModel {
             if let cached = snapshot, cached.allWindowsExpired {
                 Logger.viewModel.info("Cached snapshot is stale (all windows expired) — showing No usage data")
                 snapshot = nil
+                providerUsage[.claude] = nil
                 isNoUsageData = true
                 isUsingCachedData = false
                 errorMessage = nil
