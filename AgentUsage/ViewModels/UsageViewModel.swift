@@ -61,9 +61,9 @@ final class UsageViewModel {
     #if os(macOS)
     var periodSummaries: [UsagePeriod: TokenUsageSummary] = [:]
     #endif
-    /// Rate-limit windows for optional providers. Claude remains backed by its
-    /// cached `UsageSnapshot` because its API model is richer and shared with
-    /// iOS and WidgetKit.
+    /// Rate-limit windows per provider, including Claude dual-written from
+    /// `refreshClaude()`. `UsageSnapshot` remains the live Claude API model
+    /// and fallback; it is not the only Claude store.
     private(set) var providerUsage: [Provider: ProviderUsageSnapshot] = [:]
     #if os(macOS)
     /// Full per-provider detail (today/yesterday/30-day, per-model, daily trend)
@@ -725,8 +725,9 @@ extension UsageViewModel {
     }
 
     /// Returns the provider-neutral usage snapshot used by provider surfaces.
-    /// Claude is bridged from its existing cached snapshot; other providers come
-    /// from local macOS services or macOS-published continuity sync.
+    /// Claude prefers the dual-written `providerUsage[.claude]` entry and falls
+    /// back to bridging `UsageSnapshot`. Other providers come from local macOS
+    /// services or macOS-published continuity sync.
     func usageSnapshot(for provider: Provider) -> ProviderUsageSnapshot? {
         guard !Self.disabledProviders.contains(provider) else { return nil }
         if provider == .claude {
