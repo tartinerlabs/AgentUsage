@@ -735,18 +735,22 @@ extension UsageViewModel {
                 #if os(macOS)
                 let effortSummaries = providerDetails[.claude]?.effortSummaries
                     ?? stored.effortSummaries
-                if effortSummaries != stored.effortSummaries {
+                #else
+                let effortSummaries = stored.effortSummaries
+                #endif
+                // Credentials can refresh `planType` before `fetchUsage` fails.
+                // Surfaces read `planName` from this snapshot, so overlay the live plan.
+                if effortSummaries != stored.effortSummaries || stored.planName != planType {
                     return ProviderUsageSnapshot(
                         provider: stored.provider,
                         windows: stored.windows,
                         extraUsage: stored.extraUsage,
-                        planName: stored.planName,
+                        planName: planType,
                         rateLimitResetCredits: stored.rateLimitResetCredits,
                         effortSummaries: effortSummaries,
                         fetchedAt: stored.fetchedAt
                     )
                 }
-                #endif
                 return stored
             }
             #if os(macOS)

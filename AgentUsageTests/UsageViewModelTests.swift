@@ -580,6 +580,36 @@ struct UsageViewModelNoUsageDataTests {
         #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Pro")
         #expect(viewModel.snapshot != nil)
     }
+
+    @Test @MainActor func failedUsageFetchOverlaysLivePlanOnCachedClaudeSnapshot() async {
+        let testDefaults = TestUserDefaults()
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
+
+        let snapshot = makeSnapshot(resetsAt: Date().addingTimeInterval(3600))
+        await mockAPI.setMockSnapshot(snapshot)
+        await viewModel.refresh(force: true)
+        #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Pro")
+
+        await mockCredentials.configure(
+            credentials: MockCredentialProvider.validCredentials(subscriptionType: "max")
+        )
+        await mockAPI.setMockError(ClaudeAPIService.APIError.invalidResponse)
+        await mockAPI.setMockSnapshot(nil)
+        await viewModel.refresh(force: true)
+
+        #expect(viewModel.planType == "Max")
+        #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Max")
+        #expect(viewModel.providerUsage[.claude]?.planName == "Pro")
+        #expect(viewModel.snapshot != nil)
+        #expect(viewModel.isUsingCachedData == true)
+    }
 }
 #endif
 
