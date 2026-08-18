@@ -354,3 +354,18 @@ actor ClaudeAPIService: APIServiceProtocol {
         )
     }
 }
+
+extension ClaudeAPIService {
+    /// Bridges Claude's richer `UsageSnapshot` into the provider-neutral shape.
+    nonisolated static func providerSnapshot(
+        from snapshot: UsageSnapshot,
+        planName: String? = nil,
+        effortSummaries: [EffortPeriodSummary] = []
+    ) -> ProviderUsageSnapshot {
+        ProviderUsageSnapshot(
+            claude: snapshot,
+            planName: planName,
+            effortSummaries: effortSummaries
+        )
+    }
+}
