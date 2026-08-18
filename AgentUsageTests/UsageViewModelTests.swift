@@ -161,6 +161,44 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.availableProviderSnapshots.first?.windows.map(\.windowType) == [.session, .opus])
     }
 
+    @Test @MainActor func cacheLoadBridgesClaudeOnlySnapshotIntoProviderUsage() async {
+        let testDefaults = TestUserDefaults()
+        let fetchedAt = Date()
+        let claudeSnapshot = UsageSnapshot(
+            session: UsageWindow(
+                utilization: 12,
+                resetsAt: fetchedAt.addingTimeInterval(3_600),
+                windowType: .session
+            ),
+            opus: UsageWindow(
+                utilization: 34,
+                resetsAt: fetchedAt.addingTimeInterval(7_200),
+                windowType: .opus
+            ),
+            sonnet: nil,
+            fetchedAt: fetchedAt
+        )
+        UsageSnapshotStore(defaults: testDefaults.defaults).save(
+            snapshot: claudeSnapshot,
+            planType: "Max",
+            providerSnapshots: [],
+            fetchedAt: fetchedAt
+        )
+
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            defaults: testDefaults.defaults
+        )
+
+        let bridged = viewModel.providerUsage[.claude]
+        #expect(bridged?.provider == .claude)
+        #expect(bridged?.planName == "Max")
+        #expect(bridged?.windows.map(\.windowType) == [.session, .opus])
+        #expect(bridged?.windows.map(\.utilization) == [12, 34])
+        #expect(bridged?.fetchedAt == fetchedAt)
+        #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Max")
+    }
+
     @Test @MainActor func loadsRefreshIntervalFromUserDefaults() async {
         let testDefaults = TestUserDefaults()
         testDefaults.defaults.set("1min", forKey: "refreshInterval")
@@ -446,6 +484,7 @@ struct UsageViewModelNoUsageDataTests {
         await viewModel.refresh(force: true)
 
         #expect(viewModel.snapshot == nil, "stale cached snapshot should be dropped")
+        #expect(viewModel.providerUsage[.claude] == nil, "dual-written Claude snapshot should be dropped")
         #expect(viewModel.isNoUsageData == true)
         #expect(viewModel.isUsingCachedData == false)
         #expect(viewModel.errorMessage == nil, "noUsageData is not an error message")
@@ -476,6 +515,7 @@ struct UsageViewModelNoUsageDataTests {
         await viewModel.refresh(force: true)
 
         #expect(viewModel.snapshot == nil, "expired cached snapshot should be dropped")
+        #expect(viewModel.providerUsage[.claude] == nil, "dual-written Claude snapshot should be dropped")
         #expect(viewModel.isNoUsageData == true)
         #expect(viewModel.isUsingCachedData == false)
     }
@@ -514,6 +554,61 @@ struct UsageViewModelNoUsageDataTests {
         await viewModel.refresh(force: true)
         #expect(viewModel.isNoUsageData == false)
         #expect(viewModel.isUsingCachedData == false)
+    }
+
+    @Test @MainActor func successfulClaudeRefreshDualWritesProviderUsage() async {
+        let testDefaults = TestUserDefaults()
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
+
+        let snapshot = makeSnapshot(resetsAt: Date().addingTimeInterval(3600))
+        await mockAPI.setMockSnapshot(snapshot)
+        await viewModel.refresh(force: true)
+
+        let written = viewModel.providerUsage[.claude]
+        #expect(written?.provider == .claude)
+        #expect(written?.planName == "Pro")
+        #expect(written?.windows.map(\.windowType) == [.session, .opus])
+        #expect(written?.windows.map(\.utilization) == [snapshot.session.utilization, snapshot.opus.utilization])
+        #expect(written?.fetchedAt == snapshot.fetchedAt)
+        #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Pro")
+        #expect(viewModel.snapshot != nil)
+    }
+
+    @Test @MainActor func failedUsageFetchOverlaysLivePlanOnCachedClaudeSnapshot() async {
+        let testDefaults = TestUserDefaults()
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
+
+        let snapshot = makeSnapshot(resetsAt: Date().addingTimeInterval(3600))
+        await mockAPI.setMockSnapshot(snapshot)
+        await viewModel.refresh(force: true)
+        #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Pro")
+
+        await mockCredentials.configure(
+            credentials: MockCredentialProvider.validCredentials(subscriptionType: "max")
+        )
+        await mockAPI.setMockError(ClaudeAPIService.APIError.invalidResponse)
+        await mockAPI.setMockSnapshot(nil)
+        await viewModel.refresh(force: true)
+
+        #expect(viewModel.planType == "Max")
+        #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Max")
+        #expect(viewModel.providerUsage[.claude]?.planName == "Pro")
+        #expect(viewModel.snapshot != nil)
+        #expect(viewModel.isUsingCachedData == true)
     }
 }
 #endif
