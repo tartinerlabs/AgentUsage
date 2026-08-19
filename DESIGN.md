@@ -12,7 +12,8 @@ colors:
   icon-background: "#FAF4EF"    # warm off-white app-icon field
 
   # Application UI — defined in code, not in Assets.xcassets. See AgentUsageKit/.../Design/AgentUsageColors.swift
-  primary: "#3B6BCE"             # Timefold Ink — the app's primary brand color; usage progress-bar fill
+  primary: "#3B6BCE"             # Timefold Ink — light-mode primary; usage progress-bar fill
+  primary-dark: "#7197D4"        # Pacific Blue — dark-mode primary (4.5:1 on #1C1C1E)
   brand-secondary: "#7197D4"     # Pacific Blue — lighter application sibling (same sample as icon-pacific-blue)
   brand-background: "#F4F3EE"    # Pampas — light-mode neutral ground
   extra-usage-accent: "#8B5E83"  # Dusty Plum — RESERVED for over-limit / billed usage only
@@ -136,15 +137,16 @@ Four families, each with a distinct job:
   representative points within dimensional gradients, not flat-fill replacements. They govern
   the app icon and product-level identity, not usage severity or provider attribution.
 
-- **Application accent (Timefold Ink + Pampas).** `primary` `#3B6BCE` (Timefold Ink) is the
-  usage progress-bar fill and the single provider-card tint — icons, plan badges, cost figures,
-  card fill @ 0.06, and card border @ 0.15. It is the icon's azure hue, quieted and deepened so
-  it holds as text, tint, and fill without reading as Claude or system blue.
-  `brand-secondary` `#7197D4` is the lighter Pacific Blue sibling (the same sample as the
-  timefold upper surface). Attribution is name + SF Symbol, not a per-provider hue.
-  `brand-background` `#F4F3EE` (Pampas) is the light neutral ground. These values are fixed
-  sRGB and do **not** adapt to dark mode. They are not a substitute for the dimensional
-  app-icon palette.
+- **Application accent (Timefold Ink + Pampas).** `primary` is Timefold Ink `#3B6BCE` in
+  light appearance — the usage progress-bar fill and the single provider-card tint (icons,
+  plan badges, cost figures, card fill @ 0.06, border @ 0.15). It is the icon's azure hue,
+  quieted and deepened so it holds as text, tint, and fill without reading as Claude or
+  system blue. The same hex is only about 3.4:1 on the standard dark background `#1C1C1E`,
+  below the 4.5:1 small-text threshold used by caption plan badges, so dark mode resolves
+  `primary` to Pacific Blue `#7197D4` (`primary-dark`, ~5.7:1). `brand-secondary` is that
+  same Pacific Blue sample in every appearance. Attribution is name + SF Symbol, not a
+  per-provider hue. `brand-background` `#F4F3EE` (Pampas) is the light neutral ground and
+  stays fixed sRGB. These tokens are not a substitute for the dimensional app-icon palette.
 - **Status (system-semantic).** On-track/warning/critical map to SwiftUI `.green` / `.orange` /
   `.red`. Because they are system colors, they adapt automatically to light/dark and
   accessibility settings. This is deliberate: usage severity must remain legible in every
