@@ -106,10 +106,7 @@ TestFlight builds must continue using Apple's update path.
 `release.yml`, and `pages.yml` contain zero non-comment lines, and a fully
 commented file registers no workflow. `gh workflow run release.yml`
 fails silently. CI, archiving, and distribution run on Xcode Cloud, configured in
-App Store Connect. `ci_scripts/ci_pre_xcodebuild.sh` strips restricted macOS
-entitlements (`keychain-access-groups`, iCloud) only when
-`CI_XCODEBUILD_ACTION=build-for-testing`, so Archive/Release keeps them. Do
-not add those keys back in that hook.
+App Store Connect.
 
 **Version lives only in `Config/Version.xcconfig`**, wired as the project-level
 base configuration for Debug and Release, so every target inherits
@@ -123,7 +120,9 @@ the test host. Putting `LSUIElement` back in `AgentUsage/Info.plist` wins over
 the generated key and, together with restricted Debug entitlements, brings back
 `Runningboard error 5` (`Could not launch “AgentUsageTests”`). Xcode Cloud does
 not embed a Mac development profile for Keychain Sharing or iCloud on the test
-host — that is why `ci_pre_xcodebuild.sh` removes those keys for macOS Test.
+host — Debug macOS uses `AgentUsage/AgentUsage-Debug.entitlements` (no
+`keychain-access-groups` or iCloud). Release keeps those keys in
+`AgentUsage/AgentUsage.entitlements`. Do not add them to the Debug file.
 
 **The shared scheme’s default test plan is unit tests only**
 (`AgentUsage.xctestplan`). Xcode Cloud “Use Scheme Settings” follows that plan,
