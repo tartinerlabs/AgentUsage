@@ -30,6 +30,7 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.isLoading == false)
         #expect(viewModel.errorMessage == nil)
         #expect(viewModel.planType == "Free")
+        #expect(viewModel.availableProviders.isEmpty)
     }
 
     @Test @MainActor func defaultRefreshIntervalIsFiveMinutes() async {
@@ -486,6 +487,7 @@ struct UsageViewModelNoUsageDataTests {
         #expect(viewModel.snapshot == nil, "stale cached snapshot should be dropped")
         #expect(viewModel.providerUsage[.claude] == nil, "dual-written Claude snapshot should be dropped")
         #expect(viewModel.isNoUsageData == true)
+        #expect(viewModel.availableProviders.isEmpty, "empty state must not invent a Claude row")
         #expect(viewModel.isUsingCachedData == false)
         #expect(viewModel.errorMessage == nil, "noUsageData is not an error message")
     }

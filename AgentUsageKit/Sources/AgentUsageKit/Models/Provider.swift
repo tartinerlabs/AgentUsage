@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import SwiftUI
 
 // MARK: - Provider
 
@@ -44,14 +43,42 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Accent color for provider-specific UI.
-    public var accentColor: Color {
+    /// Asset catalog name for the compact menu-bar mark, when one exists.
+    ///
+    /// Providers without a dedicated mark render `iconName` instead.
+    public var menuBarMarkAssetName: String? {
         switch self {
-        case .claude: Color(red: 217/255, green: 119/255, blue: 87/255)   // Claude clay
-        case .codex: Color(red: 16/255, green: 163/255, blue: 127/255)    // OpenAI green
-        case .openCode, .openCodeGo: Color(red: 99/255, green: 102/255, blue: 241/255) // Indigo
-        case .cursor: Color(red: 120/255, green: 132/255, blue: 148/255)  // Slate
-        case .grok: Color(red: 154/255, green: 128/255, blue: 102/255)    // Grok warm stone
+        case .claude: "ClaudeProviderMark"
+        case .codex: "CodexProviderMark"
+        case .openCode, .openCodeGo, .cursor, .grok: nil
+        }
+    }
+
+    /// External status and console links shown on the provider detail surface.
+    public var links: [ProviderLink] {
+        switch self {
+        case .claude:
+            [
+                ProviderLink(label: "Status", urlString: "https://status.anthropic.com"),
+                ProviderLink(label: "Usage", urlString: "https://claude.ai/settings/usage"),
+            ]
+        case .codex:
+            [
+                ProviderLink(label: "Status", urlString: "https://status.openai.com"),
+                ProviderLink(label: "Usage", urlString: "https://platform.openai.com/usage"),
+            ]
+        case .openCode, .openCodeGo:
+            []
+        case .cursor:
+            [
+                ProviderLink(label: "Status", urlString: "https://status.cursor.com"),
+                ProviderLink(label: "Dashboard", urlString: "https://cursor.com/dashboard"),
+            ]
+        case .grok:
+            [
+                ProviderLink(label: "Status", urlString: "https://status.x.ai"),
+                ProviderLink(label: "Console", urlString: "https://console.x.ai"),
+            ]
         }
     }
 
@@ -100,5 +127,18 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCodeGo: .openCode
         default: self
         }
+    }
+}
+
+/// An external status or console destination for a provider.
+public struct ProviderLink: Sendable, Hashable {
+    public let label: String
+    public let urlString: String
+
+    public var url: URL? { URL(string: urlString) }
+
+    public init(label: String, urlString: String) {
+        self.label = label
+        self.urlString = urlString
     }
 }

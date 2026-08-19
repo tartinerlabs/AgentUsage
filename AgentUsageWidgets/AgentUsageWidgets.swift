@@ -20,7 +20,7 @@ struct AgentUsageWidgets: Widget {
         ) { entry in
             AgentUsageWidgetsEntryView(entry: entry)
                 .containerBackground(for: .widget) {
-                    WidgetProviderBackground(provider: entry.provider)
+                    WidgetProviderBackground()
                 }
         }
         .configurationDisplayName("Agent Usage")

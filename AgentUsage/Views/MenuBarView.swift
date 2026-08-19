@@ -59,7 +59,7 @@ struct MenuBarView: View {
         VStack(spacing: 8) {
             railTab(.overview, systemImage: "gauge.with.dots.needle.bottom.50percent", tint: .primary)
             ForEach(availableProviders, id: \.self) { provider in
-                railTab(.provider(provider), systemImage: provider.iconName, tint: provider.accentColor)
+                railTab(.provider(provider), systemImage: provider.iconName, tint: Constants.brandPrimary)
             }
 
             Spacer()
@@ -150,19 +150,21 @@ struct MenuBarView: View {
         case .overview:
             overviewPage
         case .provider(let provider):
-            ProviderDetailView(
+            ProviderCardView(
                 provider: provider,
                 planName: viewModel.usageSnapshot(for: provider)?.planName,
                 windows: viewModel.usageSnapshot(for: provider)?.windows ?? [],
-                detail: viewModel.providerDetails[provider],
+                extraUsage: viewModel.usageSnapshot(for: provider)?.extraUsage,
                 now: now,
-                effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
+                showExtraUsage: viewModel.showExtraUsageIndicators,
+                compact: true,
                 isServiceDown: viewModel.isServiceDown(provider),
                 rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits,
-                extraUsage: viewModel.usageSnapshot(for: provider)?.extraUsage,
-                showExtraUsage: viewModel.showExtraUsageIndicators
+                density: .detail,
+                detail: viewModel.providerDetail(for: provider),
+                effortSummaries: viewModel.usageSnapshot(for: provider)?.effortSummaries ?? [],
+                effortPeriod: viewModel.selectedTokenPeriod.effortPeriod
             )
-            .providerCardContainer(provider: provider, padding: 12)
         }
     }
 
@@ -172,6 +174,8 @@ struct MenuBarView: View {
         if providers.isEmpty {
             if let error = viewModel.errorMessage {
                 errorSection(error: error)
+            } else if viewModel.isNoUsageData {
+                noUsageSection
             } else {
                 loadingSection
             }
@@ -244,6 +248,17 @@ struct MenuBarView: View {
             Label("Error", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
             Text(error)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var noUsageSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("No usage data", systemImage: "chart.bar.xaxis")
+            Text("Usage limits will appear when a connected provider reports a new window.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
