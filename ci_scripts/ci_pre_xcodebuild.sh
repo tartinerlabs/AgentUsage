@@ -3,9 +3,12 @@ set -eu
 
 # Xcode Cloud's macOS test-host signing does not embed a development profile
 # for restricted capabilities. Requesting them makes Runningboard refuse to
-# spawn AgentUsageTests (error 5). Archive/Release keeps the full entitlements
-# file; this hook only mutates the throwaway Cloud checkout.
+# spawn AgentUsageTests (error 5). Only mutate the throwaway checkout for the
+# macOS Test action; Archive/Release must keep Keychain Sharing and iCloud.
 if [ "${CI_PRODUCT_PLATFORM:-}" != "macOS" ]; then
+  exit 0
+fi
+if [ "${CI_XCODEBUILD_ACTION:-}" != "build-for-testing" ]; then
   exit 0
 fi
 
