@@ -5,7 +5,6 @@
 //  A compact sparkline chart for displaying usage trends in the menu bar
 //
 
-#if os(macOS)
 import SwiftUI
 import AgentUsageKit
 
@@ -155,4 +154,3 @@ extension SparklineView {
     .padding()
     .background(Color.black)
 }
-#endif

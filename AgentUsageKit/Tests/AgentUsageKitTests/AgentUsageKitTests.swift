@@ -132,39 +132,54 @@ struct ProviderTests {
     @Test func presentationMappingsMatchDesignSystem() {
         #expect(Provider.claude.displayName == "Claude")
         #expect(Provider.claude.iconName == "sparkles")
-        expectSameColor(
-            Provider.claude.accentColor,
-            Color(red: 217 / 255, green: 119 / 255, blue: 87 / 255)
-        )
+        #expect(Provider.claude.menuBarMarkAssetName == "ClaudeProviderMark")
 
         #expect(Provider.codex.displayName == "Codex")
         #expect(Provider.codex.iconName == "chevron.left.forwardslash.chevron.right")
-        expectSameColor(
-            Provider.codex.accentColor,
-            Color(red: 16 / 255, green: 163 / 255, blue: 127 / 255)
-        )
+        #expect(Provider.codex.menuBarMarkAssetName == "CodexProviderMark")
 
         #expect(Provider.openCode.iconName == "curlybraces")
         #expect(Provider.openCodeGo.iconName == "curlybraces")
-        expectSameColor(
-            Provider.openCode.accentColor,
-            Color(red: 99 / 255, green: 102 / 255, blue: 241 / 255)
-        )
-        expectSameColor(Provider.openCodeGo.accentColor, Provider.openCode.accentColor)
+        #expect(Provider.openCode.menuBarMarkAssetName == nil)
+        #expect(Provider.openCodeGo.menuBarMarkAssetName == nil)
 
         #expect(Provider.cursor.displayName == "Cursor")
         #expect(Provider.cursor.iconName == "cursorarrow")
-        expectSameColor(
-            Provider.cursor.accentColor,
-            Color(red: 120 / 255, green: 132 / 255, blue: 148 / 255)
-        )
+        #expect(Provider.cursor.menuBarMarkAssetName == nil)
 
         #expect(Provider.grok.displayName == "Grok")
         #expect(Provider.grok.iconName == "bolt.fill")
-        expectSameColor(
-            Provider.grok.accentColor,
-            Color(red: 154 / 255, green: 128 / 255, blue: 102 / 255)
-        )
+        #expect(Provider.grok.menuBarMarkAssetName == nil)
+    }
+
+    @Test func linksAreProviderMetadataNotViewSwitches() {
+        #expect(Provider.claude.links.map(\.label) == ["Status", "Usage"])
+        #expect(Provider.claude.links.map(\.urlString) == [
+            "https://status.anthropic.com",
+            "https://claude.ai/settings/usage",
+        ])
+
+        #expect(Provider.codex.links.map(\.label) == ["Status", "Usage"])
+        #expect(Provider.codex.links.map(\.urlString) == [
+            "https://status.openai.com",
+            "https://platform.openai.com/usage",
+        ])
+
+        #expect(Provider.cursor.links.map(\.label) == ["Status", "Dashboard"])
+        #expect(Provider.cursor.links.map(\.urlString) == [
+            "https://status.cursor.com",
+            "https://cursor.com/dashboard",
+        ])
+
+        #expect(Provider.grok.links.map(\.label) == ["Status", "Console"])
+        #expect(Provider.grok.links.map(\.urlString) == [
+            "https://status.x.ai",
+            "https://console.x.ai",
+        ])
+
+        #expect(Provider.openCode.links.isEmpty)
+        #expect(Provider.openCodeGo.links.isEmpty)
+        #expect(Provider.claude.links.allSatisfy { $0.url != nil })
     }
 
     @Test func displayNamesDistinguishOpenCodeOfferings() {

@@ -9,9 +9,9 @@ import SwiftUI
 
 /// Provider-neutral application colors from the AgentUsage design system.
 ///
-/// Provider attribution remains on ``Provider/accentColor`` and usage severity
-/// remains on ``UsageStatus/color``. These roles are for the app's own visual
-/// language, so app and extension surfaces do not duplicate fixed RGB values.
+/// Provider attribution is name + glyph. Usage severity remains on
+/// ``UsageStatus/color``. These roles are for the app's own visual language, so
+/// app and extension surfaces do not duplicate fixed RGB values.
 public enum AgentUsageColors {
     /// Pacific Blue (`#7197D4`), sampled from the upper timefold surface.
     public static let iconPacificBlue = Color(red: 113 / 255, green: 151 / 255, blue: 212 / 255)
@@ -25,7 +25,7 @@ public enum AgentUsageColors {
     /// Warm off-white (`#FAF4EF`), the app-icon background field.
     public static let iconBackground = Color(red: 250 / 255, green: 244 / 255, blue: 239 / 255)
 
-    /// Crail (`#C15F3C`), used by the canonical linear usage progress bar.
+    /// Crail (`#C15F3C`), used by the usage progress bar and every provider card.
     public static let usageProgress = Color(red: 193 / 255, green: 95 / 255, blue: 60 / 255)
 
     /// Warm clay (`#DA7756`), retained as the secondary application-brand role.

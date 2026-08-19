@@ -28,7 +28,7 @@ struct EffortLevelsView: View {
                     EffortLevelRow(
                         levelCount: levelCount,
                         classifiedSessionCount: summary.classifiedSessionCount,
-                        tint: provider.accentColor
+                        tint: AgentUsageColors.usageProgress
                     )
                 }
             }
@@ -47,7 +47,7 @@ struct EffortLevelsView: View {
     private var providerHeader: some View {
         HStack(spacing: 8) {
             Image(systemName: provider.iconName)
-                .foregroundStyle(provider.accentColor)
+                .foregroundStyle(AgentUsageColors.usageProgress)
                 .accessibilityHidden(true)
             Text(provider.displayName)
                 .font(.subheadline.weight(.semibold))

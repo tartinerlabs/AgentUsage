@@ -13,7 +13,7 @@ struct AgentUsageWidgetsLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AgentUsageLiveActivityAttributes.self) { context in
             LockScreenBannerView(context: context)
-                .activityBackgroundTint(context.state.provider.accentColor.opacity(0.08))
+                .activityBackgroundTint(AgentUsageColors.usageProgress.opacity(0.08))
                 .activitySystemActionForegroundColor(.primary)
         } dynamicIsland: { context in
             let displayState = context.state.displayState(isStale: context.isStale)
@@ -38,7 +38,7 @@ struct AgentUsageWidgetsLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: context.state.provider.iconName)
-                    .foregroundStyle(context.state.provider.accentColor)
+                    .foregroundStyle(AgentUsageColors.usageProgress)
                     .accessibilityLabel(context.state.provider.displayName)
             } compactTrailing: {
                 CompactValueView(state: context.state, displayState: displayState)
@@ -55,7 +55,7 @@ struct AgentUsageWidgetsLiveActivity: Widget {
             .keylineTint(
                 displayState == .available
                     ? context.state.status.color
-                    : context.state.provider.accentColor
+                    : AgentUsageColors.usageProgress
             )
         }
     }
@@ -78,7 +78,7 @@ private struct LockScreenBannerView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Label(context.state.provider.displayName, systemImage: context.state.provider.iconName)
                         .font(.headline)
-                        .foregroundStyle(context.state.provider.accentColor)
+                        .foregroundStyle(AgentUsageColors.usageProgress)
                     Spacer(minLength: 4)
                     if displayState == .available {
                         Label(context.state.status.label, systemImage: context.state.status.icon)
@@ -131,7 +131,7 @@ private struct LiveActivityCircularGauge: View {
         Gauge(value: displayState == .available ? state.normalizedProgress : 0) {
             Image(systemName: state.provider.iconName)
                 .font(.caption)
-                .foregroundStyle(state.provider.accentColor)
+                .foregroundStyle(AgentUsageColors.usageProgress)
         } currentValueLabel: {
             Image(systemName: displayState == .available ? state.status.icon : displayState.iconName)
                 .font(.caption2)
@@ -155,7 +155,7 @@ private struct ProviderWindowLabel: View {
             Label(provider.displayName, systemImage: provider.iconName)
                 .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(provider.accentColor)
+                .foregroundStyle(AgentUsageColors.usageProgress)
             Text(windowName)
                 .font(.caption2)
                 .foregroundStyle(.secondary)

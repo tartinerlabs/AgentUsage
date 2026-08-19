@@ -21,8 +21,8 @@ struct UsageHistoryView: View {
     /// `nil` shows every provider, collapsed to its worst window per day.
     @State private var selectedProvider: Provider?
 
-    /// Hues for the per-window breakdown, where every line belongs to the same
-    /// provider and so cannot be distinguished by provider accent.
+    /// Hues for the per-window breakdown. The all-providers chart uses Crail
+    /// for every series; isolate a provider with the picker to read windows.
     private static let windowPalette: [Color] = [.blue, .teal, .indigo, .cyan, .mint]
 
     private static let periods = [7, 14, 30]
@@ -64,7 +64,7 @@ struct UsageHistoryView: View {
         if selectedProvider != nil {
             return series.indices.map { Self.windowPalette[$0 % Self.windowPalette.count] }
         }
-        return series.map(\.provider.accentColor)
+        return series.map { _ in Constants.brandPrimary }
     }
 
     private var scopeName: String {

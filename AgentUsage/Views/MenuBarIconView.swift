@@ -256,11 +256,7 @@ private struct MenuBarProviderMark: View {
     let providerID: String
 
     private var assetName: String? {
-        switch providerID {
-        case Provider.claude.rawValue: "ClaudeProviderMark"
-        case Provider.codex.rawValue: "CodexProviderMark"
-        default: nil
-        }
+        Provider(rawValue: providerID)?.menuBarMarkAssetName
     }
 
     private var fallbackSymbol: String {
