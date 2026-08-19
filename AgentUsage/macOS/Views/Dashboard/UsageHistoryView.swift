@@ -21,7 +21,7 @@ struct UsageHistoryView: View {
     /// `nil` shows every provider, collapsed to its worst window per day.
     @State private var selectedProvider: Provider?
 
-    /// Hues for the per-window breakdown. The all-providers chart uses Crail
+    /// Hues for the per-window breakdown. The all-providers chart uses Timefold Ink
     /// for every series; isolate a provider with the picker to read windows.
     private static let windowPalette: [Color] = [.blue, .teal, .indigo, .cyan, .mint]
 

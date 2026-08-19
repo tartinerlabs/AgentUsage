@@ -16,7 +16,7 @@ import UIKit
 /// lost: point ``summary`` at a real aggregation once the CloudKit sync core
 /// (GitHub #8) retains a full year of usage, then restore the tab.
 ///
-/// Visuals follow DESIGN.md: `.regularMaterial` cards, Crail (`brandPrimary`)
+/// Visuals follow DESIGN.md: `.regularMaterial` cards, Timefold Ink (`brandPrimary`)
 /// accents, rounded-bold headline numerals, and no gradients or shadows.
 struct ClaudeWrappedView: View {
     private let summary = WrappedSummary.mock

@@ -25,11 +25,11 @@ public enum AgentUsageColors {
     /// Warm off-white (`#FAF4EF`), the app-icon background field.
     public static let iconBackground = Color(red: 250 / 255, green: 244 / 255, blue: 239 / 255)
 
-    /// Crail (`#C15F3C`), used by the usage progress bar and every provider card.
-    public static let usageProgress = Color(red: 193 / 255, green: 95 / 255, blue: 60 / 255)
+    /// Timefold Ink (`#3B6BCE`), used by the usage progress bar and every provider card.
+    public static let usageProgress = Color(red: 59 / 255, green: 107 / 255, blue: 206 / 255)
 
-    /// Warm clay (`#DA7756`), retained as the secondary application-brand role.
-    public static let brandSecondary = Color(red: 218 / 255, green: 119 / 255, blue: 86 / 255)
+    /// Pacific Blue (`#7197D4`), the lighter application-brand sibling of Timefold Ink.
+    public static let brandSecondary = Color(red: 113 / 255, green: 151 / 255, blue: 212 / 255)
 
     /// Pampas (`#F4F3EE`), the light provider-neutral brand ground.
     public static let brandBackground = Color(red: 244 / 255, green: 243 / 255, blue: 238 / 255)
