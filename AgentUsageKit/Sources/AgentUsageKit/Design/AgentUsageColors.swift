@@ -6,6 +6,11 @@
 //
 
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 /// Provider-neutral application colors from the AgentUsage design system.
 ///
@@ -25,8 +30,12 @@ public enum AgentUsageColors {
     /// Warm off-white (`#FAF4EF`), the app-icon background field.
     public static let iconBackground = Color(red: 250 / 255, green: 244 / 255, blue: 239 / 255)
 
-    /// Timefold Ink (`#3B6BCE`), used by the usage progress bar and every provider card.
-    public static let usageProgress = Color(red: 59 / 255, green: 107 / 255, blue: 206 / 255)
+    /// Timefold Ink (`#3B6BCE`) in light appearance; Pacific Blue (`#7197D4`) in dark
+    /// so caption and plan-badge text keeps a 4.5:1 contrast against system backgrounds.
+    public static let usageProgress = Color(
+        light: Color(red: 59 / 255, green: 107 / 255, blue: 206 / 255),
+        dark: iconPacificBlue
+    )
 
     /// Pacific Blue (`#7197D4`), the lighter application-brand sibling of Timefold Ink.
     public static let brandSecondary = Color(red: 113 / 255, green: 151 / 255, blue: 212 / 255)
@@ -40,3 +49,18 @@ public enum AgentUsageColors {
 
 /// Compatibility spelling retained for existing widget call sites.
 public let extraUsageAccentColor = AgentUsageColors.extraUsageAccent
+
+extension Color {
+    fileprivate init(light: Color, dark: Color) {
+        #if os(macOS)
+        self.init(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor(isDark ? dark : light)
+        })
+        #else
+        self.init(uiColor: UIColor { traits in
+            UIColor(traits.userInterfaceStyle == .dark ? dark : light)
+        })
+        #endif
+    }
+}
