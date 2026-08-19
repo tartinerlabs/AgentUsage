@@ -107,8 +107,9 @@ TestFlight builds must continue using Apple's update path.
 commented file registers no workflow. `gh workflow run release.yml`
 fails silently. CI, archiving, and distribution run on Xcode Cloud, configured in
 App Store Connect. `ci_scripts/ci_pre_xcodebuild.sh` strips restricted macOS
-entitlements (`keychain-access-groups`, iCloud) from the Test action host so
-Runningboard can spawn it; do not add those keys back to the Cloud checkout.
+entitlements (`keychain-access-groups`, iCloud) only when
+`CI_XCODEBUILD_ACTION=build-for-testing`, so Archive/Release keeps them. Do
+not add those keys back in that hook.
 
 **Version lives only in `Config/Version.xcconfig`**, wired as the project-level
 base configuration for Debug and Release, so every target inherits
