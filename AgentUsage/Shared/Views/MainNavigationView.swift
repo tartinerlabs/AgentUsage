@@ -446,7 +446,7 @@ private struct ProviderRow: View {
         HStack(spacing: 12) {
             Image(systemName: provider.iconName)
                 .font(.body.weight(.semibold))
-                .foregroundStyle(provider.accentColor)
+                .foregroundStyle(Constants.brandPrimary)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -484,7 +484,11 @@ struct ProviderSectionView: View {
                     now: context.date,
                     showExtraUsage: viewModel.showExtraUsageIndicators,
                     isServiceDown: viewModel.isServiceDown(provider),
-                    rateLimitResetCredits: usage?.rateLimitResetCredits
+                    rateLimitResetCredits: usage?.rateLimitResetCredits,
+                    density: .detail,
+                    detail: viewModel.providerDetail(for: provider),
+                    effortSummaries: usage?.effortSummaries ?? [],
+                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod
                 )
             }
             .frame(maxWidth: 760)

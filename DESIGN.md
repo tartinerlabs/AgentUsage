@@ -14,7 +14,7 @@ colors:
   # Application UI — defined in code, not in Assets.xcassets. See AgentUsageKit/.../Design/AgentUsageColors.swift
   # This existing palette remains in scope for the interface until a separate recoloring project.
   primary: "#C15F3C"             # Crail — the app's primary brand color; usage progress-bar fill
-  brand-secondary: "#DA7756"     # warm clay accent (near-duplicate of provider-claude)
+  brand-secondary: "#DA7756"     # warm clay accent (near-duplicate of Crail)
   brand-background: "#F4F3EE"    # Pampas — light-mode neutral ground
   extra-usage-accent: "#8B5E83"  # Dusty Plum — RESERVED for over-limit / billed usage only
 
@@ -23,13 +23,6 @@ colors:
   status-on-track: "#34C759"     # .green
   status-warning: "#FF9500"      # .orange
   status-critical: "#FF3B30"     # .red
-
-  # Provider accents. See Provider.swift:40-46
-  provider-claude: "#D97757"     # Claude clay (note: near-duplicate of brand-secondary)
-  provider-codex: "#10A37F"      # OpenAI green
-  provider-open-code: "#6366F1"  # Indigo
-  provider-cursor: "#788494"     # Slate
-  provider-grok: "#9A8066"       # Grok warm stone
 
 typography:
   # Base is SwiftUI semantic Dynamic Type (SF Pro). Do NOT hardcode point sizes for body text.
@@ -82,28 +75,12 @@ components:
   # Only spec sub-tokens are used here (backgroundColor, textColor, typography,
   # rounded, padding, size, height, width). SwiftUI-specific details — borders,
   # track colors, line widths/caps, opacities — live in the Components prose below.
-  card-provider:                 # ProviderCardView.swift:77-86 — one card per provider
-    backgroundColor: "{colors.provider-claude}"  # rendered at 0.06 opacity; border at 0.15
+  card-provider:                 # ProviderCardView — one Crail card per provider
+    backgroundColor: "{colors.primary}"  # rendered at 0.06 opacity; border at 0.15
     rounded: "{rounded.md}"
     padding: "{spacing.lg}"      # 12px in compact mode
-  card-provider-codex:           # same card, Codex accent
-    backgroundColor: "{colors.provider-codex}"
-    rounded: "{rounded.md}"
-    padding: "{spacing.lg}"
-  card-provider-open-code:       # same card, opencode accent
-    backgroundColor: "{colors.provider-open-code}"
-    rounded: "{rounded.md}"
-    padding: "{spacing.lg}"
-  card-provider-cursor:          # same card, Cursor accent
-    backgroundColor: "{colors.provider-cursor}"
-    rounded: "{rounded.md}"
-    padding: "{spacing.lg}"
-  card-provider-grok:            # same card, Grok accent
-    backgroundColor: "{colors.provider-grok}"
-    rounded: "{rounded.md}"
-    padding: "{spacing.lg}"
   badge:                         # plan-name / service-down pills
-    backgroundColor: "{colors.provider-claude}"  # accent at 0.12 opacity
+    backgroundColor: "{colors.primary}"  # Crail at 0.12 opacity
     rounded: "{rounded.sm}"
     padding: "2px 6px"
   extra-usage-bar:               # over-limit / billed usage indicator
@@ -152,7 +129,7 @@ treatments must never become the source of a competing product-wide style.
 
 ## Colors
 
-Five families, each with a distinct job:
+Four families, each with a distinct job:
 
 - **Provider-neutral identity (Pacific blue + graphite + ice).** The approved timefold artwork
   uses Pacific blue `#7197D4` as the upper-surface anchor, graphite `#373A41` as the lower-surface
@@ -160,26 +137,20 @@ Five families, each with a distinct job:
   representative points within dimensional gradients, not flat-fill replacements. They govern
   the app icon and product-level identity, not usage severity or provider attribution.
 
-- **Application accent (Crail + Pampas).** `primary` `#C15F3C` (Crail) is the usage progress-bar fill — the one
-  place the app's own warm clay appears prominently. `brand-background` `#F4F3EE` (Pampas) is the
-  light neutral ground. These existing interface colors remain until a separately scoped
-  application recoloring; they are not the app-icon palette. They are fixed sRGB values and do
-  **not** adapt to dark mode.
+- **Application accent (Crail + Pampas).** `primary` `#C15F3C` (Crail) is the usage progress-bar
+  fill and the single provider-card tint — icons, plan badges, cost figures, card fill @ 0.06,
+  and card border @ 0.15. Attribution is name + SF Symbol, not a per-provider hue.
+  `brand-background` `#F4F3EE` (Pampas) is the light neutral ground. These existing interface
+  colors remain until a separately scoped application recoloring; they are not the app-icon
+  palette. They are fixed sRGB values and do **not** adapt to dark mode.
 - **Status (system-semantic).** On-track/warning/critical map to SwiftUI `.green` / `.orange` /
   `.red`. Because they are system colors, they adapt automatically to light/dark and
   accessibility settings. This is deliberate: usage severity must remain legible in every
   appearance, so it is never a hardcoded hex.
-- **Provider accents.** Each provider owns a tint used for its card and glyph: Claude clay
-  `#D97757`, Codex/OpenAI green `#10A37F`, opencode indigo `#6366F1`, Cursor slate
-  `#788494`, Grok warm stone `#9A8066`.
 - **Extra-usage accent (Dusty Plum `#8B5E83`).** The single non-brand, non-status accent,
   reserved **exclusively** for over-limit / billed usage indicators. Its scarcity is what makes
   it meaningful — do not reuse it for decoration. Mirrored publicly as
   `AgentUsageColors.extraUsageAccent` in AgentUsageKit so widgets can reference it.
-
-> **Known duplication:** `brand-secondary` `#DA7756` and `provider-claude` `#D97757` are two
-> nearly-identical clay tones that coexist. Treat `provider-claude` as authoritative for Claude
-> provider UI; prefer consolidating if you touch both.
 
 ## App Icon & Brand Mark
 
@@ -234,8 +205,8 @@ Opacity is a structural tool with fixed conventions:
 
 | Opacity | Role |
 |---------|------|
-| `0.06`  | Provider-card fill (accent tint) |
-| `0.12`  | Badge fill (accent tint) |
+| `0.06`  | Provider-card fill (Crail) |
+| `0.12`  | Badge fill (Crail) |
 | `0.15`  | Card border stroke; tick dividers |
 | `0.20`  | Progress-bar track (`secondary`) |
 
@@ -261,19 +232,20 @@ Corner radius is assigned by component scale:
 - **`UsageRowView`** — the linear progress row: title + reset time, a `primary` (Crail) fill over a
   `secondary` @ 0.2 track (height 8, radius 4) with 1pt tick dividers at 25/50/75%, plus a
   `% used` + status `Label` stats row. Optional 7×7 status dot.
-- **`ProviderCardView`** — the primary card on both macOS and iOS. Header (provider glyph + name +
-  plan badge + optional service-down badge), a stack of linear `UsageRowView`s, optional
-  reset-credits line, optional extra-usage bar, and a cost section. Fill = provider accent @ 0.06,
-  border @ 0.15. Has a `compact` mode toggling paddings/fonts. The iOS dashboard is one linear
-  stack of these cards in `availableProviders` order; Claude uses the same card through its
-  `ProviderUsageSnapshot` bridge rather than a provider-specific ring layout.
-- **`SparklineView`** (macOS) — Canvas-drawn line/bar sparkline (30×10, lineWidth 1); drawn at
-  `white` @ 0.8, empty state at `color` @ 0.25.
-- **`MenuBarIconView`** (macOS) — an adaptive monochrome template `NSImage`. Claude and Codex
-  render in that order as a 16pt provider mark plus one 11pt percentage or two tightly stacked
-  9pt percentages. Up to two windows are pinned per provider; missing and expired values consume
-  no space. Visible labels, trend arrows, reset countdowns, and extra-usage cost stay in the
-  popover rather than the status strip.
+- **`ProviderCardView`** — the only provider surface on macOS and iOS. Header (provider glyph +
+  name + plan badge + optional service-down badge), a stack of linear `UsageRowView`s, optional
+  reset-credits line, optional extra-usage bar, and a cost section. `.detail` also shows links,
+  a service-down banner, yesterday, sparkline, effort, and models when those fields exist. Fill
+  = Crail @ 0.06, border @ 0.15. `compact` toggles paddings/fonts only. The iOS dashboard is a
+  `.summary` stack in `availableProviders` order; the iOS/iPad provider destination and the
+  macOS dashboard/popover provider page use `.detail`.
+- **`SparklineView`** — Canvas-drawn line/bar sparkline (30×10, lineWidth 1); drawn at Crail,
+  empty state at `color` @ 0.25.
+- **`MenuBarIconView`** (macOS) — an adaptive monochrome template `NSImage`. Pinned providers
+  render as a 16pt mark plus one 11pt percentage or two tightly stacked 9pt percentages. Up to
+  two windows are pinned per provider; missing and expired values consume no space. Visible
+  labels, trend arrows, reset countdowns, and extra-usage cost stay in the popover rather than
+  the status strip.
 - **Live Activity control card** (iOS) — one `.regularMaterial`, 16pt-radius utility card below
   the provider stack. Native Provider and Window pickers list only non-expired windows from all
   available provider snapshots. Start creates one activity, Switch updates that activity in

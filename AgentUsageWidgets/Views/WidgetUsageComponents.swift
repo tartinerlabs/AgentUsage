@@ -13,14 +13,12 @@ import WidgetKit
 /// supplies the outer shape and content margins, so the content does not create
 /// a nested card of its own.
 struct WidgetProviderBackground: View {
-    let provider: AgentUsageKit.Provider
-
     var body: some View {
         ZStack {
             Color(.systemBackground)
-            provider.accentColor.opacity(0.06)
+            AgentUsageColors.usageProgress.opacity(0.06)
             ContainerRelativeShape()
-                .strokeBorder(provider.accentColor.opacity(0.15), lineWidth: 1)
+                .strokeBorder(AgentUsageColors.usageProgress.opacity(0.15), lineWidth: 1)
         }
     }
 }
@@ -33,7 +31,7 @@ struct WidgetProviderIdentity: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: provider.iconName)
-                .foregroundStyle(provider.accentColor)
+                .foregroundStyle(AgentUsageColors.usageProgress)
                 .widgetAccentable()
             Text(provider.displayName)
                 .foregroundStyle(.primary)

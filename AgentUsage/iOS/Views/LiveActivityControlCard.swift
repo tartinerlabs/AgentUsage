@@ -261,9 +261,6 @@ struct LiveActivityControlCard: View {
 
     private var activeTrackingText: String {
         guard let selection = manager.activeSelection else {
-            if let windowName = manager.activeWindowDisplayName {
-                return "Tracking Claude · \(windowName)"
-            }
             return "Tracking usage"
         }
         let windowName = manager.activeWindowDisplayName ?? selection.windowID.rawValue

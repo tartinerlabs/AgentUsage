@@ -35,14 +35,14 @@ struct DashboardTabView: View {
 
                 providerSections
 
-                // Gated on token state, not on the Claude API: this section is built from
+                // Gated on token state, not on a provider API: this section is built from
                 // local JSONL logs, so an API outage or a reset window must not hide it.
                 if hasTokenUsageContent {
                     dashboardSection(
-                        title: hasClaudeCostDetail ? "Token Detail Period" : "Token Usage & Cost",
-                        subtitle: hasClaudeCostDetail
-                            ? "Choose the local period used by Claude detail and effort summaries."
-                            : "Local Claude token activity and estimated spend.",
+                        title: hasProviderTokenDetail ? "Token Detail Period" : "Token Usage & Cost",
+                        subtitle: hasProviderTokenDetail
+                            ? "Choose the local period used by provider detail and effort summaries."
+                            : "Local token activity and estimated spend.",
                         systemImage: "square.stack.3d.up"
                     ) {
                         tokenUsageSectionWithStates
@@ -148,7 +148,7 @@ struct DashboardTabView: View {
 
     @ViewBuilder
     private var providerSections: some View {
-        if providersWithDetailContent.isEmpty {
+        if viewModel.availableProviders.isEmpty {
             if viewModel.isNoUsageData {
                 noUsageDataSection
             } else if let error = viewModel.errorMessage {
@@ -157,34 +157,28 @@ struct DashboardTabView: View {
                 loadingSection
             }
         } else {
-            ForEach(providersWithDetailContent) { provider in
+            ForEach(viewModel.availableProviders) { provider in
                 providerDetailCard(provider)
             }
         }
     }
 
-    private var providersWithDetailContent: [Provider] {
-        viewModel.availableProviders.filter { provider in
-            viewModel.usageSnapshot(for: provider) != nil
-                || viewModel.providerDetails[provider] != nil
-        }
-    }
-
     private func providerDetailCard(_ provider: Provider) -> some View {
         let usage = viewModel.usageSnapshot(for: provider)
-        return ProviderDetailView(
+        return ProviderCardView(
             provider: provider,
             planName: usage?.planName,
             windows: usage?.windows ?? [],
-            detail: viewModel.providerDetails[provider],
+            extraUsage: usage?.extraUsage,
             now: now,
-            effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
+            showExtraUsage: viewModel.showExtraUsageIndicators,
             isServiceDown: viewModel.isServiceDown(provider),
             rateLimitResetCredits: usage?.rateLimitResetCredits,
-            extraUsage: usage?.extraUsage,
-            showExtraUsage: viewModel.showExtraUsageIndicators
+            density: .detail,
+            detail: viewModel.providerDetail(for: provider),
+            effortSummaries: usage?.effortSummaries ?? [],
+            effortPeriod: viewModel.selectedTokenPeriod.effortPeriod
         )
-        .providerCardContainer(provider: provider)
     }
 
     private func dashboardSection<Content: View>(
@@ -249,8 +243,8 @@ struct DashboardTabView: View {
                 .frame(width: 112)
             }
 
-            if hasClaudeCostDetail {
-                Text("Cost summaries are shown in the Claude provider card above.")
+            if hasProviderTokenDetail {
+                Text("Cost summaries are shown in the provider cards above.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -323,8 +317,8 @@ struct DashboardTabView: View {
             || viewModel.tokenUsageError != nil
     }
 
-    private var hasClaudeCostDetail: Bool {
-        viewModel.providerDetails[.claude] != nil
+    private var hasProviderTokenDetail: Bool {
+        viewModel.providerDetails.values.contains(where: \.hasTokenUsage)
     }
 
     @ViewBuilder

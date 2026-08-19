@@ -76,16 +76,6 @@ nonisolated enum Constants {
     static let cursorStateRefreshTokenKey = "cursorAuth/refreshToken"
     static let cursorStateMembershipTypeKey = "cursorAuth/stripeMembershipType"
 
-    // MARK: - Provider Links (status / console dashboards)
-    static let anthropicStatusURL = "https://status.anthropic.com"
-    static let anthropicConsoleURL = "https://claude.ai/settings/usage"
-    static let openaiStatusURL = "https://status.openai.com"
-    static let openaiPlatformURL = "https://platform.openai.com/usage"
-    static let cursorStatusURL = "https://status.cursor.com"
-    static let cursorDashboardURL = "https://cursor.com/dashboard"
-    static let xaiStatusURL = "https://status.x.ai"
-    static let xaiConsoleURL = "https://console.x.ai"
-
     // MARK: - Network Configuration
     static let requestTimeout: TimeInterval = 30
     static let maxRetryAttempts = 3
