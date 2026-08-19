@@ -174,6 +174,8 @@ struct MenuBarView: View {
         if providers.isEmpty {
             if let error = viewModel.errorMessage {
                 errorSection(error: error)
+            } else if viewModel.isNoUsageData {
+                noUsageSection
             } else {
                 loadingSection
             }
@@ -246,6 +248,17 @@ struct MenuBarView: View {
             Label("Error", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
             Text(error)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var noUsageSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("No usage data", systemImage: "chart.bar.xaxis")
+            Text("Usage limits will appear when a connected provider reports a new window.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
