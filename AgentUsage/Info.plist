@@ -4,8 +4,6 @@
 <dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>LSUIElement</key>
-	<true/>
 	<!-- Direct-distribution updater configuration is dormant for App Store/TestFlight builds.
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
