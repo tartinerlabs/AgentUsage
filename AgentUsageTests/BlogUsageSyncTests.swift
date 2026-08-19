@@ -777,7 +777,8 @@ struct BlogUsageSyncTests {
         #expect(error.localizedDescription == "Blog usage sync failed: invalid costUsd in 3 rows.")
     }
 
-    @Test func serviceThrottlesPassiveSyncForFiveMinutesAndManualBypassesThrottle() async throws {
+    @Test(.disabled(if: !KeychainAccessGroups.isPresent, "requires keychain-access-groups"))
+    func serviceThrottlesPassiveSyncForFiveMinutesAndManualBypassesThrottle() async throws {
         let home = try Self.temporaryDirectory()
         let logDirectory = home.appendingPathComponent(".claude/projects/project-a", isDirectory: true)
         try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
@@ -1278,7 +1279,8 @@ struct BlogUsageSyncTests {
         #expect(row.messages == 4)
     }
 
-    @Test func serviceRetriesCachedRowsSkipsUnchangedUploadsAndSnapshotsNewEndpoints() async throws {
+    @Test(.disabled(if: !KeychainAccessGroups.isPresent, "requires keychain-access-groups"))
+    func serviceRetriesCachedRowsSkipsUnchangedUploadsAndSnapshotsNewEndpoints() async throws {
         let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
         let indexer = ControlledBlogUsageIndexer(revision: 1, rows: [Self.minimalRow()])
         let posting = CountingPosting()
@@ -1313,7 +1315,8 @@ struct BlogUsageSyncTests {
         #expect(await posting.callCount == 3)
     }
 
-    @Test func servicePublishesACompleteEffortSnapshotAfterPartialBackfill() async throws {
+    @Test(.disabled(if: !KeychainAccessGroups.isPresent, "requires keychain-access-groups"))
+    func servicePublishesACompleteEffortSnapshotAfterPartialBackfill() async throws {
         let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
         let indexer = ControlledBlogUsageIndexer(
             revision: 1,
@@ -1344,7 +1347,8 @@ struct BlogUsageSyncTests {
         #expect(await posting.callCount == 2)
     }
 
-    @Test func concurrentSyncRequestsShareOneIndexingTask() async throws {
+    @Test(.disabled(if: !KeychainAccessGroups.isPresent, "requires keychain-access-groups"))
+    func concurrentSyncRequestsShareOneIndexingTask() async throws {
         let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
         let indexer = ControlledBlogUsageIndexer(
             revision: 1,
@@ -1374,7 +1378,8 @@ struct BlogUsageSyncTests {
         #expect(await posting.callCount == 1)
     }
 
-    @Test func serviceUsesPassiveAndManualIndexingBudgets() async throws {
+    @Test(.disabled(if: !KeychainAccessGroups.isPresent, "requires keychain-access-groups"))
+    func serviceUsesPassiveAndManualIndexingBudgets() async throws {
         let defaults = try #require(UserDefaults(suiteName: "BlogUsageSyncTests-\(UUID().uuidString)"))
         let indexer = ControlledBlogUsageIndexer(revision: 1, rows: [Self.minimalRow()])
         let keychainAccount = "BlogUsageSyncTests-\(UUID().uuidString)"
