@@ -114,10 +114,19 @@ base configuration for Debug and Release, so every target inherits
 `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`. Adding either to a target's
 build settings overrides the xcconfig — never do that. Bump by hand.
 
-**Xcode Cloud's macOS test action never actually runs.** `LSUIElement = true`
-means the menu bar app can't be launched as the XCTest host, so it fails with
-`Runningboard error 5` and reports `0 tests total`; the action is marked *Not
-Required To Pass*. 11 of the 20 test files are `#if os(macOS)`, so macOS-specific
-code — credentials, Codex/OpenCode log sources, blog sync — has no CI coverage.
-Run `xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test` locally
+**Shipping macOS builds are a menu bar agent; Debug is not.** Release sets
+`INFOPLIST_KEY_LSUIElement[sdk=macosx*] = YES` so archived/TestFlight builds stay
+out of the Dock. Debug leaves it `NO` so Xcode Cloud and local XCTest can launch
+the test host. Putting `LSUIElement` back in `AgentUsage/Info.plist` wins over
+the generated key and brings back `Runningboard error 5` (`Could not launch
+“AgentUsageTests”`).
+
+**The shared scheme’s default test plan is unit tests only**
+(`AgentUsage.xctestplan`). Xcode Cloud “Use Scheme Settings” follows that plan,
+so PR Validation can be marked Required to Pass once macOS is green. UI tests
+live in `AgentUsageUI.xctestplan` — run them locally (and optionally point the
+iOS Cloud test action at that plan). A menu bar extra is not a reliable Cloud
+macOS UI destination. Much of the unit suite is `#if os(macOS)` (credentials,
+Codex/OpenCode log sources, blog sync). Still run
+`xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test` locally
 before merging macOS changes.
