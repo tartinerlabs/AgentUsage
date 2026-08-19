@@ -33,7 +33,7 @@ struct NotificationSettingsCard: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Extra Usage Alert")
                                 .font(.body)
-                            Text("Notify when extra usage starts (plan limit exceeded). Requires extra usage to be enabled in your Claude account.")
+                            Text("Notify when extra usage starts (plan limit exceeded). Requires extra usage to be enabled in your provider account.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

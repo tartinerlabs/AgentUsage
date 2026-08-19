@@ -791,38 +791,34 @@ extension UsageViewModel {
 
     /// Providers that have rate-limit data or token-cost detail to present.
     var availableProviders: [Provider] {
-        var providers: [Provider] = []
-        #if os(macOS)
-        if snapshot != nil || isNoUsageData || providerUsage[.claude] != nil
-            || providerDetails[.claude] != nil {
-            providers.append(.claude)
-        }
-        #else
-        if usageSnapshot(for: .claude) != nil || isNoUsageData {
-            providers.append(.claude)
-        }
-        #endif
-        providers.append(contentsOf: Provider.allCases.filter { provider in
-            guard provider != .claude else { return false }
+        Provider.allCases.filter { provider in
             guard !Self.disabledProviders.contains(provider) else { return false }
+            if usageSnapshot(for: provider) != nil { return true }
             #if os(macOS)
-            return usageSnapshot(for: provider) != nil || providerDetails[provider] != nil
-            #else
-            return usageSnapshot(for: provider) != nil
+            if let detail = providerDetails[provider] {
+                return detail.hasTokenUsage || !detail.effortSummaries.isEmpty
+            }
             #endif
-        })
-        return providers
+            return false
+        }
     }
 
     /// Provider snapshots in the same deterministic order as `availableProviders`.
-    /// Claude is bridged from its richer legacy snapshot so every provider-facing
-    /// surface can render one uniform model without reimplementing that bridge.
     var availableProviderSnapshots: [ProviderUsageSnapshot] {
         availableProviders.compactMap { usageSnapshot(for: $0) }
     }
 
     func hasProviderData(_ provider: Provider) -> Bool {
         availableProviders.contains(provider)
+    }
+
+    /// Token/trend/model detail from local logs. Always nil on iOS.
+    func providerDetail(for provider: Provider) -> ProviderDetail? {
+        #if os(macOS)
+        providerDetails[provider]
+        #else
+        nil
+        #endif
     }
 
     #if os(macOS)
