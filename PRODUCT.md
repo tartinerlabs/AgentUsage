@@ -1,8 +1,10 @@
 # Product
 
-## Register
+<!-- impeccable:product-schema 1 -->
 
-product
+## Platform
+
+adaptive
 
 ## Users
 
@@ -12,45 +14,53 @@ Developers who use Claude Code, Codex, and other coding agents throughout the da
 
 AgentUsage is a local-first usage weather station for AI coding tools. It turns provider quota windows, reset timing, token activity, and estimated cost into an accurate at-a-glance view so developers can pace work and avoid unexpected limits.
 
-## Brand Personality
+## Positioning
 
-Calm, native, precise. AgentUsage should feel like a trustworthy macOS utility that stays quiet until its data needs attention.
+A native menu-bar weather station for several coding agents at once. Quota, reset, and cost are readable without leaving the current task; details live in the popover and dashboard, not in a full analytics suite.
 
-## Visual Identity
+## Operating Context
 
-AgentUsage is represented by the **timefold**, a provider-neutral continuous interval that folds
-through itself and opens at a small reset notch. It expresses usage monitoring, pacing, and reset
-forecasting without resembling any model provider, assistant, or chat product.
+One SwiftUI product that adapts per OS. It is not a website and not an Android app.
 
-The approved mark combines a Pacific-blue upper surface (`#7197D4`), graphite lower surface
-(`#373A41`), and ice inner highlight (`#F5F6F8`) on warm off-white (`#FAF4EF`). These are color
-anchors within dimensional shading, not flat fills. The layered overlap, material thickness, and
-restrained depth are essential to the identity; the mark must not be simplified into a flat ring.
+- **macOS 15+** is the source of truth: a menu-bar agent (Release builds are `LSUIElement`) that reads local credentials, CLI logs, and provider APIs, then publishes snapshots over CloudKit.
+- **iOS / iPadOS 18+** is the companion: dashboard, Home Screen and Lock Screen widgets, and Live Activities. iOS never fetches provider usage itself; it consumes the Mac-published snapshot.
+- Typical scene: a developer mid-session, menu bar always present. The status item stays quiet; a click opens the popover. The dashboard, Settings, and notifications carry explanation.
+- Local data lives on the Mac: Keychain credentials, security-scoped folder grants for `~/.claude`, `~/.codex`, `~/.grok`, and Cursor's session store. Notifications fire on the device that has a fresh snapshot.
+- Shipping path is App Store / TestFlight via Xcode Cloud. Sparkle remains in the tree but is unlinked and must stay dormant for those builds.
 
-The authoritative visual target is `Design/AppIcon/approved-timefold-mockup.png`. Production
-exports and appearance variants must be compared with it so transparency or material effects do
-not wash out the approved colors.
+## Capabilities and Constraints
 
-## Anti-references
+- **Providers:** Claude, Codex, Cursor, and Grok are wired. OpenCode and OpenCode Go have implementations and tests but are deliberately unwired — usage is currently unreliable; do not re-enable to make a provider "work."
+- **Two data seams:** live quota windows (`ProviderUsageServiceProtocol`) and local token/cost logs (`UsageLogSource` → `ProviderUsageEntry`). Check each provider's `Capability` set; Grok is token/cost only and has no live quota API.
+- **macOS-only collection.** Credentials come from the Keychain (`security`), not the filesystem. Log reads require a folder grant. `NSHomeDirectory()` is the sandbox container; real home is `Constants.realHomeDirectory`.
+- **iOS is a mirror.** `iOSCredentialService` exists, but the Claude credentials path it refers to does not exist on iOS.
+- **Persistence** is SwiftData pinned to the App Group. Dropping `groupContainer:` orphans existing stores.
+- **Version** lives only in `Config/Version.xcconfig`. Do not set `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` on a target.
+- **Undecided / out of scope:** unofficial grok.com billing scrapes; restoring Sparkle except for a separate direct-distribution build; uncommenting GitHub Actions (CI is Xcode Cloud).
 
-- A full analytics dashboard compressed into the menu bar.
-- Colorful decoration or motion that competes with live usage data.
-- Placeholder values that look like current provider data.
-- Provider logos, provider colors, sparks, initials, robots, chat bubbles, or code brackets used
-  as the AgentUsage product mark.
-- A flat generic ring or traffic-light status symbol replacing the dimensional timefold.
+## Brand Commitments
 
-## Design Principles
+- **Name:** AgentUsage.
+- **Personality:** Calm, native, precise. A trustworthy macOS utility that stays quiet until its data needs attention.
+- **Mark:** The **timefold** — a provider-neutral continuous interval that folds through itself and opens at a small reset notch. It expresses usage monitoring, pacing, and reset forecasting. Do not flatten it into a generic ring or traffic light. Do not use provider logos, provider colors, sparks, initials, robots, chat bubbles, or code brackets as the product mark.
+- **Color anchors for the mark** live in DESIGN.md (Pacific blue, graphite, ice, warm off-white). Application accent is Timefold Ink. Status green/orange/red and Dusty Plum extra-usage are reserved roles, not brand decoration.
+- **Authoritative mark target:** `Design/AppIcon/approved-timefold-mockup.png`. Production exports must be compared with it.
+- **Anti-references:** a full analytics dashboard compressed into the menu bar; colorful decoration or motion that competes with live usage data; placeholder values that look like current provider data.
 
-- Glance first: make the highest-value state readable without opening the app.
+## Evidence on Hand
+
+- Product and visual records: this file, `DESIGN.md`, `CLAUDE.md`.
+- Mark artwork under `Design/AppIcon/` (marketing 1024, `usage-ring-1024`, Icon Composer source). The approved mockup path is the named target; compare production exports to the artwork that actually ships.
+- No customer testimonials, case studies, press quotes, pricing pages, or third-party benchmarks. Do not invent them.
+- `README.md` is stale (still Claude-only, still describes an archived GitHub-release build). Do not treat it as product truth.
+
+## Product Principles
+
+- Glance first: the highest-value state must be readable without opening the app.
 - Provider before metric: establish whose quota is shown before presenting values.
 - Truth over placeholders: hide unavailable or expired data instead of fabricating certainty.
-- Details on demand: keep the status item quiet and put explanation in the popover and dashboard.
-- Native by default: use familiar macOS behavior, typography, materials, and controls.
-- Provider-neutral identity: providers may be attributed inside the product, but no provider owns
-  the AgentUsage brand.
-- Preserve approved depth: adapt the timefold to platform appearances without flattening its
-  overlap, inner fold, or measured material character.
+- Details on demand: keep the status item quiet; put explanation in the popover and dashboard.
+- Provider-neutral identity: providers may be attributed inside the product, but no provider owns the AgentUsage brand.
 
 ## Accessibility & Inclusion
 

@@ -47,11 +47,11 @@ struct AgentUsageColorsTests {
         )
         expectSameColor(
             AgentUsageColors.usageProgress,
-            Color(red: 193 / 255, green: 95 / 255, blue: 60 / 255)
+            Color(red: 59 / 255, green: 107 / 255, blue: 206 / 255)
         )
         expectSameColor(
             AgentUsageColors.brandSecondary,
-            Color(red: 218 / 255, green: 119 / 255, blue: 86 / 255)
+            Color(red: 113 / 255, green: 151 / 255, blue: 212 / 255)
         )
         expectSameColor(
             AgentUsageColors.brandBackground,
