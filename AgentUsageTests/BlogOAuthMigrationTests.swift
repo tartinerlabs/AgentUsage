@@ -5,14 +5,29 @@
 
 #if os(macOS)
 import Foundation
+import Security
 import Testing
 @testable import AgentUsage
+
+enum KeychainAccessGroups {
+    static var isPresent: Bool {
+        guard let task = SecTaskCreateFromSelf(nil) else { return false }
+        guard let value = SecTaskCopyValueForEntitlement(
+            task,
+            "keychain-access-groups" as CFString,
+            nil
+        ) as? [Any] else {
+            return false
+        }
+        return !value.isEmpty
+    }
+}
 
 /// Verifies the one-time migration that moves blog OAuth tokens out of the file-based
 /// login Keychain (where the `/usr/bin/security` CLI wrote them, and where rewriting the
 /// item ACL prompted for the login password on every token refresh) into the
 /// data-protection Keychain (governed by the `keychain-access-groups` entitlement, no ACL).
-@Suite("Blog OAuth Keychain migration", .serialized)
+@Suite("Blog OAuth Keychain migration", .serialized, .disabled(if: !KeychainAccessGroups.isPresent, "requires keychain-access-groups"))
 struct BlogOAuthMigrationTests {
     @Test func migratesLegacyLoginKeychainTokensToDataProtection() async throws {
         let account = "BlogOAuthMigrationTest-\(UUID().uuidString)"

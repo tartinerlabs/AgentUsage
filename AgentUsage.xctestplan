@@ -1,0 +1,29 @@
+{
+  "configurations" : [
+    {
+      "id" : "6721602A-4459-4842-A47F-8C8DB65E4D48",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:AgentUsage.xcodeproj",
+      "identifier" : "D8EFFF712F05796A006A2183",
+      "name" : "AgentUsage"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:AgentUsage.xcodeproj",
+        "identifier" : "D8EFFF822F05796C006A2183",
+        "name" : "AgentUsageTests"
+      }
+    }
+  ],
+  "version" : 1
+}

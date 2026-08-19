@@ -64,6 +64,8 @@
 		D8EFFF722F05796A006A2183 /* AgentUsage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentUsage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8EFFF832F05796C006A2183 /* AgentUsageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentUsageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8EFFF8D2F05796C006A2183 /* AgentUsageUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentUsageUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D8F10A012F0D000000000001 /* AgentUsage.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text.xctestplan; path = AgentUsage.xctestplan; sourceTree = "<group>"; };
+		D8F10A022F0D000000000002 /* AgentUsageUI.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text.xctestplan; path = AgentUsageUI.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -164,6 +166,8 @@
 				D8EE0142300A2A1400A03D4E /* AgentUsageWidgetsExtension.entitlements */,
 				D8A11C012F0C000000000001 /* Design/AppIcon/AppIcon.icon */,
 				D8A11C032F0C000000000003 /* LiveActivityAttributes.swift */,
+				D8F10A012F0D000000000001 /* AgentUsage.xctestplan */,
+				D8F10A022F0D000000000002 /* AgentUsageUI.xctestplan */,
 				D8EFFF742F05796A006A2183 /* AgentUsage */,
 				D8EFFF862F05796C006A2183 /* AgentUsageTests */,
 				D8EFFF902F05796C006A2183 /* AgentUsageUITests */,
@@ -510,7 +514,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 96NH8UVPYB;
 				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
@@ -528,6 +532,7 @@
 				"INFOPLIST_FILE[sdk=macosx*]" = AgentUsage/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Agent Usage";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				"INFOPLIST_KEY_LSUIElement[sdk=macosx*]" = NO;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -598,6 +603,7 @@
 				"INFOPLIST_FILE[sdk=macosx*]" = AgentUsage/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Agent Usage";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				"INFOPLIST_KEY_LSUIElement[sdk=macosx*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
