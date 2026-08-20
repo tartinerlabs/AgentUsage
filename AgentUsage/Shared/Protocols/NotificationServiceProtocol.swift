@@ -29,6 +29,16 @@ protocol NotificationServiceProtocol: Actor {
         newSnapshot: UsageSnapshot
     ) async
 
+    /// Schedule a local notification for each near-limit rate window's `resetsAt`.
+    /// Cancels pending reset alerts that no longer apply.
+    func armResetNotifications(
+        from snapshots: [ProviderUsageSnapshot],
+        now: Date
+    ) async
+
+    /// Cancel every pending waiting-room reset notification.
+    func cancelResetNotifications() async
+
     /// Send a synthetic test notification that does not depend on usage data.
     func sendTestNotification() async -> NotificationTestResult
 }
