@@ -83,6 +83,8 @@ struct MediumWidgetView: View {
 } timeline: {
     WidgetEntry.previewOverview()
     WidgetEntry.preview(provider: .codex)
+    WidgetEntry.previewExtraUsage()
+    WidgetEntry.previewStale()
 }
 
 #Preview("Medium — No data", as: .systemMedium) {

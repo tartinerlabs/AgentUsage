@@ -24,7 +24,7 @@ struct AgentUsageWidgets: Widget {
                 }
         }
         .configurationDisplayName("Agent Usage")
-        .description("Track usage across your AI coding providers. Small widgets show one window; Medium and Large show every provider.")
+        .description("See usage across your AI coding providers. Small shows one window; Medium and Large show every provider.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

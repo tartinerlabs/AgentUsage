@@ -45,14 +45,16 @@ struct WidgetNoDataView: View {
             if let provider {
                 WidgetProviderIdentity(provider: provider, font: .caption)
             }
-            Spacer(minLength: 0)
-            unavailableLabel
-                .font(.headline)
-            Text(copy.hint)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.leading)
-            Spacer(minLength: 0)
+            Spacer(minLength: 4)
+            VStack(alignment: .leading, spacing: 4) {
+                unavailableLabel
+                    .font(.headline)
+                Text(copy.hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
+            Spacer(minLength: 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .accessibilityUnavailableState(provider: provider, copy: copy)
