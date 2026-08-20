@@ -9,18 +9,13 @@ import WidgetKit
 
 struct WidgetEntry: TimelineEntry {
     let date: Date
-    let provider: AgentUsageKit.Provider
+    let snapshots: [ProviderUsageSnapshot]
+    let provider: AgentUsageKit.Provider?
     let providerSnapshot: ProviderUsageSnapshot?
     let selection: UsageActivitySelection?
 
-    /// How old the selected provider's snapshot may be before the widget flags it.
+    /// How old a snapshot may be before the widget flags it.
     private static let staleThreshold: TimeInterval = 45 * 60
-
-    private static let supportedProviders: [AgentUsageKit.Provider] = [
-        .claude,
-        .codex,
-        .cursor,
-    ]
 
     init(
         date: Date,
@@ -28,11 +23,14 @@ struct WidgetEntry: TimelineEntry {
         selection: UsageActivitySelection? = nil
     ) {
         self.date = date
-        let resolvedSelection = selection ?? Self.defaultSelection(in: snapshots)
-        let resolvedProvider = resolvedSelection?.provider ?? .claude
+        self.snapshots = snapshots
+        let resolvedSelection = selection
+            ?? UsageActivitySelection.mostUrgent(in: snapshots, now: date)
         self.selection = resolvedSelection
-        provider = resolvedProvider
-        providerSnapshot = snapshots.first { $0.provider == resolvedProvider }
+        provider = resolvedSelection?.provider
+        providerSnapshot = resolvedSelection.flatMap { resolved in
+            snapshots.first { $0.provider == resolved.provider }
+        }
     }
 
     var selectedWindow: UsageWindow? {
@@ -44,50 +42,54 @@ struct WidgetEntry: TimelineEntry {
         return window
     }
 
-    /// Non-expired windows in the provider's published order.
+    /// Non-expired windows for the selected provider, in published order.
     var availableWindows: [UsageWindow] {
-        providerSnapshot?.windows.filter { !$0.isExpired(from: date) } ?? []
+        providerSnapshot?.liveWindows(now: date) ?? []
+    }
+
+    /// One live window per provider with quota data, in canonical provider order.
+    var glanceWindows: [WidgetGlanceWindow] {
+        UsageActivitySelection.glanceWindows(
+            in: snapshots,
+            preferring: selection,
+            now: date
+        )
     }
 
     /// Why a selected or summary presentation has no trustworthy value.
     var unavailableReason: WidgetUnavailableReason {
-        guard let providerSnapshot else { return .noData }
-        guard let selection,
-              let configuredWindow = providerSnapshot.windows.first(where: { $0.windowID == selection.windowID }) else {
-            return providerSnapshot.windows.isEmpty ? .noData : .windowUnavailable
+        if let selection {
+            guard let providerSnapshot else { return .noData }
+            guard let configuredWindow = providerSnapshot.windows.first(where: { $0.windowID == selection.windowID }) else {
+                return providerSnapshot.windows.isEmpty ? .noData : .windowUnavailable
+            }
+            return configuredWindow.isExpired(from: date) ? .awaitingRefresh : .noData
         }
-        return configuredWindow.isExpired(from: date) ? .awaitingRefresh : .noData
+
+        let hasExpiredWindow = snapshots.contains { snapshot in
+            snapshot.windows.contains { $0.isExpired(from: date) }
+        }
+        return hasExpiredWindow ? .awaitingRefresh : .noData
     }
 
     var lastUpdatedDescription: String {
-        guard let providerSnapshot else { return "never" }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: providerSnapshot.fetchedAt, relativeTo: date)
+        lastUpdatedDescription(for: providerSnapshot?.fetchedAt)
     }
 
     var isStale: Bool {
-        guard let providerSnapshot else { return false }
-        return date.timeIntervalSince(providerSnapshot.fetchedAt) > Self.staleThreshold
+        isStale(fetchedAt: providerSnapshot?.fetchedAt)
     }
 
-    private static func defaultSelection(
-        in snapshots: [ProviderUsageSnapshot]
-    ) -> UsageActivitySelection? {
-        if let claude = snapshots.first(where: { $0.provider == .claude }),
-           let window = claude.windows.first(where: { $0.windowID.rawValue == UsageWindowType.session.rawValue })
-            ?? claude.windows.first {
-            return UsageActivitySelection(provider: .claude, windowID: window.windowID)
-        }
+    func lastUpdatedDescription(for fetchedAt: Date?) -> String {
+        guard let fetchedAt else { return "never" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: fetchedAt, relativeTo: date)
+    }
 
-        for provider in supportedProviders where provider != .claude {
-            guard let snapshot = snapshots.first(where: { $0.provider == provider }),
-                  let window = snapshot.windows.first else {
-                continue
-            }
-            return UsageActivitySelection(provider: provider, windowID: window.windowID)
-        }
-        return nil
+    func isStale(fetchedAt: Date?) -> Bool {
+        guard let fetchedAt else { return false }
+        return date.timeIntervalSince(fetchedAt) > Self.staleThreshold
     }
 }
 

@@ -11,21 +11,21 @@ struct SmallWidgetView: View {
     let entry: WidgetEntry
 
     var body: some View {
-        if let usage = entry.selectedWindow {
-            content(for: usage)
+        if let usage = entry.selectedWindow, let provider = entry.provider {
+            content(for: usage, provider: provider)
         } else {
             WidgetNoDataView(reason: entry.unavailableReason, provider: entry.provider)
         }
     }
 
-    private func content(for usage: UsageWindow) -> some View {
+    private func content(for usage: UsageWindow, provider: AgentUsageKit.Provider) -> some View {
         // Time-dependent values are derived from the entry's date, not `Date()`:
         // WidgetKit renders every entry of a timeline up front.
         let status = usage.status(from: entry.date)
         let resetText = usage.resetDescription(from: entry.date)
 
         return VStack(alignment: .leading, spacing: 8) {
-            WidgetProviderIdentity(provider: entry.provider, font: .caption)
+            WidgetProviderIdentity(provider: provider, font: .caption)
             WidgetUsageRow(
                 title: usage.displayName,
                 usage: usage,
@@ -36,7 +36,7 @@ struct SmallWidgetView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(entry.provider.displayName), \(usage.displayName) usage")
+        .accessibilityLabel("\(provider.displayName), \(usage.displayName) usage")
         .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint("\(resetText). Updated \(entry.lastUpdatedDescription)")
     }
@@ -57,8 +57,10 @@ struct SmallWidgetView: View {
 #Preview("Small", as: .systemSmall) {
     AgentUsageWidgets()
 } timeline: {
+    WidgetEntry.previewOverview()
     WidgetEntry.preview(provider: .claude)
     WidgetEntry.preview(provider: .codex)
+    WidgetEntry.preview(provider: .cursor)
 }
 
 #Preview("Small — No data", as: .systemSmall) {
