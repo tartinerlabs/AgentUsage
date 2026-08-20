@@ -12,9 +12,9 @@ colors:
   icon-background: "#FAF4EF"    # warm off-white app-icon field
 
   # Application UI — defined in code, not in Assets.xcassets. See AgentUsageKit/.../Design/AgentUsageColors.swift
-  # This existing palette remains in scope for the interface until a separate recoloring project.
-  primary: "#C15F3C"             # Crail — the app's primary brand color; usage progress-bar fill
-  brand-secondary: "#DA7756"     # warm clay accent (near-duplicate of Crail)
+  primary: "#3B6BCE"             # Timefold Ink — light-mode primary; usage progress-bar fill
+  primary-dark: "#7197D4"        # Pacific Blue — dark-mode primary (4.5:1 on #1C1C1E)
+  brand-secondary: "#7197D4"     # Pacific Blue — lighter application sibling (same sample as icon-pacific-blue)
   brand-background: "#F4F3EE"    # Pampas — light-mode neutral ground
   extra-usage-accent: "#8B5E83"  # Dusty Plum — RESERVED for over-limit / billed usage only
 
@@ -75,12 +75,12 @@ components:
   # Only spec sub-tokens are used here (backgroundColor, textColor, typography,
   # rounded, padding, size, height, width). SwiftUI-specific details — borders,
   # track colors, line widths/caps, opacities — live in the Components prose below.
-  card-provider:                 # ProviderCardView — one Crail card per provider
+  card-provider:                 # ProviderCardView — one Timefold Ink card per provider
     backgroundColor: "{colors.primary}"  # rendered at 0.06 opacity; border at 0.15
     rounded: "{rounded.md}"
     padding: "{spacing.lg}"      # 12px in compact mode
   badge:                         # plan-name / service-down pills
-    backgroundColor: "{colors.primary}"  # Crail at 0.12 opacity
+    backgroundColor: "{colors.primary}"  # Timefold Ink at 0.12 opacity
     rounded: "{rounded.sm}"
     padding: "2px 6px"
   extra-usage-bar:               # over-limit / billed usage indicator
@@ -137,12 +137,16 @@ Four families, each with a distinct job:
   representative points within dimensional gradients, not flat-fill replacements. They govern
   the app icon and product-level identity, not usage severity or provider attribution.
 
-- **Application accent (Crail + Pampas).** `primary` `#C15F3C` (Crail) is the usage progress-bar
-  fill and the single provider-card tint — icons, plan badges, cost figures, card fill @ 0.06,
-  and card border @ 0.15. Attribution is name + SF Symbol, not a per-provider hue.
-  `brand-background` `#F4F3EE` (Pampas) is the light neutral ground. These existing interface
-  colors remain until a separately scoped application recoloring; they are not the app-icon
-  palette. They are fixed sRGB values and do **not** adapt to dark mode.
+- **Application accent (Timefold Ink + Pampas).** `primary` is Timefold Ink `#3B6BCE` in
+  light appearance — the usage progress-bar fill and the single provider-card tint (icons,
+  plan badges, cost figures, card fill @ 0.06, border @ 0.15). It is the icon's azure hue,
+  quieted and deepened so it holds as text, tint, and fill without reading as Claude or
+  system blue. The same hex is only about 3.4:1 on the standard dark background `#1C1C1E`,
+  below the 4.5:1 small-text threshold used by caption plan badges, so dark mode resolves
+  `primary` to Pacific Blue `#7197D4` (`primary-dark`, ~5.7:1). `brand-secondary` is that
+  same Pacific Blue sample in every appearance. Attribution is name + SF Symbol, not a
+  per-provider hue. `brand-background` `#F4F3EE` (Pampas) is the light neutral ground and
+  stays fixed sRGB. These tokens are not a substitute for the dimensional app-icon palette.
 - **Status (system-semantic).** On-track/warning/critical map to SwiftUI `.green` / `.orange` /
   `.red`. Because they are system colors, they adapt automatically to light/dark and
   accessibility settings. This is deliberate: usage severity must remain legible in every
@@ -205,8 +209,8 @@ Opacity is a structural tool with fixed conventions:
 
 | Opacity | Role |
 |---------|------|
-| `0.06`  | Provider-card fill (Crail) |
-| `0.12`  | Badge fill (Crail) |
+| `0.06`  | Provider-card fill (Timefold Ink) |
+| `0.12`  | Badge fill (Timefold Ink) |
 | `0.15`  | Card border stroke; tick dividers |
 | `0.20`  | Progress-bar track (`secondary`) |
 
@@ -229,17 +233,17 @@ Corner radius is assigned by component scale:
 
 ## Components
 
-- **`UsageRowView`** — the linear progress row: title + reset time, a `primary` (Crail) fill over a
+- **`UsageRowView`** — the linear progress row: title + reset time, a `primary` (Timefold Ink) fill over a
   `secondary` @ 0.2 track (height 8, radius 4) with 1pt tick dividers at 25/50/75%, plus a
   `% used` + status `Label` stats row. Optional 7×7 status dot.
 - **`ProviderCardView`** — the only provider surface on macOS and iOS. Header (provider glyph +
   name + plan badge + optional service-down badge), a stack of linear `UsageRowView`s, optional
   reset-credits line, optional extra-usage bar, and a cost section. `.detail` also shows links,
   a service-down banner, yesterday, sparkline, effort, and models when those fields exist. Fill
-  = Crail @ 0.06, border @ 0.15. `compact` toggles paddings/fonts only. The iOS dashboard is a
+  = Timefold Ink @ 0.06, border @ 0.15. `compact` toggles paddings/fonts only. The iOS dashboard is a
   `.summary` stack in `availableProviders` order; the iOS/iPad provider destination and the
   macOS dashboard/popover provider page use `.detail`.
-- **`SparklineView`** — Canvas-drawn line/bar sparkline (30×10, lineWidth 1); drawn at Crail,
+- **`SparklineView`** — Canvas-drawn line/bar sparkline (30×10, lineWidth 1); drawn at Timefold Ink,
   empty state at `color` @ 0.25.
 - **`MenuBarIconView`** (macOS) — an adaptive monochrome template `NSImage`. Pinned providers
   render as a 16pt mark plus one 11pt percentage or two tightly stacked 9pt percentages. Up to
@@ -252,7 +256,7 @@ Corner radius is assigned by component scale:
   place, and Stop ends it. Disabled authorization remains visible with an Open Settings action;
   unavailable-window and start-error states stay inline in the same card.
 - **Home Screen widgets** — adapt the iOS provider-card hierarchy rather than inventing a
-  widget-only style: provider identity first, compact `UsageProgressBar` rows in Crail, rounded
+  widget-only style: provider identity first, compact `UsageProgressBar` rows in Timefold Ink, rounded
   percentage numerals, semantic status icon + label, reset timing, and freshness. Use the widget
   container itself as the surface instead of nesting a second card inside it.
 - **Accessory widgets & Live Activities** — where the platform shape requires a gauge, use

@@ -26,7 +26,7 @@ struct ProviderCostLine: Identifiable {
 }
 
 /// Renders one provider's usage as a card. Sections appear only when data or a
-/// capability is present. Attribution is name + glyph; chrome is always Crail.
+/// capability is present. Attribution is name + glyph; chrome is always Timefold Ink.
 struct ProviderCardView: View {
     let provider: Provider
     var planName: String? = nil

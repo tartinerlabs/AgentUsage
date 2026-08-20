@@ -45,7 +45,7 @@ struct WidgetProviderIdentity: View {
 }
 
 /// The widget-sized counterpart to `UsageRowView`: same title/reset hierarchy,
-/// canonical Crail progress track, rounded usage figure, and semantic status.
+/// canonical Timefold Ink progress track, rounded usage figure, and semantic status.
 struct WidgetUsageRow: View {
     let title: String
     let usage: UsageWindow

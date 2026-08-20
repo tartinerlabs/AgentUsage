@@ -6,6 +6,11 @@
 import Testing
 import Foundation
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 @testable import AgentUsageKit
 
 private func expectSameColor(
@@ -22,6 +27,44 @@ private func expectSameColor(
     #expect(abs(actual.green - expected.green) < tolerance, sourceLocation: sourceLocation)
     #expect(abs(actual.blue - expected.blue) < tolerance, sourceLocation: sourceLocation)
     #expect(abs(actual.opacity - expected.opacity) < tolerance, sourceLocation: sourceLocation)
+}
+
+private func resolvedRGB(_ color: Color, colorScheme: ColorScheme) -> (CGFloat, CGFloat, CGFloat, CGFloat) {
+    #if os(macOS)
+    let appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)!
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+    appearance.performAsCurrentDrawingAppearance {
+        NSColor(color).usingColorSpace(.sRGB)?.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    }
+    return (red, green, blue, alpha)
+    #else
+    let traits = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+    UIColor(color).resolvedColor(with: traits).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    return (red, green, blue, alpha)
+    #endif
+}
+
+private func expectResolvedColor(
+    _ actual: Color,
+    _ expected: Color,
+    colorScheme: ColorScheme,
+    sourceLocation: SourceLocation = #_sourceLocation
+) {
+    let actual = resolvedRGB(actual, colorScheme: colorScheme)
+    let expected = resolvedRGB(expected, colorScheme: colorScheme)
+    let tolerance: CGFloat = 0.0001
+
+    #expect(abs(actual.0 - expected.0) < tolerance, sourceLocation: sourceLocation)
+    #expect(abs(actual.1 - expected.1) < tolerance, sourceLocation: sourceLocation)
+    #expect(abs(actual.2 - expected.2) < tolerance, sourceLocation: sourceLocation)
+    #expect(abs(actual.3 - expected.3) < tolerance, sourceLocation: sourceLocation)
 }
 
 // MARK: - Design Token Tests
@@ -46,12 +89,8 @@ struct AgentUsageColorsTests {
             Color(red: 250 / 255, green: 244 / 255, blue: 239 / 255)
         )
         expectSameColor(
-            AgentUsageColors.usageProgress,
-            Color(red: 193 / 255, green: 95 / 255, blue: 60 / 255)
-        )
-        expectSameColor(
             AgentUsageColors.brandSecondary,
-            Color(red: 218 / 255, green: 119 / 255, blue: 86 / 255)
+            Color(red: 113 / 255, green: 151 / 255, blue: 212 / 255)
         )
         expectSameColor(
             AgentUsageColors.brandBackground,
@@ -62,6 +101,16 @@ struct AgentUsageColorsTests {
             Color(red: 139 / 255, green: 94 / 255, blue: 131 / 255)
         )
         expectSameColor(extraUsageAccentColor, AgentUsageColors.extraUsageAccent)
+    }
+
+    @Test func usageProgressUsesPacificBlueInDarkAppearance() {
+        let ink = Color(red: 59 / 255, green: 107 / 255, blue: 206 / 255)
+        expectResolvedColor(AgentUsageColors.usageProgress, ink, colorScheme: .light)
+        expectResolvedColor(
+            AgentUsageColors.usageProgress,
+            AgentUsageColors.iconPacificBlue,
+            colorScheme: .dark
+        )
     }
 }
 
