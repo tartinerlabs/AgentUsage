@@ -240,9 +240,11 @@ Corner radius is assigned by component scale:
   name + plan badge + optional service-down badge), a stack of linear `UsageRowView`s, optional
   reset-credits line, optional extra-usage bar, and a cost section. `.detail` also shows links,
   a service-down banner, yesterday, sparkline, effort, and models when those fields exist. Fill
-  = Timefold Ink @ 0.06, border @ 0.15. `compact` toggles paddings/fonts only. The iOS dashboard is a
-  `.summary` stack in `availableProviders` order; the iOS/iPad provider destination and the
-  macOS dashboard/popover provider page use `.detail`.
+  = Timefold Ink @ 0.06, border @ 0.15. `compact` toggles paddings/fonts only. The iOS dashboard
+  Usage segment is a `.summary` stack in `availableProviders` order; the iOS/iPad provider
+  destination and the macOS dashboard/popover provider page use `.detail`. A segmented control
+  (Usage / Activity / Effort) is the landing-screen disclosure: Usage is the default glance,
+  Activity holds Live Activity controls, and Effort holds the cross-provider effort card.
 - **`SparklineView`** — Canvas-drawn line/bar sparkline (30×10, lineWidth 1); drawn at Timefold Ink,
   empty state at `color` @ 0.25.
 - **`MenuBarIconView`** (macOS) — an adaptive monochrome template `NSImage`. Pinned providers
@@ -250,12 +252,13 @@ Corner radius is assigned by component scale:
   two windows are pinned per provider; missing and expired values consume no space. Visible
   labels, trend arrows, reset countdowns, and extra-usage cost stay in the popover rather than
   the status strip.
-- **Live Activity control card** (iOS) — one `.regularMaterial`, 16pt-radius utility card below
-  the provider stack. Native Provider and Window pickers list only non-expired windows from all
-  available provider snapshots. Start creates one activity, Switch updates that activity in
-  place, and Stop ends it. An opt-in toggle auto-pins a short at-limit window when the scene is
-  active. Disabled authorization remains visible with an Open Settings action;
-  unavailable-window and start-error states stay inline in the same card.
+- **Live Activity control card** (iOS) — one `.regularMaterial`, 16pt-radius utility card in
+  the iOS dashboard's Activity segment. Native Provider and Window pickers list only
+  non-expired windows from all available provider snapshots. Start creates one activity,
+  Switch updates that activity in place, and Stop ends it. An opt-in toggle auto-pins a
+  short at-limit window when the scene is active. Disabled authorization remains visible
+  with an Open Settings action; unavailable-window and start-error states stay inline in
+  the same card.
 - **Home Screen widgets** — adapt the iOS provider-card hierarchy rather than inventing a
   widget-only style: provider identity first, compact `UsageProgressBar` rows in Timefold Ink, rounded
   percentage numerals, semantic status icon + label, reset timing, and freshness. Use the widget

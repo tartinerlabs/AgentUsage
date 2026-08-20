@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Split the iOS dashboard into Usage, Activity, and Effort segments
+
 ## [0.29.0] - 2026-07-13
 
 - Pre-resolve Swift package dependencies for parallel CI builds
