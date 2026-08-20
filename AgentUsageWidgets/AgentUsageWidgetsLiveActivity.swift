@@ -197,10 +197,16 @@ private struct CompactValueView: View {
 
     var body: some View {
         if displayState == .available, state.percentUsed >= 100, let resetsAt = state.resetsAt {
-            Text(resetsAt, style: .timer)
+            // Timer Text reports a huge ideal width; cap it so compact island stays around the camera.
+            let end = max(resetsAt, .now)
+            Text(timerInterval: Date.now...end, countsDown: true)
                 .monospacedDigit()
                 .font(.system(.caption2, design: .rounded, weight: .semibold))
                 .foregroundStyle(state.status.color)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 50, alignment: .trailing)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
                 .accessibilityLabel(state.resetAccessibilityDescription)
         } else if displayState == .available {
             HStack(spacing: 2) {
