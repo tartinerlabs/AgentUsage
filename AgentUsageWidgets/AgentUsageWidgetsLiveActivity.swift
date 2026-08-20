@@ -196,7 +196,13 @@ private struct CompactValueView: View {
     let displayState: LiveActivityDisplayState
 
     var body: some View {
-        if displayState == .available {
+        if displayState == .available, state.percentUsed >= 100, let resetsAt = state.resetsAt {
+            Text(resetsAt, style: .timer)
+                .monospacedDigit()
+                .font(.system(.caption2, design: .rounded, weight: .semibold))
+                .foregroundStyle(state.status.color)
+                .accessibilityLabel(state.resetAccessibilityDescription)
+        } else if displayState == .available {
             HStack(spacing: 2) {
                 Image(systemName: state.status.icon)
                 Text(state.percentageLabel)
@@ -324,12 +330,14 @@ private enum LiveActivityDisplayState: Equatable {
     case available
     case awaitingRefresh
     case unavailable
+    case reset
 
     var message: String {
         switch self {
         case .available: ""
         case .awaitingRefresh: "Awaiting refresh"
         case .unavailable: "Usage unavailable"
+        case .reset: "Limit reset"
         }
     }
 
@@ -338,6 +346,7 @@ private enum LiveActivityDisplayState: Equatable {
         case .available: "checkmark.circle.fill"
         case .awaitingRefresh: "arrow.clockwise"
         case .unavailable: "exclamationmark.circle"
+        case .reset: "checkmark.circle.fill"
         }
     }
 }
@@ -369,6 +378,9 @@ private extension AgentUsageLiveActivityAttributes.ContentState {
     }
 
     func displayState(isStale: Bool) -> LiveActivityDisplayState {
+        if availability == .reset {
+            return .reset
+        }
         if availability == .unavailable {
             return .unavailable
         }
@@ -391,7 +403,7 @@ private extension AgentUsageLiveActivityAttributes.ContentState {
             }
             parts.append(resetAccessibilityDescription)
             return parts.joined(separator: ", ")
-        case .awaitingRefresh, .unavailable:
+        case .awaitingRefresh, .unavailable, .reset:
             var parts = [prefix, displayState.message]
             if let fetchedAt {
                 parts.append("updated at \(fetchedAt.formatted(date: .omitted, time: .shortened))")

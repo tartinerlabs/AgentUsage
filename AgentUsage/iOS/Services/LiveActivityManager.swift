@@ -35,6 +35,10 @@ protocol LiveActivityHandle: AnyObject {
 
     func update(_ content: ActivityContent<AgentUsageLiveActivityAttributes.ContentState>) async
     func endImmediately() async
+    func end(
+        _ content: ActivityContent<AgentUsageLiveActivityAttributes.ContentState>?,
+        dismissalDate: Date?
+    ) async
     func stateUpdates() -> AsyncStream<LiveActivityLifecycleState>
 }
 
@@ -69,7 +73,15 @@ private final class SystemLiveActivityHandle: LiveActivityHandle {
     }
 
     func endImmediately() async {
-        await activity.end(nil, dismissalPolicy: .immediate)
+        await end(nil, dismissalDate: nil)
+    }
+
+    func end(
+        _ content: ActivityContent<AgentUsageLiveActivityAttributes.ContentState>?,
+        dismissalDate: Date?
+    ) async {
+        let policy: ActivityUIDismissalPolicy = dismissalDate.map { .after($0) } ?? .immediate
+        await activity.end(content, dismissalPolicy: policy)
     }
 
     func stateUpdates() -> AsyncStream<LiveActivityLifecycleState> {
@@ -270,6 +282,10 @@ final class LiveActivityManager: ObservableObject {
         }
 
         if let selection = activeSelection {
+            if shouldEndWaitingRoom(selection, from: snapshots) {
+                await endWaitingRoom(activity, selection: selection)
+                return
+            }
             guard let rendered = render(
                 selection: selection,
                 from: snapshots,
@@ -509,6 +525,50 @@ final class LiveActivityManager: ObservableObject {
             fetchedAt: fetchedAt,
             availabilityRaw: UsageActivityAvailability.unavailable.rawValue
         )
+    }
+
+    private static let waitingRoomDismissalDuration: TimeInterval = 30
+
+    private func shouldEndWaitingRoom(
+        _ selection: UsageActivitySelection,
+        from snapshots: [ProviderUsageSnapshot]
+    ) -> Bool {
+        let previousPercent = currentState?.percentUsed ?? 0
+        guard previousPercent >= Int(UsageWaitingRoom.nearLimitUtilization) else { return false }
+
+        let date = now()
+        let snapshot = snapshots.first { $0.provider == selection.provider }
+        let window = snapshot?.windows.first { $0.windowID == selection.windowID }
+        guard let window else { return true }
+        if window.isExpired(from: date) { return true }
+        if let previousReset = currentState?.resetsAt,
+           floor(previousReset.timeIntervalSince1970) != floor(window.resetsAt.timeIntervalSince1970) {
+            return true
+        }
+        return false
+    }
+
+    private func endWaitingRoom(
+        _ activity: any LiveActivityHandle,
+        selection: UsageActivitySelection
+    ) async {
+        let date = now()
+        let finalState = AgentUsageLiveActivityAttributes.ContentState(
+            percentUsed: 0,
+            timeUntilReset: "now",
+            statusRaw: UsageStatus.onTrack.rawValue,
+            selection: selection,
+            windowDisplayName: currentState?.windowDisplayName,
+            resetsAt: currentState?.resetsAt,
+            fetchedAt: currentState?.fetchedAt ?? date,
+            availabilityRaw: UsageActivityAvailability.reset.rawValue
+        )
+        await activity.end(
+            ActivityContent(state: finalState, staleDate: nil),
+            dismissalDate: date.addingTimeInterval(Self.waitingRoomDismissalDuration)
+        )
+        Logger.liveActivity.info("Ended waiting-room Live Activity after reset: \(activity.id)")
+        clearCurrentActivity(cancelObservation: true)
     }
 
     private func isDismissed(_ candidate: UsageWaitingRoom.Candidate) -> Bool {
