@@ -395,6 +395,33 @@ struct LiveActivityManagerTests {
         #expect(client.requestCount == 2)
     }
 
+    @Test func autoPinSkipsDismissedCandidateAndPinsNext() async throws {
+        let client = FakeLiveActivityClient()
+        let manager = LiveActivityManager(client: client, now: { referenceDate })
+        let sooner = makeWaitingRoomSnapshot(
+            provider: .codex,
+            windowID: "codexFiveHour",
+            name: "5-hour limit",
+            resetsAt: referenceDate.addingTimeInterval(1_800)
+        )
+        let later = makeWaitingRoomSnapshot(
+            provider: .claude,
+            windowID: "session",
+            name: "Current session",
+            resetsAt: referenceDate.addingTimeInterval(3_600)
+        )
+
+        await manager.reconcile(from: [sooner], autoPinAtLimit: true, canStart: true)
+        let activity = try #require(client.requestedActivities.first)
+        activity.sendLifecycleState(.dismissed)
+        await eventually { !manager.isRunning }
+
+        await manager.reconcile(from: [sooner, later], autoPinAtLimit: true, canStart: true)
+
+        #expect(client.requestCount == 2)
+        #expect(manager.activeSelection?.provider == .claude)
+    }
+
     @Test func stopPreventsAutoPinUntilDismissalCleared() async {
         let client = FakeLiveActivityClient()
         let manager = LiveActivityManager(client: client, now: { referenceDate })

@@ -241,12 +241,10 @@ final class LiveActivityManager: ObservableObject {
         }
 
         guard autoPinAtLimit, client.areActivitiesEnabled else { return }
-        guard let candidate = UsageWaitingRoom.nextLiveActivityCandidate(
+        guard let candidate = UsageWaitingRoom.liveActivityCandidates(
             from: snapshots,
             now: now()
-        ) else { return }
-
-        if isDismissed(candidate) { return }
+        ).first(where: { !isDismissed($0) }) else { return }
 
         if let active = activeSelection {
             if active == candidate.selection { return }
