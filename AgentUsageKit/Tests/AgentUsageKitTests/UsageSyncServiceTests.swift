@@ -288,11 +288,9 @@ struct UsageSyncServiceTests {
 
     @Test func ensureSnapshotSubscriptionIsIdempotentForDuplicateID() async throws {
         let database = StubUsageSyncDatabase()
-        let firstService = UsageSyncService(database: database)
-        try await firstService.ensureSnapshotSubscription()
-
-        let relaunchedService = UsageSyncService(database: database)
-        try await relaunchedService.ensureSnapshotSubscription()
+        let service = UsageSyncService(database: database)
+        try await service.ensureSnapshotSubscription()
+        try await service.ensureSnapshotSubscription()
 
         #expect(await database.saveSubscriptionCount() == 2)
         #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) != nil)
@@ -326,7 +324,7 @@ struct UsageSyncServiceTests {
         #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) == nil)
     }
 
-    @Test func mobileRevokeDeletesSilentPushSubscription() async throws {
+    @Test func mobileRevokeKeepsSilentPushSubscription() async throws {
         let database = StubUsageSyncDatabase()
         let service = UsageSyncService(database: database)
         let synced = SyncedUsageSnapshot(
@@ -340,7 +338,7 @@ struct UsageSyncServiceTests {
 
         #expect(await service.revoke(device: .iPhone))
         #expect(await database.record(named: UsageSyncService.receiptRecordID(for: .iPhone).recordName) == nil)
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) == nil)
+        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) != nil)
     }
 
     @Test func deleteSnapshotSubscriptionTreatsMissingSubscriptionAsSuccess() async {
@@ -354,9 +352,24 @@ struct UsageSyncServiceTests {
         let service = UsageSyncService(database: database)
         try await service.ensureSnapshotSubscription()
         #expect(await service.revokeAll())
+        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) == nil)
+        #expect(await database.saveSubscriptionCount() == 1)
 
         try await service.ensureSnapshotSubscription()
         #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) != nil)
+        #expect(await database.saveSubscriptionCount() == 2)
+    }
+
+    @Test func ensureSnapshotSubscriptionRecreatesAfterRemoteDelete() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        try await service.ensureSnapshotSubscription()
+        await database.dropSubscription(id: UsageSyncService.snapshotSubscriptionID)
+        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) == nil)
+
+        try await service.ensureSnapshotSubscription()
+        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) != nil)
+        #expect(await database.saveSubscriptionCount() == 2)
     }
 
     private static func snapshot() -> UsageSnapshot {
@@ -411,6 +424,10 @@ private actor StubUsageSyncDatabase: UsageSyncDatabase {
 
     func saveSubscriptionCount() -> Int {
         savedSubscriptionCount
+    }
+
+    func dropSubscription(id: CKSubscription.ID) {
+        subscriptionsByID.removeValue(forKey: id)
     }
 
     func records(

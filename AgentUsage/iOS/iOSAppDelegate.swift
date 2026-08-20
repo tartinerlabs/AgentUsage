@@ -10,7 +10,7 @@ import UIKit
 import UserNotifications
 
 final class iOSAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-    /// Weak hook from `AgentUsageApp`. Silent CloudKit pushes refresh through the view model.
+    /// Weak hook from `AgentUsageApp.init`. Silent CloudKit pushes refresh through the view model.
     weak var viewModel: UsageViewModel?
 
     func application(

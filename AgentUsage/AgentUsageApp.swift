@@ -100,6 +100,10 @@ struct AgentUsageApp: App {
             refreshFrequency: { viewModel.refreshInterval }
         )
         _backgroundRefreshCoordinator = State(initialValue: coordinator)
+        // Silent CloudKit pushes can relaunch iOS without a scene. Wire the
+        // view model at process start so `didReceiveRemoteNotification` can
+        // refresh Live Activities without waiting for WindowGroup.onAppear.
+        appDelegate.viewModel = viewModel
         if !Self.isRunningTests {
             coordinator.start()
         }
@@ -160,9 +164,6 @@ struct AgentUsageApp: App {
         WindowGroup {
             MainNavigationView()
                 .environment(viewModel)
-                .onAppear {
-                    appDelegate.viewModel = viewModel
-                }
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         Task {
