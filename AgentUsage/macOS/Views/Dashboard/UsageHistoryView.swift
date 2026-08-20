@@ -91,7 +91,7 @@ struct UsageHistoryView: View {
                 Picker("Provider", selection: $selectedProvider) {
                     Text("All").tag(Provider?.none)
                     ForEach(history.providers) { provider in
-                        Text(provider.displayName).tag(Provider?.some(provider))
+                        Label(provider).tag(Provider?.some(provider))
                     }
                 }
                 .pickerStyle(.menu)

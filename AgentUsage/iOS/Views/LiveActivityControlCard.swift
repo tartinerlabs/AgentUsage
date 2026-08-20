@@ -121,7 +121,7 @@ struct LiveActivityControlCard: View {
                 Spacer()
                 Picker("Provider", selection: $draftProvider) {
                     ForEach(eligibleSnapshots) { snapshot in
-                        Text(snapshot.provider.displayName)
+                        Label(snapshot.provider)
                             .tag(Optional(snapshot.provider))
                     }
                 }

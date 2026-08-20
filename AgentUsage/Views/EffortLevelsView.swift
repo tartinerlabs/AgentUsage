@@ -46,9 +46,8 @@ struct EffortLevelsView: View {
 
     private var providerHeader: some View {
         HStack(spacing: 8) {
-            Image(systemName: provider.iconName)
+            ProviderIcon(provider, size: 16)
                 .foregroundStyle(AgentUsageColors.usageProgress)
-                .accessibilityHidden(true)
             Text(provider.displayName)
                 .font(.subheadline.weight(.semibold))
             Spacer(minLength: 8)

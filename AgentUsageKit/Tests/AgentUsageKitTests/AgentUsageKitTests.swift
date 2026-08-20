@@ -188,24 +188,29 @@ struct ProviderTests {
     @Test func presentationMappingsMatchDesignSystem() {
         #expect(Provider.claude.displayName == "Claude")
         #expect(Provider.claude.iconName == "sparkles")
-        #expect(Provider.claude.menuBarMarkAssetName == "ClaudeProviderMark")
+        #expect(Provider.claude.markAssetName == "ClaudeProviderMark")
 
         #expect(Provider.codex.displayName == "Codex")
         #expect(Provider.codex.iconName == "chevron.left.forwardslash.chevron.right")
-        #expect(Provider.codex.menuBarMarkAssetName == "CodexProviderMark")
+        #expect(Provider.codex.markAssetName == "CodexProviderMark")
 
         #expect(Provider.openCode.iconName == "curlybraces")
         #expect(Provider.openCodeGo.iconName == "curlybraces")
-        #expect(Provider.openCode.menuBarMarkAssetName == nil)
-        #expect(Provider.openCodeGo.menuBarMarkAssetName == nil)
+        #expect(Provider.openCode.markAssetName == "OpenCodeProviderMark")
+        #expect(Provider.openCodeGo.markAssetName == "OpenCodeProviderMark")
 
         #expect(Provider.cursor.displayName == "Cursor")
         #expect(Provider.cursor.iconName == "cursorarrow")
-        #expect(Provider.cursor.menuBarMarkAssetName == nil)
+        #expect(Provider.cursor.markAssetName == "CursorProviderMark")
 
         #expect(Provider.grok.displayName == "Grok")
         #expect(Provider.grok.iconName == "bolt.fill")
-        #expect(Provider.grok.menuBarMarkAssetName == nil)
+        #expect(Provider.grok.markAssetName == "GrokProviderMark")
+
+        #expect(Set(Provider.allCases.map(\.markAssetName)).count == 5)
+        for provider in Provider.allCases {
+            #expect(provider.hasMarkAsset)
+        }
     }
 
     @Test func linksAreProviderMetadataNotViewSwitches() {

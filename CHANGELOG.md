@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Use official provider marks instead of SF Symbols for provider attribution
 - Split the iOS dashboard into Usage, Activity, and Effort segments
 
 ## [0.29.0] - 2026-07-13

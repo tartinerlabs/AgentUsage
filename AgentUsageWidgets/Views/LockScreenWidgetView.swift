@@ -42,8 +42,14 @@ struct LockScreenWidgetView: View {
         let provider = entry.provider
 
         return Gauge(value: usage.normalized) {
-            Image(systemName: provider?.iconName ?? "chart.bar.xaxis")
-                .font(.caption2)
+            Group {
+                if let provider {
+                    ProviderIcon(provider, size: 10)
+                } else {
+                    Image(systemName: "chart.bar.xaxis")
+                }
+            }
+            .font(.caption2)
         } currentValueLabel: {
             VStack(spacing: 0) {
                 Text("\(usage.percentUsed)")
@@ -73,7 +79,7 @@ struct LockScreenWidgetView: View {
         return VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 if let provider {
-                    Label(provider.displayName, systemImage: provider.iconName)
+                    Label(provider)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .lineLimit(1)
@@ -125,7 +131,7 @@ struct LockScreenWidgetView: View {
 
         return Group {
             if let provider {
-                Text("\(Image(systemName: provider.iconName)) \(provider.displayName) \(usage.percentUsed)% \(Image(systemName: status.icon))")
+                Text("\(provider.markImage) \(provider.displayName) \(usage.percentUsed)% \(Image(systemName: status.icon))")
             } else {
                 Text("\(usage.percentUsed)% \(Image(systemName: status.icon))")
             }

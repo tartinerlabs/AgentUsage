@@ -255,30 +255,16 @@ private struct MenuBarStatusStrip: View {
 private struct MenuBarProviderMark: View {
     let providerID: String
 
-    private var assetName: String? {
-        Provider(rawValue: providerID)?.menuBarMarkAssetName
-    }
-
-    private var fallbackSymbol: String {
-        Provider(rawValue: providerID)?.iconName ?? "gauge.medium"
-    }
-
     var body: some View {
-        Group {
-            if let assetName,
-               let image = NSImage(named: NSImage.Name(assetName)) {
-                Image(nsImage: image)
-                    .resizable()
-                    .renderingMode(.template)
-                    .scaledToFit()
-            } else {
-                Image(systemName: fallbackSymbol)
-                    .resizable()
-                    .scaledToFit()
-            }
+        if let provider = Provider(rawValue: providerID) {
+            ProviderIcon(provider, size: 16)
+        } else {
+            Image(systemName: "gauge.medium")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+                .accessibilityHidden(true)
         }
-        .frame(width: 16, height: 16)
-        .accessibilityHidden(true)
     }
 }
 #endif

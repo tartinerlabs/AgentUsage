@@ -52,7 +52,7 @@ struct LocalDataAccessCard: View {
                         .foregroundStyle(.secondary)
                     ForEach(SandboxFolderAccessService.grantableProviders) { provider in
                         HStack(spacing: 6) {
-                            Label(provider.displayName, systemImage: provider.iconName)
+                            Label(provider)
                                 .font(.caption)
                             Text(folderAccess.defaultDirectory(for: provider).path)
                                 .font(.caption.monospaced())
