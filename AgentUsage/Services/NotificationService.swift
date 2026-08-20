@@ -329,8 +329,17 @@ actor NotificationService: NotificationServiceProtocol {
         let desiredIDs = Set(desired.map(\.resetNotificationIdentifier))
 
         let stale = pendingReset.subtracting(desiredIDs)
-        if !stale.isEmpty {
-            await notificationCenter.removePendingNotificationRequests(withIdentifiers: Array(stale))
+        // Keep due or overdue requests so a post-reset refresh cannot delete the
+        // ping that is about to fire. Only cancel future alerts that are no
+        // longer near-limit (usage recovered in the same period).
+        let removable = stale.filter { identifier in
+            guard let resetAt = Self.resetInstant(fromNotificationIdentifier: identifier) else {
+                return true
+            }
+            return resetAt > now.addingTimeInterval(60)
+        }
+        if !removable.isEmpty {
+            await notificationCenter.removePendingNotificationRequests(withIdentifiers: Array(removable))
         }
 
         for candidate in desired {
@@ -355,6 +364,17 @@ actor NotificationService: NotificationServiceProtocol {
     }
 
     private static let resetNotificationPrefix = "reset."
+
+    /// `reset.{provider}.{windowID}.{epochSeconds}` — window IDs may contain dots.
+    private static func resetInstant(fromNotificationIdentifier identifier: String) -> Date? {
+        guard identifier.hasPrefix(resetNotificationPrefix) else { return nil }
+        let rest = identifier.dropFirst(resetNotificationPrefix.count)
+        guard let lastDot = rest.lastIndex(of: "."),
+              let seconds = TimeInterval(rest[rest.index(after: lastDot)...]) else {
+            return nil
+        }
+        return Date(timeIntervalSince1970: seconds)
+    }
 
     #if DEBUG
     func sendTestResetNotification() async {
