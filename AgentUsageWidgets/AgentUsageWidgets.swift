@@ -24,7 +24,7 @@ struct AgentUsageWidgets: Widget {
                 }
         }
         .configurationDisplayName("Agent Usage")
-        .description("Track an AI coding provider's usage windows at a glance.")
+        .description("Track usage across your AI coding providers. Small widgets show one window; Medium and Large show every provider.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -62,7 +62,7 @@ struct AgentUsageLockScreenWidget: Widget {
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Agent Usage")
-        .description("Check a provider usage window at a glance.")
+        .description("Check a provider usage window at a glance. Unconfigured widgets show the most urgent live window.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
@@ -77,35 +77,36 @@ struct AgentUsageLockScreenWidget: Widget {
 #Preview(as: .systemSmall) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
+    WidgetEntry.preview(provider: .codex)
     WidgetEntry.previewNoData()
 }
 
 #Preview(as: .systemMedium) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
     WidgetEntry.previewNoData()
 }
 
 #Preview(as: .systemLarge) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
     WidgetEntry.previewNoData()
 }
 
 #Preview(as: .accessoryCircular) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
     WidgetEntry.previewNoData()
 }
 
 #Preview(as: .accessoryRectangular) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
     WidgetEntry.previewNoData()
 }
 #endif

@@ -258,7 +258,10 @@ Corner radius is assigned by component scale:
 - **Home Screen widgets** — adapt the iOS provider-card hierarchy rather than inventing a
   widget-only style: provider identity first, compact `UsageProgressBar` rows in Timefold Ink, rounded
   percentage numerals, semantic status icon + label, reset timing, and freshness. Use the widget
-  container itself as the surface instead of nesting a second card inside it.
+  container itself as the surface instead of nesting a second card inside it. Small and Lock Screen
+  widgets show one configured window and default to the most urgent live window, not Claude. Medium
+  and Large show one primary window per provider that currently has quota data; a single-provider
+  payload still lists that provider's windows. Grok does not appear until it has rate windows.
 - **Accessory widgets & Live Activities** — where the platform shape requires a gauge, use
   SwiftUI `Gauge` (`.accessoryCircular` / `.accessoryLinear`) colored by `status.color` with
   matching `.keylineTint`. Live Activity content carries the selected provider and stable window

@@ -96,26 +96,12 @@ struct WidgetUsageWindowEntity: AppEntity {
 }
 
 struct WidgetUsageWindowQuery: EntityQuery {
-    /// Only providers currently wired by the app are configurable. OpenCode's
-    /// services remain deliberately disabled even though its model types exist.
-    private static let supportedProviders: Set<AgentUsageKit.Provider> = [
-        .claude,
-        .codex,
-        .cursor,
-    ]
-
     func entities(for identifiers: [WidgetUsageWindowEntity.ID]) async throws -> [WidgetUsageWindowEntity] {
         let knownEntities = Dictionary(
             uniqueKeysWithValues: entities(includeExpired: true).map { ($0.id, $0) }
         )
         return identifiers.compactMap { identifier in
-            if let known = knownEntities[identifier] { return known }
-            guard let fallback = WidgetUsageWindowEntity(identifier: identifier),
-                  let provider = fallback.provider,
-                  Self.supportedProviders.contains(provider) else {
-                return nil
-            }
-            return fallback
+            knownEntities[identifier] ?? WidgetUsageWindowEntity(identifier: identifier)
         }
     }
 
@@ -130,10 +116,8 @@ struct WidgetUsageWindowQuery: EntityQuery {
     ) -> [WidgetUsageWindowEntity] {
         let now = Date()
         let providerSnapshots = snapshots ?? WidgetDataStorage.shared.loadProviderSnapshots()
-        return providerSnapshots.flatMap {
-            snapshot -> [WidgetUsageWindowEntity] in
-            guard Self.supportedProviders.contains(snapshot.provider) else { return [] }
-            return snapshot.windows
+        return providerSnapshots.flatMap { snapshot in
+            snapshot.windows
                 .filter { includeExpired || !$0.isExpired(from: now) }
                 .map { WidgetUsageWindowEntity(provider: snapshot.provider, window: $0) }
         }
@@ -143,7 +127,7 @@ struct WidgetUsageWindowQuery: EntityQuery {
 struct ConfigurationAppIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Select Usage Window"
     static var description = IntentDescription(
-        "Choose a provider usage window to display. Larger widgets show the other windows for that provider too."
+        "Choose a window for Small and Lock Screen widgets. Medium and Large widgets show every provider."
     )
 
     /// Kept under its original property name and raw enum values so WidgetKit can
@@ -151,8 +135,8 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     @Parameter(title: "Legacy Claude Metric", default: .session)
     var metric: MetricType
 
-    /// Optional so a widget can be added before the Mac has published data. The
-    /// stable legacy Claude selection is used until a provider window is chosen.
+    /// Optional so a widget can be added before the Mac has published data.
+    /// Unconfigured widgets resolve to the most urgent live window.
     @Parameter(title: "Usage Window")
     var usageWindow: WidgetUsageWindowEntity?
 
@@ -162,11 +146,16 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
         }
     }
 
-    var selection: UsageActivitySelection {
-        usageWindow?.selection
-            ?? UsageActivitySelection(
-                provider: .claude,
-                windowID: UsageWindowID(rawValue: metric.rawValue)
-            )
+    var selection: UsageActivitySelection? {
+        if let selection = usageWindow?.selection {
+            return selection
+        }
+        // Old widgets encoded a Claude metric and never received a usageWindow.
+        // Honor a non-default metric so those configurations keep their window.
+        guard metric != .session else { return nil }
+        return UsageActivitySelection(
+            provider: .claude,
+            windowID: UsageWindowID(rawValue: metric.rawValue)
+        )
     }
 }

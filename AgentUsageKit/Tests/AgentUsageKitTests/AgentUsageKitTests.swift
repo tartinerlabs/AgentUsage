@@ -155,6 +155,13 @@ struct UsageStatusTests {
             #expect(decoded == status)
         }
     }
+
+    @Test func comparableOrdersBySeverity() {
+        #expect(UsageStatus.onTrack < UsageStatus.warning)
+        #expect(UsageStatus.warning < UsageStatus.critical)
+        #expect(UsageStatus.onTrack < UsageStatus.critical)
+        #expect(max(UsageStatus.onTrack, UsageStatus.critical) == .critical)
+    }
 }
 
 @Suite("UsageWindow.Trend")
@@ -272,6 +279,136 @@ struct UsageActivitySelectionTests {
 
         #expect(decoded == selections)
         #expect(decoded.last?.windowID.rawValue == "cursor.dynamic.usage-2026")
+    }
+
+    @Test func mostUrgentPrefersCriticalCursorOverClaude() {
+        let now = Date()
+        let snapshots = [
+            snapshot(provider: .claude, utilization: 45, resetsIn: 3_600, now: now, type: .session),
+            snapshot(provider: .codex, utilization: 72, resetsIn: 3_600, now: now, type: .codexFiveHour),
+            snapshot(provider: .cursor, utilization: 92, resetsIn: 86_400, now: now, windowID: "cursor.monthly"),
+        ]
+
+        let selection = UsageActivitySelection.mostUrgent(in: snapshots, now: now)
+
+        #expect(selection?.provider == .cursor)
+        #expect(selection?.windowID.rawValue == "cursor.monthly")
+    }
+
+    @Test func mostUrgentIgnoresExpiredWindowsAndSkipsGrok() {
+        let now = Date()
+        let snapshots = [
+            snapshot(provider: .claude, utilization: 99, resetsIn: -60, now: now, type: .session),
+            snapshot(provider: .codex, utilization: 40, resetsIn: 3_600, now: now, type: .codexFiveHour),
+            ProviderUsageSnapshot(provider: .grok, windows: [], fetchedAt: now),
+        ]
+
+        let selection = UsageActivitySelection.mostUrgent(in: snapshots, now: now)
+
+        #expect(selection?.provider == .codex)
+        #expect(selection?.windowID.rawValue == UsageWindowType.codexFiveHour.rawValue)
+    }
+
+    @Test func mostUrgentReturnsNilWhenNoLiveWindows() {
+        let now = Date()
+        let snapshots = [
+            snapshot(provider: .claude, utilization: 80, resetsIn: -60, now: now, type: .session),
+        ]
+
+        #expect(UsageActivitySelection.mostUrgent(in: snapshots, now: now) == nil)
+        #expect(UsageActivitySelection.mostUrgent(in: [], now: now) == nil)
+    }
+
+    @Test func glanceWindowsStayInCanonicalOrderAndHonorPreferredWindow() {
+        let now = Date()
+        let claude = ProviderUsageSnapshot(
+            provider: .claude,
+            windows: [
+                UsageWindow(utilization: 20, resetsAt: now.addingTimeInterval(3_600), windowType: .session),
+                UsageWindow(utilization: 88, resetsAt: now.addingTimeInterval(86_400), windowType: .opus),
+            ],
+            fetchedAt: now
+        )
+        let codex = snapshot(
+            provider: .codex,
+            utilization: 50,
+            resetsIn: 3_600,
+            now: now,
+            type: .codexFiveHour
+        )
+        let cursor = snapshot(
+            provider: .cursor,
+            utilization: 10,
+            resetsIn: 86_400,
+            now: now,
+            windowID: "cursor.monthly"
+        )
+
+        let preferred = UsageActivitySelection(provider: .claude, windowID: "session")
+        let glances = UsageActivitySelection.glanceWindows(
+            in: [cursor, claude, codex],
+            preferring: preferred,
+            now: now
+        )
+
+        #expect(glances.map(\.provider) == [.claude, .codex, .cursor])
+        #expect(glances.first?.window.windowID.rawValue == "session")
+        #expect(glances.contains { $0.provider == .grok } == false)
+    }
+
+    @Test func primaryWindowFallsBackToMostUrgentWhenPreferredIsExpired() {
+        let now = Date()
+        let snapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 30,
+                    resetsAt: now.addingTimeInterval(-60),
+                    windowType: .codexFiveHour
+                ),
+                UsageWindow(
+                    utilization: 81,
+                    resetsAt: now.addingTimeInterval(86_400),
+                    windowType: .codexWeekly
+                ),
+            ],
+            fetchedAt: now
+        )
+        let preferred = UsageActivitySelection(
+            provider: .codex,
+            windowID: UsageWindowID(rawValue: UsageWindowType.codexFiveHour.rawValue)
+        )
+
+        let window = snapshot.primaryWindow(preferring: preferred, now: now)
+
+        #expect(window?.windowType == .codexWeekly)
+    }
+
+    private func snapshot(
+        provider: Provider,
+        utilization: Double,
+        resetsIn: TimeInterval,
+        now: Date,
+        type: UsageWindowType? = nil,
+        windowID: UsageWindowID? = nil
+    ) -> ProviderUsageSnapshot {
+        let window: UsageWindow
+        if let type {
+            window = UsageWindow(
+                utilization: utilization,
+                resetsAt: now.addingTimeInterval(resetsIn),
+                windowType: type
+            )
+        } else {
+            window = UsageWindow(
+                utilization: utilization,
+                resetsAt: now.addingTimeInterval(resetsIn),
+                windowID: windowID ?? "custom",
+                displayName: "Usage",
+                totalDuration: 86_400
+            )
+        }
+        return ProviderUsageSnapshot(provider: provider, windows: [window], fetchedAt: now)
     }
 }
 
