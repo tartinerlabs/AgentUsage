@@ -259,7 +259,7 @@ final class UsageViewModel {
         }
     }
 
-    private var isSceneActive = true
+    private var isSceneActive = false
     #endif
 
     private(set) var notificationsEnabled: Bool {
