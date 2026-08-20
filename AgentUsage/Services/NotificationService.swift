@@ -12,6 +12,8 @@ protocol UserNotificationCenterClient: Actor {
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
     func permissionState() async -> NotificationPermissionState
     func add(_ request: UNNotificationRequest) async throws
+    func pendingNotificationIdentifiers() async -> [String]
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String]) async
 }
 
 actor SystemUserNotificationCenterClient: UserNotificationCenterClient {
@@ -52,6 +54,18 @@ actor SystemUserNotificationCenterClient: UserNotificationCenterClient {
 
     func add(_ request: UNNotificationRequest) async throws {
         try await center.add(request)
+    }
+
+    func pendingNotificationIdentifiers() async -> [String] {
+        await withCheckedContinuation { continuation in
+            center.getPendingNotificationRequests { requests in
+                continuation.resume(returning: requests.map(\.identifier))
+            }
+        }
+    }
+
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String]) async {
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
 }
 
@@ -213,24 +227,11 @@ actor NotificationService: NotificationServiceProtocol {
         // Create unique key for this window's reset period (using second precision)
         let windowKey = WindowPeriodKey(name: name, resetsAt: dateToSeconds(newUsage.resetsAt))
 
-        // Check if reset occurred (new reset time means new window)
-        // Compare at second precision to avoid false positives from API timestamp variations
+        // Reset alerts are scheduled against `resetsAt` rather than observed on
+        // the next snapshot. Still drop threshold-dedup state for the old period.
         if let oldUsage, dateToSeconds(oldUsage.resetsAt) != dateToSeconds(newUsage.resetsAt) {
-            // Reset period changed, clear notified thresholds for old key
             let oldKey = WindowPeriodKey(name: name, resetsAt: dateToSeconds(oldUsage.resetsAt))
             notifiedThresholds.removeValue(forKey: oldKey)
-
-            // Enhanced guards for reset notification:
-            // 1. Was near limit (>= 90%)
-            // 2. Usage actually dropped (new < 50%) - prevents false notifications
-            // 3. New reset is in future (sanity check)
-            // 4. Reset notifications are enabled
-            if settings.notifyOnReset
-                && oldUsage.percentUsed >= 90
-                && newPercent < 50
-                && newUsage.resetsAt > Date() {
-                await sendResetNotification(windowName: name)
-            }
         }
 
         // Initialize set for this window if needed
@@ -310,6 +311,51 @@ actor NotificationService: NotificationServiceProtocol {
         }
     }
 
+    // MARK: - Scheduled Reset Notifications
+
+    func armResetNotifications(
+        from snapshots: [ProviderUsageSnapshot],
+        now: Date = Date()
+    ) async {
+        let hasPermission = await checkPermission()
+        guard hasPermission, settings.notifyOnReset else {
+            await cancelResetNotifications()
+            return
+        }
+
+        let pending = await notificationCenter.pendingNotificationIdentifiers()
+        let pendingReset = Set(pending.filter { $0.hasPrefix(Self.resetNotificationPrefix) })
+        let desired = UsageWaitingRoom.resetAlertCandidates(from: snapshots, now: now)
+        let desiredIDs = Set(desired.map(\.resetNotificationIdentifier))
+
+        let stale = pendingReset.subtracting(desiredIDs)
+        if !stale.isEmpty {
+            await notificationCenter.removePendingNotificationRequests(withIdentifiers: Array(stale))
+        }
+
+        for candidate in desired {
+            let identifier = candidate.resetNotificationIdentifier
+            if pendingReset.contains(identifier) { continue }
+            let interval = candidate.window.resetsAt.timeIntervalSince(now)
+            guard interval > 0 else { continue }
+            await sendScheduledResetNotification(
+                identifier: identifier,
+                providerName: candidate.provider.displayName,
+                windowName: candidate.window.displayName,
+                timeInterval: max(interval, 1)
+            )
+        }
+    }
+
+    func cancelResetNotifications() async {
+        let pending = await notificationCenter.pendingNotificationIdentifiers()
+        let resetIDs = pending.filter { $0.hasPrefix(Self.resetNotificationPrefix) }
+        guard !resetIDs.isEmpty else { return }
+        await notificationCenter.removePendingNotificationRequests(withIdentifiers: resetIDs)
+    }
+
+    private static let resetNotificationPrefix = "reset."
+
     #if DEBUG
     func sendTestResetNotification() async {
         let hasPermission = await checkPermission()
@@ -383,10 +429,38 @@ actor NotificationService: NotificationServiceProtocol {
         }
     }
 
+    private func sendScheduledResetNotification(
+        identifier: String,
+        providerName: String,
+        windowName: String,
+        timeInterval: TimeInterval
+    ) async {
+        let content = UNMutableNotificationContent()
+        content.title = "\(providerName) \(windowName) reset"
+        content.body = "Your \(windowName.lowercased()) limit has reset."
+        content.sound = .default
+
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: timeInterval,
+            repeats: false
+        )
+        let request = UNNotificationRequest(
+            identifier: identifier,
+            content: content,
+            trigger: trigger
+        )
+
+        do {
+            try await notificationCenter.add(request)
+        } catch {
+            Logger.notifications.error("Failed to schedule reset notification: \(error.localizedDescription)")
+        }
+    }
+
     private func sendResetNotification(windowName: String) async {
         let content = UNMutableNotificationContent()
         content.title = "\(windowName) Usage Reset"
-        content.body = "Your \(windowName.lowercased()) limit has reset. You're back to 0%!"
+        content.body = "Your \(windowName.lowercased()) limit has reset."
         content.sound = .default
 
         let request = UNNotificationRequest(
