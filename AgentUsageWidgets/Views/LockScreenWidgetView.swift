@@ -39,9 +39,10 @@ struct LockScreenWidgetView: View {
 
     private func circularView(for usage: UsageWindow) -> some View {
         let status = usage.status(from: entry.date)
+        let provider = entry.provider
 
         return Gauge(value: usage.normalized) {
-            Image(systemName: entry.provider.iconName)
+            Image(systemName: provider?.iconName ?? "chart.bar.xaxis")
                 .font(.caption2)
         } currentValueLabel: {
             VStack(spacing: 0) {
@@ -55,7 +56,7 @@ struct LockScreenWidgetView: View {
         .tint(status.color)
         .widgetAccentable()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(entry.provider.displayName), \(usage.displayName) usage")
+        .accessibilityLabel(accessibilityLabel(for: usage, provider: provider))
         .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint(accessibilityHint(for: usage))
     }
@@ -67,13 +68,16 @@ struct LockScreenWidgetView: View {
         // entry of a timeline up front.
         let status = usage.status(from: entry.date)
         let resetText = usage.resetDescription(from: entry.date)
+        let provider = entry.provider
 
         return VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
-                Label(entry.provider.displayName, systemImage: entry.provider.iconName)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
+                if let provider {
+                    Label(provider.displayName, systemImage: provider.iconName)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                }
                 Text(usage.displayName)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -108,7 +112,7 @@ struct LockScreenWidgetView: View {
             .font(.caption2)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(entry.provider.displayName), \(usage.displayName) usage")
+        .accessibilityLabel(accessibilityLabel(for: usage, provider: provider))
         .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint(accessibilityHint(for: usage))
     }
@@ -117,12 +121,26 @@ struct LockScreenWidgetView: View {
 
     private func inlineView(for usage: UsageWindow) -> some View {
         let status = usage.status(from: entry.date)
+        let provider = entry.provider
 
-        return Text("\(Image(systemName: entry.provider.iconName)) \(entry.provider.displayName) \(usage.percentUsed)% \(Image(systemName: status.icon))")
+        return Group {
+            if let provider {
+                Text("\(Image(systemName: provider.iconName)) \(provider.displayName) \(usage.percentUsed)% \(Image(systemName: status.icon))")
+            } else {
+                Text("\(usage.percentUsed)% \(Image(systemName: status.icon))")
+            }
+        }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(entry.provider.displayName), \(usage.displayName) usage")
+        .accessibilityLabel(accessibilityLabel(for: usage, provider: provider))
         .accessibilityValue(accessibilityValue(for: usage, status: status))
         .accessibilityHint(accessibilityHint(for: usage))
+    }
+
+    private func accessibilityLabel(for usage: UsageWindow, provider: AgentUsageKit.Provider?) -> String {
+        if let provider {
+            return "\(provider.displayName), \(usage.displayName) usage"
+        }
+        return "\(usage.displayName) usage"
     }
 
     private func accessibilityValue(for usage: UsageWindow, status: UsageStatus) -> String {
@@ -146,21 +164,22 @@ struct LockScreenWidgetView: View {
 #Preview("Circular", as: .accessoryCircular) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
+    WidgetEntry.preview(provider: .codex)
     WidgetEntry.previewNoData()
 }
 
 #Preview("Rectangular", as: .accessoryRectangular) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
     WidgetEntry.previewNoData()
 }
 
 #Preview("Inline", as: .accessoryInline) {
     AgentUsageLockScreenWidget()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
     WidgetEntry.previewNoData()
 }
 #endif

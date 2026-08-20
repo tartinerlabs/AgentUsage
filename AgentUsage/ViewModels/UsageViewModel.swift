@@ -656,6 +656,10 @@ final class UsageViewModel {
         case .denied:
             notificationsEnabled = false
         }
+
+        if notificationsEnabled {
+            await armResetNotifications()
+        }
     }
 
     func refreshNotificationPermissionState() async {
@@ -1404,6 +1408,7 @@ extension UsageViewModel {
         await loadBlogUsageSyncSettings()
         #endif
         await refresh()
+        await armResetNotifications()
         startAutoRefresh()
     }
 
