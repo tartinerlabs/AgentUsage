@@ -51,6 +51,12 @@ actor InactiveUsageSyncService: UsageSyncServicing {
     func revoke(device _: UsageSyncDevice) async -> Bool {
         true
     }
+
+    func ensureSnapshotSubscription() async throws {}
+
+    func deleteSnapshotSubscription() async -> Bool {
+        true
+    }
 }
 
 @MainActor @Observable
@@ -983,6 +989,7 @@ extension UsageViewModel {
                         from: Self.currentSyncDevice
                     )
                     Logger.viewModel.debug("Acknowledged macOS-synced snapshot")
+                    await ensureSilentPushSubscription()
                 } catch {
                     Logger.viewModel.error(
                         "Could not acknowledge macOS-synced snapshot: \(error.localizedDescription)"
@@ -1034,6 +1041,18 @@ extension UsageViewModel {
             await WidgetDataManager.shared.save(widgetSnapshots)
         }
         await liveActivityManager.refresh(from: availableProviderSnapshots)
+    }
+
+    /// Register the CloudKit silent-push subscription only after Continuity has
+    /// a verified Mac snapshot. Failures are logged; BGAppRefresh remains the floor.
+    private func ensureSilentPushSubscription() async {
+        do {
+            try await usageSyncService.ensureSnapshotSubscription()
+        } catch {
+            Logger.viewModel.error(
+                "Could not register CloudKit silent-push subscription: \(error.localizedDescription)"
+            )
+        }
     }
     #endif
 
