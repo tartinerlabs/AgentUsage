@@ -251,6 +251,17 @@ final class UsageViewModel {
         }
     }
 
+    #if os(iOS)
+    /// Opt-in: start a Live Activity when a short rate window hits its limit.
+    var autoPinLiveActivityAtLimit: Bool {
+        didSet {
+            defaults.set(autoPinLiveActivityAtLimit, forKey: "autoPinLiveActivityAtLimit")
+        }
+    }
+
+    private var isSceneActive = false
+    #endif
+
     private(set) var notificationsEnabled: Bool {
         didSet {
             defaults.set(notificationsEnabled, forKey: "notificationsEnabled")
@@ -514,6 +525,7 @@ final class UsageViewModel {
         self.notificationService = notificationService
         self.liveActivityManager = liveActivityManager ?? .shared
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
+        self.autoPinLiveActivityAtLimit = defaults.bool(forKey: "autoPinLiveActivityAtLimit")
         self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
 
@@ -699,6 +711,31 @@ final class UsageViewModel {
             now: Date()
         )
     }
+
+    #if os(iOS)
+    func handleScenePhase(_ phase: ScenePhase) async {
+        isSceneActive = phase == .active
+        if phase == .active {
+            await reconcileLiveActivity()
+        }
+    }
+
+    func setAutoPinLiveActivityAtLimit(_ enabled: Bool) async {
+        autoPinLiveActivityAtLimit = enabled
+        if enabled {
+            liveActivityManager.clearDismissals()
+        }
+        await reconcileLiveActivity()
+    }
+
+    private func reconcileLiveActivity() async {
+        await liveActivityManager.reconcile(
+            from: availableProviderSnapshots,
+            autoPinAtLimit: autoPinLiveActivityAtLimit,
+            canStart: isSceneActive
+        )
+    }
+    #endif
 }
 
 // MARK: - Refresh Orchestration
@@ -929,7 +966,7 @@ extension UsageViewModel {
             } else {
                 await WidgetDataManager.shared.save(widgetSnapshots)
             }
-            await liveActivityManager.refresh(from: availableProviderSnapshots)
+            await reconcileLiveActivity()
             #endif
             return .updated
         } catch {
@@ -1068,7 +1105,7 @@ extension UsageViewModel {
         } else {
             await WidgetDataManager.shared.save(widgetSnapshots)
         }
-        await liveActivityManager.refresh(from: availableProviderSnapshots)
+        await reconcileLiveActivity()
         await armResetNotifications()
     }
 

@@ -164,7 +164,11 @@ struct AgentUsageApp: App {
         WindowGroup {
             MainNavigationView()
                 .environment(viewModel)
+                .task {
+                    await viewModel.handleScenePhase(scenePhase)
+                }
                 .onChange(of: scenePhase) { _, newPhase in
+                    Task { await viewModel.handleScenePhase(newPhase) }
                     if newPhase == .active {
                         Task {
                             await viewModel.refreshNotificationPermissionState()
