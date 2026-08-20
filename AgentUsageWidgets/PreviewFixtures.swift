@@ -88,17 +88,26 @@ extension WidgetEntry {
         return WidgetEntry(date: .now, snapshots: snapshots, selection: selection)
     }
 
-    static func previewNoData(provider: AgentUsageKit.Provider = .claude) -> WidgetEntry {
-        let fallbackWindowID: UsageWindowID = switch provider {
-        case .claude: "session"
-        case .codex: "codexFiveHour"
-        case .cursor: "cursor.monthly.requests"
-        case .openCode, .openCodeGo, .grok: "custom"
+    /// Unconfigured widget: Medium/Large show every provider; Small resolves to
+    /// the most urgent live window rather than Claude.
+    static func previewOverview() -> WidgetEntry {
+        WidgetEntry(date: .now, snapshots: ProviderUsageSnapshot.widgetPreviewSnapshots)
+    }
+
+    static func previewNoData(provider: AgentUsageKit.Provider? = nil) -> WidgetEntry {
+        let selection = provider.map { selected -> UsageActivitySelection in
+            let fallbackWindowID: UsageWindowID = switch selected {
+            case .claude: "session"
+            case .codex: "codexFiveHour"
+            case .cursor: "cursor.monthly.requests"
+            case .openCode, .openCodeGo, .grok: "custom"
+            }
+            return UsageActivitySelection(provider: selected, windowID: fallbackWindowID)
         }
         return WidgetEntry(
             date: .now,
             snapshots: [],
-            selection: UsageActivitySelection(provider: provider, windowID: fallbackWindowID)
+            selection: selection
         )
     }
 }
