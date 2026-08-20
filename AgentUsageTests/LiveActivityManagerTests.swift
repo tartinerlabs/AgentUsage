@@ -327,6 +327,119 @@ struct LiveActivityManagerTests {
         #expect(manager.activeSelection == nil)
     }
 
+    @Test func autoPinStartsSoonestShortWindowAtLimit() async throws {
+        let client = FakeLiveActivityClient()
+        let manager = LiveActivityManager(client: client, now: { referenceDate })
+        let snapshots = [
+            makeWaitingRoomSnapshot(
+                provider: .claude,
+                windowID: "session",
+                name: "Current session",
+                resetsAt: referenceDate.addingTimeInterval(3_600)
+            ),
+            makeWaitingRoomSnapshot(
+                provider: .codex,
+                windowID: "codexFiveHour",
+                name: "5-hour limit",
+                resetsAt: referenceDate.addingTimeInterval(1_800)
+            ),
+        ]
+
+        await manager.reconcile(from: snapshots, autoPinAtLimit: true, canStart: true)
+
+        #expect(client.requestCount == 1)
+        #expect(manager.activeSelection?.provider == .codex)
+        #expect(manager.activeWindowDisplayName == "5-hour limit")
+    }
+
+    @Test func autoPinDoesNotStartInBackgroundOrWhenDisabled() async {
+        let snapshots = [makeWaitingRoomSnapshot()]
+
+        let backgroundClient = FakeLiveActivityClient()
+        let backgroundManager = LiveActivityManager(client: backgroundClient, now: { referenceDate })
+        await backgroundManager.reconcile(from: snapshots, autoPinAtLimit: true, canStart: false)
+        #expect(backgroundClient.requestCount == 0)
+
+        let disabledClient = FakeLiveActivityClient()
+        let disabledManager = LiveActivityManager(client: disabledClient, now: { referenceDate })
+        await disabledManager.reconcile(from: snapshots, autoPinAtLimit: false, canStart: true)
+        #expect(disabledClient.requestCount == 0)
+    }
+
+    @Test func autoPinSkipsWeeklyExtraUsageAndDismissedWindows() async throws {
+        let weekly = makeWaitingRoomSnapshot(
+            windowID: "opus",
+            name: "All models",
+            duration: 7 * 24 * 3600
+        )
+        let extra = makeWaitingRoomSnapshot(utilization: 115)
+        let client = FakeLiveActivityClient()
+        let manager = LiveActivityManager(client: client, now: { referenceDate })
+
+        await manager.reconcile(from: [weekly], autoPinAtLimit: true, canStart: true)
+        await manager.reconcile(from: [extra], autoPinAtLimit: true, canStart: true)
+        #expect(client.requestCount == 0)
+
+        let eligible = [makeWaitingRoomSnapshot()]
+        await manager.reconcile(from: eligible, autoPinAtLimit: true, canStart: true)
+        #expect(client.requestCount == 1)
+        let activity = try #require(client.requestedActivities.first)
+        activity.sendLifecycleState(.dismissed)
+        await eventually { !manager.isRunning }
+
+        await manager.reconcile(from: eligible, autoPinAtLimit: true, canStart: true)
+        #expect(client.requestCount == 1)
+
+        manager.clearDismissals()
+        await manager.reconcile(from: eligible, autoPinAtLimit: true, canStart: true)
+        #expect(client.requestCount == 2)
+    }
+
+    @Test func nearLimitWindowEndsWithResetStateThenPinsNext() async throws {
+        let client = FakeLiveActivityClient()
+        let manager = LiveActivityManager(client: client, now: { referenceDate })
+        let session = UsageActivitySelection(provider: .claude, windowID: "session")
+        let atLimit = makeWaitingRoomSnapshot(resetsAt: referenceDate.addingTimeInterval(60))
+        let next = makeWaitingRoomSnapshot(
+            provider: .codex,
+            windowID: "codexFiveHour",
+            name: "5-hour limit",
+            resetsAt: referenceDate.addingTimeInterval(1_800)
+        )
+
+        await manager.activate(selection: session, from: [atLimit, next])
+        let activity = try #require(client.requestedActivities.first)
+
+        let resetSession = makeWaitingRoomSnapshot(
+            utilization: 8,
+            resetsAt: referenceDate.addingTimeInterval(5 * 3600)
+        )
+        await manager.reconcile(
+            from: [resetSession, next],
+            autoPinAtLimit: true,
+            canStart: true
+        )
+
+        #expect(activity.endCount == 1)
+        #expect(activity.endedState?.availability == .reset)
+        #expect(activity.dismissalDate == referenceDate.addingTimeInterval(30))
+        #expect(client.requestCount == 2)
+        #expect(manager.activeSelection?.provider == .codex)
+    }
+
+    @Test func stopPreventsAutoPinUntilDismissalCleared() async {
+        let client = FakeLiveActivityClient()
+        let manager = LiveActivityManager(client: client, now: { referenceDate })
+        let snapshots = [makeWaitingRoomSnapshot()]
+
+        await manager.reconcile(from: snapshots, autoPinAtLimit: true, canStart: true)
+        await manager.stop()
+        await manager.reconcile(from: snapshots, autoPinAtLimit: true, canStart: true)
+
+        #expect(client.requestCount == 1)
+        #expect(!manager.isRunning)
+    }
+
     @Test func appConnectionRevocationImmediatelyEndsLiveActivities() async throws {
         let client = FakeLiveActivityClient()
         let manager = LiveActivityManager(client: client, now: { referenceDate })
@@ -348,6 +461,29 @@ struct LiveActivityManagerTests {
         #expect(activity.endCount == 1)
         #expect(!manager.isRunning)
         #expect(manager.activeSelection == nil)
+    }
+
+    private func makeWaitingRoomSnapshot(
+        provider: Provider = .claude,
+        windowID: UsageWindowID = "session",
+        name: String = "Current session",
+        utilization: Double = 100,
+        resetsAt: Date? = nil,
+        duration: TimeInterval = 5 * 3600
+    ) -> ProviderUsageSnapshot {
+        ProviderUsageSnapshot(
+            provider: provider,
+            windows: [
+                UsageWindow(
+                    utilization: utilization,
+                    resetsAt: resetsAt ?? referenceDate.addingTimeInterval(3_600),
+                    windowID: windowID,
+                    displayName: name,
+                    totalDuration: duration
+                ),
+            ],
+            fetchedAt: referenceDate
+        )
     }
 
     private func makeSnapshot(
@@ -417,6 +553,8 @@ private final class FakeLiveActivityHandle: LiveActivityHandle {
 
     private(set) var updates: [ActivityContent<AgentUsageLiveActivityAttributes.ContentState>] = []
     private(set) var endCount = 0
+    private(set) var endedState: AgentUsageLiveActivityAttributes.ContentState?
+    private(set) var dismissalDate: Date?
 
     init(
         id: String,
@@ -439,7 +577,19 @@ private final class FakeLiveActivityHandle: LiveActivityHandle {
     }
 
     func endImmediately() async {
+        await end(nil, dismissalDate: nil)
+    }
+
+    func end(
+        _ content: ActivityContent<AgentUsageLiveActivityAttributes.ContentState>?,
+        dismissalDate: Date?
+    ) async {
         guard lifecycleState == .active || lifecycleState == .stale else { return }
+        if let content {
+            self.content = content
+            endedState = content.state
+        }
+        self.dismissalDate = dismissalDate
         endCount += 1
         lifecycleState = .ended
         lifecycleContinuation.yield(.ended)
