@@ -143,19 +143,19 @@ struct NotificationServiceTests {
         #expect(await disabled.notifications().isEmpty)
     }
 
-    @Test func rearmingDropsStaleResetAlertsAndSkipsDuplicates() async {
+    @Test func rearmingKeepsDueResetAlertsAfterWindowReset() async {
         let center = RecordingUserNotificationCenterClient()
         let service = makeService(
             center: center,
             settings: settings(thresholds: [], notifyOnReset: true)
         )
         let now = Date(timeIntervalSince1970: 2_000_000_000)
-        let firstReset = now.addingTimeInterval(3_600)
-        let secondReset = now.addingTimeInterval(7_200)
+        let dueReset = now.addingTimeInterval(30)
+        let nextPeriod = now.addingTimeInterval(5 * 3_600)
         let firstSnapshot = providerSnapshot(
             provider: .codex,
             utilization: 100,
-            resetsAt: firstReset,
+            resetsAt: dueReset,
             type: .codexFiveHour,
             now: now
         )
@@ -168,15 +168,49 @@ struct NotificationServiceTests {
             from: [providerSnapshot(
                 provider: .codex,
                 utilization: 10,
-                resetsAt: secondReset,
+                resetsAt: nextPeriod,
                 type: .codexFiveHour,
                 now: now
             )],
             now: now
         )
 
+        #expect(await center.pendingIdentifiers() == ["reset.codex.codexFiveHour.2000000030"])
+        #expect(await center.removedIdentifiers().isEmpty)
+    }
+
+    @Test func rearmingCancelsRecoveredWindowsStillFarFromReset() async {
+        let center = RecordingUserNotificationCenterClient()
+        let service = makeService(
+            center: center,
+            settings: settings(thresholds: [], notifyOnReset: true)
+        )
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let laterReset = now.addingTimeInterval(3_600)
+        await service.armResetNotifications(
+            from: [providerSnapshot(
+                provider: .claude,
+                utilization: 95,
+                resetsAt: laterReset,
+                type: .session,
+                now: now
+            )],
+            now: now
+        )
+
+        await service.armResetNotifications(
+            from: [providerSnapshot(
+                provider: .claude,
+                utilization: 40,
+                resetsAt: laterReset,
+                type: .session,
+                now: now
+            )],
+            now: now
+        )
+
         #expect(await center.pendingIdentifiers().isEmpty)
-        #expect(await center.removedIdentifiers() == ["reset.codex.codexFiveHour.2000003600"])
+        #expect(await center.removedIdentifiers() == ["reset.claude.session.2000003600"])
     }
 
     @Test func grokWindowsDoNotScheduleResetAlerts() async {
