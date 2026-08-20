@@ -21,9 +21,18 @@ struct UsageHistoryView: View {
     /// `nil` shows every provider, collapsed to its worst window per day.
     @State private var selectedProvider: Provider?
 
-    /// Hues for the per-window breakdown. The all-providers chart uses Timefold Ink
-    /// for every series; isolate a provider with the picker to read windows.
-    private static let windowPalette: [Color] = [.blue, .teal, .indigo, .cyan, .mint]
+    /// Categorical hues so overlapping series stay distinguishable. Cards keep a
+    /// single Timefold Ink accent; this palette is chart-only and skips status
+    /// green/orange/red and extra-usage Dusty Plum. Indexed by `Provider.allCases`
+    /// in the all-providers view so a missing provider does not recolor the rest.
+    private static let seriesPalette: [Color] = [
+        Constants.brandPrimary,
+        .teal,
+        .indigo,
+        .cyan,
+        .mint,
+        .purple,
+    ]
 
     private static let periods = [7, 14, 30]
 
@@ -62,9 +71,12 @@ struct UsageHistoryView: View {
 
     private var seriesColors: [Color] {
         if selectedProvider != nil {
-            return series.indices.map { Self.windowPalette[$0 % Self.windowPalette.count] }
+            return series.indices.map { Self.seriesPalette[$0 % Self.seriesPalette.count] }
         }
-        return series.map { _ in Constants.brandPrimary }
+        return series.map { line in
+            let index = Provider.allCases.firstIndex(of: line.provider) ?? 0
+            return Self.seriesPalette[index % Self.seriesPalette.count]
+        }
     }
 
     private var scopeName: String {
