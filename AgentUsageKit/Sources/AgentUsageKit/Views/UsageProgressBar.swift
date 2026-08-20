@@ -9,7 +9,7 @@ import SwiftUI
 
 /// The canonical AgentUsage progress track.
 ///
-/// This preserves the iOS usage-row grammar: an 8-point Crail fill over a
+/// This preserves the iOS usage-row grammar: an 8-point Timefold Ink fill over a
 /// secondary 20%-opacity track, with 25/50/75% dividers and 4-point corners.
 public struct UsageProgressBar: View {
     /// Normalized progress in the closed range `0...1`.
