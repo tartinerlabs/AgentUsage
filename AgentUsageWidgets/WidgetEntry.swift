@@ -42,9 +42,10 @@ struct WidgetEntry: TimelineEntry {
         return window
     }
 
-    /// Non-expired windows for the selected provider, in published order.
-    var availableWindows: [UsageWindow] {
-        providerSnapshot?.liveWindows(now: date) ?? []
+    /// Non-expired windows for a specific provider, in published order.
+    func liveWindows(for provider: AgentUsageKit.Provider?) -> [UsageWindow] {
+        guard let provider else { return [] }
+        return snapshots.first { $0.provider == provider }?.liveWindows(now: date) ?? []
     }
 
     /// One live window per provider with quota data, in canonical provider order.

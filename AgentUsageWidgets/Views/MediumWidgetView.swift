@@ -14,8 +14,12 @@ struct MediumWidgetView: View {
         let glances = entry.glanceWindows
         if glances.count >= 2 {
             overview(glances)
-        } else if !entry.availableWindows.isEmpty, let provider = entry.provider {
-            singleProvider(windows: Array(entry.availableWindows.prefix(2)), provider: provider)
+        } else if let glance = glances.first {
+            singleProvider(
+                windows: Array(entry.liveWindows(for: glance.provider).prefix(2)),
+                provider: glance.provider,
+                fetchedAt: glance.fetchedAt
+            )
         } else {
             WidgetNoDataView(reason: entry.unavailableReason, provider: entry.provider)
         }
@@ -46,12 +50,16 @@ struct MediumWidgetView: View {
         .accessibilityElement(children: .contain)
     }
 
-    private func singleProvider(windows: [UsageWindow], provider: AgentUsageKit.Provider) -> some View {
+    private func singleProvider(
+        windows: [UsageWindow],
+        provider: AgentUsageKit.Provider,
+        fetchedAt: Date
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 WidgetProviderIdentity(provider: provider, font: .headline)
                 Spacer(minLength: 8)
-                WidgetFreshnessLabel(entry: entry)
+                WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt)
             }
 
             VStack(spacing: 8) {
