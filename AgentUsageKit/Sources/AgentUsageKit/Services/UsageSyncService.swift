@@ -108,6 +108,8 @@ public protocol UsageSyncServicing: Sendable {
     func fetchReceipts() async throws -> [UsageSyncDevice: ContinuityReceipt]
     func revokeAll() async -> Bool
     func revoke(device: UsageSyncDevice) async -> Bool
+    func ensureSnapshotSubscription() async throws
+    func deleteSnapshotSubscription() async -> Bool
 }
 
 protocol UsageSyncDatabase: AnyObject, Sendable {
@@ -125,9 +127,17 @@ protocol UsageSyncDatabase: AnyObject, Sendable {
         saveResults: [CKRecord.ID: Result<CKRecord, Error>],
         deleteResults: [CKRecord.ID: Result<Void, Error>]
     )
+
+    func saveSubscription(_ subscription: CKSubscription) async throws -> CKSubscription
+
+    func deleteSubscription(withID subscriptionID: CKSubscription.ID) async throws -> CKSubscription.ID
 }
 
-extension CKDatabase: UsageSyncDatabase {}
+extension CKDatabase: UsageSyncDatabase {
+    func saveSubscription(_ subscription: CKSubscription) async throws -> CKSubscription {
+        try await save(subscription)
+    }
+}
 
 /// Publishes and reads the latest usage snapshot through the user's private
 /// CloudKit database. Reads remain best-effort so callers can use cached data;
@@ -137,6 +147,9 @@ public actor UsageSyncService: UsageSyncServicing {
 
     /// CloudKit container. Must match the iCloud container entitlement on every target.
     public static let containerIdentifier = "iCloud.com.tartinerlabs.AgentUsage"
+
+    /// Fixed private-database subscription ID so create is idempotent across launches.
+    public static let snapshotSubscriptionID: CKSubscription.ID = "usage-snapshot-silent-push"
 
     private static let snapshotRecordType = "UsageSnapshot"
     private static let snapshotRecordName = "latest"
@@ -311,16 +324,56 @@ public actor UsageSyncService: UsageSyncServicing {
         }
     }
 
-    /// Remove the shared snapshot and all device receipts. Used by macOS when
-    /// Continuity Sync is revoked for the whole shared setup.
-    public func revokeAll() async -> Bool {
-        await delete(
-            recordIDs: [snapshotRecordID] + UsageSyncDevice.allCases.map(Self.receiptRecordID(for:))
-        )
+    /// Create the silent-push subscription that wakes iOS when the Mac publishes.
+    /// Always attempts save: a process-lifetime "already ensured" flag would hide
+    /// a remote delete (Mac `revokeAll` from another process). A duplicate
+    /// subscription ID is treated as success so relaunch is idempotent.
+    public func ensureSnapshotSubscription() async throws {
+        do {
+            _ = try await resolvedDatabase().saveSubscription(Self.makeSnapshotSubscription())
+            logger.debug("Ensured UsageSnapshot silent-push subscription")
+        } catch {
+            if Self.isDuplicateSubscription(error) {
+                logger.debug("UsageSnapshot silent-push subscription already exists")
+                return
+            }
+            let syncError = Self.syncError(error, recordName: Self.snapshotSubscriptionID)
+            logger.error("CloudKit subscription save failed: \(syncError.localizedDescription, privacy: .public)")
+            throw syncError
+        }
     }
 
-    /// Remove only one mobile device's acknowledgement. Other devices and the
-    /// Mac-published snapshot remain available.
+    /// Drop the silent-push subscription. Missing subscriptions count as success.
+    public func deleteSnapshotSubscription() async -> Bool {
+        do {
+            _ = try await resolvedDatabase().deleteSubscription(withID: Self.snapshotSubscriptionID)
+            logger.debug("Deleted UsageSnapshot silent-push subscription")
+            return true
+        } catch {
+            if Self.isUnknownItem(error) {
+                logger.debug("UsageSnapshot silent-push subscription already absent")
+                return true
+            }
+            logger.error("CloudKit subscription delete failed: \(Self.describe(error), privacy: .public)")
+            return false
+        }
+    }
+
+    /// Remove the shared snapshot, all device receipts, and the silent-push
+    /// subscription. Used by macOS when Continuity Sync is revoked for the
+    /// whole shared setup.
+    public func revokeAll() async -> Bool {
+        let recordsDeleted = await delete(
+            recordIDs: [snapshotRecordID] + UsageSyncDevice.allCases.map(Self.receiptRecordID(for:))
+        )
+        let subscriptionDeleted = await deleteSnapshotSubscription()
+        return recordsDeleted && subscriptionDeleted
+    }
+
+    /// Remove one mobile device's acknowledgement. The account-wide silent-push
+    /// subscription stays so Continuity off on iPhone does not stop wakes on a
+    /// still-linked iPad. The revoking device no-ops refresh via
+    /// `appConnectionRevoked`.
     public func revoke(device: UsageSyncDevice) async -> Bool {
         await delete(recordIDs: [Self.receiptRecordID(for: device)])
     }
@@ -423,6 +476,19 @@ public actor UsageSyncService: UsageSyncServicing {
         CKRecord.ID(recordName: "continuity-\(device.rawValue.lowercased())")
     }
 
+    private static func makeSnapshotSubscription() -> CKQuerySubscription {
+        let subscription = CKQuerySubscription(
+            recordType: snapshotRecordType,
+            predicate: NSPredicate(value: true),
+            subscriptionID: snapshotSubscriptionID,
+            options: [.firesOnRecordCreation, .firesOnRecordUpdate]
+        )
+        let notificationInfo = CKSubscription.NotificationInfo()
+        notificationInfo.shouldSendContentAvailable = true
+        subscription.notificationInfo = notificationInfo
+        return subscription
+    }
+
     private func resolvedDatabase() -> any UsageSyncDatabase {
         if let database {
             return database
@@ -446,6 +512,11 @@ public actor UsageSyncService: UsageSyncServicing {
             return message.contains("unknownItem") || message.contains("Unknown Item")
         }
         return (error as? CKError)?.code == .unknownItem
+    }
+
+    private static func isDuplicateSubscription(_ error: Error) -> Bool {
+        let message = describe(error).lowercased()
+        return message.contains("duplicate") && message.contains("subscription")
     }
 
     /// Render an error for logging, including concrete per-item partial failures.
