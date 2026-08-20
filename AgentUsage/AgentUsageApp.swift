@@ -160,6 +160,9 @@ struct AgentUsageApp: App {
         WindowGroup {
             MainNavigationView()
                 .environment(viewModel)
+                .onAppear {
+                    appDelegate.viewModel = viewModel
+                }
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         Task {

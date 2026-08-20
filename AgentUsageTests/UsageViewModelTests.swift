@@ -1264,6 +1264,7 @@ struct UsageViewModelMobileContinuityTests {
             return
         }
         #expect(await syncService.acknowledgementCount() == 1)
+        #expect(await syncService.ensureSnapshotSubscriptionCount() == 0)
     }
 
     @Test @MainActor func receiptWriteRecoversOnTheNextRefresh() async {
@@ -1290,6 +1291,36 @@ struct UsageViewModelMobileContinuityTests {
 
         #expect(await syncService.successfullyAcknowledgedDevices().count == 1)
         #expect(viewModel.snapshot?.fetchedAt == snapshot.fetchedAt)
+        #expect(await syncService.ensureSnapshotSubscriptionCount() == 1)
+    }
+
+    @Test @MainActor func successfulAckRegistersSilentPushSubscription() async {
+        let snapshot = Self.snapshot()
+        let syncService = MockUsageSyncService()
+        await syncService.configureFetchedSnapshot(
+            SyncedUsageSnapshot(
+                snapshot: snapshot,
+                planType: "Pro",
+                fetchedAt: snapshot.fetchedAt,
+                syncGeneration: "mobile-generation"
+            )
+        )
+        let viewModel = Self.makeViewModel(syncService: syncService)
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(await syncService.successfullyAcknowledgedDevices().count == 1)
+        #expect(await syncService.ensureSnapshotSubscriptionCount() == 1)
+    }
+
+    @Test @MainActor func missingMacSnapshotDoesNotRegisterSilentPushSubscription() async {
+        let syncService = MockUsageSyncService()
+        let viewModel = Self.makeViewModel(syncService: syncService)
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(await syncService.acknowledgementCount() == 0)
+        #expect(await syncService.ensureSnapshotSubscriptionCount() == 0)
     }
 
     @Test @MainActor func mobileRevokeRemovesOnlyTheCurrentPlatformReceipt() async {
@@ -1368,6 +1399,7 @@ actor MockUsageSyncService: UsageSyncServicing {
     private var revokedDevices: [UsageSyncDevice] = []
     private var revokedAll = false
     private var publishedProviderSnapshots: [ProviderUsageSnapshot]?
+    private var ensureSnapshotSubscriptionCalls = 0
 
     func configurePublication(generation: String) {
         publication = PublishedUsageSnapshot(syncGeneration: generation, fetchedAt: Date())
@@ -1413,6 +1445,10 @@ actor MockUsageSyncService: UsageSyncServicing {
         publishedProviderSnapshots
     }
 
+    func ensureSnapshotSubscriptionCount() -> Int {
+        ensureSnapshotSubscriptionCalls
+    }
+
     func publish(
         snapshot: UsageSnapshot?,
         planType: String,
@@ -1454,5 +1490,13 @@ actor MockUsageSyncService: UsageSyncServicing {
     func revoke(device: UsageSyncDevice) async -> Bool {
         revokedDevices.append(device)
         return true
+    }
+
+    func ensureSnapshotSubscription() async throws {
+        ensureSnapshotSubscriptionCalls += 1
+    }
+
+    func deleteSnapshotSubscription() async -> Bool {
+        true
     }
 }
