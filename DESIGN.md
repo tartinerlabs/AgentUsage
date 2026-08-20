@@ -253,7 +253,8 @@ Corner radius is assigned by component scale:
 - **Live Activity control card** (iOS) — one `.regularMaterial`, 16pt-radius utility card below
   the provider stack. Native Provider and Window pickers list only non-expired windows from all
   available provider snapshots. Start creates one activity, Switch updates that activity in
-  place, and Stop ends it. Disabled authorization remains visible with an Open Settings action;
+  place, and Stop ends it. An opt-in toggle auto-pins a short at-limit window when the scene is
+  active. Disabled authorization remains visible with an Open Settings action;
   unavailable-window and start-error states stay inline in the same card.
 - **Home Screen widgets** — adapt the iOS provider-card hierarchy rather than inventing a
   widget-only style: provider identity first, compact `UsageProgressBar` rows in Timefold Ink, rounded
@@ -263,6 +264,9 @@ Corner radius is assigned by component scale:
   SwiftUI `Gauge` (`.accessoryCircular` / `.accessoryLinear`) colored by `status.color` with
   matching `.keylineTint`. Live Activity content carries the selected provider and stable window
   ID so Claude, Codex, Cursor, Grok, and future enabled providers share the same presentation.
+  At 100% the compact Dynamic Island shows the reset timer instead of the percentage. When the
+  tracked window resets, the activity presents a brief "Limit reset" state and dismisses after
+  30 seconds.
 
 Status-bearing components use `UsageStatus` as the single source of truth for "how bad is it."
 The menu-bar strip is intentionally neutral: macOS applies the template tint, while its values
