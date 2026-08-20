@@ -395,6 +395,38 @@ struct LiveActivityManagerTests {
         #expect(client.requestCount == 2)
     }
 
+    @Test func nearLimitWindowEndsWithResetStateThenPinsNext() async throws {
+        let client = FakeLiveActivityClient()
+        let manager = LiveActivityManager(client: client, now: { referenceDate })
+        let session = UsageActivitySelection(provider: .claude, windowID: "session")
+        let atLimit = makeWaitingRoomSnapshot(resetsAt: referenceDate.addingTimeInterval(60))
+        let next = makeWaitingRoomSnapshot(
+            provider: .codex,
+            windowID: "codexFiveHour",
+            name: "5-hour limit",
+            resetsAt: referenceDate.addingTimeInterval(1_800)
+        )
+
+        await manager.activate(selection: session, from: [atLimit, next])
+        let activity = try #require(client.requestedActivities.first)
+
+        let resetSession = makeWaitingRoomSnapshot(
+            utilization: 8,
+            resetsAt: referenceDate.addingTimeInterval(5 * 3600)
+        )
+        await manager.reconcile(
+            from: [resetSession, next],
+            autoPinAtLimit: true,
+            canStart: true
+        )
+
+        #expect(activity.endCount == 1)
+        #expect(activity.endedState?.availability == .reset)
+        #expect(activity.dismissalDate == referenceDate.addingTimeInterval(30))
+        #expect(client.requestCount == 2)
+        #expect(manager.activeSelection?.provider == .codex)
+    }
+
     @Test func stopPreventsAutoPinUntilDismissalCleared() async {
         let client = FakeLiveActivityClient()
         let manager = LiveActivityManager(client: client, now: { referenceDate })
@@ -521,6 +553,8 @@ private final class FakeLiveActivityHandle: LiveActivityHandle {
 
     private(set) var updates: [ActivityContent<AgentUsageLiveActivityAttributes.ContentState>] = []
     private(set) var endCount = 0
+    private(set) var endedState: AgentUsageLiveActivityAttributes.ContentState?
+    private(set) var dismissalDate: Date?
 
     init(
         id: String,
@@ -543,7 +577,19 @@ private final class FakeLiveActivityHandle: LiveActivityHandle {
     }
 
     func endImmediately() async {
+        await end(nil, dismissalDate: nil)
+    }
+
+    func end(
+        _ content: ActivityContent<AgentUsageLiveActivityAttributes.ContentState>?,
+        dismissalDate: Date?
+    ) async {
         guard lifecycleState == .active || lifecycleState == .stale else { return }
+        if let content {
+            self.content = content
+            endedState = content.state
+        }
+        self.dismissalDate = dismissalDate
         endCount += 1
         lifecycleState = .ended
         lifecycleContinuation.yield(.ended)
