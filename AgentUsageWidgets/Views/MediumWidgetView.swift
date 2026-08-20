@@ -11,17 +11,45 @@ struct MediumWidgetView: View {
     let entry: WidgetEntry
 
     var body: some View {
-        if !entry.availableWindows.isEmpty {
-            content(for: Array(entry.availableWindows.prefix(2)))
+        let glances = entry.glanceWindows
+        if glances.count >= 2 {
+            overview(glances)
+        } else if !entry.availableWindows.isEmpty, let provider = entry.provider {
+            singleProvider(windows: Array(entry.availableWindows.prefix(2)), provider: provider)
         } else {
             WidgetNoDataView(reason: entry.unavailableReason, provider: entry.provider)
         }
     }
 
-    private func content(for windows: [UsageWindow]) -> some View {
+    private func overview(_ glances: [WidgetGlanceWindow]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                WidgetProviderIdentity(provider: entry.provider, font: .headline)
+                Spacer(minLength: 0)
+                WidgetFreshnessLabel(
+                    entry: entry,
+                    fetchedAt: glances.map(\.fetchedAt).min()
+                )
+            }
+
+            VStack(spacing: 8) {
+                ForEach(glances) { glance in
+                    WidgetProviderGlanceRow(
+                        provider: glance.provider,
+                        usage: glance.window,
+                        now: entry.date,
+                        style: .compact
+                    )
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func singleProvider(windows: [UsageWindow], provider: AgentUsageKit.Provider) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                WidgetProviderIdentity(provider: provider, font: .headline)
                 Spacer(minLength: 8)
                 WidgetFreshnessLabel(entry: entry)
             }
@@ -45,7 +73,8 @@ struct MediumWidgetView: View {
 #Preview("Medium", as: .systemMedium) {
     AgentUsageWidgets()
 } timeline: {
-    WidgetEntry.preview()
+    WidgetEntry.previewOverview()
+    WidgetEntry.preview(provider: .codex)
 }
 
 #Preview("Medium — No data", as: .systemMedium) {
