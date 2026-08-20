@@ -115,20 +115,21 @@ build settings overrides the xcconfig — never do that. Bump by hand.
 
 **Shipping macOS builds are a menu bar agent; Debug is not.** Release sets
 `INFOPLIST_KEY_LSUIElement[sdk=macosx*] = YES` so archived/TestFlight builds stay
-out of the Dock. Debug and CloudTest leave it `NO` so Xcode Cloud and local
+out of the Dock. Debug and DebugCloud leave it `NO` so Xcode Cloud and local
 XCTest can launch the test host. Putting `LSUIElement` back in
 `AgentUsage/Info.plist` wins over the generated key and, together with
-restricted CloudTest entitlements, brings back `Runningboard error 5`
+restricted DebugCloud entitlements, brings back `Runningboard error 5`
 (`Could not launch “AgentUsageTests”`). Xcode Cloud does not embed a Mac
 development profile for Keychain Sharing or iCloud on the test host — the shared
-scheme’s Test action uses the `CloudTest` configuration, whose macOS
+scheme’s Test action uses the `DebugCloud` configuration, whose macOS
 entitlements are `AgentUsage/AgentUsage-Debug.entitlements` (no
-`keychain-access-groups` or iCloud). Debug local runs keep
-`AgentUsage/AgentUsage.entitlements` so CloudKit continuity still works.
-Release uses the same full file. Do not add Keychain Sharing or iCloud to the
-CloudTest entitlements file. Xcode Cloud test actions must use scheme settings
-(or explicitly select `CloudTest`); a Debug-only Cloud test action would sign
-the host with the full entitlements and fail to launch.
+`keychain-access-groups` or iCloud). The name must keep a `Debug` prefix so
+Swift packages still emit Debug modules; a name like `CloudTest` builds
+`AgentUsageKit` as Release and tests fail with `Unable to resolve Swift module
+dependency`. Debug local runs keep `AgentUsage/AgentUsage.entitlements` so
+CloudKit continuity still works. Release uses the same full file. Do not add
+Keychain Sharing or iCloud to the DebugCloud entitlements file. Xcode Cloud
+test actions must use scheme settings (or explicitly select `DebugCloud`).
 
 **The shared scheme’s default test plan is unit tests only**
 (`AgentUsage.xctestplan`). Xcode Cloud “Use Scheme Settings” follows that plan,
