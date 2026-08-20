@@ -165,7 +165,6 @@ public actor UsageSyncService: UsageSyncServicing {
     private var database: (any UsageSyncDatabase)?
     private let containerIdentifier: String?
     private let snapshotRecordID: CKRecord.ID
-    private var snapshotSubscriptionEnsured = false
     private let logger = Logger(subsystem: "com.tartinerlabs.AgentUsage", category: "UsageSync")
 
     public init(containerIdentifier: String = UsageSyncService.containerIdentifier) {
@@ -326,17 +325,15 @@ public actor UsageSyncService: UsageSyncServicing {
     }
 
     /// Create the silent-push subscription that wakes iOS when the Mac publishes.
-    /// A duplicate subscription ID is treated as success so relaunch is idempotent.
+    /// Always attempts save: a process-lifetime "already ensured" flag would hide
+    /// a remote delete (Mac `revokeAll` from another process). A duplicate
+    /// subscription ID is treated as success so relaunch is idempotent.
     public func ensureSnapshotSubscription() async throws {
-        if snapshotSubscriptionEnsured { return }
-
         do {
             _ = try await resolvedDatabase().saveSubscription(Self.makeSnapshotSubscription())
-            snapshotSubscriptionEnsured = true
             logger.debug("Ensured UsageSnapshot silent-push subscription")
         } catch {
             if Self.isDuplicateSubscription(error) {
-                snapshotSubscriptionEnsured = true
                 logger.debug("UsageSnapshot silent-push subscription already exists")
                 return
             }
@@ -348,7 +345,6 @@ public actor UsageSyncService: UsageSyncServicing {
 
     /// Drop the silent-push subscription. Missing subscriptions count as success.
     public func deleteSnapshotSubscription() async -> Bool {
-        snapshotSubscriptionEnsured = false
         do {
             _ = try await resolvedDatabase().deleteSubscription(withID: Self.snapshotSubscriptionID)
             logger.debug("Deleted UsageSnapshot silent-push subscription")
@@ -374,13 +370,12 @@ public actor UsageSyncService: UsageSyncServicing {
         return recordsDeleted && subscriptionDeleted
     }
 
-    /// Remove one mobile device's acknowledgement and the silent-push
-    /// subscription so Continuity off on iOS stops further wakes. Other
-    /// devices and the Mac-published snapshot remain available.
+    /// Remove one mobile device's acknowledgement. The account-wide silent-push
+    /// subscription stays so Continuity off on iPhone does not stop wakes on a
+    /// still-linked iPad. The revoking device no-ops refresh via
+    /// `appConnectionRevoked`.
     public func revoke(device: UsageSyncDevice) async -> Bool {
-        let receiptDeleted = await delete(recordIDs: [Self.receiptRecordID(for: device)])
-        let subscriptionDeleted = await deleteSnapshotSubscription()
-        return receiptDeleted && subscriptionDeleted
+        await delete(recordIDs: [Self.receiptRecordID(for: device)])
     }
 
     /// Backward-compatible whole-setup revoke for existing callers.
