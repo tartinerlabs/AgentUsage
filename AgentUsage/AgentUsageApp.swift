@@ -169,9 +169,13 @@ struct AgentUsageApp: App {
                         Task {
                             await viewModel.refreshNotificationPermissionState()
                             await viewModel.refreshContinuitySync()
+                            await viewModel.handleScenePhase(.active)
                         }
-                    } else if newPhase == .background {
-                        backgroundRefreshCoordinator.schedule()
+                    } else {
+                        Task { await viewModel.handleScenePhase(newPhase) }
+                        if newPhase == .background {
+                            backgroundRefreshCoordinator.schedule()
+                        }
                     }
                 }
                 .onChange(of: viewModel.refreshInterval) { _, _ in

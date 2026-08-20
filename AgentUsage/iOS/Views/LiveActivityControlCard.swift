@@ -10,6 +10,7 @@ import UIKit
 
 struct LiveActivityControlCard: View {
     @ObservedObject var manager: LiveActivityManager
+    @Environment(UsageViewModel.self) private var viewModel
 
     let snapshots: [ProviderUsageSnapshot]
     let now: Date
@@ -27,9 +28,11 @@ struct LiveActivityControlCard: View {
                 disabledState
             } else if eligibleSnapshots.isEmpty {
                 unavailableState
+                autoPinToggle
             } else {
                 selectionControls
                 activityControls
+                autoPinToggle
             }
 
             if let startError = manager.startError {
@@ -200,6 +203,21 @@ struct LiveActivityControlCard: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private var autoPinToggle: some View {
+        Toggle(
+            "Pin automatically when a short window hits its limit",
+            isOn: Binding(
+                get: { viewModel.autoPinLiveActivityAtLimit },
+                set: { enabled in
+                    Task { await viewModel.setAutoPinLiveActivityAtLimit(enabled) }
+                }
+            )
+        )
+        .font(.caption)
+        .disabled(!manager.activitiesEnabled || isPerformingAction)
+        .accessibilityHint("Starts a Live Activity for a 5-hour window that has reached 100 percent. Requires the app to be open.")
     }
 
     private var stopButton: some View {

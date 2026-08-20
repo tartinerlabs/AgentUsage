@@ -147,6 +147,7 @@ final class LiveActivityManager: ObservableObject {
     private var currentActivity: (any LiveActivityHandle)?
     private var currentState: AgentUsageLiveActivityAttributes.ContentState?
     private var legacySelectedMetric: String?
+    private var dismissedResetsAt: [UsageActivitySelection: TimeInterval] = [:]
     private var stateObservationTask: Task<Void, Never>?
     private var duplicateCleanupTask: Task<Void, Never>?
 
@@ -175,6 +176,7 @@ final class LiveActivityManager: ObservableObject {
         from snapshots: [ProviderUsageSnapshot]
     ) async {
         startError = nil
+        dismissedResetsAt[selection] = nil
 
         guard client.areActivitiesEnabled else {
             Logger.liveActivity.warning("Live Activities not enabled")
@@ -224,6 +226,41 @@ final class LiveActivityManager: ObservableObject {
         }
     }
 
+    /// Updates the running activity and, when allowed, auto-starts a waiting-room
+    /// Live Activity for the soonest short at-limit window.
+    ///
+    /// `canStart` must be false in the background: `Activity.request` is
+    /// foreground-only. Updates to an already-running activity are still applied.
+    func reconcile(
+        from snapshots: [ProviderUsageSnapshot],
+        autoPinAtLimit: Bool,
+        canStart: Bool
+    ) async {
+        if currentActivity != nil {
+            await refresh(from: snapshots)
+        }
+
+        guard autoPinAtLimit, client.areActivitiesEnabled else { return }
+        guard let candidate = UsageWaitingRoom.nextLiveActivityCandidate(
+            from: snapshots,
+            now: now()
+        ) else { return }
+
+        if isDismissed(candidate) { return }
+
+        if let active = activeSelection {
+            if active == candidate.selection { return }
+            if isEligibleWaitingRoom(active, in: snapshots),
+               let activeReset = currentState?.resetsAt,
+               activeReset <= candidate.window.resetsAt {
+                return
+            }
+        }
+
+        guard canStart else { return }
+        await activate(selection: candidate.selection, from: snapshots)
+    }
+
     /// Refreshes the active selection from all currently available provider data.
     func refresh(from snapshots: [ProviderUsageSnapshot]) async {
         guard let activity = currentActivity else { return }
@@ -249,8 +286,17 @@ final class LiveActivityManager: ObservableObject {
         await refreshLegacyActivity(activity, from: snapshots)
     }
 
+    func clearDismissals() {
+        dismissedResetsAt.removeAll()
+    }
+
     /// Immediately ends every Agent Usage activity, including recovered orphans.
     func stop() async {
+        if let selection = activeSelection {
+            let resetsAt = currentState?.resetsAt ?? now()
+            dismissedResetsAt[selection] = floor(resetsAt.timeIntervalSince1970)
+        }
+
         await duplicateCleanupTask?.value
         duplicateCleanupTask = nil
 
@@ -326,6 +372,9 @@ final class LiveActivityManager: ObservableObject {
                     }
                 case .ended, .dismissed:
                     if self.currentActivity?.id == activityID {
+                        if state == .dismissed {
+                            self.recordDismissal()
+                        }
                         self.clearCurrentActivity(cancelObservation: false)
                     }
                     return
@@ -460,6 +509,32 @@ final class LiveActivityManager: ObservableObject {
             fetchedAt: fetchedAt,
             availabilityRaw: UsageActivityAvailability.unavailable.rawValue
         )
+    }
+
+    private func isDismissed(_ candidate: UsageWaitingRoom.Candidate) -> Bool {
+        guard let dismissed = dismissedResetsAt[candidate.selection] else { return false }
+        return dismissed == floor(candidate.window.resetsAt.timeIntervalSince1970)
+    }
+
+    private func isEligibleWaitingRoom(
+        _ selection: UsageActivitySelection,
+        in snapshots: [ProviderUsageSnapshot]
+    ) -> Bool {
+        guard let snapshot = snapshots.first(where: { $0.provider == selection.provider }),
+              let window = snapshot.windows.first(where: { $0.windowID == selection.windowID }) else {
+            return false
+        }
+        return UsageWaitingRoom.isLiveActivityEligible(
+            provider: selection.provider,
+            window: window,
+            now: now()
+        )
+    }
+
+    private func recordDismissal() {
+        guard let selection = activeSelection else { return }
+        let resetsAt = currentState?.resetsAt ?? now()
+        dismissedResetsAt[selection] = floor(resetsAt.timeIntervalSince1970)
     }
 
     private func accept(_ rendered: RenderedContent, for selection: UsageActivitySelection?) {
