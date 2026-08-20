@@ -9,43 +9,57 @@ import Combine
 import SwiftUI
 import UIKit
 
+/// Sub-views of the iOS landing screen. Usage is the glance; Activity and Effort
+/// stay one tap away so the first screen is not a stack of unrelated cards.
+private enum DashboardSection: String, CaseIterable, Identifiable {
+    case usage
+    case activity
+    case effort
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .usage: "Usage"
+        case .activity: "Activity"
+        case .effort: "Effort"
+        }
+    }
+}
+
 /// Main iOS dashboard showing every available provider in one linear card stack.
 struct DashboardView: View {
     @Environment(UsageViewModel.self) private var viewModel
     @State private var now = Date()
+    @State private var selectedSection: DashboardSection = .usage
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                if viewModel.isOffline || viewModel.isUsingCachedData {
-                    offlineIndicator
-                }
+        VStack(spacing: 0) {
+            sectionPicker
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
 
-                let providerSnapshots = viewModel.availableProviderSnapshots
-                if providerSnapshots.isEmpty {
-                    dashboardState
-                } else {
-                    providerCards(providerSnapshots)
-                }
+            ScrollView {
+                VStack(spacing: 20) {
+                    if viewModel.isOffline || viewModel.isUsingCachedData {
+                        offlineIndicator
+                    }
 
-                LiveActivityControlCard(
-                    manager: viewModel.liveActivityManager,
-                    snapshots: providerSnapshots,
-                    now: now
-                )
-
-                if !viewModel.providersWithEffortUsage.isEmpty {
-                    effortLevelsCard
+                    sectionContent
                 }
+                .frame(maxWidth: 760)
+                .padding([.horizontal, .bottom])
+                .frame(maxWidth: .infinity, alignment: .top)
             }
-            .frame(maxWidth: 760)
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .top)
+            .id(selectedSection)
+            .refreshable {
+                await viewModel.refresh(force: true)
+            }
         }
         .background(Color(.systemGroupedBackground))
-        .refreshable {
-            await viewModel.refresh(force: true)
-        }
         .navigationTitle(Constants.appDisplayName)
         .task {
             await viewModel.initializeIfNeeded()
@@ -53,6 +67,63 @@ struct DashboardView: View {
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
             now = date
         }
+    }
+
+    private var sectionPicker: some View {
+        Picker("Dashboard section", selection: $selectedSection) {
+            ForEach(DashboardSection.allCases) { section in
+                Text(section.title).tag(section)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 420)
+        .frame(maxWidth: .infinity)
+        .accessibilityHint("Shows usage, Live Activity, or effort levels")
+    }
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        let providerSnapshots = viewModel.availableProviderSnapshots
+
+        switch selectedSection {
+        case .usage:
+            if providerSnapshots.isEmpty {
+                dashboardState
+            } else {
+                providerCards(providerSnapshots)
+            }
+        case .activity:
+            LiveActivityControlCard(
+                manager: viewModel.liveActivityManager,
+                snapshots: providerSnapshots,
+                now: now
+            )
+        case .effort:
+            if viewModel.providersWithEffortUsage.isEmpty {
+                effortEmptyView
+            } else {
+                effortLevelsCard
+            }
+        }
+    }
+
+    private var effortEmptyView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "brain.head.profile")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text("No effort data")
+                .font(.headline)
+            Text("Effort levels appear when a connected provider reports session effort.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .stateCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No effort data yet")
+        .accessibilityHint("Effort levels appear when a connected provider reports session effort")
     }
 
     // MARK: - Effort Levels
