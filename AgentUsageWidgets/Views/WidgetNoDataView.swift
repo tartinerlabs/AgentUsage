@@ -13,11 +13,11 @@ struct WidgetNoDataView: View {
     @Environment(\.widgetFamily) private var family
 
     let reason: WidgetUnavailableReason
-    let provider: AgentUsageKit.Provider
+    let provider: AgentUsageKit.Provider?
 
     init(
         reason: WidgetUnavailableReason = .noData,
-        provider: AgentUsageKit.Provider
+        provider: AgentUsageKit.Provider? = nil
     ) {
         self.reason = reason
         self.provider = provider
@@ -42,7 +42,9 @@ struct WidgetNoDataView: View {
 
     private var compact: some View {
         VStack(alignment: .leading, spacing: 8) {
-            WidgetProviderIdentity(provider: provider, font: .caption)
+            if let provider {
+                WidgetProviderIdentity(provider: provider, font: .caption)
+            }
             Spacer(minLength: 0)
             unavailableLabel
                 .font(.headline)
@@ -58,7 +60,9 @@ struct WidgetNoDataView: View {
 
     private var horizontal: some View {
         VStack(alignment: .leading, spacing: 12) {
-            WidgetProviderIdentity(provider: provider, font: .headline)
+            if let provider {
+                WidgetProviderIdentity(provider: provider, font: .headline)
+            }
             Spacer(minLength: 0)
             HStack(spacing: 12) {
                 Image(systemName: copy.iconName)
@@ -90,7 +94,7 @@ struct WidgetNoDataView: View {
 
     private var circular: some View {
         Gauge(value: 0) {
-            Image(systemName: provider.iconName)
+            Image(systemName: provider?.iconName ?? "chart.bar.xaxis")
                 .accessibilityHidden(true)
         } currentValueLabel: {
             Image(systemName: copy.iconName)
@@ -103,9 +107,11 @@ struct WidgetNoDataView: View {
 
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Label(provider.displayName, systemImage: provider.iconName)
-                .font(.caption)
-                .fontWeight(.semibold)
+            if let provider {
+                Label(provider.displayName, systemImage: provider.iconName)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+            }
             Label(copy.title, systemImage: copy.iconName)
                 .font(.caption)
                 .fontWeight(.semibold)
@@ -119,8 +125,14 @@ struct WidgetNoDataView: View {
     }
 
     private var inline: some View {
-        Text("\(Image(systemName: provider.iconName)) \(provider.displayName): \(copy.inlineTitle)")
-            .accessibilityUnavailableState(provider: provider, copy: copy)
+        Group {
+            if let provider {
+                Text("\(Image(systemName: provider.iconName)) \(provider.displayName): \(copy.inlineTitle)")
+            } else {
+                Text(copy.inlineTitle)
+            }
+        }
+        .accessibilityUnavailableState(provider: provider, copy: copy)
     }
 
     private var copy: WidgetUnavailableCopy {
@@ -159,11 +171,13 @@ private struct WidgetUnavailableCopy {
 
 private extension View {
     func accessibilityUnavailableState(
-        provider: AgentUsageKit.Provider,
+        provider: AgentUsageKit.Provider?,
         copy: WidgetUnavailableCopy
     ) -> some View {
         accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(provider.displayName), \(copy.title)")
+            .accessibilityLabel(
+                provider.map { "\($0.displayName), \(copy.title)" } ?? copy.title
+            )
             .accessibilityHint(copy.hint)
     }
 }

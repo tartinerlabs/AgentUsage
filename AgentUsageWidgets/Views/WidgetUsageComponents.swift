@@ -108,3 +108,79 @@ struct WidgetUsageRow: View {
         return parts.joined(separator: ", ")
     }
 }
+
+/// One provider's glance row for Medium and Large overview widgets.
+struct WidgetProviderGlanceRow: View {
+    enum Style {
+        /// Medium density: provider, percent, status, and bar on two lines.
+        case compact
+        /// Large density: provider identity plus the canonical usage row.
+        case regular
+    }
+
+    let provider: AgentUsageKit.Provider
+    let usage: UsageWindow
+    let now: Date
+    var style: Style = .compact
+
+    private var status: UsageStatus {
+        usage.status(from: now)
+    }
+
+    var body: some View {
+        switch style {
+        case .compact:
+            compactRow
+        case .regular:
+            regularRow
+        }
+    }
+
+    private var compactRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: provider.iconName)
+                    .foregroundStyle(AgentUsageColors.usageProgress)
+                    .widgetAccentable()
+                Text(provider.displayName)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text("\(usage.percentUsed)%")
+                    .font(.system(.caption, design: .rounded, weight: .bold))
+                if usage.isUsingExtraUsage {
+                    Text("+\(usage.extraUsagePercent)% extra")
+                        .foregroundStyle(AgentUsageColors.extraUsageAccent)
+                        .lineLimit(1)
+                }
+                Label(status.label, systemImage: status.icon)
+                    .foregroundStyle(status.color)
+                    .lineLimit(1)
+            }
+            .font(.caption)
+
+            UsageProgressBar(usage: usage)
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(provider.displayName), \(usage.displayName) usage")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint(usage.resetDescription(from: now))
+    }
+
+    private var regularRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            WidgetProviderIdentity(provider: provider, font: .subheadline)
+            WidgetUsageRow(title: usage.displayName, usage: usage, now: now)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var accessibilityValue: String {
+        var parts = ["\(usage.percentUsed) percent used", status.label]
+        if usage.isUsingExtraUsage {
+            parts.append("\(usage.extraUsagePercent) percent extra usage")
+        }
+        return parts.joined(separator: ", ")
+    }
+}

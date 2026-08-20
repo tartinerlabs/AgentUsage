@@ -16,7 +16,7 @@ enum WidgetTimelineLoader {
 
     /// Prefer the complete Mac-published CloudKit payload, then fall back to the
     /// provider-neutral App Group cache. A modern provider-only record must not
-    /// be combined with an older cached Claude snapshot.
+    /// be combined with an older cached snapshot.
     static func currentSnapshots() async -> [ProviderUsageSnapshot] {
         if let synced = await syncedPayload() {
             WidgetDataStorage.shared.save(synced)

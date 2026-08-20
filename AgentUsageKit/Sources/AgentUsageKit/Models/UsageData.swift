@@ -10,7 +10,7 @@ import SwiftUI
 
 // MARK: - Usage Status
 
-public enum UsageStatus: String, Sendable, Codable {
+public enum UsageStatus: String, Sendable, Codable, Comparable {
     case onTrack
     case warning
     case critical
@@ -36,6 +36,19 @@ public enum UsageStatus: String, Sendable, Codable {
         case .onTrack: .green
         case .warning: .orange
         case .critical: .red
+        }
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.severity < rhs.severity
+    }
+
+    /// `critical > warning > onTrack`, matching `UsageCalculations.overallStatus`.
+    private var severity: Int {
+        switch self {
+        case .onTrack: 0
+        case .warning: 1
+        case .critical: 2
         }
     }
 }
