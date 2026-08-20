@@ -25,6 +25,9 @@ actor MockNotificationService: NotificationServiceProtocol {
     /// Track threshold crossing calls
     private(set) var lastOldSnapshot: UsageSnapshot?
     private(set) var lastNewSnapshot: UsageSnapshot?
+    private(set) var resetArmCount = 0
+    private(set) var resetCancelCount = 0
+    private(set) var lastResetSnapshots: [ProviderUsageSnapshot] = []
 
     func requestPermission() async -> Bool {
         permissionRequestCount += 1
@@ -49,6 +52,18 @@ actor MockNotificationService: NotificationServiceProtocol {
         lastNewSnapshot = newSnapshot
     }
 
+    func armResetNotifications(
+        from snapshots: [ProviderUsageSnapshot],
+        now: Date
+    ) async {
+        resetArmCount += 1
+        lastResetSnapshots = snapshots
+    }
+
+    func cancelResetNotifications() async {
+        resetCancelCount += 1
+    }
+
     func sendTestNotification() async -> NotificationTestResult {
         testNotificationCount += 1
         return testNotificationResult
@@ -71,7 +86,10 @@ actor MockNotificationService: NotificationServiceProtocol {
         permissionCheckCount = 0
         thresholdCheckCount = 0
         testNotificationCount = 0
+        resetArmCount = 0
+        resetCancelCount = 0
         lastOldSnapshot = nil
         lastNewSnapshot = nil
+        lastResetSnapshots = []
     }
 }

@@ -622,6 +622,7 @@ final class UsageViewModel {
         notificationTestResult = nil
         guard enabled else {
             notificationsEnabled = false
+            await notificationService.cancelResetNotifications()
             return
         }
 
@@ -662,6 +663,17 @@ final class UsageViewModel {
         notificationTestResult = nil
     }
 
+    func setNotifyOnReset(_ enabled: Bool) async {
+        var settings = NotificationSettings.load(defaults: defaults)
+        settings.notifyOnReset = enabled
+        settings.save(defaults: defaults)
+        if enabled {
+            await armResetNotifications()
+        } else {
+            await notificationService.cancelResetNotifications()
+        }
+    }
+
     private func checkUsageNotifications(
         oldSnapshot: UsageSnapshot?,
         newSnapshot: UsageSnapshot
@@ -670,6 +682,17 @@ final class UsageViewModel {
         await notificationService.checkThresholdCrossings(
             oldSnapshot: oldSnapshot,
             newSnapshot: newSnapshot
+        )
+    }
+
+    private func armResetNotifications() async {
+        guard notificationsEnabled else {
+            await notificationService.cancelResetNotifications()
+            return
+        }
+        await notificationService.armResetNotifications(
+            from: availableProviderSnapshots,
+            now: Date()
         )
     }
 }
@@ -724,6 +747,7 @@ extension UsageViewModel {
             }
         }
         Task { await runPassiveBlogUsageSync() }
+        await armResetNotifications()
         return outcome
         #else
         return await refreshClaudeViaSync()
@@ -1041,6 +1065,7 @@ extension UsageViewModel {
             await WidgetDataManager.shared.save(widgetSnapshots)
         }
         await liveActivityManager.refresh(from: availableProviderSnapshots)
+        await armResetNotifications()
     }
 
     /// Register the CloudKit silent-push subscription only after Continuity has
@@ -1160,6 +1185,7 @@ extension UsageViewModel {
 
         appConnectionRevoked = true
         errorMessage = nil
+        await notificationService.cancelResetNotifications()
 
         #if os(iOS)
         KeychainHelper.deleteCredentials()
