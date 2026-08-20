@@ -17,6 +17,7 @@ nonisolated enum UsageActivityAvailability: String, Codable, Hashable, Sendable 
     case available
     case awaitingRefresh
     case unavailable
+    case reset
 }
 
 /// Attributes for an Agent Usage Live Activity.

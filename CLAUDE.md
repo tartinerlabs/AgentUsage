@@ -83,6 +83,14 @@ passes `ModelConfiguration(groupContainer: .identifier(Constants.appGroupIdentif
 explicitly, with an in-memory fallback when `isRunningTests`. Dropping the
 `groupContainer:` argument silently moves the store and orphans existing data.
 
+**Live Activities start in the foreground.** Auto-pin at limit calls
+`Activity.request` only while the iOS scene is active. Background refresh may
+update an existing activity but cannot start one (`pushType` remains `nil`). Do
+not add ActivityKit push or a grok.com scrape to make pocket auto-start "work".
+Reset alerts are local `UNTimeIntervalNotificationTrigger`s armed from
+`resetsAt`. Waiting-room activities are only for short rate windows (≤ 8 hours
+remaining); weekly/monthly limits stay on notifications and widgets.
+
 **iOS never fetches provider usage directly.** It consumes snapshots the Mac
 publishes over CloudKit
 (`AgentUsageKit/Sources/AgentUsageKit/Services/UsageSyncService.swift`).
