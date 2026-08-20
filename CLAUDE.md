@@ -106,10 +106,7 @@ TestFlight builds must continue using Apple's update path.
 `release.yml`, and `pages.yml` contain zero non-comment lines, and a fully
 commented file registers no workflow. `gh workflow run release.yml`
 fails silently. CI, archiving, and distribution run on Xcode Cloud, configured in
-App Store Connect. `ci_scripts/ci_pre_xcodebuild.sh` strips restricted macOS
-entitlements (`keychain-access-groups`, iCloud) only when
-`CI_XCODEBUILD_ACTION=build-for-testing`, so Archive/Release keeps them. Do
-not add those keys back in that hook.
+App Store Connect.
 
 **Version lives only in `Config/Version.xcconfig`**, wired as the project-level
 base configuration for Debug and Release, so every target inherits
@@ -118,12 +115,21 @@ build settings overrides the xcconfig — never do that. Bump by hand.
 
 **Shipping macOS builds are a menu bar agent; Debug is not.** Release sets
 `INFOPLIST_KEY_LSUIElement[sdk=macosx*] = YES` so archived/TestFlight builds stay
-out of the Dock. Debug leaves it `NO` so Xcode Cloud and local XCTest can launch
-the test host. Putting `LSUIElement` back in `AgentUsage/Info.plist` wins over
-the generated key and, together with restricted Debug entitlements, brings back
-`Runningboard error 5` (`Could not launch “AgentUsageTests”`). Xcode Cloud does
-not embed a Mac development profile for Keychain Sharing or iCloud on the test
-host — that is why `ci_pre_xcodebuild.sh` removes those keys for macOS Test.
+out of the Dock. Debug and DebugCloud leave it `NO` so Xcode Cloud and local
+XCTest can launch the test host. Putting `LSUIElement` back in
+`AgentUsage/Info.plist` wins over the generated key and, together with
+restricted DebugCloud entitlements, brings back `Runningboard error 5`
+(`Could not launch “AgentUsageTests”`). Xcode Cloud does not embed a Mac
+development profile for Keychain Sharing or iCloud on the test host — the shared
+scheme’s Test action uses the `DebugCloud` configuration, whose macOS
+entitlements are `AgentUsage/AgentUsage-Debug.entitlements` (no
+`keychain-access-groups` or iCloud). The name must keep a `Debug` prefix so
+Swift packages still emit Debug modules; a name like `CloudTest` builds
+`AgentUsageKit` as Release and tests fail with `Unable to resolve Swift module
+dependency`. Debug local runs keep `AgentUsage/AgentUsage.entitlements` so
+CloudKit continuity still works. Release uses the same full file. Do not add
+Keychain Sharing or iCloud to the DebugCloud entitlements file. Xcode Cloud
+test actions must use scheme settings (or explicitly select `DebugCloud`).
 
 **The shared scheme’s default test plan is unit tests only**
 (`AgentUsage.xctestplan`). Xcode Cloud “Use Scheme Settings” follows that plan,
