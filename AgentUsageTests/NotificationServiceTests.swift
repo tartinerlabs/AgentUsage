@@ -60,7 +60,7 @@ struct NotificationServiceTests {
         #expect(await center.notifications().count == 1)
     }
 
-    @Test func nearLimitWindowResetAlerts() async {
+    @Test func snapshotComparisonNoLongerFiresResetAlerts() async {
         let center = RecordingUserNotificationCenterClient()
         let service = makeService(
             center: center,
@@ -78,36 +78,127 @@ struct NotificationServiceTests {
             )
         )
 
-        #expect(await center.notifications().map(\.title) == ["Current session Usage Reset"])
+        #expect(await center.notifications().isEmpty)
     }
 
-    @Test func resetAlertGuardsRejectInvalidTransitions() async {
-        let now = Date()
-        let scenarios: [(oldPercent: Double, newPercent: Double, newReset: Date)] = [
-            (80, 10, now.addingTimeInterval(3_600)),
-            (95, 60, now.addingTimeInterval(3_600)),
-            (95, 10, now.addingTimeInterval(-60)),
-        ]
+    @Test func nearLimitWindowSchedulesResetAlert() async {
+        let center = RecordingUserNotificationCenterClient()
+        let service = makeService(
+            center: center,
+            settings: settings(thresholds: [], notifyOnReset: true)
+        )
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let resetsAt = now.addingTimeInterval(3_600)
 
-        for scenario in scenarios {
-            let center = RecordingUserNotificationCenterClient()
-            let service = makeService(
-                center: center,
-                settings: settings(thresholds: [], notifyOnReset: true)
-            )
-            await service.checkThresholdCrossings(
-                oldSnapshot: snapshot(
-                    session: scenario.oldPercent,
-                    sessionReset: now.addingTimeInterval(-120)
-                ),
-                newSnapshot: snapshot(
-                    session: scenario.newPercent,
-                    sessionReset: scenario.newReset
-                )
-            )
+        await service.armResetNotifications(
+            from: [providerSnapshot(provider: .claude, utilization: 95, resetsAt: resetsAt, type: .session, now: now)],
+            now: now
+        )
 
-            #expect(await center.notifications().isEmpty)
-        }
+        let notifications = await center.notifications()
+        #expect(notifications.map(\.title) == ["Claude Current session reset"])
+        #expect(notifications.first?.identifier == "reset.claude.session.2000003600")
+        #expect(notifications.first?.triggerInterval == 3_600)
+        #expect(await center.pendingIdentifiers() == ["reset.claude.session.2000003600"])
+    }
+
+    @Test func resetAlertSkipsBelowThresholdExpiredAndDisabled() async {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let future = now.addingTimeInterval(3_600)
+
+        let below = RecordingUserNotificationCenterClient()
+        await makeService(
+            center: below,
+            settings: settings(thresholds: [], notifyOnReset: true)
+        ).armResetNotifications(
+            from: [providerSnapshot(provider: .claude, utilization: 80, resetsAt: future, type: .session, now: now)],
+            now: now
+        )
+        #expect(await below.notifications().isEmpty)
+
+        let expired = RecordingUserNotificationCenterClient()
+        await makeService(
+            center: expired,
+            settings: settings(thresholds: [], notifyOnReset: true)
+        ).armResetNotifications(
+            from: [providerSnapshot(
+                provider: .codex,
+                utilization: 100,
+                resetsAt: now.addingTimeInterval(-60),
+                type: .codexFiveHour,
+                now: now
+            )],
+            now: now
+        )
+        #expect(await expired.notifications().isEmpty)
+
+        let disabled = RecordingUserNotificationCenterClient()
+        await makeService(
+            center: disabled,
+            settings: settings(thresholds: [], notifyOnReset: false)
+        ).armResetNotifications(
+            from: [providerSnapshot(provider: .claude, utilization: 95, resetsAt: future, type: .session, now: now)],
+            now: now
+        )
+        #expect(await disabled.notifications().isEmpty)
+    }
+
+    @Test func rearmingDropsStaleResetAlertsAndSkipsDuplicates() async {
+        let center = RecordingUserNotificationCenterClient()
+        let service = makeService(
+            center: center,
+            settings: settings(thresholds: [], notifyOnReset: true)
+        )
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let firstReset = now.addingTimeInterval(3_600)
+        let secondReset = now.addingTimeInterval(7_200)
+        let firstSnapshot = providerSnapshot(
+            provider: .codex,
+            utilization: 100,
+            resetsAt: firstReset,
+            type: .codexFiveHour,
+            now: now
+        )
+
+        await service.armResetNotifications(from: [firstSnapshot], now: now)
+        await service.armResetNotifications(from: [firstSnapshot], now: now)
+        #expect(await center.notifications().count == 1)
+
+        await service.armResetNotifications(
+            from: [providerSnapshot(
+                provider: .codex,
+                utilization: 10,
+                resetsAt: secondReset,
+                type: .codexFiveHour,
+                now: now
+            )],
+            now: now
+        )
+
+        #expect(await center.pendingIdentifiers().isEmpty)
+        #expect(await center.removedIdentifiers() == ["reset.codex.codexFiveHour.2000003600"])
+    }
+
+    @Test func grokWindowsDoNotScheduleResetAlerts() async {
+        let center = RecordingUserNotificationCenterClient()
+        let service = makeService(
+            center: center,
+            settings: settings(thresholds: [], notifyOnReset: true)
+        )
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+
+        await service.armResetNotifications(
+            from: [providerSnapshot(
+                provider: .grok,
+                utilization: 100,
+                resetsAt: now.addingTimeInterval(3_600),
+                type: .session,
+                now: now
+            )],
+            now: now
+        )
+
+        #expect(await center.notifications().isEmpty)
     }
 
     @Test func extraUsageAlertsOncePerActivation() async {
@@ -234,6 +325,22 @@ struct NotificationServiceTests {
         )
     }
 
+    private func providerSnapshot(
+        provider: Provider,
+        utilization: Double,
+        resetsAt: Date,
+        type: UsageWindowType,
+        now: Date
+    ) -> ProviderUsageSnapshot {
+        ProviderUsageSnapshot(
+            provider: provider,
+            windows: [
+                UsageWindow(utilization: utilization, resetsAt: resetsAt, windowType: type)
+            ],
+            fetchedAt: now
+        )
+    }
+
     private func snapshot(
         session: Double,
         sessionReset: Date = Date().addingTimeInterval(3_600)
@@ -266,6 +373,8 @@ private actor RecordingUserNotificationCenterClient: UserNotificationCenterClien
     private var currentPermissionState: NotificationPermissionState
     private let grantsPermission: Bool
     private var requests: [RecordedNotification] = []
+    private var pending: [String: RecordedNotification] = [:]
+    private var removed: [String] = []
     private var requestCount = 0
 
     init(
@@ -288,16 +397,39 @@ private actor RecordingUserNotificationCenterClient: UserNotificationCenterClien
 
     func add(_ request: UNNotificationRequest) async throws {
         let triggerInterval = (request.trigger as? UNTimeIntervalNotificationTrigger)?.timeInterval
-        requests.append(RecordedNotification(
+        let recorded = RecordedNotification(
             identifier: request.identifier,
             title: request.content.title,
             body: request.content.body,
             triggerInterval: triggerInterval
-        ))
+        )
+        requests.append(recorded)
+        if request.trigger != nil {
+            pending[request.identifier] = recorded
+        }
+    }
+
+    func pendingNotificationIdentifiers() async -> [String] {
+        Array(pending.keys)
+    }
+
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String]) async {
+        removed.append(contentsOf: identifiers)
+        for identifier in identifiers {
+            pending.removeValue(forKey: identifier)
+        }
     }
 
     func notifications() -> [RecordedNotification] {
         requests
+    }
+
+    func pendingIdentifiers() -> [String] {
+        Array(pending.keys)
+    }
+
+    func removedIdentifiers() -> [String] {
+        removed
     }
 
     func permissionRequestCount() -> Int {

@@ -51,6 +51,14 @@ struct SettingsView: View {
                     }
                 } else {
                     if viewModel.notificationsEnabled {
+                        Toggle("Reset Alerts", isOn: Binding(
+                            get: { notificationSettings.notifyOnReset },
+                            set: { enabled in
+                                notificationSettings.notifyOnReset = enabled
+                                Task { await viewModel.setNotifyOnReset(enabled) }
+                            }
+                        ))
+
                         Toggle("Extra Usage Alert", isOn: Binding(
                             get: { notificationSettings.notifyExtraUsage },
                             set: {
@@ -69,7 +77,7 @@ struct SettingsView: View {
             } header: {
                 Text("Notifications")
             } footer: {
-                Text("Usage alerts are delivered when this device refreshes usage shared by your Mac. Test notifications use synthetic content and do not require synced usage data.")
+                Text("Threshold alerts fire when this device receives a fresh snapshot from your Mac. Reset alerts are scheduled for each near-limit window's reset time, so they still deliver if the app is closed. Test notifications use synthetic content and do not require synced usage data.")
             }
 
             Section {

@@ -17,7 +17,7 @@ struct NotificationSettingsCard: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Usage Alerts")
                             .font(.body)
-                        Text("Notify when usage crosses 25%, 50%, 75%, or 100%")
+                        Text("Notify when usage crosses 25%, 50%, 75%, or 100%, and when a near-limit window resets")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -27,6 +27,27 @@ struct NotificationSettingsCard: View {
                 }
 
                 if viewModel.notificationsEnabled {
+                    Divider()
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Reset Alerts")
+                                .font(.body)
+                            Text("Schedule a notification for the reset time of any window at or above 90%.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { notificationSettings.notifyOnReset },
+                            set: { enabled in
+                                notificationSettings.notifyOnReset = enabled
+                                Task { await viewModel.setNotifyOnReset(enabled) }
+                            }
+                        ))
+                        .labelsHidden()
+                    }
+
                     Divider()
 
                     HStack {
