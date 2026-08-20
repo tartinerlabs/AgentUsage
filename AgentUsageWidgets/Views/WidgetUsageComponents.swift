@@ -9,16 +9,14 @@ import AgentUsageKit
 import SwiftUI
 import WidgetKit
 
-/// Uses the provider-card tint and border as the widget's root chrome. WidgetKit
-/// supplies the outer shape and content margins, so the content does not create
-/// a nested card of its own.
+/// Brand wash for the system widget container. WidgetKit supplies the outer
+/// shape and 16-point margins; this view must stay inside `containerBackground`
+/// so StandBy and CarPlay can remove it.
 struct WidgetProviderBackground: View {
     var body: some View {
         ZStack {
             Color(.systemBackground)
             AgentUsageColors.usageProgress.opacity(0.06)
-            ContainerRelativeShape()
-                .strokeBorder(AgentUsageColors.usageProgress.opacity(0.15), lineWidth: 1)
         }
     }
 }
@@ -44,6 +42,33 @@ struct WidgetProviderIdentity: View {
     }
 }
 
+/// System-updating reset text so the countdown moves between timeline entries.
+struct WidgetResetLabel: View {
+    let resetsAt: Date
+    let now: Date
+    var includePrefix: Bool = true
+
+    var body: some View {
+        Group {
+            if resetsAt <= now {
+                Text(includePrefix ? "Resets now" : "now")
+            } else if resetsAt.timeIntervalSince(now) < 3600 {
+                if includePrefix {
+                    Text("Resets in ") + Text(resetsAt, style: .timer)
+                } else {
+                    Text(resetsAt, style: .timer)
+                }
+            } else if includePrefix {
+                Text("Resets ") + Text(resetsAt, style: .relative)
+            } else {
+                Text(resetsAt, style: .relative)
+            }
+        }
+        .monospacedDigit()
+        .lineLimit(1)
+    }
+}
+
 /// The widget-sized counterpart to `UsageRowView`: same title/reset hierarchy,
 /// canonical Timefold Ink progress track, rounded usage figure, and semantic status.
 struct WidgetUsageRow: View {
@@ -63,10 +88,9 @@ struct WidgetUsageRow: View {
                     .fontWeight(.semibold)
                     .lineLimit(1)
                 Spacer(minLength: 4)
-                Text(usage.resetDescription(from: now))
+                WidgetResetLabel(resetsAt: usage.resetsAt, now: now)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
             }
 
             UsageProgressBar(usage: usage)
@@ -74,7 +98,7 @@ struct WidgetUsageRow: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(usage.percentUsed)%")
-                    .font(.system(.footnote, design: .rounded, weight: .bold))
+                    .font(.system(.callout, design: .rounded, weight: .bold))
                 Text("used")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -112,7 +136,7 @@ struct WidgetUsageRow: View {
 /// One provider's glance row for Medium and Large overview widgets.
 struct WidgetProviderGlanceRow: View {
     enum Style {
-        /// Medium density: provider, percent, status, and bar on two lines.
+        /// Medium density: provider · window, percent, status icon, bar, and compact reset.
         case compact
         /// Large density: provider identity plus the canonical usage row.
         case regular
@@ -144,23 +168,36 @@ struct WidgetProviderGlanceRow: View {
                     .widgetAccentable()
                 Text(provider.displayName)
                     .fontWeight(.semibold)
+                    .layoutPriority(1)
+                    .lineLimit(1)
+                Text("·")
+                    .foregroundStyle(.secondary)
+                Text(usage.displayName)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 Text("\(usage.percentUsed)%")
                     .font(.system(.caption, design: .rounded, weight: .bold))
+                    .layoutPriority(1)
                 if usage.isUsingExtraUsage {
                     Text("+\(usage.extraUsagePercent)% extra")
                         .foregroundStyle(AgentUsageColors.extraUsageAccent)
                         .lineLimit(1)
                 }
-                Label(status.label, systemImage: status.icon)
+                Image(systemName: status.icon)
                     .foregroundStyle(status.color)
-                    .lineLimit(1)
+                    .accessibilityHidden(true)
             }
             .font(.caption)
 
-            UsageProgressBar(usage: usage)
-                .accessibilityHidden(true)
+            HStack(spacing: 8) {
+                UsageProgressBar(usage: usage)
+                    .accessibilityHidden(true)
+                WidgetResetLabel(resetsAt: usage.resetsAt, now: now, includePrefix: false)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .layoutPriority(1)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(provider.displayName), \(usage.displayName) usage")

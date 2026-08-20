@@ -259,13 +259,19 @@ Corner radius is assigned by component scale:
   short at-limit window when the scene is active. Disabled authorization remains visible
   with an Open Settings action; unavailable-window and start-error states stay inline in
   the same card.
-- **Home Screen widgets** — adapt the iOS provider-card hierarchy rather than inventing a
-  widget-only style: provider identity first, compact `UsageProgressBar` rows in Timefold Ink, rounded
-  percentage numerals, semantic status icon + label, reset timing, and freshness. Use the widget
-  container itself as the surface instead of nesting a second card inside it. Small and Lock Screen
-  widgets show one configured window and default to the most urgent live window, not Claude. Medium
-  and Large show one primary window per provider that currently has quota data; a single-provider
-  payload still lists that provider's windows. Grok does not appear until it has rate windows.
+- **Home Screen widgets** — follow Apple HIG widget size roles while keeping the iOS
+  provider-card grammar (identity, Timefold Ink `UsageProgressBar`, rounded numerals,
+  `UsageStatus` icon). Use the system widget container as the surface; the 0.06 Timefold Ink
+  wash lives in `containerBackground` so StandBy/CarPlay can remove it. Do not nest a second
+  card or stroke. Small shows **one window as a glance**: 28pt rounded percent + status
+  symbol, then window name and a system-updating reset date; last-updated only when stale.
+  In StandBy the bar drops and the percent is the distance-readable graphic. Medium compact
+  rows add window name, compact reset, and an icon-only status on two lines. Medium
+  single-provider and Large keep `WidgetUsageRow`. Small and Lock Screen default to the most
+  urgent live window, not Claude. Medium and Large show one primary window per provider that
+  currently has quota data; a single-provider payload still lists that provider's windows.
+  Grok does not appear until it has rate windows. Only the provider glyph is
+  `.widgetAccentable()` so tinted/clear appearances keep the percent in the primary group.
 - **Accessory widgets & Live Activities** — where the platform shape requires a gauge, use
   SwiftUI `Gauge` (`.accessoryCircular` / `.accessoryLinear`) colored by `status.color` with
   matching `.keylineTint`. Live Activity content carries the selected provider and stable window

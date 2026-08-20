@@ -94,6 +94,68 @@ extension WidgetEntry {
         WidgetEntry(date: .now, snapshots: ProviderUsageSnapshot.widgetPreviewSnapshots)
     }
 
+    static func previewExtraUsage() -> WidgetEntry {
+        let now = Date()
+        let snapshot = ProviderUsageSnapshot(
+            provider: .claude,
+            windows: [
+                UsageWindow(
+                    utilization: 112,
+                    resetsAt: now.addingTimeInterval(2.5 * 60 * 60),
+                    windowType: .session
+                )
+            ],
+            planName: "Max",
+            fetchedAt: now
+        )
+        return WidgetEntry(
+            date: now,
+            snapshots: [snapshot],
+            selection: UsageActivitySelection(provider: .claude, windowID: snapshot.windows[0].windowID)
+        )
+    }
+
+    static func previewAtLimit() -> WidgetEntry {
+        let now = Date()
+        let snapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 100,
+                    resetsAt: now.addingTimeInterval(40 * 60),
+                    windowType: .codexFiveHour
+                )
+            ],
+            planName: "Plus",
+            fetchedAt: now
+        )
+        return WidgetEntry(
+            date: now,
+            snapshots: [snapshot],
+            selection: UsageActivitySelection(provider: .codex, windowID: snapshot.windows[0].windowID)
+        )
+    }
+
+    static func previewStale() -> WidgetEntry {
+        let now = Date()
+        let snapshots = ProviderUsageSnapshot.widgetPreviewSnapshots.map { snapshot in
+            ProviderUsageSnapshot(
+                provider: snapshot.provider,
+                windows: snapshot.windows,
+                extraUsage: snapshot.extraUsage,
+                planName: snapshot.planName,
+                rateLimitResetCredits: snapshot.rateLimitResetCredits,
+                effortSummaries: snapshot.effortSummaries,
+                fetchedAt: now.addingTimeInterval(-60 * 60)
+            )
+        }
+        let window = snapshots.first { $0.provider == .claude }?.windows.first
+        let selection = window.map {
+            UsageActivitySelection(provider: .claude, windowID: $0.windowID)
+        }
+        return WidgetEntry(date: now, snapshots: snapshots, selection: selection)
+    }
+
     static func previewNoData(provider: AgentUsageKit.Provider? = nil) -> WidgetEntry {
         let selection = provider.map { selected -> UsageActivitySelection in
             let fallbackWindowID: UsageWindowID = switch selected {
