@@ -78,7 +78,7 @@ struct GeneralSettingsCard: View {
                         ForEach(viewModel.menuBarProviders) { provider in
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
-                                    Label(provider.displayName, systemImage: provider.iconName)
+                                    Label(provider)
                                         .font(.caption.weight(.semibold))
                                     Spacer()
                                     Text("\(viewModel.menuBarPinnedWindows(for: provider).count)/\(MenuBarSettingsManager.maximumPinsPerProvider)")

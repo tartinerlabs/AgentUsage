@@ -17,7 +17,10 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "AgentUsageKit"
+            name: "AgentUsageKit",
+            resources: [
+                .process("Assets.xcassets")
+            ]
         ),
         .testTarget(
             name: "AgentUsageKitTests",

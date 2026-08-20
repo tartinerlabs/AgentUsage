@@ -94,8 +94,14 @@ struct WidgetNoDataView: View {
 
     private var circular: some View {
         Gauge(value: 0) {
-            Image(systemName: provider?.iconName ?? "chart.bar.xaxis")
-                .accessibilityHidden(true)
+            Group {
+                if let provider {
+                    ProviderIcon(provider, size: 12)
+                } else {
+                    Image(systemName: "chart.bar.xaxis")
+                }
+            }
+            .accessibilityHidden(true)
         } currentValueLabel: {
             Image(systemName: copy.iconName)
                 .font(.caption)
@@ -108,7 +114,7 @@ struct WidgetNoDataView: View {
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 2) {
             if let provider {
-                Label(provider.displayName, systemImage: provider.iconName)
+                Label(provider)
                     .font(.caption)
                     .fontWeight(.semibold)
             }
@@ -127,7 +133,7 @@ struct WidgetNoDataView: View {
     private var inline: some View {
         Group {
             if let provider {
-                Text("\(Image(systemName: provider.iconName)) \(provider.displayName): \(copy.inlineTitle)")
+                Text("\(provider.markImage) \(provider.displayName): \(copy.inlineTitle)")
             } else {
                 Text(copy.inlineTitle)
             }

@@ -206,14 +206,12 @@ struct MainNavigationView: View {
             if showsProvidersInSidebar {
                 TabSection(AppSection.providers.title) {
                     ForEach(viewModel.availableProviders) { provider in
-                        Tab(
-                            provider.displayName,
-                            systemImage: provider.iconName,
-                            value: NavigationTarget.provider(provider)
-                        ) {
+                        Tab(value: NavigationTarget.provider(provider)) {
                             NavigationStack {
                                 ProviderSectionView(provider: provider)
                             }
+                        } label: {
+                            Label(provider)
                         }
                     }
                 }
@@ -444,8 +442,7 @@ private struct ProviderRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: provider.iconName)
-                .font(.body.weight(.semibold))
+            ProviderIcon(provider, size: 20)
                 .foregroundStyle(Constants.brandPrimary)
                 .frame(width: 24)
 

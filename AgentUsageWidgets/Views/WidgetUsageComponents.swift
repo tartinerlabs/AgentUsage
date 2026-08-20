@@ -30,7 +30,7 @@ struct WidgetProviderIdentity: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: provider.iconName)
+            ProviderIcon(provider, size: 14)
                 .foregroundStyle(AgentUsageColors.usageProgress)
                 .widgetAccentable()
             Text(provider.displayName)
@@ -139,7 +139,7 @@ struct WidgetProviderGlanceRow: View {
     private var compactRow: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: provider.iconName)
+                ProviderIcon(provider, size: 12)
                     .foregroundStyle(AgentUsageColors.usageProgress)
                     .widgetAccentable()
                 Text(provider.displayName)

@@ -37,9 +37,8 @@ struct AgentUsageWidgetsLiveActivity: Widget {
                         .padding(.horizontal, 12)
                 }
             } compactLeading: {
-                Image(systemName: context.state.provider.iconName)
+                ProviderIcon(context.state.provider, size: 16, decorative: false)
                     .foregroundStyle(AgentUsageColors.usageProgress)
-                    .accessibilityLabel(context.state.provider.displayName)
             } compactTrailing: {
                 CompactValueView(state: context.state, displayState: displayState)
             } minimal: {
@@ -76,7 +75,7 @@ private struct LockScreenBannerView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Label(context.state.provider.displayName, systemImage: context.state.provider.iconName)
+                    Label(context.state.provider)
                         .font(.headline)
                         .foregroundStyle(AgentUsageColors.usageProgress)
                     Spacer(minLength: 4)
@@ -129,8 +128,7 @@ private struct LiveActivityCircularGauge: View {
 
     var body: some View {
         Gauge(value: displayState == .available ? state.normalizedProgress : 0) {
-            Image(systemName: state.provider.iconName)
-                .font(.caption)
+            ProviderIcon(state.provider, size: 12)
                 .foregroundStyle(AgentUsageColors.usageProgress)
         } currentValueLabel: {
             Image(systemName: displayState == .available ? state.status.icon : displayState.iconName)
@@ -152,7 +150,7 @@ private struct ProviderWindowLabel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Label(provider.displayName, systemImage: provider.iconName)
+            Label(provider)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(AgentUsageColors.usageProgress)
@@ -267,8 +265,7 @@ private struct MinimalActivityGauge: View {
 
     var body: some View {
         Gauge(value: displayState == .available ? state.normalizedProgress : 0) {
-            Image(systemName: state.provider.iconName)
-                .font(.caption2)
+            ProviderIcon(state.provider, size: 10)
         } currentValueLabel: {
             Image(systemName: displayState == .available ? state.status.icon : displayState.iconName)
                 .font(.system(size: 7, weight: .semibold))

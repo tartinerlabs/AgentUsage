@@ -144,8 +144,8 @@ Four families, each with a distinct job:
   system blue. The same hex is only about 3.4:1 on the standard dark background `#1C1C1E`,
   below the 4.5:1 small-text threshold used by caption plan badges, so dark mode resolves
   `primary` to Pacific Blue `#7197D4` (`primary-dark`, ~5.7:1). `brand-secondary` is that
-  same Pacific Blue sample in every appearance. Attribution is name + SF Symbol, not a
-  per-provider hue. `brand-background` `#F4F3EE` (Pampas) is the light neutral ground and
+  same Pacific Blue sample in every appearance. Attribution is name + official provider
+  mark, not a per-provider hue. `brand-background` `#F4F3EE` (Pampas) is the light neutral ground and
   stays fixed sRGB. These tokens are not a substitute for the dimensional app-icon palette.
 - **Status (system-semantic).** On-track/warning/critical map to SwiftUI `.green` / `.orange` /
   `.red`. Because they are system colors, they adapt automatically to light/dark and
@@ -300,12 +300,13 @@ stable, `arrow.down.right` (green) decreasing.
 **Overall status** is the **worst** across all windows (`critical > warning > onTrack`),
 defaulting to on-track when there is no data.
 
-Provider glyphs: the compact menu-bar strip uses the official Claude spark and OpenAI Blossom as
-unchanged monochrome template marks. Other surfaces retain Claude `sparkles`, Codex
-`chevron.left.forwardslash.chevron.right`, and opencode `curlybraces` until the broader
-provider-logo work is completed; those SF Symbols are also the menu-bar fallbacks.
-Provider marks are attribution inside provider-specific UI only; they must never become the
-AgentUsage app icon or product-level brand mark.
+Provider glyphs: every provider-attributing surface — cards, navigation, settings, menu bar,
+widgets, and Live Activities — uses the official monochrome template mark for that provider
+(Claude spark, OpenAI Blossom, Cursor cube, OpenCode O, Grok mark). SF Symbols remain
+load-failure fallbacks only (`sparkles`, `chevron.left.forwardslash.chevron.right`,
+`curlybraces`, `cursorarrow`, `bolt.fill`). Provider marks are attribution inside
+provider-specific UI only; they must never become the AgentUsage app icon or product-level
+brand mark.
 
 ## Do's and Don'ts
 

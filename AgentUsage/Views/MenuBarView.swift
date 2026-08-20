@@ -57,9 +57,14 @@ struct MenuBarView: View {
 
     private var rail: some View {
         VStack(spacing: 8) {
-            railTab(.overview, systemImage: "gauge.with.dots.needle.bottom.50percent", tint: .primary)
+            railTab(.overview, tint: .primary) {
+                Image(systemName: "gauge.with.dots.needle.bottom.50percent")
+                    .font(.system(size: 16))
+            }
             ForEach(availableProviders, id: \.self) { provider in
-                railTab(.provider(provider), systemImage: provider.iconName, tint: Constants.brandPrimary)
+                railTab(.provider(provider), tint: Constants.brandPrimary) {
+                    ProviderIcon(provider, size: 16)
+                }
             }
 
             Spacer()
@@ -85,13 +90,16 @@ struct MenuBarView: View {
         .background(.bar)
     }
 
-    private func railTab(_ page: SidebarPage, systemImage: String, tint: Color) -> some View {
+    private func railTab<Icon: View>(
+        _ page: SidebarPage,
+        tint: Color,
+        @ViewBuilder icon: () -> Icon
+    ) -> some View {
         let isSelected = selectedPage == page
         return Button {
             selectedPage = page
         } label: {
-            Image(systemName: systemImage)
-                .font(.system(size: 16))
+            icon()
                 .foregroundStyle(isSelected ? tint : .secondary)
                 .frame(width: 34, height: 30)
                 .background(

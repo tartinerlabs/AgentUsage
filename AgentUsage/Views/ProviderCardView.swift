@@ -111,7 +111,7 @@ struct ProviderCardView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: provider.iconName)
+            ProviderIcon(provider, size: compact ? 16 : 20)
                 .foregroundStyle(AgentUsageColors.usageProgress)
             Text(provider.displayName)
                 .font(compact ? .headline : .title3)

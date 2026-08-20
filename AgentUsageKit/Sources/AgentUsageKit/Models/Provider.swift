@@ -32,7 +32,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// SF Symbol used as a fallback glyph for the provider.
+    /// SF Symbol used only if the provider mark asset fails to load.
     public var iconName: String {
         switch self {
         case .claude: "sparkles"
@@ -43,14 +43,14 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Asset catalog name for the compact menu-bar mark, when one exists.
-    ///
-    /// Providers without a dedicated mark render `iconName` instead.
-    public var menuBarMarkAssetName: String? {
+    /// Asset catalog name for the official monochrome provider mark.
+    public var markAssetName: String {
         switch self {
         case .claude: "ClaudeProviderMark"
         case .codex: "CodexProviderMark"
-        case .openCode, .openCodeGo, .cursor, .grok: nil
+        case .openCode, .openCodeGo: "OpenCodeProviderMark"
+        case .cursor: "CursorProviderMark"
+        case .grok: "GrokProviderMark"
         }
     }
 
