@@ -1211,7 +1211,13 @@ extension UsageViewModel {
                 rateLimitResetCredits: providerSnapshot.rateLimitResetCredits,
                 effortSummaries: providerDetails[provider]?.effortSummaries
                     ?? providerSnapshot.effortSummaries,
-                fetchedAt: providerSnapshot.fetchedAt
+                // Providers without rate-limit windows (Grok, and any provider
+                // whose quota endpoint is unavailable) are refreshed by the local
+                // log scan, so their freshness is the latest of the two — without
+                // this the first-seen stamp would be carried forever.
+                fetchedAt: providerSnapshot.windows.isEmpty
+                    ? max(providerSnapshot.fetchedAt, effortFetchedAt)
+                    : providerSnapshot.fetchedAt
             )
         }
 
