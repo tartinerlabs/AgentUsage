@@ -31,7 +31,7 @@ struct LargeWidgetView: View {
                 Spacer(minLength: 0)
                 WidgetFreshnessLabel(
                     entry: entry,
-                    fetchedAt: glances.map(\.fetchedAt).min(),
+                    fetchedAt: glances.map(\.fetchedAt).max(),
                     font: .caption
                 )
             }

@@ -316,7 +316,7 @@ struct MenuBarView: View {
                     .foregroundStyle(.tertiary)
             }
             Spacer()
-            if let fetchedAt = oldestProviderFetchDate {
+            if let fetchedAt = latestProviderFetchDate {
                 LastUpdatedLabel(
                     relativeText: DateFormatters.relativeDescription(from: fetchedAt, to: now),
                     isCached: viewModel.isUsingCachedData,
@@ -331,10 +331,10 @@ struct MenuBarView: View {
         .padding(.vertical, 8)
     }
 
-    /// Global freshness must describe the stalest visible provider so a recent
-    /// refresh from one service cannot mask old data from another.
-    private var oldestProviderFetchDate: Date? {
-        viewModel.availableProviderSnapshots.map(\.fetchedAt).min()
+    /// Global freshness reports the most recent visible provider fetch so the
+    /// label tracks the latest successful refresh.
+    private var latestProviderFetchDate: Date? {
+        viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
     }
 }
 
