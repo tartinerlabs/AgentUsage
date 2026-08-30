@@ -93,7 +93,9 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.hasProviderData(.codex))
         #expect(viewModel.hasProviderData(.cursor))
         #expect(!viewModel.hasProviderData(.claude))
-        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex, .cursor])
+        // Cursor is 24% into a barely-started 31-day window (pace warning);
+        // Codex is 42% with most of a 5-hour window elapsed (on track).
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.cursor, .codex])
         #if os(macOS)
         #expect(viewModel.providerDetails[.codex]?.hasTokenUsage == false)
         #expect(viewModel.providerDetails[.codex]?.effortSummaries.isEmpty == true)
