@@ -68,6 +68,8 @@ public enum UsageWindowType: String, Sendable, Codable {
     case openCodeGoFiveHour
     case openCodeGoWeekly
     case openCodeGoMonthly
+    /// SuperGrok unified weekly credit pool (`creditUsagePercent`).
+    case grokWeekly
     /// Compatibility value for provider-defined windows unknown to older clients.
     case custom
 
@@ -83,6 +85,7 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .openCodeGoFiveHour: "Rolling Usage"
         case .openCodeGoWeekly: "Weekly Usage"
         case .openCodeGoMonthly: "Monthly Usage"
+        case .grokWeekly: "Weekly limit"
         case .custom: "Usage"
         }
     }
@@ -99,6 +102,7 @@ public enum UsageWindowType: String, Sendable, Codable {
         case .openCodeGoFiveHour: 5 * 60 * 60
         case .openCodeGoWeekly: 7 * 24 * 60 * 60
         case .openCodeGoMonthly: 30 * 24 * 60 * 60
+        case .grokWeekly: 7 * 24 * 60 * 60
         case .custom: 0
         }
     }

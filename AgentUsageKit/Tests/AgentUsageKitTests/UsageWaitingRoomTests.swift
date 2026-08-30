@@ -57,11 +57,11 @@ struct UsageWaitingRoomTests {
         )
     }
 
-    @Test func grokNeverQualifiesWithoutRateWindows() {
+    @Test func grokWeeklyAtLimitGetsResetAlertOnly() {
         let window = makeWindow(
             utilization: 100,
-            resetsAt: now.addingTimeInterval(3600),
-            type: .session
+            resetsAt: now.addingTimeInterval(3 * 24 * 3600),
+            type: .grokWeekly
         )
 
         #expect(
@@ -72,7 +72,7 @@ struct UsageWaitingRoomTests {
             )
         )
         #expect(
-            !UsageWaitingRoom.needsResetAlert(
+            UsageWaitingRoom.needsResetAlert(
                 provider: .grok,
                 window: window,
                 now: now
