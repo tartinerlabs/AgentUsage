@@ -93,7 +93,9 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.hasProviderData(.codex))
         #expect(viewModel.hasProviderData(.cursor))
         #expect(!viewModel.hasProviderData(.claude))
-        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex, .cursor])
+        // Cursor is 24% into a barely-started 31-day window (pace warning);
+        // Codex is 42% with most of a 5-hour window elapsed (on track).
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.cursor, .codex])
         #if os(macOS)
         #expect(viewModel.providerDetails[.codex]?.hasTokenUsage == false)
         #expect(viewModel.providerDetails[.codex]?.effortSummaries.isEmpty == true)
@@ -101,7 +103,7 @@ struct UsageViewModelInitialStateTests {
         #endif
     }
 
-    @Test @MainActor func availableProviderSnapshotsFollowProviderOrderAndBridgeClaude() async {
+    @Test @MainActor func availableProviderSnapshotsFollowUrgencyOrderAndBridgeClaude() async {
         let testDefaults = TestUserDefaults()
         let fetchedAt = Date()
         let claudeSnapshot = UsageSnapshot(
@@ -156,10 +158,10 @@ struct UsageViewModelInitialStateTests {
             defaults: testDefaults.defaults
         )
 
-        #expect(viewModel.availableProviders == [.claude, .codex, .cursor])
-        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.claude, .codex, .cursor])
-        #expect(viewModel.availableProviderSnapshots.first?.planName == "Max")
-        #expect(viewModel.availableProviderSnapshots.first?.windows.map(\.windowType) == [.session, .opus])
+        #expect(viewModel.availableProviders == [.codex, .cursor, .claude])
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex, .cursor, .claude])
+        #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Max")
+        #expect(viewModel.usageSnapshot(for: .claude)?.windows.map(\.windowType) == [.session, .opus])
     }
 
     @Test @MainActor func cacheLoadBridgesClaudeOnlySnapshotIntoProviderUsage() async {

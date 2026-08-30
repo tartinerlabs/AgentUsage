@@ -48,7 +48,7 @@ struct WidgetEntry: TimelineEntry {
         return snapshots.first { $0.provider == provider }?.liveWindows(now: date) ?? []
     }
 
-    /// One live window per provider with quota data, in canonical provider order.
+    /// One live window per provider with quota data, hottest first.
     var glanceWindows: [WidgetGlanceWindow] {
         UsageActivitySelection.glanceWindows(
             in: snapshots,
