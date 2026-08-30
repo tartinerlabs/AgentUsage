@@ -35,6 +35,9 @@ nonisolated extension Logger {
     /// Cursor live-usage service logging (dashboard usage and auth fallback)
     static let cursor = Logger(subsystem: subsystem, category: "Cursor")
 
+    /// Grok live-usage service logging (cli-chat-proxy billing fetch, token refresh)
+    static let grok = Logger(subsystem: subsystem, category: "Grok")
+
     /// Notification service logging
     static let notifications = Logger(subsystem: subsystem, category: "Notifications")
 

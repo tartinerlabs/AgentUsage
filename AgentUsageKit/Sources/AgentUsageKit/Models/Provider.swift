@@ -77,6 +77,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .grok:
             [
                 ProviderLink(label: "Status", urlString: "https://status.x.ai"),
+                ProviderLink(label: "Usage", urlString: "https://grok.com/?_s=usage"),
                 ProviderLink(label: "Console", urlString: "https://console.x.ai"),
             ]
         }
@@ -99,7 +100,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCode: [.rateWindows, .tokenCost]
         case .openCodeGo: [.rateWindows, .tokenCost]
         case .cursor: [.rateWindows]
-        case .grok: [.tokenCost]
+        case .grok: [.rateWindows, .tokenCost]
         }
     }
 

@@ -31,7 +31,7 @@ One SwiftUI product that adapts per OS. It is not a website and not an Android a
 ## Capabilities and Constraints
 
 - **Providers:** Claude, Codex, Cursor, and Grok are wired. OpenCode and OpenCode Go have implementations and tests but are deliberately unwired — usage is currently unreliable; do not re-enable to make a provider "work."
-- **Two data seams:** live quota windows (`ProviderUsageServiceProtocol`) and local token/cost logs (`UsageLogSource` → `ProviderUsageEntry`). Check each provider's `Capability` set; Grok is token/cost only and has no live quota API.
+- **Two data seams:** live quota windows (`ProviderUsageServiceProtocol`) and local token/cost logs (`UsageLogSource` → `ProviderUsageEntry`). Check each provider's `Capability` set; Grok has both SuperGrok weekly windows (cli-chat-proxy billing) and local token/cost estimates.
 - **macOS-only collection.** Credentials come from the Keychain (`security`), not the filesystem. Log reads require a folder grant. `NSHomeDirectory()` is the sandbox container; real home is `Constants.realHomeDirectory`.
 - **iOS is a mirror.** `iOSCredentialService` exists, but the Claude credentials path it refers to does not exist on iOS.
 - **Persistence** is SwiftData pinned to the App Group. Dropping `groupContainer:` orphans existing stores.

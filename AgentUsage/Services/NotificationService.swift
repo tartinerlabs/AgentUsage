@@ -401,7 +401,7 @@ actor NotificationService: NotificationServiceProtocol {
             windowDescription = "5-hour session"
         case .openCodeGoFiveHour:
             windowDescription = "rolling"
-        case .opus, .sonnet, .design, .fable, .codexWeekly, .openCodeGoWeekly:
+        case .opus, .sonnet, .design, .fable, .codexWeekly, .openCodeGoWeekly, .grokWeekly:
             windowDescription = "weekly"
         case .openCodeGoMonthly:
             windowDescription = "monthly"

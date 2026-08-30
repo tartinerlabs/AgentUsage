@@ -1211,10 +1211,9 @@ extension UsageViewModel {
                 rateLimitResetCredits: providerSnapshot.rateLimitResetCredits,
                 effortSummaries: providerDetails[provider]?.effortSummaries
                     ?? providerSnapshot.effortSummaries,
-                // Providers without rate-limit windows (Grok, and any provider
-                // whose quota endpoint is unavailable) are refreshed by the local
-                // log scan, so their freshness is the latest of the two — without
-                // this the first-seen stamp would be carried forever.
+                // Providers whose quota endpoint returned no windows are refreshed
+                // by the local log scan, so their freshness is the latest of the two
+                // — without this the first-seen stamp would be carried forever.
                 fetchedAt: providerSnapshot.windows.isEmpty
                     ? max(providerSnapshot.fetchedAt, effortFetchedAt)
                     : providerSnapshot.fetchedAt
@@ -1265,8 +1264,8 @@ extension UsageViewModel {
     }
 
     #if os(macOS)
-    /// Refresh per-provider detail: Codex rate-limit windows + Claude/Codex/OpenCode
-    /// token detail (today/yesterday/30-day, per-model, daily trend).
+    /// Refresh per-provider detail: Codex/Cursor/Grok rate-limit windows plus
+    /// Claude/Codex/Grok token detail (today/yesterday/30-day, per-model, daily trend).
     private func refreshProviderUsage() async {
         for (provider, service) in providerUsageServices {
             do {

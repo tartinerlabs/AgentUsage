@@ -232,9 +232,10 @@ struct ProviderTests {
             "https://cursor.com/dashboard",
         ])
 
-        #expect(Provider.grok.links.map(\.label) == ["Status", "Console"])
+        #expect(Provider.grok.links.map(\.label) == ["Status", "Usage", "Console"])
         #expect(Provider.grok.links.map(\.urlString) == [
             "https://status.x.ai",
+            "https://grok.com/?_s=usage",
             "https://console.x.ai",
         ])
 
@@ -258,11 +259,11 @@ struct ProviderTests {
         #expect(try JSONDecoder().decode(Provider.self, from: data) == .cursor)
     }
 
-    @Test func grokIsAnAdditiveTokenCostProvider() throws {
+    @Test func grokIsAnAdditiveRateWindowAndTokenCostProvider() throws {
         #expect(Provider.grok.displayName == "Grok")
         #expect(Provider.grok.iconName == "bolt.fill")
-        #expect(Provider.grok.capabilities == [.tokenCost])
-        #expect(Provider.grok.supports(.rateWindows) == false)
+        #expect(Provider.grok.capabilities == [.rateWindows, .tokenCost])
+        #expect(Provider.grok.supports(.rateWindows))
         #expect(Provider.grok.pricingProviderKey == "xai")
 
         let data = try JSONEncoder().encode(Provider.grok)
@@ -428,6 +429,7 @@ struct UsageWindowTypeTests {
         #expect(UsageWindowType.openCodeGoFiveHour.displayName == "Rolling Usage")
         #expect(UsageWindowType.openCodeGoWeekly.displayName == "Weekly Usage")
         #expect(UsageWindowType.openCodeGoMonthly.displayName == "Monthly Usage")
+        #expect(UsageWindowType.grokWeekly.displayName == "Weekly limit")
     }
 
     @Test func totalDurations() {
@@ -442,6 +444,7 @@ struct UsageWindowTypeTests {
 
         // Fable: 7 days
         #expect(UsageWindowType.fable.totalDuration == 7 * 24 * 60 * 60)
+        #expect(UsageWindowType.grokWeekly.totalDuration == 7 * 24 * 60 * 60)
     }
 
     @Test func codable() throws {

@@ -86,6 +86,7 @@ enum DependencyContainer {
         [
             .codex: CodexUsageService(),
             .cursor: CursorUsageService(),
+            .grok: GrokUsageService(),
             // .openCodeGo: OpenCodeGoLocalUsageService(), // Disabled: OpenCode usage is currently unreliable.
         ]
     }

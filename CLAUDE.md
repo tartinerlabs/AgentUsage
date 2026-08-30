@@ -73,10 +73,13 @@ user grants these paths in Settings → Local Data Access. Under the sandbox,
 `Constants.realHomeDirectory`, which resolves the true home via
 `getpwuid(getuid())` (`Constants.swift:133`).
 
-**Grok has no live quota API.** `Provider.grok` is `.tokenCost` only. Grok Build
-does not log billable input/output tokens; `GrokLogSource` estimates them from
-the per-turn context-fill curve in `updates.jsonl`. Do not add an unofficial
-grok.com billing scrape to make rate windows "work".
+**Grok subscription windows come from Grok Build's billing API.** `Provider.grok`
+is `.rateWindows` and `.tokenCost`. Live quota is `GET`
+`https://cli-chat-proxy.grok.com/v1/billing?format=credits` with the session
+token in `~/.grok/auth.json` — the same JSON Grok Build `/usage` uses, not a
+grok.com HTML scrape. Grok Build still does not log billable input/output
+tokens; `GrokLogSource` estimates spend from the per-turn context-fill curve in
+`updates.jsonl`.
 
 **The SwiftData store is pinned to the App Group.** `AgentUsageApp.swift:66`
 passes `ModelConfiguration(groupContainer: .identifier(Constants.appGroupIdentifier))`

@@ -32,7 +32,7 @@ struct MenuBarSettingsManagerTests {
     @Test @MainActor func compositionRootRegistersCursorUnconditionally() {
         let services = DependencyContainer.createProviderUsageServices()
 
-        #expect(Set(services.keys) == [.codex, .cursor])
+        #expect(Set(services.keys) == [.codex, .cursor, .grok])
     }
 
     @Test @MainActor func cursorStaysOutOfCompactStripPins() {

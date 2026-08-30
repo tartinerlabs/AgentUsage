@@ -213,7 +213,7 @@ struct NotificationServiceTests {
         #expect(await center.removedIdentifiers() == ["reset.claude.session.2000003600"])
     }
 
-    @Test func grokWindowsDoNotScheduleResetAlerts() async {
+    @Test func grokWeeklyNearLimitSchedulesResetAlerts() async {
         let center = RecordingUserNotificationCenterClient()
         let service = makeService(
             center: center,
@@ -226,13 +226,13 @@ struct NotificationServiceTests {
                 provider: .grok,
                 utilization: 100,
                 resetsAt: now.addingTimeInterval(3_600),
-                type: .session,
+                type: .grokWeekly,
                 now: now
             )],
             now: now
         )
 
-        #expect(await center.notifications().isEmpty)
+        #expect(await center.pendingIdentifiers() == ["reset.grok.grokWeekly.2000003600"])
     }
 
     @Test func extraUsageAlertsOncePerActivation() async {

@@ -69,6 +69,17 @@ nonisolated enum Constants {
     static let cursorUsageSummaryURL = URL(string: "https://cursor.com/api/usage-summary")!
     static let cursorLegacyUsageURL = URL(string: "https://cursor.com/api/usage")!
     static let cursorOAuthClientID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB"
+
+    // MARK: - Grok (SuperGrok / Grok Build live usage)
+    /// Same JSON billing endpoint Grok Build uses for `/usage`. Session OAuth from
+    /// `~/.grok/auth.json`; this is not a grok.com HTML scrape.
+    static let grokBillingURL = URL(string: "https://cli-chat-proxy.grok.com/v1/billing")!
+    static let grokBillingCreditsURL = URL(string: "https://cli-chat-proxy.grok.com/v1/billing?format=credits")!
+    static let grokTokenRefreshURL = URL(string: "https://auth.x.ai/oauth2/token")!
+    static let grokClientSurfaceHeader = "x-grok-client-surface"
+    static let grokClientVersionHeader = "x-grok-client-version"
+    static let grokClientSurface = "grok-build"
+    static let grokClientVersionFallback = "1.0.0"
     static let cursorConnectProtocolVersionHeader = "Connect-Protocol-Version"
     static let cursorKeychainAccessTokenService = "cursor-access-token"
     static let cursorKeychainRefreshTokenService = "cursor-refresh-token"
@@ -223,6 +234,16 @@ nonisolated enum Constants {
     /// Grok Build session directories (`summary.json` + `updates.jsonl` per session).
     nonisolated static var grokSessionsDirectories: [URL] {
         [grokHomeDirectory.appendingPathComponent("sessions")]
+    }
+
+    /// Grok Build OAuth credentials (`auth.json`). Honors `GROK_HOME`.
+    nonisolated static var grokAuthFileURLs: [URL] {
+        [grokHomeDirectory.appendingPathComponent("auth.json")]
+    }
+
+    /// Installed Grok Build version (`version.json`), used as `x-grok-client-version`.
+    nonisolated static var grokVersionFileURLs: [URL] {
+        [grokHomeDirectory.appendingPathComponent("version.json")]
     }
 
     /// OpenCode SQLite database (XDG data home, with fallback).
