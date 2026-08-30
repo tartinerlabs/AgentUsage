@@ -99,7 +99,7 @@ public final class WidgetDataStorage: Sendable {
         return WidgetUsagePayload(snapshot: snapshot, providerSnapshots: [])
     }
 
-    /// Provider snapshots available to WidgetKit, in canonical provider order.
+    /// Provider snapshots available to WidgetKit, in the published payload order.
     public func loadProviderSnapshots() -> [ProviderUsageSnapshot] {
         loadPayload()?.providerSnapshots ?? []
     }

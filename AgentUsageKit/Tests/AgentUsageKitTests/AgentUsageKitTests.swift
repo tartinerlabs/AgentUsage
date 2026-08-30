@@ -325,7 +325,7 @@ struct UsageActivitySelectionTests {
         #expect(UsageActivitySelection.mostUrgent(in: [], now: now) == nil)
     }
 
-    @Test func glanceWindowsStayInCanonicalOrderAndHonorPreferredWindow() {
+    @Test func glanceWindowsOrderByUrgencyAndHonorPreferredWindow() {
         let now = Date()
         let claude = ProviderUsageSnapshot(
             provider: .claude,
@@ -344,7 +344,7 @@ struct UsageActivitySelectionTests {
         )
         let cursor = snapshot(
             provider: .cursor,
-            utilization: 10,
+            utilization: 92,
             resetsIn: 86_400,
             now: now,
             windowID: "cursor.monthly"
@@ -357,9 +357,42 @@ struct UsageActivitySelectionTests {
             now: now
         )
 
-        #expect(glances.map(\.provider) == [.claude, .codex, .cursor])
-        #expect(glances.first?.window.windowID.rawValue == "session")
+        #expect(glances.map(\.provider) == [.cursor, .codex, .claude])
+        #expect(glances.last?.window.windowID.rawValue == "session")
         #expect(glances.contains { $0.provider == .grok } == false)
+    }
+
+    @Test func sortedByUrgencyPutsLiveQuotaBeforeEmptyWindowsAndBreaksTiesCanonically() {
+        let now = Date()
+        let grok = ProviderUsageSnapshot(provider: .grok, windows: [], fetchedAt: now)
+        let cursor = snapshot(
+            provider: .cursor,
+            utilization: 91,
+            resetsIn: 3_600,
+            now: now,
+            windowID: "cursor.monthly"
+        )
+        let claude = snapshot(
+            provider: .claude,
+            utilization: 91,
+            resetsIn: 3_600,
+            now: now,
+            type: .session
+        )
+        let expiredCodex = snapshot(
+            provider: .codex,
+            utilization: 99,
+            resetsIn: -60,
+            now: now,
+            type: .codexFiveHour
+        )
+
+        let ordered = UsageActivitySelection.sortedByUrgency(
+            [grok, cursor, expiredCodex, claude],
+            now: now
+        )
+
+        #expect(ordered.map(\.provider) == [.claude, .cursor, .codex, .grok])
     }
 
     @Test func primaryWindowFallsBackToMostUrgentWhenPreferredIsExpired() {

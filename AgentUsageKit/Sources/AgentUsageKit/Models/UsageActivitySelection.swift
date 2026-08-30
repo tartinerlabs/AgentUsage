@@ -38,14 +38,14 @@ public struct UsageActivitySelection: Sendable, Codable, Hashable {
             .map { UsageActivitySelection(provider: $0.provider, windowID: $0.window.windowID) }
     }
 
-    /// One live window per provider that currently has quota data, in canonical
-    /// provider order. A configured selection wins for that provider only.
+    /// One live window per provider that currently has quota data, hottest first.
+    /// A configured selection wins for that provider only.
     public static func glanceWindows(
         in snapshots: [ProviderUsageSnapshot],
         preferring selection: UsageActivitySelection?,
         now: Date
     ) -> [WidgetGlanceWindow] {
-        Provider.allCases.compactMap { provider in
+        let glances = Provider.allCases.compactMap { provider -> WidgetGlanceWindow? in
             guard let snapshot = snapshots.first(where: { $0.provider == provider }),
                   let window = snapshot.primaryWindow(preferring: selection, now: now) else {
                 return nil
@@ -55,6 +55,54 @@ public struct UsageActivitySelection: Sendable, Codable, Hashable {
                 window: window,
                 fetchedAt: snapshot.fetchedAt
             )
+        }
+        return glances.sorted { lhs, rhs in
+            precedesByUrgency(
+                lhsWindow: lhs.window,
+                lhsProvider: lhs.provider,
+                rhsWindow: rhs.window,
+                rhsProvider: rhs.provider,
+                now: now
+            )
+        }
+    }
+
+    /// Snapshots ordered by live `primaryWindow` urgency. No live window sorts last;
+    /// equal urgency uses canonical `Provider` order.
+    public static func sortedByUrgency(
+        _ snapshots: [ProviderUsageSnapshot],
+        now: Date
+    ) -> [ProviderUsageSnapshot] {
+        snapshots.sorted { lhs, rhs in
+            precedesByUrgency(
+                lhsWindow: lhs.primaryWindow(now: now),
+                lhsProvider: lhs.provider,
+                rhsWindow: rhs.primaryWindow(now: now),
+                rhsProvider: rhs.provider,
+                now: now
+            )
+        }
+    }
+
+    /// `true` when `lhs` should appear before `rhs` (more urgent first).
+    private static func precedesByUrgency(
+        lhsWindow: UsageWindow?,
+        lhsProvider: Provider,
+        rhsWindow: UsageWindow?,
+        rhsProvider: Provider,
+        now: Date
+    ) -> Bool {
+        switch (lhsWindow, rhsWindow) {
+        case (let left?, let right?):
+            if left.isLessUrgent(than: right, now: now) { return false }
+            if right.isLessUrgent(than: left, now: now) { return true }
+            return lhsProvider.sortIndex < rhsProvider.sortIndex
+        case (nil, nil):
+            return lhsProvider.sortIndex < rhsProvider.sortIndex
+        case (nil, _):
+            return false
+        case (_, nil):
+            return true
         }
     }
 }
@@ -109,7 +157,7 @@ extension UsageWindow {
 }
 
 extension Provider {
-    fileprivate var sortIndex: Int {
+    var sortIndex: Int {
         Self.allCases.firstIndex(of: self) ?? Self.allCases.count
     }
 }

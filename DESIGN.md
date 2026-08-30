@@ -241,7 +241,8 @@ Corner radius is assigned by component scale:
   reset-credits line, optional extra-usage bar, and a cost section. `.detail` also shows links,
   a service-down banner, yesterday, sparkline, effort, and models when those fields exist. Fill
   = Timefold Ink @ 0.06, border @ 0.15. `compact` toggles paddings/fonts only. The iOS dashboard
-  Usage segment is a `.summary` stack in `availableProviders` order; the iOS/iPad provider
+  Usage segment is a `.summary` stack in urgency order (worst status, then higher
+  utilization, then sooner reset; canonical provider order breaks ties); the iOS/iPad provider
   destination and the macOS dashboard/popover provider page use `.detail`. A segmented control
   (Usage / Activity / Effort) is the landing-screen disclosure: Usage is the default glance,
   Activity holds Live Activity controls, and Effort holds the cross-provider effort card.
