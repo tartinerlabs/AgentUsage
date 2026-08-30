@@ -861,8 +861,11 @@ extension UsageViewModel {
     }
 
     /// Providers that have rate-limit data or token-cost detail to present.
+    ///
+    /// Quota snapshots are hottest-first (same urgency rules as widgets). Providers
+    /// with only local token or effort data follow in canonical `Provider` order.
     var availableProviders: [Provider] {
-        Provider.allCases.filter { provider in
+        let members = Provider.allCases.filter { provider in
             guard !Self.disabledProviders.contains(provider) else { return false }
             if usageSnapshot(for: provider) != nil { return true }
             #if os(macOS)
@@ -872,9 +875,16 @@ extension UsageViewModel {
             #endif
             return false
         }
+        let snapshots = members.compactMap { usageSnapshot(for: $0) }
+        let orderedQuota = UsageActivitySelection.sortedByUrgency(snapshots, now: Date())
+            .map(\.provider)
+        let remainder = members.filter { provider in
+            !orderedQuota.contains(provider)
+        }
+        return orderedQuota + remainder
     }
 
-    /// Provider snapshots in the same deterministic order as `availableProviders`.
+    /// Provider snapshots in the same urgency order as `availableProviders`.
     var availableProviderSnapshots: [ProviderUsageSnapshot] {
         availableProviders.compactMap { usageSnapshot(for: $0) }
     }
