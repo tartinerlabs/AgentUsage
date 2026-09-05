@@ -131,8 +131,11 @@ nonisolated enum Constants {
         static let tokenURL = URL(string: "https://ruchern.dev/api/auth/oauth2/token")!
         static let registerURL = URL(string: "https://ruchern.dev/api/auth/oauth2/register")!
         static let userinfoURL = URL(string: "https://ruchern.dev/api/auth/oauth2/userinfo")!
-        static let redirectURI = "agentusage://oauth-callback"
-        static let callbackScheme = "agentusage"
+        /// RFC 8252 private-use URI (reverse-domain scheme, no host, single slash).
+        /// Better Auth 1.7 treats omitted `application_type` as web and rejects
+        /// `agentusage://oauth-callback` (host present, not reverse-domain).
+        static let redirectURI = "com.tartinerlabs.agentusage:/oauth-callback"
+        static let callbackScheme = "com.tartinerlabs.agentusage"
         static let scopes = "openid profile email offline_access mcp"
         /// RFC 8707 resource indicator — ensures the access token is issued as a JWT.
         /// Must equal the Better Auth base URL (the OIDC `issuer`); the provider's
@@ -142,7 +145,9 @@ nonisolated enum Constants {
         static let clientName = "AgentUsage"
         static let tokensKeychainAccount = "blog-oauth-tokens"
         /// Persisted dynamically-registered client_id (UserDefaults).
-        static let clientIDDefaultsKey = "blogOAuthClientID"
+        /// Namespaced after the 1.7 native redirect URI change so a 1.6
+        /// `blogOAuthClientID` is not reused with the new redirect.
+        static let clientIDDefaultsKey = "blogOAuthClientID.native"
     }
 
     // MARK: - macOS Only (file system access)
