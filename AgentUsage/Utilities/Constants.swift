@@ -138,9 +138,10 @@ nonisolated enum Constants {
         static let callbackScheme = "com.tartinerlabs.agentusage"
         static let scopes = "openid profile email offline_access mcp"
         /// RFC 8707 resource indicator — ensures the access token is issued as a JWT.
-        /// Must equal the Better Auth base URL (the OIDC `issuer`); the provider's
-        /// `checkResource` only accepts its own baseURL as a valid audience, and the
-        /// resource server verifies the token's `aud` against the same value.
+        /// Must equal the OIDC issuer / protected-resource identifier advertised at
+        /// `/.well-known/oauth-protected-resource`. Better Auth binds this to the
+        /// client via DCR `resources` (or MCP's default resource) and puts it in
+        /// the access token `aud`; authorize returns `invalid_target` otherwise.
         static let resource = "https://ruchern.dev/api/auth"
         static let clientName = "AgentUsage"
         static let tokensKeychainAccount = "blog-oauth-tokens"
