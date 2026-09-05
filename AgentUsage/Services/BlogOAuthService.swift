@@ -56,6 +56,8 @@ enum BlogOAuthError: LocalizedError, Sendable {
     case stateMismatch
     case missingCode
     case invalidCallback
+    /// Authorize endpoint redirected back with `error=` (RFC 6749 / RFC 8707).
+    case authorizationDenied(String)
     case tokenExchangeFailed(Int, String)
     case refreshFailed
     case noRefreshToken
@@ -76,6 +78,8 @@ enum BlogOAuthError: LocalizedError, Sendable {
             return "Sign in failed: no authorization code returned."
         case .invalidCallback:
             return "Sign in failed: invalid callback."
+        case .authorizationDenied(let error):
+            return "Sign in failed: \(error)"
         case .tokenExchangeFailed(let code, let detail):
             return "Token exchange failed (\(code)): \(detail)"
         case .refreshFailed:
@@ -103,6 +107,27 @@ nonisolated struct BlogOAuthRegistrationRequest: Encodable, Equatable {
     let grant_types = ["authorization_code", "refresh_token"]
     let response_types = ["code"]
     let scope = Constants.BlogOAuth.scopes
+    /// RFC 7591 extension consumed by Better Auth to link the client to the
+    /// RFC 8707 resource. Omitted when `nil` so registration can fall back if
+    /// the provider's DCR allowlist rejects an explicit request.
+    var resources: [String]? = [Constants.BlogOAuth.resource]
+
+    enum CodingKeys: String, CodingKey {
+        case client_name, application_type, token_endpoint_auth_method
+        case redirect_uris, grant_types, response_types, scope, resources
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(client_name, forKey: .client_name)
+        try container.encode(application_type, forKey: .application_type)
+        try container.encode(token_endpoint_auth_method, forKey: .token_endpoint_auth_method)
+        try container.encode(redirect_uris, forKey: .redirect_uris)
+        try container.encode(grant_types, forKey: .grant_types)
+        try container.encode(response_types, forKey: .response_types)
+        try container.encode(scope, forKey: .scope)
+        try container.encodeIfPresent(resources, forKey: .resources)
+    }
 }
 
 // MARK: - Service
@@ -129,6 +154,10 @@ actor BlogOAuthService: BlogAccessTokenProviding {
     /// Run the full interactive sign-in flow and persist the resulting tokens.
     @discardableResult
     func signIn() async throws -> BlogOAuthTokens {
+        try await signIn(retryingOnInvalidTarget: true)
+    }
+
+    private func signIn(retryingOnInvalidTarget: Bool) async throws -> BlogOAuthTokens {
         let config = await loadOIDCConfig()
         let clientID = try await registerClientIfNeeded(config: config)
 
@@ -143,7 +172,20 @@ actor BlogOAuthService: BlogAccessTokenProviding {
             url: authURL, callbackScheme: Constants.BlogOAuth.callbackScheme
         )
 
-        let (code, returnedState) = try parseCallback(callbackURL)
+        let code: String
+        let returnedState: String?
+        do {
+            (code, returnedState) = try parseCallback(callbackURL)
+        } catch BlogOAuthError.authorizationDenied("invalid_target") where retryingOnInvalidTarget {
+            // Better Auth 1.7+ binds RFC 8707 resources per client. A client
+            // registered before that model (or without a resource link) is still
+            // a valid `client_id` but authorize rejects `resource=` with
+            // `invalid_target`. Drop the cache and re-register once.
+            Logger.api.info("Blog OAuth: invalid_target, re-registering client")
+            defaults.removeObject(forKey: Constants.BlogOAuth.clientIDDefaultsKey)
+            return try await signIn(retryingOnInvalidTarget: false)
+        }
+
         guard returnedState == state else { throw BlogOAuthError.stateMismatch }
 
         var tokens = try await exchangeCode(
@@ -236,6 +278,30 @@ actor BlogOAuthService: BlogAccessTokenProviding {
             Logger.api.info("Blog OAuth: cached client_id no longer valid, re-registering")
             defaults.removeObject(forKey: Constants.BlogOAuth.clientIDDefaultsKey)
         }
+        guard config.registrationEndpoint != nil else {
+            throw BlogOAuthError.registrationFailed("no registration endpoint")
+        }
+
+        do {
+            return try await postRegistration(BlogOAuthRegistrationRequest(), config: config)
+        } catch BlogOAuthError.registrationFailed(let detail) {
+            // Don't retry a transport failure as a metadata problem.
+            if detail.hasPrefix("network error:") {
+                throw BlogOAuthError.registrationFailed(detail)
+            }
+            // Explicit `resources` is rejected when the provider has no DCR
+            // resource allowlist. Retry without it — MCP still links its
+            // default resource on new clients.
+            Logger.api.info("Blog OAuth: registration with resources failed (\(detail, privacy: .public)); retrying without")
+            var fallback = BlogOAuthRegistrationRequest()
+            fallback.resources = nil
+            return try await postRegistration(fallback, config: config)
+        }
+    }
+
+    private func postRegistration(
+        _ body: BlogOAuthRegistrationRequest, config: BlogOIDCConfig
+    ) async throws -> String {
         guard let registrationURL = config.registrationEndpoint else {
             throw BlogOAuthError.registrationFailed("no registration endpoint")
         }
@@ -248,7 +314,7 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         // Better Auth rejects requests with a missing/null Origin (MISSING_OR_NULL_ORIGIN).
         // URLSession sends no Origin by default, so set it to the trusted issuer origin.
         request.setValue(Constants.BlogOAuth.issuer, forHTTPHeaderField: "Origin")
-        request.httpBody = try JSONEncoder().encode(BlogOAuthRegistrationRequest())
+        request.httpBody = try JSONEncoder().encode(body)
 
         let data: Data
         let response: URLResponse
@@ -269,19 +335,22 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         return decoded.client_id
     }
 
-    /// Probe the authorization endpoint to confirm a cached `client_id` still exists.
+    /// Probe the authorization endpoint to confirm a cached `client_id` still exists
+    /// and is entitled to the RFC 8707 resource.
     ///
-    /// For an unknown client the provider replies `302 → …?error=invalid_client`; for a
-    /// known one it replies `302 → /login?…` (no session) or another non-error redirect.
-    /// We block the redirect and inspect the `Location` header so a single un-followed
-    /// request is enough — no page load, no session cookies.
+    /// For an unknown client the provider replies `302 → …?error=invalid_client`;
+    /// for a client that cannot request `resource` it replies `error=invalid_target`;
+    /// for a known, entitled one it replies `302 → /login?…` (no session) or another
+    /// non-error redirect. We block the redirect and inspect the `Location` header
+    /// so a single un-followed request is enough — no page load, no session cookies.
     private func cachedClientIsValid(_ clientID: String, config: BlogOIDCConfig) async -> Bool {
         var components = URLComponents(url: config.authorizationEndpoint, resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id", value: clientID),
             URLQueryItem(name: "redirect_uri", value: Constants.BlogOAuth.redirectURI),
-            URLQueryItem(name: "scope", value: Constants.BlogOAuth.scopes)
+            URLQueryItem(name: "scope", value: Constants.BlogOAuth.scopes),
+            URLQueryItem(name: "resource", value: Constants.BlogOAuth.resource)
         ]
         guard let url = components.url else { return false }
         var request = URLRequest(url: url)
@@ -296,7 +365,11 @@ actor BlogOAuthService: BlogAccessTokenProviding {
                 // a genuinely-broken client_id still surfaces in the interactive flow.
                 return true
             }
+            // `invalid_client`: the cached id no longer exists.
+            // `invalid_target`: the client exists but is not entitled to the
+            // RFC 8707 resource (Better Auth per-client resource links).
             return !location.contains("error=invalid_client")
+                && !location.contains("error=invalid_target")
         } catch {
             // Network failure: don't force a re-registration over a transient error.
             return true
@@ -328,7 +401,7 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         }
         let items = components.queryItems ?? []
         if let error = items.first(where: { $0.name == "error" })?.value {
-            throw BlogOAuthError.tokenExchangeFailed(0, error)
+            throw BlogOAuthError.authorizationDenied(error)
         }
         guard let code = items.first(where: { $0.name == "code" })?.value else {
             throw BlogOAuthError.missingCode

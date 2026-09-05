@@ -35,6 +35,21 @@ struct BlogOAuthRegistrationTests {
         let uris = try #require(json["redirect_uris"] as? [String])
         #expect(uris == ["com.tartinerlabs.agentusage:/oauth-callback"])
         #expect(uris.count == 1)
+        #expect(json["resources"] as? [String] == ["https://ruchern.dev/api/auth"])
+    }
+
+    @Test func registrationJSONOmitsResourcesWhenCleared() throws {
+        var request = BlogOAuthRegistrationRequest()
+        request.resources = nil
+        let data = try JSONEncoder().encode(request)
+        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(json["resources"] == nil)
+        #expect(json["application_type"] as? String == "native")
+    }
+
+    @Test func authorizationDeniedErrorIsNotTokenExchange() {
+        let error = BlogOAuthError.authorizationDenied("invalid_target")
+        #expect(error.errorDescription == "Sign in failed: invalid_target")
     }
 }
 
