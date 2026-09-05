@@ -9,6 +9,35 @@ import Security
 import Testing
 @testable import AgentUsage
 
+@Suite("Blog OAuth registration")
+struct BlogOAuthRegistrationTests {
+    @Test func redirectURIIsRFC8252PrivateUse() throws {
+        let redirect = Constants.BlogOAuth.redirectURI
+        let url = try #require(URL(string: redirect))
+        #expect(url.scheme == "com.tartinerlabs.agentusage")
+        #expect(url.host == nil || url.host?.isEmpty == true)
+        let afterScheme = redirect.drop { $0 != ":" }.dropFirst()
+        #expect(afterScheme.hasPrefix("/"))
+        #expect(!afterScheme.hasPrefix("//"))
+        #expect(Constants.BlogOAuth.callbackScheme == url.scheme)
+        #expect(Constants.BlogOAuth.clientIDDefaultsKey != "blogOAuthClientID")
+    }
+
+    @Test func registrationJSONIsNativePublicClient() throws {
+        let data = try JSONEncoder().encode(BlogOAuthRegistrationRequest())
+        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(json["application_type"] as? String == "native")
+        #expect(json["token_endpoint_auth_method"] as? String == "none")
+        #expect(json["client_name"] as? String == "AgentUsage")
+        #expect(json["grant_types"] as? [String] == ["authorization_code", "refresh_token"])
+        #expect(json["response_types"] as? [String] == ["code"])
+        #expect(json["scope"] as? String == "openid profile email offline_access mcp")
+        let uris = try #require(json["redirect_uris"] as? [String])
+        #expect(uris == ["com.tartinerlabs.agentusage:/oauth-callback"])
+        #expect(uris.count == 1)
+    }
+}
+
 enum KeychainAccessGroups {
     static var isPresent: Bool {
         guard let task = SecTaskCreateFromSelf(nil) else { return false }

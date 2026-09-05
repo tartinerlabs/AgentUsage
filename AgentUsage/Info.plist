@@ -21,7 +21,7 @@
 			<string>com.tartinerlabs.AgentUsage.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>agentusage</string>
+				<string>com.tartinerlabs.agentusage</string>
 			</array>
 		</dict>
 	</array>

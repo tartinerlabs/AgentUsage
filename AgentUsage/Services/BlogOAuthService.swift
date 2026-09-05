@@ -90,6 +90,21 @@ enum BlogOAuthError: LocalizedError, Sendable {
     }
 }
 
+// MARK: - Dynamic client registration (RFC 7591)
+
+/// Body posted to Better Auth `/oauth2/register`. `application_type` must be
+/// `"native"` — omitting it defaults to `"web"` in Better Auth 1.7, which
+/// rejects RFC 8252 private-use redirect URIs.
+nonisolated struct BlogOAuthRegistrationRequest: Encodable, Equatable {
+    let client_name = Constants.BlogOAuth.clientName
+    let application_type = "native"
+    let token_endpoint_auth_method = "none"
+    let redirect_uris = [Constants.BlogOAuth.redirectURI]
+    let grant_types = ["authorization_code", "refresh_token"]
+    let response_types = ["code"]
+    let scope = Constants.BlogOAuth.scopes
+}
+
 // MARK: - Service
 
 actor BlogOAuthService: BlogAccessTokenProviding {
@@ -212,7 +227,7 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         if let existing = defaults.string(forKey: Constants.BlogOAuth.clientIDDefaultsKey), !existing.isEmpty {
             // A dynamically-registered client can vanish server-side (e.g. provider
             // data reset). The authorize endpoint then 302s to an `error=invalid_client`
-            // page on the *http* origin — outside the `agentusage://` callback scheme —
+            // page on the *http* origin — outside the private-use callback scheme —
             // so the interactive session can't surface it. Probe the cached client_id
             // up-front and re-register if it's no longer recognised.
             if await cachedClientIsValid(existing, config: config) {
@@ -225,14 +240,6 @@ actor BlogOAuthService: BlogAccessTokenProviding {
             throw BlogOAuthError.registrationFailed("no registration endpoint")
         }
 
-        struct RegistrationRequest: Encodable {
-            let client_name = Constants.BlogOAuth.clientName
-            let redirect_uris = [Constants.BlogOAuth.redirectURI]
-            let token_endpoint_auth_method = "none"
-            let grant_types = ["authorization_code", "refresh_token"]
-            let response_types = ["code"]
-            let scope = Constants.BlogOAuth.scopes
-        }
         struct RegistrationResponse: Decodable { let client_id: String }
 
         var request = URLRequest(url: registrationURL)
@@ -241,7 +248,7 @@ actor BlogOAuthService: BlogAccessTokenProviding {
         // Better Auth rejects requests with a missing/null Origin (MISSING_OR_NULL_ORIGIN).
         // URLSession sends no Origin by default, so set it to the trusted issuer origin.
         request.setValue(Constants.BlogOAuth.issuer, forHTTPHeaderField: "Origin")
-        request.httpBody = try JSONEncoder().encode(RegistrationRequest())
+        request.httpBody = try JSONEncoder().encode(BlogOAuthRegistrationRequest())
 
         let data: Data
         let response: URLResponse
