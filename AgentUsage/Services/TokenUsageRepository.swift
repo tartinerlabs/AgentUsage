@@ -99,15 +99,36 @@ actor TokenUsageQuerier {
         }
     }
 
-    /// Fetch complete snapshot for display
+    /// Fetch complete snapshot for display.
+    ///
+    /// The 30-day summary and its per-model breakdown are derived from a single fetch.
+    /// They used to call `fetchSummary(for: .last30Days)` and `fetchByModel(for: .last30Days)`
+    /// separately, which materialized the same ~28k-row window twice on every refresh.
     func fetchSnapshot() throws -> TokenUsageSnapshot {
         let today = try fetchSummary(for: .today)
-        let last30Days = try fetchSummary(for: .last30Days)
-        let byModel = try fetchByModel(for: .last30Days)
+
+        let startDate = UsagePeriod.last30Days.startDate
+        let descriptor = FetchDescriptor<TokenLogEntry>(
+            predicate: #Predicate { $0.timestamp >= startDate }
+        )
+
+        var totalTokens = TokenCount.zero
+        var totalCost = 0.0
+        var byModel: [String: TokenCount] = [:]
+        for entry in try modelContext.fetch(descriptor) {
+            let tokens = entry.tokenCount
+            totalTokens = totalTokens + tokens
+            totalCost += entry.costUSD
+            byModel[entry.modelName] = (byModel[entry.modelName] ?? .zero) + tokens
+        }
 
         return TokenUsageSnapshot(
             today: today,
-            last30Days: last30Days,
+            last30Days: TokenUsageSummary(
+                tokens: totalTokens,
+                costUSD: totalCost,
+                period: .last30Days
+            ),
             byModel: byModel,
             fetchedAt: Date()
         )
