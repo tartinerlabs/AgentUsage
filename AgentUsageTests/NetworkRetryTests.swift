@@ -20,9 +20,14 @@ struct APIErrorRetryTests {
         #expect(error.isRetryable == true)
     }
 
-    @Test func rateLimitedIsRetryable() {
-        let error = ClaudeAPIService.APIError.rateLimited(retryAfter: 60)
+    @Test func rateLimitedWithShortRetryAfterIsRetryable() {
+        let error = ClaudeAPIService.APIError.rateLimited(retryAfter: Constants.maxRetryDelay)
         #expect(error.isRetryable == true)
+    }
+
+    @Test func rateLimitedWithLongRetryAfterIsNotRetryable() {
+        let error = ClaudeAPIService.APIError.rateLimited(retryAfter: 758)
+        #expect(error.isRetryable == false)
     }
 
     @Test func rateLimitedWithoutRetryAfterIsRetryable() {

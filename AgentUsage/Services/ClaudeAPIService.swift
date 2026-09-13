@@ -50,7 +50,11 @@ actor ClaudeAPIService: APIServiceProtocol {
         /// Whether this error should trigger a retry
         var isRetryable: Bool {
             switch self {
-            case .networkError, .rateLimited, .serviceUnavailable:
+            case .rateLimited(let retryAfter):
+                // A Retry-After beyond the in-loop sleep cap means retrying early just adds
+                // requests the server already refused; leave it to the view model's cooldown.
+                return (retryAfter ?? 0) <= Constants.maxRetryDelay
+            case .networkError, .serviceUnavailable:
                 return true
             case .serverError(let code):
                 // Retry on 5xx server errors (except 501 Not Implemented)
@@ -159,6 +163,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             // Extract Retry-After header if present
             let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
                 .flatMap { Double($0) }
+            Logger.api.warning("Usage endpoint returned 429 (Retry-After: \(retryAfter.map { String(format: "%.0fs", $0) } ?? "none"))")
             throw APIError.rateLimited(retryAfter: retryAfter)
         case 503:
             throw APIError.serviceUnavailable
