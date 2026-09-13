@@ -332,9 +332,14 @@ struct MenuBarView: View {
     }
 
     /// Global freshness reports the most recent visible provider fetch so the
-    /// label tracks the latest successful refresh.
+    /// label tracks the latest successful refresh — unless Claude is on cached
+    /// data (e.g. rate limited), where another provider's fresh fetch would
+    /// otherwise read "just now" over stale Claude numbers.
     private var latestProviderFetchDate: Date? {
-        viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
+        if viewModel.isUsingCachedData, let claudeFetchedAt = viewModel.snapshot?.fetchedAt {
+            return claudeFetchedAt
+        }
+        return viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
     }
 }
 
