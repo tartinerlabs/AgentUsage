@@ -429,7 +429,8 @@ struct UsageViewModelRefreshGateTests {
         )
 
         // First cycle fails. The gate timestamp advances because the cycle ran.
-        await mockAPI.setMockError(ClaudeAPIService.APIError.rateLimited(retryAfter: 30))
+        // (Not a 429: that starts a cooldown that even a forced refresh respects.)
+        await mockAPI.setMockError(ClaudeAPIService.APIError.serverError(500))
         await viewModel.refresh(force: true)
         #expect(viewModel.snapshot == nil)
 
@@ -444,6 +445,34 @@ struct UsageViewModelRefreshGateTests {
         // A forced refresh bypasses the gate and applies the new snapshot.
         await viewModel.refresh(force: true)
         #expect(viewModel.snapshot != nil)
+    }
+
+    @Test @MainActor func forcedRefreshRespectsRateLimitCooldownAndSaysSo() async {
+        let testDefaults = TestUserDefaults()
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
+
+        await mockAPI.setMockError(ClaudeAPIService.APIError.rateLimited(retryAfter: 600))
+        await viewModel.refresh(force: true)
+        #expect(await mockAPI.fetchCallCount == 1)
+
+        // The endpoint would now succeed, but the cooldown is still active: a manual
+        // refresh must not call it, and must re-surface the rate-limit countdown.
+        await mockAPI.setMockError(nil)
+        await mockAPI.setMockSnapshot(makeSnapshot())
+        viewModel.errorMessage = nil
+        let outcome = await viewModel.refresh(force: true)
+
+        #expect(outcome == .skipped)
+        #expect(await mockAPI.fetchCallCount == 1)
+        #expect(viewModel.snapshot == nil)
+        #expect(viewModel.errorMessage?.hasPrefix("Rate limited. Try again in") == true)
     }
 }
 
