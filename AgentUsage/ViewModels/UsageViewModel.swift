@@ -330,8 +330,12 @@ final class UsageViewModel {
     private var hasInitialized = false
 
     /// While set and in the future, auto-refresh is suppressed because the endpoint
-    /// returned HTTP 429. Cleared on the next successful fetch.
-    private var rateLimitedUntil: Date?
+    /// returned HTTP 429. Cleared on the next successful fetch. Persisted so a relaunch
+    /// doesn't skip the cooldown and immediately hit the endpoint again.
+    private var rateLimitedUntil: Date? {
+        didSet { defaults.set(rateLimitedUntil, forKey: Self.rateLimitedUntilKey) }
+    }
+    private static let rateLimitedUntilKey = "claudeRateLimitedUntil"
 
     /// Overall status computed from the worst status across every provider's windows,
     /// not Claude's alone — a single app-wide indicator must reflect Codex too.
@@ -499,6 +503,7 @@ final class UsageViewModel {
         self.blogUsageSyncEnabled = defaults.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
         self.blogUsageSyncEndpointURLString = defaults.string(forKey: "blogUsageSyncEndpointURL")
             ?? BlogUsageSyncService.defaultEndpointURLString
+        self.rateLimitedUntil = defaults.object(forKey: Self.rateLimitedUntilKey) as? Date
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -528,6 +533,7 @@ final class UsageViewModel {
         self.autoPinLiveActivityAtLimit = defaults.bool(forKey: "autoPinLiveActivityAtLimit")
         self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
+        self.rateLimitedUntil = defaults.object(forKey: Self.rateLimitedUntilKey) as? Date
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
