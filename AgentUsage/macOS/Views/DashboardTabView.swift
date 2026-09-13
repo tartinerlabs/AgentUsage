@@ -511,9 +511,13 @@ struct DashboardTabView: View {
     }
 
     /// The aggregate badge reports the most recent visible snapshot so the badge
-    /// tracks the latest successful refresh.
+    /// tracks the latest successful refresh — unless Claude is on cached data,
+    /// where its own fetch time is shown so a fresh provider can't mask it.
     private var latestProviderFetchDate: Date? {
-        viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
+        if viewModel.isUsingCachedData, let claudeFetchedAt = viewModel.snapshot?.fetchedAt {
+            return claudeFetchedAt
+        }
+        return viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
     }
 }
 

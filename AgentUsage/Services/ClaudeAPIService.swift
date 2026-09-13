@@ -163,7 +163,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             // Extract Retry-After header if present
             let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
                 .flatMap { Double($0) }
-            Logger.api.warning("Usage endpoint returned 429 (Retry-After: \(retryAfter.map { String(format: "%.0fs", $0) } ?? "none"))")
+            Logger.api.warning("Usage endpoint returned 429 (Retry-After: \(retryAfter.map { String(format: "%.0fs", $0) } ?? "none", privacy: .public))")
             throw APIError.rateLimited(retryAfter: retryAfter)
         case 503:
             throw APIError.serviceUnavailable

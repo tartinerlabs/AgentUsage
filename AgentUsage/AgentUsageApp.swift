@@ -122,6 +122,9 @@ struct AgentUsageApp: App {
                 .environment(viewModel)
                 // .environmentObject(updaterController)
                 .task {
+                    // The unit-test host launches the full app; don't let it hit the real
+                    // usage endpoint with the user's credentials on every test run.
+                    guard !Self.isRunningTests else { return }
                     await viewModel.initializeIfNeeded()
                 }
         }
@@ -148,6 +151,7 @@ struct AgentUsageApp: App {
             MenuBarIconView()
                 .environment(viewModel)
                 .task {
+                    guard !Self.isRunningTests else { return }
                     await viewModel.initializeIfNeeded()
                 }
                 .task {
