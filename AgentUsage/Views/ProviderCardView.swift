@@ -36,7 +36,10 @@ struct ProviderCardView: View {
     var now: Date = Date()
     var showExtraUsage: Bool = true
     var compact: Bool = false
-    var isServiceDown: Bool = false
+    /// Freshness of this provider's data; anything but `.fresh` shows a badge or banner.
+    var status: ProviderStatus = .fresh
+    /// When the shown usage was fetched, for the status detail text.
+    var fetchedAt: Date? = nil
     var rateLimitResetCredits: RateLimitResetCredits? = nil
     var density: ProviderCardDensity = .summary
     var detail: ProviderDetail? = nil
@@ -49,8 +52,8 @@ struct ProviderCardView: View {
         VStack(alignment: .leading, spacing: compact ? 10 : 16) {
             header
 
-            if density == .detail, isServiceDown {
-                serviceDownBanner
+            if density == .detail, status != .fresh {
+                statusBanner
             }
 
             if density == .detail, !provider.links.isEmpty {
@@ -129,42 +132,48 @@ struct ProviderCardView: View {
                     )
             }
             Spacer()
-            if density == .summary, isServiceDown {
-                serviceDownBadge
+            if density == .summary, status != .fresh {
+                statusBadge
             }
         }
     }
 
-    private var serviceDownBadge: some View {
-        Label("Service down", systemImage: "exclamationmark.triangle.fill")
+    private var statusDetail: String {
+        status.detail(fetchedAt: fetchedAt, now: now)
+    }
+
+    private var statusBadge: some View {
+        Label(status.title, systemImage: status.systemImage)
             .font(.caption2)
             .fontWeight(.semibold)
-            .foregroundStyle(.red)
+            .foregroundStyle(status.severity.color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.red.opacity(0.12))
+                    .fill(status.severity.color.opacity(0.12))
             )
-            .help("This provider's service recently returned a server error. Showing cached data.")
+            .help(statusDetail)
+            .accessibilityHint(statusDetail)
     }
 
-    private var serviceDownBanner: some View {
+    private var statusBanner: some View {
         HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
+            Image(systemName: status.systemImage)
+                .foregroundStyle(status.severity.color)
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(provider.displayName) is unavailable")
+                Text(status.title)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                Text("The service returned a server error. Showing cached data.")
+                Text(statusDetail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.red.opacity(0.1)))
+        .background(RoundedRectangle(cornerRadius: 8).fill(status.severity.color.opacity(0.1)))
     }
 
     private var linkButtons: some View {

@@ -166,7 +166,8 @@ struct MenuBarView: View {
                 now: now,
                 showExtraUsage: viewModel.showExtraUsageIndicators,
                 compact: true,
-                isServiceDown: viewModel.isServiceDown(provider),
+                status: viewModel.status(for: provider, now: now),
+                fetchedAt: viewModel.usageSnapshot(for: provider)?.fetchedAt,
                 rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits,
                 density: .detail,
                 detail: viewModel.providerDetail(for: provider),
@@ -188,38 +189,14 @@ struct MenuBarView: View {
                 loadingSection
             }
         } else {
+            // Each card carries its own status, so a stale or failing provider is
+            // flagged on its card rather than in an app-wide banner.
             VStack(spacing: 12) {
-                // Surface a fetch error that's currently masked by cached cards, so
-                // stale data is never shown as if it were live (e.g. a Claude token
-                // that expired and couldn't be refreshed).
-                if viewModel.isUsingCachedData, let error = viewModel.errorMessage {
-                    staleDataBanner(error: error)
-                }
                 ForEach(providers, id: \.self) { provider in
                     overviewCard(provider)
                 }
             }
         }
-    }
-
-    private func staleDataBanner(error: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Showing cached usage")
-                    .font(.footnote)
-                    .fontWeight(.medium)
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.12)))
     }
 
     private func overviewCard(_ provider: Provider) -> some View {
@@ -234,7 +211,8 @@ struct MenuBarView: View {
             now: now,
             showExtraUsage: viewModel.showExtraUsageIndicators,
             compact: true,
-            isServiceDown: viewModel.isServiceDown(provider),
+            status: viewModel.status(for: provider, now: now),
+            fetchedAt: viewModel.usageSnapshot(for: provider)?.fetchedAt,
             rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits
         )
     }
@@ -319,7 +297,7 @@ struct MenuBarView: View {
             if let fetchedAt = latestProviderFetchDate {
                 LastUpdatedLabel(
                     relativeText: DateFormatters.relativeDescription(from: fetchedAt, to: now),
-                    isCached: viewModel.isUsingCachedData,
+                    isCached: viewModel.hasStaleProviderStatus,
                     isOffline: viewModel.isOffline
                 )
             }
@@ -331,15 +309,10 @@ struct MenuBarView: View {
         .padding(.vertical, 8)
     }
 
-    /// Global freshness reports the most recent visible provider fetch so the
-    /// label tracks the latest successful refresh — unless Claude is on cached
-    /// data (e.g. rate limited), where another provider's fresh fetch would
-    /// otherwise read "just now" over stale Claude numbers.
+    /// Global freshness reports the most recent visible provider fetch; a provider
+    /// with stale data flags itself on its own card.
     private var latestProviderFetchDate: Date? {
-        if viewModel.isUsingCachedData, let claudeFetchedAt = viewModel.snapshot?.fetchedAt {
-            return claudeFetchedAt
-        }
-        return viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
+        viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
     }
 }
 

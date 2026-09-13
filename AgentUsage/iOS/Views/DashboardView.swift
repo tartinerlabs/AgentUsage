@@ -44,7 +44,8 @@ struct DashboardView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    if viewModel.isOffline || viewModel.isUsingCachedData {
+                    // Cached or stale data is flagged per provider card.
+                    if viewModel.isOffline {
                         offlineIndicator
                     }
 
@@ -208,7 +209,8 @@ struct DashboardView: View {
                 extraUsage: snapshot.extraUsage,
                 now: now,
                 showExtraUsage: viewModel.showExtraUsageIndicators,
-                isServiceDown: viewModel.isServiceDown(snapshot.provider),
+                status: viewModel.status(for: snapshot.provider, now: now),
+                fetchedAt: snapshot.fetchedAt,
                 rateLimitResetCredits: snapshot.rateLimitResetCredits
             )
             .accessibilityLabel("\(snapshot.provider.displayName) usage")
@@ -219,10 +221,10 @@ struct DashboardView: View {
 
     private var offlineIndicator: some View {
         HStack(spacing: 8) {
-            Image(systemName: viewModel.isOffline ? "wifi.slash" : "clock.arrow.circlepath")
+            Image(systemName: "wifi.slash")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text(viewModel.isOffline ? "Offline Mode" : "Using Cached Data")
+                Text("Offline Mode")
                     .font(.subheadline)
                     .fontWeight(.medium)
                 if let lastUpdate = viewModel.timeSinceLastUpdate {
@@ -239,7 +241,7 @@ struct DashboardView: View {
                 .fill(Color.orange.opacity(0.1))
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(viewModel.isOffline ? "Offline mode" : "Using cached data")
+        .accessibilityLabel("Offline mode")
         .accessibilityValue(viewModel.timeSinceLastUpdate.map { "Last updated \($0)" } ?? "")
     }
 

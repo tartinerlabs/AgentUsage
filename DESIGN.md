@@ -237,9 +237,11 @@ Corner radius is assigned by component scale:
   `secondary` @ 0.2 track (height 8, radius 4) with 1pt tick dividers at 25/50/75%, plus a
   `% used` + status `Label` stats row. Optional 7×7 status dot.
 - **`ProviderCardView`** — the only provider surface on macOS and iOS. Header (provider glyph +
-  name + plan badge + optional service-down badge), a stack of linear `UsageRowView`s, optional
+  name + plan badge + optional `ProviderStatus` badge), a stack of linear `UsageRowView`s, optional
   reset-credits line, optional extra-usage bar, and a cost section. `.detail` also shows links,
-  a service-down banner, yesterday, sparkline, effort, and models when those fields exist. Fill
+  a `ProviderStatus` banner (cached, offline, rate limited, service down, or update failed, with
+  the data's age), yesterday, sparkline, effort, and models when those fields exist. Status is
+  per provider — never an app-wide stale-data banner; only device-offline is app-wide. Fill
   = Timefold Ink @ 0.06, border @ 0.15. `compact` toggles paddings/fonts only. The iOS dashboard
   Usage segment is a `.summary` stack in urgency order (worst status, then higher
   utilization, then sooner reset; canonical provider order breaks ties); the iOS/iPad provider
