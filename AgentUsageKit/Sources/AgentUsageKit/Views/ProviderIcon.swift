@@ -50,18 +50,26 @@ public struct ProviderIcon: View {
     }
 
     public var body: some View {
-        ZStack {
-            if size == nil {
+        Group {
+            if let size {
+                mark
+                    .frame(width: size, height: size)
+            } else {
+                // The hidden symbol sizes the icon to the current font; an overlay
+                // cannot grow it, so the mark never falls back to its SVG point size.
                 Image(systemName: "square")
                     .opacity(0)
+                    .overlay { mark }
             }
-            provider.markImage
-                .resizable()
-                .scaledToFit()
         }
-        .frame(width: size, height: size)
         .accessibilityHidden(decorative)
         .accessibilityLabel(provider.displayName)
+    }
+
+    private var mark: some View {
+        provider.markImage
+            .resizable()
+            .scaledToFit()
     }
 }
 
