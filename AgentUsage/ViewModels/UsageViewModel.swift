@@ -762,12 +762,6 @@ extension UsageViewModel {
            Date().timeIntervalSince(lastRefresh) < minRefreshInterval {
             return .skipped
         }
-        // Respect an active rate-limit cooldown for auto-refresh so we stop
-        // hammering an endpoint that just throttled us. A manual (forced) refresh
-        // still proceeds.
-        if !force, let until = rateLimitedUntil, Date() < until {
-            return .skipped
-        }
         // Gate the batch on when it last RAN, not on Claude's success. This keeps the
         // debounce while ensuring Claude's outcome never decides whether the other
         // providers may refresh.
@@ -919,6 +913,17 @@ extension UsageViewModel {
     /// Fetch the Claude rate-window usage snapshot. Runs as an independent arm of
     /// `refresh()`; its success/failure no longer gates the shared rate-limit timestamp.
     private func refreshClaude() async -> ClaudeRefreshOutcome {
+        // Respect an active rate-limit cooldown for every refresh, manual included:
+        // the endpoint will refuse the request, and hitting it again can extend the
+        // cooldown. Other providers still refresh. Re-surface the countdown so a
+        // manual refresh visibly explains why Claude didn't update.
+        if let until = rateLimitedUntil, Date() < until {
+            let remaining = until.timeIntervalSinceNow.rounded(.up)
+            errorMessage = ClaudeAPIService.APIError.rateLimited(retryAfter: remaining).localizedDescription
+            isUsingCachedData = snapshot != nil
+            return .skipped
+        }
+
         // API usage fetch (requires network)
         if isOffline {
             if snapshot != nil {
