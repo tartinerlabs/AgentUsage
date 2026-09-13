@@ -236,19 +236,30 @@ private struct MenuBarStatusStrip: View {
     @ViewBuilder
     private func metricValues(_ metrics: [MenuBarStatusContent.Metric]) -> some View {
         if metrics.count == 1 {
-            Text(metrics[0].value)
+            valueSlot(metrics[0].value)
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .monospacedDigit()
         } else {
             VStack(alignment: .trailing, spacing: -2) {
                 ForEach(metrics) { metric in
-                    Text(metric.value)
+                    valueSlot(metric.value)
                 }
             }
             .font(.system(size: 9, weight: .semibold, design: .monospaced))
             .monospacedDigit()
             .fixedSize()
         }
+    }
+
+    /// Lays the value out in a fixed "100%" slot so the status item keeps one width as
+    /// percentages cross 10% and 100%. Each width change makes AppKit re-register the
+    /// item's variant scenes, which has coincided with the icon vanishing on macOS 27.
+    private func valueSlot(_ value: String) -> some View {
+        Text("100%")
+            .hidden()
+            .overlay(alignment: .trailing) {
+                Text(value)
+            }
     }
 }
 
