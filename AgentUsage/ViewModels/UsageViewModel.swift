@@ -164,8 +164,34 @@ final class UsageViewModel {
     /// The active incident for a provider, if any.
     func activeIncident(for provider: Provider) -> OutageIncident? { activeIncidents[provider] }
 
-    /// Whether the given provider's service is currently considered down.
-    func isServiceDown(_ provider: Provider) -> Bool { activeIncidents[provider] != nil }
+    // MARK: - Provider Status
+
+    /// The most recent fetch error per provider, cleared on that provider's next success.
+    private(set) var providerErrors: [Provider: String] = [:]
+
+    /// Freshness of one provider's data. A rate limit, outage, or failed fetch only
+    /// marks the provider it came from, never the whole app.
+    func status(for provider: Provider, now: Date = Date()) -> ProviderStatus {
+        let usage = usageSnapshot(for: provider)
+        if isOffline, usage != nil { return .offline }
+        if let until = rateLimitedUntil[provider], now < until { return .rateLimited(until: until) }
+        if activeIncidents[provider] != nil { return .serviceDown }
+        if let message = providerErrors[provider] { return .failed(message: message) }
+        guard let usage else { return .fresh }
+        #if os(iOS)
+        // Every provider arrives in the same Mac-published payload.
+        if isUsingCachedData { return .cached }
+        #else
+        if provider == .claude, isUsingCachedData { return .cached }
+        #endif
+        if now.timeIntervalSince(usage.fetchedAt) > Constants.syncFallbackThreshold { return .cached }
+        return .fresh
+    }
+
+    /// Whether any visible provider is showing data that isn't fresh.
+    var hasStaleProviderStatus: Bool {
+        availableProviders.contains { status(for: $0) != .fresh }
+    }
 
     /// Whether an error indicates a provider outage (HTTP 5xx / service unavailable),
     /// as opposed to client errors, auth failures, rate limiting, or connectivity.
@@ -214,6 +240,29 @@ final class UsageViewModel {
     /// Clear any active incident for a provider (called on a successful fetch).
     private func clearIncident(for provider: Provider) {
         activeIncidents[provider] = nil
+    }
+
+    // MARK: - Rate-limit Cooldown
+
+    /// Whether auto-refresh should skip a provider because it recently returned 429.
+    private func isCoolingDown(_ provider: Provider, now: Date = Date()) -> Bool {
+        guard let until = rateLimitedUntil[provider] else { return false }
+        return now < until
+    }
+
+    /// How long to back off after a rate-limit error, or nil if the error isn't a 429.
+    nonisolated static func rateLimitCooldown(for error: Error) -> TimeInterval? {
+        if let apiError = error as? ClaudeAPIService.APIError,
+           case .rateLimited(let retryAfter) = apiError {
+            return retryAfter ?? Constants.rateLimitCooldownFallback
+        }
+        #if os(macOS)
+        if let cursorError = error as? CursorUsageService.CursorError,
+           case .rateLimited = cursorError {
+            return Constants.rateLimitCooldownFallback
+        }
+        #endif
+        return nil
     }
 
     /// Time since last successful fetch (for "Last updated X ago" display)
@@ -329,13 +378,32 @@ final class UsageViewModel {
     private let minRefreshInterval: TimeInterval = 30
     private var hasInitialized = false
 
-    /// While set and in the future, auto-refresh is suppressed because the endpoint
-    /// returned HTTP 429. Cleared on the next successful fetch. Persisted so a relaunch
-    /// doesn't skip the cooldown and immediately hit the endpoint again.
-    private var rateLimitedUntil: Date? {
-        didSet { defaults.set(rateLimitedUntil, forKey: Self.rateLimitedUntilKey) }
+    /// Per-provider cooldown after an HTTP 429. While a provider's date is in the future,
+    /// auto-refresh skips that provider only — the others keep refreshing. Cleared on the
+    /// provider's next successful fetch. Persisted so a relaunch doesn't skip the
+    /// cooldown and immediately hit the endpoint again.
+    private var rateLimitedUntil: [Provider: Date] = [:] {
+        didSet {
+            guard rateLimitedUntil != oldValue else { return }
+            let stored = Dictionary(uniqueKeysWithValues: rateLimitedUntil.map { ($0.key.rawValue, $0.value) })
+            defaults.set(stored, forKey: Self.rateLimitedUntilKey)
+        }
     }
-    private static let rateLimitedUntilKey = "claudeRateLimitedUntil"
+    private static let rateLimitedUntilKey = "providerRateLimitedUntil"
+    private static let legacyClaudeRateLimitedUntilKey = "claudeRateLimitedUntil"
+
+    private static func loadRateLimitedUntil(from defaults: UserDefaults) -> [Provider: Date] {
+        let stored = defaults.dictionary(forKey: rateLimitedUntilKey) as? [String: Date] ?? [:]
+        var cooldowns = Dictionary(uniqueKeysWithValues: stored.compactMap { key, date in
+            Provider(rawValue: key).map { ($0, date) }
+        })
+        // Carry over a cooldown written before cooldowns were per provider.
+        if let legacy = defaults.object(forKey: legacyClaudeRateLimitedUntilKey) as? Date {
+            cooldowns[.claude] = cooldowns[.claude] ?? legacy
+            defaults.removeObject(forKey: legacyClaudeRateLimitedUntilKey)
+        }
+        return cooldowns
+    }
 
     /// Overall status computed from the worst status across every provider's windows,
     /// not Claude's alone — a single app-wide indicator must reflect Codex too.
@@ -503,7 +571,7 @@ final class UsageViewModel {
         self.blogUsageSyncEnabled = defaults.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
         self.blogUsageSyncEndpointURLString = defaults.string(forKey: "blogUsageSyncEndpointURL")
             ?? BlogUsageSyncService.defaultEndpointURLString
-        self.rateLimitedUntil = defaults.object(forKey: Self.rateLimitedUntilKey) as? Date
+        self.rateLimitedUntil = Self.loadRateLimitedUntil(from: defaults)
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -533,7 +601,7 @@ final class UsageViewModel {
         self.autoPinLiveActivityAtLimit = defaults.bool(forKey: "autoPinLiveActivityAtLimit")
         self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
-        self.rateLimitedUntil = defaults.object(forKey: Self.rateLimitedUntilKey) as? Date
+        self.rateLimitedUntil = Self.loadRateLimitedUntil(from: defaults)
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -762,6 +830,8 @@ extension UsageViewModel {
            Date().timeIntervalSince(lastRefresh) < minRefreshInterval {
             return .skipped
         }
+        // Rate-limit cooldowns are per provider and checked inside each arm, so a
+        // throttled Claude endpoint never stops Codex, Cursor, or Grok from refreshing.
         // Gate the batch on when it last RAN, not on Claude's success. This keeps the
         // debounce while ensuring Claude's outcome never decides whether the other
         // providers may refresh.
@@ -917,7 +987,7 @@ extension UsageViewModel {
         // the endpoint will refuse the request, and hitting it again can extend the
         // cooldown. Other providers still refresh. Re-surface the countdown so a
         // manual refresh visibly explains why Claude didn't update.
-        if let until = rateLimitedUntil, Date() < until {
+        if let until = rateLimitedUntil[.claude], Date() < until {
             let remaining = until.timeIntervalSinceNow.rounded(.up)
             errorMessage = ClaudeAPIService.APIError.rateLimited(retryAfter: remaining).localizedDescription
             isUsingCachedData = snapshot != nil
@@ -954,7 +1024,8 @@ extension UsageViewModel {
             #if os(iOS)
             receivedMacSyncedSnapshot = false
             #endif
-            rateLimitedUntil = nil  // Successful fetch ends any rate-limit cooldown
+            rateLimitedUntil[.claude] = nil  // Successful fetch ends any rate-limit cooldown
+            providerErrors[.claude] = nil
             clearIncident(for: .claude)  // Successful fetch ends any active outage
 
             #if os(macOS)
@@ -1002,15 +1073,16 @@ extension UsageViewModel {
                 isNoUsageData = true
                 isUsingCachedData = false
                 errorMessage = nil
+                providerErrors[.claude] = nil
                 clearIncident(for: .claude)
                 return .noUsageData
             }
 
             errorMessage = error.localizedDescription
+            providerErrors[.claude] = error.localizedDescription
             // Back off auto-refresh when rate limited so we stop adding to the load.
-            if let apiError = error as? ClaudeAPIService.APIError,
-               case .rateLimited(let retryAfter) = apiError {
-                rateLimitedUntil = Date().addingTimeInterval(retryAfter ?? Constants.rateLimitCooldownFallback)
+            if let cooldown = Self.rateLimitCooldown(for: error) {
+                rateLimitedUntil[.claude] = Date().addingTimeInterval(cooldown)
             }
             // Track service outages (5xx / unavailable); leave any incident
             // untouched for non-outage errors (auth, rate limit, connectivity).
@@ -1027,6 +1099,7 @@ extension UsageViewModel {
                 isNoUsageData = true
                 isUsingCachedData = false
                 errorMessage = nil
+                providerErrors[.claude] = nil
             } else if snapshot != nil {
                 isUsingCachedData = true
                 Logger.viewModel.warning("API fetch failed, using cached data: \(error.localizedDescription)")
@@ -1110,7 +1183,7 @@ extension UsageViewModel {
         isNoUsageData = false
         receivedMacSyncedSnapshot = true
         errorMessage = nil
-        rateLimitedUntil = nil
+        rateLimitedUntil.removeAll()
         clearIncident(for: .claude)
 
         snapshotStore.save(
@@ -1262,7 +1335,7 @@ extension UsageViewModel {
         providerUsage.removeAll()
         isUsingCachedData = false
         isNoUsageData = false
-        rateLimitedUntil = nil
+        rateLimitedUntil.removeAll()
         activeIncidents.removeAll()
         receivedMacSyncedSnapshot = false
         await WidgetDataManager.shared.clear()
@@ -1289,18 +1362,27 @@ extension UsageViewModel {
     /// Claude/Codex/Grok token detail (today/yesterday/30-day, per-model, daily trend).
     private func refreshProviderUsage() async {
         for (provider, service) in providerUsageServices {
+            // Like Claude, a provider in a rate-limit cooldown is skipped on every
+            // refresh, manual included, and keeps its last snapshot meanwhile.
+            if isCoolingDown(provider) { continue }
             do {
                 let providerSnapshot = try await service.fetchSnapshot()
                 providerUsage[provider] = providerSnapshot
                 if let providerSnapshot {
                     await usageHistoryService.record(providerSnapshot: providerSnapshot)
                 }
+                rateLimitedUntil[provider] = nil
+                providerErrors[provider] = nil
                 clearIncident(for: provider)
             } catch {
-                if Self.isOutageError(error) {
-                    recordOutage(for: provider, error: error) // Keep cached usage during outages.
-                } else {
-                    providerUsage[provider] = nil // Preserve hide-on-error behavior.
+                // Keep the provider's cached usage on every failure; its card shows
+                // the error instead of disappearing. Signed-out services return nil
+                // rather than throwing, so this never resurrects a removed account.
+                providerErrors[provider] = error.localizedDescription
+                if let cooldown = Self.rateLimitCooldown(for: error) {
+                    rateLimitedUntil[provider] = Date().addingTimeInterval(cooldown)
+                } else if Self.isOutageError(error) {
+                    recordOutage(for: provider, error: error)
                 }
             }
         }

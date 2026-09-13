@@ -365,7 +365,7 @@ private struct UsageStatusAccessory: View {
             if let relativeText = viewModel.timeSinceLastUpdate {
                 LastUpdatedLabel(
                     relativeText: relativeText,
-                    isCached: viewModel.isUsingCachedData,
+                    isCached: viewModel.hasStaleProviderStatus,
                     isOffline: viewModel.isOffline,
                     neutralStyle: AnyShapeStyle(.secondary)
                 )
@@ -480,7 +480,8 @@ struct ProviderSectionView: View {
                     extraUsage: usage?.extraUsage,
                     now: context.date,
                     showExtraUsage: viewModel.showExtraUsageIndicators,
-                    isServiceDown: viewModel.isServiceDown(provider),
+                    status: viewModel.status(for: provider, now: context.date),
+                    fetchedAt: usage?.fetchedAt,
                     rateLimitResetCredits: usage?.rateLimitResetCredits,
                     density: .detail,
                     detail: viewModel.providerDetail(for: provider),

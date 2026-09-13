@@ -116,7 +116,7 @@ struct DashboardTabView: View {
                 } else if let fetchedAt = latestProviderFetchDate {
                     LastUpdatedLabel(
                         relativeText: relativeDescription(from: fetchedAt, to: now),
-                        isCached: viewModel.isUsingCachedData,
+                        isCached: viewModel.hasStaleProviderStatus,
                         isOffline: viewModel.isOffline,
                         font: .caption,
                         neutralStyle: AnyShapeStyle(.secondary)
@@ -172,7 +172,8 @@ struct DashboardTabView: View {
             extraUsage: usage?.extraUsage,
             now: now,
             showExtraUsage: viewModel.showExtraUsageIndicators,
-            isServiceDown: viewModel.isServiceDown(provider),
+            status: viewModel.status(for: provider, now: now),
+            fetchedAt: usage?.fetchedAt,
             rateLimitResetCredits: usage?.rateLimitResetCredits,
             density: .detail,
             detail: viewModel.providerDetail(for: provider),
@@ -510,14 +511,10 @@ struct DashboardTabView: View {
         return formatter.localizedString(for: past, relativeTo: current)
     }
 
-    /// The aggregate badge reports the most recent visible snapshot so the badge
-    /// tracks the latest successful refresh — unless Claude is on cached data,
-    /// where its own fetch time is shown so a fresh provider can't mask it.
+    /// The aggregate badge reports the most recent visible snapshot; a provider with
+    /// stale data flags itself on its own card.
     private var latestProviderFetchDate: Date? {
-        if viewModel.isUsingCachedData, let claudeFetchedAt = viewModel.snapshot?.fetchedAt {
-            return claudeFetchedAt
-        }
-        return viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
+        viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
     }
 }
 

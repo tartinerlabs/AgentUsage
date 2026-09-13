@@ -474,6 +474,107 @@ struct UsageViewModelRefreshGateTests {
         #expect(viewModel.snapshot == nil)
         #expect(viewModel.errorMessage?.hasPrefix("Rate limited. Try again in") == true)
     }
+
+    /// Regression: a rate-limit cooldown belongs to the provider that was throttled.
+    /// Claude returning 429 must not stop other providers from refreshing, and a
+    /// throttled provider must skip only its own fetch. The second view model shares
+    /// persisted defaults, so it sees the cooldowns after a relaunch.
+    @Test @MainActor func rateLimitCooldownOnlySkipsThrottledProvider() async {
+        let testDefaults = TestUserDefaults()
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let codex = MockProviderUsageService(provider: .codex)
+        let cursor = MockProviderUsageService(provider: .cursor)
+        let services: [Provider: any ProviderUsageServiceProtocol] = [.codex: codex, .cursor: cursor]
+
+        await mockAPI.setMockError(ClaudeAPIService.APIError.rateLimited(retryAfter: 3600))
+        await cursor.setError(CursorUsageService.CursorError.rateLimited)
+        let first = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            providerUsageServices: services,
+            defaults: testDefaults.defaults
+        )
+        await first.refresh(force: true)
+        #expect(await mockAPI.fetchCallCount == 1)
+        #expect(await codex.fetchCount == 1)
+        #expect(await cursor.fetchCount == 1)
+
+        let relaunched = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            providerUsageServices: services,
+            defaults: testDefaults.defaults
+        )
+        // Manual refresh: cooldowns apply to it too, but only to throttled providers.
+        await relaunched.refresh(force: true)
+        #expect(await mockAPI.fetchCallCount == 1, "Claude is cooling down")
+        #expect(await cursor.fetchCount == 1, "Cursor is cooling down")
+        #expect(await codex.fetchCount == 2, "Codex is not throttled and must still refresh")
+        #expect(relaunched.usageSnapshot(for: .codex) != nil)
+    }
+
+    /// Status is per provider: Claude being rate limited and Cursor failing must not
+    /// mark Codex, and a failing provider keeps its last snapshot visible.
+    @Test @MainActor func statusIsReportedPerProvider() async {
+        let testDefaults = TestUserDefaults()
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let codex = MockProviderUsageService(provider: .codex)
+        let cursor = MockProviderUsageService(provider: .cursor)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            providerUsageServices: [.codex: codex, .cursor: cursor],
+            defaults: testDefaults.defaults
+        )
+
+        await mockAPI.setMockSnapshot(makeSnapshot())
+        await viewModel.refresh(force: true)
+        #expect(viewModel.status(for: .claude) == .fresh)
+        #expect(viewModel.status(for: .cursor) == .fresh)
+
+        await mockAPI.setMockError(ClaudeAPIService.APIError.rateLimited(retryAfter: 3600))
+        await cursor.setError(CursorUsageService.CursorError.unauthorized)
+        await viewModel.refresh(force: true)
+
+        guard case .rateLimited = viewModel.status(for: .claude) else {
+            Issue.record("Claude should be rate limited, got \(viewModel.status(for: .claude))")
+            return
+        }
+        #expect(viewModel.status(for: .codex) == .fresh)
+        #expect(
+            viewModel.status(for: .cursor)
+                == .failed(message: CursorUsageService.CursorError.unauthorized.localizedDescription)
+        )
+        #expect(viewModel.usageSnapshot(for: .cursor) != nil, "a failing provider keeps its last snapshot")
+    }
+}
+
+private actor MockProviderUsageService: ProviderUsageServiceProtocol {
+    let provider: Provider
+    private(set) var fetchCount = 0
+    private var error: Error?
+
+    init(provider: Provider) {
+        self.provider = provider
+    }
+
+    func setError(_ error: Error?) {
+        self.error = error
+    }
+
+    func fetchSnapshot() async throws -> ProviderUsageSnapshot? {
+        fetchCount += 1
+        if let error { throw error }
+        return ProviderUsageSnapshot(
+            provider: provider,
+            windows: [UsageWindow(utilization: 40, resetsAt: Date().addingTimeInterval(3600), windowType: .session)],
+            fetchedAt: Date()
+        )
+    }
 }
 
 // MARK: - No Usage Data Tests
