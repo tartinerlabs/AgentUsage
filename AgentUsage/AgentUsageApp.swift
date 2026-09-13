@@ -36,12 +36,7 @@ struct AgentUsageApp: App {
         _ = SandboxFolderAccessService.shared
 
         // Initialize SwiftData container
-        let schema = Schema([
-            TokenLogEntry.self,
-            ImportedFile.self,
-            DailyUsageRecordEntity.self,
-            ProviderWindowDailyPeakEntity.self,
-        ])
+        let schema = Schema(versionedSchema: TokenUsageSchemaV2.self)
         let modelConfiguration: ModelConfiguration
         if Self.isRunningTests {
             modelConfiguration = ModelConfiguration(
@@ -73,7 +68,11 @@ struct AgentUsageApp: App {
         // crash: the persisted token/history data is a local cache rebuilt from the
         // CLI logs, so fall back to an in-memory store and let the app run degraded.
         do {
-            modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            modelContainer = try ModelContainer(
+                for: schema,
+                migrationPlan: TokenUsageMigrationPlan.self,
+                configurations: [modelConfiguration]
+            )
         } catch {
             Logger.viewModel.error("Persistent ModelContainer unavailable, falling back to in-memory: \(error.localizedDescription)")
             do {

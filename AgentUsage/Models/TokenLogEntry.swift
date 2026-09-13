@@ -11,6 +11,11 @@ import SwiftData
 @Model
 final class TokenLogEntry {
 
+    /// Every aggregation query filters on `timestamp >= startDate`. Without this index those fetches
+    /// full-scan the table (`SCAN ZTOKENLOGENTRY`); at ~77k rows SQLite's sorter spilled to disk
+    /// and the app exceeded macOS's 2 GB/24h disk-writes limit (reported, not killed).
+    #Index<TokenLogEntry>([\.timestamp])
+
     /// Unique identifier: messageId:requestId composite
     @Attribute(.unique) var id: String
 
@@ -44,8 +49,10 @@ final class TokenLogEntry {
     /// rows imported before this field existed (lightweight SwiftData migration).
     var cacheCreation1hTokens: Int = 0
 
-    /// Timestamp from the log entry
-    var timestamp: Date
+    /// Timestamp from the log entry. The `hashModifier` changes the entity's version hash so
+    /// `TokenUsageMigrationPlan` actually migrates existing stores and adds the index above —
+    /// an index alone leaves the hash unchanged. Don't remove or rename it.
+    @Attribute(hashModifier: "timestamp-indexed") var timestamp: Date
 
     /// Cost in USD calculated at import time
     var costUSD: Double
@@ -104,5 +111,82 @@ final class TokenLogEntry {
             cacheReadTokens: cacheReadTokens,
             cacheCreation1hTokens: cacheCreation1hTokens
         )
+    }
+}
+
+// MARK: - Schema versions
+
+/// Store schema before `TokenLogEntry` gained its timestamp index. Kept only so the
+/// migration plan can recognise existing stores; do not use these types directly.
+nonisolated enum TokenUsageSchemaV1: VersionedSchema {
+    static let versionIdentifier = Schema.Version(1, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        [TokenLogEntry.self, ImportedFile.self, DailyUsageRecordEntity.self, ProviderWindowDailyPeakEntity.self]
+    }
+
+    @Model
+    final class TokenLogEntry {
+        @Attribute(.unique) var id: String
+        var messageId: String
+        var requestId: String
+        var modelName: String
+        var sessionID: String? = nil
+        var effortLevelRaw: String? = nil
+        var isSubagentSession: Bool? = nil
+        var inputTokens: Int
+        var outputTokens: Int
+        var cacheCreationTokens: Int
+        var cacheReadTokens: Int
+        var cacheCreation1hTokens: Int = 0
+        var timestamp: Date
+        var costUSD: Double
+        var isFastMode: Bool = false
+
+        init(
+            messageId: String,
+            requestId: String,
+            modelName: String,
+            inputTokens: Int,
+            outputTokens: Int,
+            cacheCreationTokens: Int,
+            cacheReadTokens: Int,
+            timestamp: Date,
+            costUSD: Double
+        ) {
+            self.id = "\(messageId):\(requestId)"
+            self.messageId = messageId
+            self.requestId = requestId
+            self.modelName = modelName
+            self.inputTokens = inputTokens
+            self.outputTokens = outputTokens
+            self.cacheCreationTokens = cacheCreationTokens
+            self.cacheReadTokens = cacheReadTokens
+            self.timestamp = timestamp
+            self.costUSD = costUSD
+        }
+    }
+}
+
+/// Current store schema: `TokenLogEntry` with `#Index` on `timestamp`.
+nonisolated enum TokenUsageSchemaV2: VersionedSchema {
+    static let versionIdentifier = Schema.Version(2, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        [TokenLogEntry.self, ImportedFile.self, DailyUsageRecordEntity.self, ProviderWindowDailyPeakEntity.self]
+    }
+}
+
+/// Adds the `timestamp` index to existing stores. An index doesn't change the version hash,
+/// so neither an unversioned container nor this stage alone migrates them; the stage only runs
+/// because of the `hashModifier` on `TokenLogEntry.timestamp`. Verified against a copy of a
+/// 77k-row store: rows and integrity preserved, index created, second open is a no-op.
+nonisolated enum TokenUsageMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [TokenUsageSchemaV1.self, TokenUsageSchemaV2.self]
+    }
+
+    static var stages: [MigrationStage] {
+        [.lightweight(fromVersion: TokenUsageSchemaV1.self, toVersion: TokenUsageSchemaV2.self)]
     }
 }
