@@ -67,16 +67,6 @@ enum DependencyContainer {
         )
     }
 
-    /// Create the blog usage sync service for passive local usage ingestion
-    static func createBlogUsageSyncService() -> BlogUsageSyncService {
-        BlogUsageSyncService.shared
-    }
-
-    /// Create the blog OAuth service for signing in to the blog usage-ingest endpoint.
-    static func createBlogOAuthService() -> BlogOAuthService {
-        BlogOAuthService.shared
-    }
-
     /// Create rate-window services for optional macOS providers.
     ///
     /// Attached unconditionally for the same reason as `createTokenUsageService`: each
@@ -102,14 +92,10 @@ enum DependencyContainer {
         let credentialProvider = createCredentialProvider()
         let tokenUsageCoordinator = createTokenUsageCoordinator(modelContext: modelContext)
         let usageHistoryService = createUsageHistoryService(modelContext: modelContext)
-        let blogUsageSyncService = createBlogUsageSyncService()
-        let blogOAuthService = createBlogOAuthService()
         let providerUsageServices = createProviderUsageServices()
         return UsageViewModel(
             credentialProvider: credentialProvider,
             tokenUsageCoordinator: tokenUsageCoordinator,
-            blogUsageSyncService: blogUsageSyncService,
-            blogOAuthService: blogOAuthService,
             providerUsageServices: providerUsageServices,
             usageHistoryService: usageHistoryService,
             usageSyncService: UsageSyncService.shared

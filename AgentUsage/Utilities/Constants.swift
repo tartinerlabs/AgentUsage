@@ -9,7 +9,7 @@ import AgentUsageKit
 
 /// `nonisolated` because the project builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
 /// Without it every constant here is MainActor-isolated, and the actors that need them
-/// (`ClaudeAPIService`, `CodexUsageService`, `BlogOAuthService`, the log sources) cannot read
+/// (`ClaudeAPIService`, `CodexUsageService`, the log sources) cannot read
 /// them. These are immutable `Sendable` values, safe from any isolation.
 nonisolated enum Constants {
     // MARK: - Branding
@@ -116,39 +116,6 @@ nonisolated enum Constants {
     static let claudeCodeKeychainService = "Claude Code-credentials"
     static var claudeCodeKeychainAccount: String {
         NSUserName()
-    }
-
-    // MARK: - Blog OAuth (Better Auth OAuth 2.1 / OIDC provider)
-    /// OAuth Authorization Code + PKCE flow used to authenticate the blog usage sync.
-    /// AgentUsage self-registers as a public client (dynamic registration) and exchanges
-    /// the code for a JWKS-verifiable JWT access token. See `BlogOAuthService`.
-    enum BlogOAuth {
-        /// Site origin — used for the `Origin` request header (scheme+host only, no path)
-        /// that Better Auth's CSRF guard requires.
-        static let issuer = "https://ruchern.dev"
-        static let discoveryURL = URL(string: "https://ruchern.dev/api/auth/.well-known/openid-configuration")!
-        static let authorizeURL = URL(string: "https://ruchern.dev/api/auth/oauth2/authorize")!
-        static let tokenURL = URL(string: "https://ruchern.dev/api/auth/oauth2/token")!
-        static let registerURL = URL(string: "https://ruchern.dev/api/auth/oauth2/register")!
-        static let userinfoURL = URL(string: "https://ruchern.dev/api/auth/oauth2/userinfo")!
-        /// RFC 8252 private-use URI (reverse-domain scheme, no host, single slash).
-        /// Better Auth 1.7 treats omitted `application_type` as web and rejects
-        /// `agentusage://oauth-callback` (host present, not reverse-domain).
-        static let redirectURI = "com.tartinerlabs.agentusage:/oauth-callback"
-        static let callbackScheme = "com.tartinerlabs.agentusage"
-        static let scopes = "openid profile email offline_access mcp"
-        /// RFC 8707 resource indicator — ensures the access token is issued as a JWT.
-        /// Must equal the OIDC issuer / protected-resource identifier advertised at
-        /// `/.well-known/oauth-protected-resource`. Better Auth binds this to the
-        /// client via DCR `resources` (or MCP's default resource) and puts it in
-        /// the access token `aud`; authorize returns `invalid_target` otherwise.
-        static let resource = "https://ruchern.dev/api/auth"
-        static let clientName = "AgentUsage"
-        static let tokensKeychainAccount = "blog-oauth-tokens"
-        /// Persisted dynamically-registered client_id (UserDefaults).
-        /// Namespaced after the 1.7 native redirect URI change so a 1.6
-        /// `blogOAuthClientID` is not reused with the new redirect.
-        static let clientIDDefaultsKey = "blogOAuthClientID.native"
     }
 
     // MARK: - macOS Only (file system access)

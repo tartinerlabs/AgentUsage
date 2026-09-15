@@ -44,9 +44,7 @@ The app is not Claude-only. Usage is collected per provider through two seams:
 - `AgentUsage/DependencyContainer.swift` wires the concrete implementations.
   Start here when adding a provider.
 
-Two subsystems that are easy to miss: blog usage
-(`Services/BlogOAuthService.swift`, `Services/BlogUsage/`, PKCE + RFC-8707 config
-in `Constants.BlogOAuth`) and provider outage tracking (`OutageIncident`).
+A subsystem that is easy to miss: provider outage tracking (`OutageIncident`).
 
 ## Gotchas
 
@@ -148,6 +146,6 @@ so PR Validation can be marked Required to Pass once macOS is green. UI tests
 live in `AgentUsageUI.xctestplan` — run them locally (and optionally point the
 iOS Cloud test action at that plan). A menu bar extra is not a reliable Cloud
 macOS UI destination. Much of the unit suite is `#if os(macOS)` (credentials,
-Codex/OpenCode log sources, blog sync). Still run
+Codex/OpenCode log sources). Still run
 `xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test` locally
 before merging macOS changes.

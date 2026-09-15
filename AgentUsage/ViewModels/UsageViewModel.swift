@@ -93,36 +93,8 @@ final class UsageViewModel {
     private(set) var publishedSyncGeneration: String?
     private(set) var continuityReceipts: [UsageSyncDevice: ContinuityReceipt] = [:]
     private(set) var isCheckingContinuityReceipts = false
-    #endif
-    #if os(macOS)
     var tokenUsageError: TokenUsageError?
     var isLoadingTokenUsage = false
-    var blogUsageSyncEnabled: Bool {
-        didSet {
-            guard blogUsageSyncEnabled != oldValue else { return }
-            Task {
-                await blogUsageSyncService?.setEnabled(blogUsageSyncEnabled)
-                await loadBlogUsageSyncSettings()
-            }
-        }
-    }
-    var blogUsageSyncEndpointURLString: String {
-        didSet {
-            guard blogUsageSyncEndpointURLString != oldValue else { return }
-            Task {
-                await blogUsageSyncService?.setEndpointURLString(blogUsageSyncEndpointURLString)
-                await loadBlogUsageSyncSettings()
-            }
-        }
-    }
-    var blogUsageSyncToken: String = ""
-    var blogUsageSyncStatus: BlogUsageSyncStatus = .never
-    var isBlogUsageSyncing = false
-    // Blog OAuth sign-in state
-    var isBlogSignedIn = false
-    var blogOAuthAccountEmail: String?
-    var isBlogSigningIn = false
-    var blogOAuthError: String?
     #endif
     var selectedTokenPeriod: UsagePeriod = .last30Days {
         didSet {
@@ -370,8 +342,6 @@ final class UsageViewModel {
     #if os(macOS)
     private let tokenUsageCoordinator: any TokenUsageCoordinating
     private let menuBarSettingsManager: MenuBarSettingsManager
-    private let blogUsageSyncService: BlogUsageSyncService?
-    private let blogOAuthService: BlogOAuthService?
     private let providerUsageServices: [Provider: any ProviderUsageServiceProtocol]
     #endif
     private var lastRefreshTime: Date?
@@ -543,8 +513,6 @@ final class UsageViewModel {
         credentialProvider: any CredentialProvider,
         apiService: (any APIServiceProtocol)? = nil,
         tokenUsageCoordinator: (any TokenUsageCoordinating)? = nil,
-        blogUsageSyncService: BlogUsageSyncService? = nil,
-        blogOAuthService: BlogOAuthService? = nil,
         providerUsageServices: [Provider: any ProviderUsageServiceProtocol] = [:],
         usageHistoryService: UsageHistoryService? = nil,
         usageSyncService: any UsageSyncServicing = InactiveUsageSyncService.shared,
@@ -562,15 +530,10 @@ final class UsageViewModel {
         self.tokenUsageCoordinator = tokenUsageCoordinator
             ?? TokenUsageCoordinator(tokenService: nil, defaults: defaults)
         self.menuBarSettingsManager = MenuBarSettingsManager(defaults: defaults)
-        self.blogUsageSyncService = blogUsageSyncService
-        self.blogOAuthService = blogOAuthService
         self.providerUsageServices = providerUsageServices
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
         self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
-        self.blogUsageSyncEnabled = defaults.object(forKey: "blogUsageSyncEnabled") as? Bool ?? false
-        self.blogUsageSyncEndpointURLString = defaults.string(forKey: "blogUsageSyncEndpointURL")
-            ?? BlogUsageSyncService.defaultEndpointURLString
         self.rateLimitedUntil = Self.loadRateLimitedUntil(from: defaults)
 
         loadCachedSnapshot()
@@ -857,7 +820,6 @@ extension UsageViewModel {
                 await self?.publishContinuitySnapshot()
             }
         }
-        Task { await runPassiveBlogUsageSync() }
         await armResetNotifications()
         return outcome
         #else
@@ -1394,78 +1356,6 @@ extension UsageViewModel {
         )
     }
 
-    #endif
-
-    #if os(macOS)
-    func loadBlogUsageSyncSettings() async {
-        guard let blogUsageSyncService else { return }
-        let settings = await blogUsageSyncService.settings()
-        blogUsageSyncEnabled = settings.isEnabled
-        blogUsageSyncEndpointURLString = settings.endpointURLString
-        blogUsageSyncToken = settings.token
-        blogUsageSyncStatus = settings.status
-
-        if let blogOAuthService {
-            let account = await blogOAuthService.currentAccount()
-            isBlogSignedIn = account != nil
-            blogOAuthAccountEmail = account?.accountEmail
-        }
-    }
-
-    /// Run the interactive OAuth sign-in flow, then sync immediately on success.
-    func signInToBlog() async {
-        guard let blogOAuthService else { return }
-        isBlogSigningIn = true
-        blogOAuthError = nil
-        defer { isBlogSigningIn = false }
-        do {
-            _ = try await blogOAuthService.signIn()
-            await loadBlogUsageSyncSettings()
-            await syncBlogUsageNow()
-        } catch BlogOAuthError.userCancelled {
-            // User dismissed the sign-in sheet; nothing to report.
-        } catch {
-            blogOAuthError = error.localizedDescription
-        }
-    }
-
-    func signOutOfBlog() async {
-        guard let blogOAuthService else { return }
-        blogOAuthError = nil
-        do {
-            try await blogOAuthService.signOut()
-        } catch {
-            blogOAuthError = error.localizedDescription
-        }
-        await loadBlogUsageSyncSettings()
-    }
-
-    func saveBlogUsageSyncToken(_ token: String) async {
-        guard let blogUsageSyncService else { return }
-        await blogUsageSyncService.setToken(token)
-        await loadBlogUsageSyncSettings()
-    }
-
-    func syncBlogUsageNow() async {
-        guard let blogUsageSyncService else { return }
-        isBlogUsageSyncing = true
-        blogUsageSyncStatus = BlogUsageSyncStatus(
-            state: .syncing,
-            lastAttemptAt: blogUsageSyncStatus.lastAttemptAt,
-            lastSuccessAt: blogUsageSyncStatus.lastSuccessAt,
-            message: "Syncing blog usage"
-        )
-        let status = await blogUsageSyncService.syncNow()
-        blogUsageSyncStatus = status
-        isBlogUsageSyncing = false
-    }
-
-    private func runPassiveBlogUsageSync() async {
-        guard let blogUsageSyncService else { return }
-        let status = await blogUsageSyncService.syncIfNeeded()
-        blogUsageSyncStatus = status
-    }
-
     /// Refresh token usage through the macOS persistence coordinator.
     private func refreshTokenUsage() async {
         isLoadingTokenUsage = true
@@ -1512,9 +1402,6 @@ extension UsageViewModel {
     func initializeIfNeeded() async {
         guard !hasInitialized else { return }
         hasInitialized = true
-        #if os(macOS)
-        await loadBlogUsageSyncSettings()
-        #endif
         await refresh()
         await armResetNotifications()
         startAutoRefresh()
