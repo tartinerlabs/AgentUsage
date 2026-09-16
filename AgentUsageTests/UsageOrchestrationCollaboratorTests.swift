@@ -35,31 +35,73 @@ struct MenuBarSettingsManagerTests {
         #expect(Set(services.keys) == [.codex, .cursor, .grok])
     }
 
-    @Test @MainActor func cursorStaysOutOfCompactStripPins() {
-        #expect(MenuBarSettingsManager.supportedProviders == [.claude, .codex])
-        #expect(MenuBarSettingsManager.supportedWindows(for: .cursor).isEmpty)
-        #expect(MenuBarSettingsManager.supportedWindows(for: .grok).isEmpty)
+    @Test @MainActor func supportsEveryProviderWithRateWindows() {
+        #expect(MenuBarSettingsManager.supportedProviders == Provider.allCases.filter { $0.supports(.rateWindows) })
+        #expect(MenuBarSettingsManager.supportedProviders.contains(.cursor))
+        #expect(MenuBarSettingsManager.supportedProviders.contains(.grok))
     }
 
-    @Test @MainActor func openCodeOfferingsExposeQuotaWindows() {
-        let expected: [UsageWindowType] = [
-            .openCodeGoFiveHour,
-            .openCodeGoWeekly,
-            .openCodeGoMonthly,
-        ]
+    @Test @MainActor func windowOptionsComeFromLiveSnapshotPlusStalePins() {
+        let now = Date()
+        let snapshot = ProviderUsageSnapshot(
+            provider: .grok,
+            windows: [
+                UsageWindow(
+                    utilization: 10,
+                    resetsAt: now.addingTimeInterval(3_600),
+                    windowID: "grok.monthly",
+                    displayName: "Monthly",
+                    totalDuration: 3_600
+                ),
+            ],
+            fetchedAt: now
+        )
 
-        #expect(MenuBarSettingsManager.supportedWindows(for: .openCode) == expected)
-        #expect(MenuBarSettingsManager.supportedWindows(for: .openCodeGo) == expected)
-        #expect(Provider.openCode.supports(.rateWindows))
+        let options = MenuBarSettingsManager.windowOptions(snapshot: snapshot, pinned: ["grok.legacy"])
+
+        #expect(options.map(\.id) == ["grok.monthly", "grok.legacy"])
+        #expect(options.map(\.displayName) == ["Monthly", "grok.legacy"])
+        #expect(MenuBarSettingsManager.windowOptions(snapshot: nil, pinned: []).isEmpty)
     }
 
     @Test @MainActor func untouchedInstallUsesPrimaryClaudeAndCodexPairs() {
         let testDefaults = TestUserDefaults()
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
 
-        #expect(settings.pinnedWindows(for: .claude) == [.session, .opus])
-        #expect(settings.pinnedWindows(for: .codex) == [.codexFiveHour, .codexWeekly])
+        #expect(settings.pinnedWindows(for: .claude) == ["session", "opus"])
+        #expect(settings.pinnedWindows(for: .codex) == ["codexFiveHour", "codexWeekly"])
+        #expect(settings.pinnedWindows(for: .grok) == ["grok.monthly"])
+        #expect(settings.pinnedWindows(for: .cursor) == ["cursor.total"])
         #expect(testDefaults.defaults.integer(forKey: "menuBarPinnedWindowsSchemaVersion") == 1)
+    }
+
+    @Test @MainActor func maximumProvidersPersistsAndClampsToRange() {
+        let testDefaults = TestUserDefaults()
+        let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
+        let range = MenuBarSettingsManager.maximumProvidersRange
+
+        #expect(settings.maximumProviders == MenuBarSettingsManager.defaultMaximumProviders)
+
+        settings.maximumProviders = 1
+        #expect(MenuBarSettingsManager(defaults: testDefaults.defaults).maximumProviders == 1)
+
+        settings.maximumProviders = 0
+        #expect(settings.maximumProviders == range.lowerBound)
+
+        settings.maximumProviders = 99
+        #expect(settings.maximumProviders == range.upperBound)
+        #expect(MenuBarSettingsManager(defaults: testDefaults.defaults).maximumProviders == range.upperBound)
+    }
+
+    @Test @MainActor func existingInstallSeedsDefaultsForNewProvidersOnly() {
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(1, forKey: "menuBarPinnedWindowsSchemaVersion")
+        testDefaults.defaults.set(["sonnet"], forKey: "menuBarPinnedWindows.claude")
+
+        let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
+
+        #expect(settings.pinnedWindows(for: .claude) == ["sonnet"])
+        #expect(settings.pinnedWindows(for: .grok) == ["grok.monthly"])
     }
 
     @Test @MainActor func migratesLegacySelectionsInCanonicalOrderAndCapsAtTwo() {
@@ -72,7 +114,7 @@ struct MenuBarSettingsManagerTests {
 
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
 
-        #expect(settings.pinnedWindows(for: .claude) == [.opus, .sonnet])
+        #expect(settings.pinnedWindows(for: .claude) == ["opus", "sonnet"])
         #expect(settings.pinnedWindows(for: .codex).isEmpty)
     }
 
@@ -86,7 +128,7 @@ struct MenuBarSettingsManagerTests {
 
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
 
-        #expect(settings.pinnedWindows(for: .claude) == [.session])
+        #expect(settings.pinnedWindows(for: .claude) == ["session"])
     }
 
     @Test @MainActor func explicitLegacyCodexEnableMigratesBothCodexWindows() {
@@ -95,32 +137,32 @@ struct MenuBarSettingsManagerTests {
 
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
 
-        #expect(settings.pinnedWindows(for: .codex) == [.codexFiveHour, .codexWeekly])
+        #expect(settings.pinnedWindows(for: .codex) == ["codexFiveHour", "codexWeekly"])
     }
 
     @Test @MainActor func enforcesTwoPinsAndPersistsOrderedChanges() {
         let testDefaults = TestUserDefaults()
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
 
-        #expect(!settings.canPin(.sonnet, for: .claude))
-        settings.setPinned(.sonnet, for: .claude, isPinned: true)
-        #expect(settings.pinnedWindows(for: .claude) == [.session, .opus])
+        #expect(!settings.canPin("sonnet", for: .claude))
+        settings.setPinned("sonnet", for: .claude, isPinned: true)
+        #expect(settings.pinnedWindows(for: .claude) == ["session", "opus"])
 
-        settings.setPinned(.opus, for: .claude, isPinned: false)
-        #expect(settings.canPin(.sonnet, for: .claude))
-        settings.setPinned(.sonnet, for: .claude, isPinned: true)
-        #expect(settings.pinnedWindows(for: .claude) == [.session, .sonnet])
+        settings.setPinned("opus", for: .claude, isPinned: false)
+        #expect(settings.canPin("sonnet", for: .claude))
+        settings.setPinned("sonnet", for: .claude, isPinned: true)
+        #expect(settings.pinnedWindows(for: .claude) == ["session", "sonnet"])
 
         let reloaded = MenuBarSettingsManager(defaults: testDefaults.defaults)
-        #expect(reloaded.pinnedWindows(for: .claude) == [.session, .sonnet])
+        #expect(reloaded.pinnedWindows(for: .claude) == ["session", "sonnet"])
     }
 
     @Test @MainActor func allowsProviderToHaveNoPins() {
         let testDefaults = TestUserDefaults()
         let settings = MenuBarSettingsManager(defaults: testDefaults.defaults)
 
-        settings.setPinned(.codexFiveHour, for: .codex, isPinned: false)
-        settings.setPinned(.codexWeekly, for: .codex, isPinned: false)
+        settings.setPinned("codexFiveHour", for: .codex, isPinned: false)
+        settings.setPinned("codexWeekly", for: .codex, isPinned: false)
 
         #expect(settings.pinnedWindows(for: .codex).isEmpty)
         #expect(MenuBarSettingsManager(defaults: testDefaults.defaults).pinnedWindows(for: .codex).isEmpty)
@@ -155,17 +197,50 @@ struct MenuBarStatusContentTests {
                 ),
             ],
             pinnedWindows: [
-                .claude: [.opus, .session, .sonnet],
-                .codex: [.codexFiveHour, .codexWeekly],
-                .openCode: [.openCodeGoFiveHour],
+                .claude: ["opus", "session", "sonnet"],
+                .codex: ["codexFiveHour", "codexWeekly"],
+                .openCode: ["openCodeGoFiveHour"],
             ],
             now: now
         )
 
-        #expect(content.groups.map(\.id) == ["claude", "codex"])
+        #expect(content.groups.map(\.id) == ["claude", "codex", "openCode"])
         #expect(content.groups[0].metrics.map(\.id) == ["opus", "session"])
         #expect(content.groups[0].metrics.map(\.percentUsed) == [15, 12])
         #expect(content.groups[1].metrics.map(\.percentUsed) == [2, 0])
+        #expect(content.groups[2].metrics.map(\.percentUsed) == [77])
+    }
+
+    @Test @MainActor func capsRenderedProvidersInGivenOrder() {
+        let content = MenuBarStatusContentBuilder.build(
+            snapshots: [
+                .claude: snapshot(provider: .claude, windows: [window(1, type: .session)]),
+                .codex: snapshot(provider: .codex, windows: [window(2, type: .codexWeekly)]),
+                .grok: snapshot(
+                    provider: .grok,
+                    windows: [
+                        UsageWindow(
+                            utilization: 3,
+                            resetsAt: now.addingTimeInterval(3_600),
+                            windowID: "grok.monthly",
+                            displayName: "Monthly",
+                            totalDuration: 3_600
+                        ),
+                    ]
+                ),
+            ],
+            pinnedWindows: [
+                .claude: ["session"],
+                .codex: ["codexWeekly"],
+                .grok: ["grok.monthly"],
+            ],
+            providers: [.grok, .codex, .claude],
+            maximumProviders: 2,
+            now: now
+        )
+
+        #expect(content.groups.map(\.id) == ["grok", "codex"])
+        #expect(content.groups[0].metrics.map(\.label) == ["Monthly"])
     }
 
     @Test @MainActor func keepsLiveZeroAndOmitsExpiredMissingAndEmptyProviders() {
@@ -181,8 +256,8 @@ struct MenuBarStatusContentTests {
                 .codex: snapshot(provider: .codex, windows: []),
             ],
             pinnedWindows: [
-                .claude: [.session, .opus],
-                .codex: [.codexWeekly],
+                .claude: ["session", "opus"],
+                .codex: ["codexWeekly"],
             ],
             now: now
         )
@@ -191,7 +266,7 @@ struct MenuBarStatusContentTests {
         #expect(content.groups[0].metrics.map(\.percentUsed) == [0])
     }
 
-    @Test @MainActor func cursorSnapshotIsExcludedFromCompactStatusStrip() {
+    @Test @MainActor func cursorSnapshotRendersPinnedLiveWindow() {
         let cursorSnapshot = ProviderUsageSnapshot(
             provider: .cursor,
             windows: [
@@ -208,11 +283,13 @@ struct MenuBarStatusContentTests {
 
         let content = MenuBarStatusContentBuilder.build(
             snapshots: [.cursor: cursorSnapshot],
-            pinnedWindows: [.cursor: [.custom]],
+            pinnedWindows: [.cursor: ["cursor.total"]],
             now: now
         )
 
-        #expect(content.isEmpty)
+        #expect(content.groups.map(\.id) == ["cursor"])
+        #expect(content.groups[0].metrics.map(\.label) == ["Total usage"])
+        #expect(content.groups[0].metrics.map(\.percentUsed) == [42])
     }
 
     @Test @MainActor func unavailableFiveHourPinDoesNotHideWeeklyWindow() {
@@ -224,13 +301,13 @@ struct MenuBarStatusContentTests {
                 ),
             ],
             pinnedWindows: [
-                .codex: [.codexFiveHour, .codexWeekly],
+                .codex: ["codexFiveHour", "codexWeekly"],
             ],
             now: now
         )
 
         #expect(content.groups.count == 1)
-        #expect(content.groups[0].metrics.map(\.id) == [UsageWindowType.codexWeekly.rawValue])
+        #expect(content.groups[0].metrics.map(\.id) == ["codexWeekly"])
         #expect(content.groups[0].metrics.map(\.percentUsed) == [16])
     }
 
@@ -242,7 +319,7 @@ struct MenuBarStatusContentTests {
                     windows: [window(115.7, type: .session)]
                 ),
             ],
-            pinnedWindows: [.claude: [.session]],
+            pinnedWindows: [.claude: ["session"]],
             now: now
         )
 
@@ -253,7 +330,7 @@ struct MenuBarStatusContentTests {
     @Test @MainActor func returnsEmptyContentWhenNothingIsRenderable() {
         let content = MenuBarStatusContentBuilder.build(
             snapshots: [:],
-            pinnedWindows: [.claude: [.session]],
+            pinnedWindows: [.claude: ["session"]],
             now: now
         )
 

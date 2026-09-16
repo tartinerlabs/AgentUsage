@@ -293,28 +293,39 @@ final class UsageViewModel {
     private(set) var notificationTestResult: NotificationTestResult?
 
     #if os(macOS)
+    /// Pinnable providers in `availableProviders` order (newest local session first),
+    /// so the compact strip's provider cap keeps the most recently used tools.
     var menuBarProviders: [Provider] {
-        MenuBarSettingsManager.supportedProviders
+        availableProviders.filter { MenuBarSettingsManager.supportedProviders.contains($0) }
     }
 
-    func menuBarSupportedWindows(for provider: Provider) -> [UsageWindowType] {
-        MenuBarSettingsManager.supportedWindows(for: provider)
+    /// How many providers the compact strip may show at once, most recently used first.
+    var menuBarMaximumProviders: Int {
+        get { menuBarSettingsManager.maximumProviders }
+        set { menuBarSettingsManager.maximumProviders = newValue }
     }
 
-    func menuBarPinnedWindows(for provider: Provider) -> [UsageWindowType] {
+    func menuBarWindowOptions(for provider: Provider) -> [MenuBarWindowOption] {
+        MenuBarSettingsManager.windowOptions(
+            snapshot: usageSnapshot(for: provider),
+            pinned: menuBarPinnedWindows(for: provider)
+        )
+    }
+
+    func menuBarPinnedWindows(for provider: Provider) -> [UsageWindowID] {
         menuBarSettingsManager.pinnedWindows(for: provider)
     }
 
-    func isMenuBarWindowPinned(_ window: UsageWindowType, for provider: Provider) -> Bool {
+    func isMenuBarWindowPinned(_ window: UsageWindowID, for provider: Provider) -> Bool {
         menuBarSettingsManager.isPinned(window, for: provider)
     }
 
-    func canPinMenuBarWindow(_ window: UsageWindowType, for provider: Provider) -> Bool {
+    func canPinMenuBarWindow(_ window: UsageWindowID, for provider: Provider) -> Bool {
         menuBarSettingsManager.canPin(window, for: provider)
     }
 
     func setMenuBarWindowPinned(
-        _ window: UsageWindowType,
+        _ window: UsageWindowID,
         for provider: Provider,
         isPinned: Bool
     ) {
@@ -643,14 +654,16 @@ final class UsageViewModel {
             resolved[provider] = Self.unavailableLocalUsageDetail(
                 effortSummaries: previousEffort.isEmpty
                     ? providerSnapshot.effortSummaries
-                    : previousEffort
+                    : previousEffort,
+                lastUsedAt: providerSnapshot.lastUsedAt
             )
         }
         return resolved
     }
 
     private static func unavailableLocalUsageDetail(
-        effortSummaries: [EffortPeriodSummary]
+        effortSummaries: [EffortPeriodSummary],
+        lastUsedAt: Date? = nil
     ) -> ProviderDetail {
         let zeroToday = TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today)
         return ProviderDetail(
@@ -660,7 +673,8 @@ final class UsageViewModel {
             byModel: [:],
             dailyCosts: [],
             effortSummaries: effortSummaries,
-            hasTokenUsage: false
+            hasTokenUsage: false,
+            lastUsedAt: lastUsedAt
         )
     }
     #endif
@@ -835,41 +849,57 @@ extension UsageViewModel {
         guard !Self.disabledProviders.contains(provider) else { return nil }
         if provider == .claude {
             if let stored = providerUsage[.claude] {
-                #if os(macOS)
-                let effortSummaries = providerDetails[.claude]?.effortSummaries
-                    ?? stored.effortSummaries
-                #else
-                let effortSummaries = stored.effortSummaries
-                #endif
-                // Credentials can refresh `planType` before `fetchUsage` fails.
-                // Surfaces read `planName` from this snapshot, so overlay the live plan.
-                if effortSummaries != stored.effortSummaries || stored.planName != planType {
-                    return ProviderUsageSnapshot(
-                        provider: stored.provider,
-                        windows: stored.windows,
-                        extraUsage: stored.extraUsage,
-                        planName: planType,
-                        rateLimitResetCredits: stored.rateLimitResetCredits,
-                        effortSummaries: effortSummaries,
-                        fetchedAt: stored.fetchedAt
-                    )
-                }
-                return stored
+                return overlayingLocalUsage(on: stored, planName: planType)
             }
             #if os(macOS)
             if let snapshot {
-                return ClaudeAPIService.providerSnapshot(
-                    from: snapshot,
-                    planName: planType,
-                    effortSummaries: providerDetails[.claude]?.effortSummaries ?? []
+                return overlayingLocalUsage(
+                    on: ClaudeAPIService.providerSnapshot(
+                        from: snapshot,
+                        planName: planType,
+                        effortSummaries: providerDetails[.claude]?.effortSummaries ?? [],
+                        lastUsedAt: providerDetails[.claude]?.lastUsedAt
+                    )
                 )
             }
             #endif
             return snapshot.map {
-                ClaudeAPIService.providerSnapshot(from: $0, planName: planType)
+                overlayingLocalUsage(
+                    on: ClaudeAPIService.providerSnapshot(from: $0, planName: planType)
+                )
             }
         }
-        return providerUsage[provider]
+        return providerUsage[provider].map { overlayingLocalUsage(on: $0) }
+    }
+
+    private func overlayingLocalUsage(
+        on snapshot: ProviderUsageSnapshot,
+        planName: String? = nil
+    ) -> ProviderUsageSnapshot {
+        #if os(macOS)
+        let effortSummaries = providerDetails[snapshot.provider]?.effortSummaries
+            ?? snapshot.effortSummaries
+        let lastUsedAt = providerDetails[snapshot.provider]?.lastUsedAt ?? snapshot.lastUsedAt
+        #else
+        let effortSummaries = snapshot.effortSummaries
+        let lastUsedAt = snapshot.lastUsedAt
+        #endif
+        let resolvedPlanName = planName ?? snapshot.planName
+        if effortSummaries == snapshot.effortSummaries,
+           lastUsedAt == snapshot.lastUsedAt,
+           resolvedPlanName == snapshot.planName {
+            return snapshot
+        }
+        return ProviderUsageSnapshot(
+            provider: snapshot.provider,
+            windows: snapshot.windows,
+            extraUsage: snapshot.extraUsage,
+            planName: resolvedPlanName,
+            rateLimitResetCredits: snapshot.rateLimitResetCredits,
+            effortSummaries: effortSummaries,
+            fetchedAt: snapshot.fetchedAt,
+            lastUsedAt: lastUsedAt
+        )
     }
 
     /// Session effort distribution received from local logs (macOS) or Continuity Sync (iOS).
@@ -894,8 +924,9 @@ extension UsageViewModel {
 
     /// Providers that have rate-limit data or token-cost detail to present.
     ///
-    /// Quota snapshots are hottest-first (same urgency rules as widgets). Providers
-    /// with only local token or effort data follow in canonical `Provider` order.
+    /// Newest local session first. Equal or unknown activity falls through to
+    /// hottest live window (higher % used, then sooner reset), then canonical
+    /// `Provider` order.
     var availableProviders: [Provider] {
         let members = Provider.allCases.filter { provider in
             guard !Self.disabledProviders.contains(provider) else { return false }
@@ -907,16 +938,31 @@ extension UsageViewModel {
             #endif
             return false
         }
-        let snapshots = members.compactMap { usageSnapshot(for: $0) }
-        let orderedQuota = UsageActivitySelection.sortedByUrgency(snapshots, now: Date())
-            .map(\.provider)
-        let remainder = members.filter { provider in
-            !orderedQuota.contains(provider)
+        let now = Date()
+        return members.sorted { lhs, rhs in
+            UsageActivitySelection.precedesByRecency(
+                lhsUsedAt: lastUsedAt(for: lhs),
+                lhsWindow: usageSnapshot(for: lhs)?.hottestLiveWindow(now: now),
+                lhsProvider: lhs,
+                rhsUsedAt: lastUsedAt(for: rhs),
+                rhsWindow: usageSnapshot(for: rhs)?.hottestLiveWindow(now: now),
+                rhsProvider: rhs
+            )
         }
-        return orderedQuota + remainder
     }
 
-    /// Provider snapshots in the same urgency order as `availableProviders`.
+    private func lastUsedAt(for provider: Provider) -> Date? {
+        if let used = usageSnapshot(for: provider)?.lastUsedAt {
+            return used
+        }
+        #if os(macOS)
+        return providerDetails[provider]?.lastUsedAt
+        #else
+        return nil
+        #endif
+    }
+
+    /// Provider snapshots in the same recency order as `availableProviders`.
     var availableProviderSnapshots: [ProviderUsageSnapshot] {
         availableProviders.compactMap { usageSnapshot(for: $0) }
     }
@@ -994,13 +1040,17 @@ extension UsageViewModel {
             let effortSummaries = providerDetails[.claude]?.effortSummaries
                 ?? providerUsage[.claude]?.effortSummaries
                 ?? []
+            let lastUsedAt = providerDetails[.claude]?.lastUsedAt
+                ?? providerUsage[.claude]?.lastUsedAt
             #else
             let effortSummaries = providerUsage[.claude]?.effortSummaries ?? []
+            let lastUsedAt = providerUsage[.claude]?.lastUsedAt
             #endif
             providerUsage[.claude] = ClaudeAPIService.providerSnapshot(
                 from: newSnapshot,
                 planName: planType,
-                effortSummaries: effortSummaries
+                effortSummaries: effortSummaries,
+                lastUsedAt: lastUsedAt
             )
 
             // Cache the successful response
@@ -1240,7 +1290,8 @@ extension UsageViewModel {
             snapshots[.claude] = ProviderUsageSnapshot(
                 claude: snapshot,
                 planName: planType,
-                effortSummaries: providerDetails[.claude]?.effortSummaries ?? []
+                effortSummaries: providerDetails[.claude]?.effortSummaries ?? [],
+                lastUsedAt: providerDetails[.claude]?.lastUsedAt
             )
         }
 
@@ -1254,7 +1305,8 @@ extension UsageViewModel {
                 windows: [],
                 planName: provider == .claude ? planType : nil,
                 effortSummaries: detail.effortSummaries,
-                fetchedAt: effortFetchedAt
+                fetchedAt: effortFetchedAt,
+                lastUsedAt: detail.lastUsedAt
             )
         }
 
@@ -1272,7 +1324,9 @@ extension UsageViewModel {
                 // — without this the first-seen stamp would be carried forever.
                 fetchedAt: providerSnapshot.windows.isEmpty
                     ? max(providerSnapshot.fetchedAt, effortFetchedAt)
-                    : providerSnapshot.fetchedAt
+                    : providerSnapshot.fetchedAt,
+                lastUsedAt: providerDetails[provider]?.lastUsedAt
+                    ?? providerSnapshot.lastUsedAt
             )
         }
 

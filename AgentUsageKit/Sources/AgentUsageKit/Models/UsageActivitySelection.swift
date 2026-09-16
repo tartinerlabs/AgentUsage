@@ -38,8 +38,8 @@ public struct UsageActivitySelection: Sendable, Codable, Hashable {
             .map { UsageActivitySelection(provider: $0.provider, windowID: $0.window.windowID) }
     }
 
-    /// One live window per provider that currently has quota data, hottest first.
-    /// A configured selection wins for that provider only.
+    /// One live window per provider that currently has quota data, most recently
+    /// used first. A configured selection wins for that provider only.
     public static func glanceWindows(
         in snapshots: [ProviderUsageSnapshot],
         preferring selection: UsageActivitySelection?,
@@ -53,17 +53,95 @@ public struct UsageActivitySelection: Sendable, Codable, Hashable {
             return WidgetGlanceWindow(
                 provider: provider,
                 window: window,
-                fetchedAt: snapshot.fetchedAt
+                fetchedAt: snapshot.fetchedAt,
+                lastUsedAt: snapshot.lastUsedAt
             )
         }
         return glances.sorted { lhs, rhs in
-            precedesByUrgency(
+            precedesByRecency(
+                lhsUsedAt: lhs.lastUsedAt,
                 lhsWindow: lhs.window,
                 lhsProvider: lhs.provider,
+                rhsUsedAt: rhs.lastUsedAt,
                 rhsWindow: rhs.window,
-                rhsProvider: rhs.provider,
-                now: now
+                rhsProvider: rhs.provider
             )
+        }
+    }
+
+    /// Snapshots ordered by newest local activity, then hottest live window.
+    /// Unknown `lastUsedAt` sorts last among recency; no live window sorts last
+    /// among that group. Canonical `Provider` order is the final tie-break.
+    public static func sortedByRecency(
+        _ snapshots: [ProviderUsageSnapshot],
+        now: Date
+    ) -> [ProviderUsageSnapshot] {
+        snapshots.sorted { lhs, rhs in
+            precedesByRecency(
+                lhsUsedAt: lhs.lastUsedAt,
+                lhsWindow: lhs.hottestLiveWindow(now: now),
+                lhsProvider: lhs.provider,
+                rhsUsedAt: rhs.lastUsedAt,
+                rhsWindow: rhs.hottestLiveWindow(now: now),
+                rhsProvider: rhs.provider
+            )
+        }
+    }
+
+    /// `true` when `lhs` should appear before `rhs`.
+    ///
+    /// Newest `lastUsedAt` wins. Equal or missing timestamps fall through to
+    /// higher live utilization, then sooner reset, then canonical provider order.
+    /// Pace-based `UsageStatus` is not a list key — it is what used to reshuffle
+    /// a barely-started window above a high-% short window.
+    public static func precedesByRecency(
+        lhsUsedAt: Date?,
+        lhsWindow: UsageWindow? = nil,
+        lhsProvider: Provider,
+        rhsUsedAt: Date?,
+        rhsWindow: UsageWindow? = nil,
+        rhsProvider: Provider
+    ) -> Bool {
+        switch (lhsUsedAt, rhsUsedAt) {
+        case (let left?, let right?) where left != right:
+            return left > right
+        case (_?, nil):
+            return true
+        case (nil, _?):
+            return false
+        default:
+            break
+        }
+        return precedesByUtilization(
+            lhsWindow: lhsWindow,
+            lhsProvider: lhsProvider,
+            rhsWindow: rhsWindow,
+            rhsProvider: rhsProvider
+        )
+    }
+
+    /// Higher live utilization first, then sooner reset. No live window sorts last.
+    private static func precedesByUtilization(
+        lhsWindow: UsageWindow?,
+        lhsProvider: Provider,
+        rhsWindow: UsageWindow?,
+        rhsProvider: Provider
+    ) -> Bool {
+        switch (lhsWindow, rhsWindow) {
+        case (let left?, let right?):
+            if left.utilization != right.utilization {
+                return left.utilization > right.utilization
+            }
+            if left.resetsAt != right.resetsAt {
+                return left.resetsAt < right.resetsAt
+            }
+            return lhsProvider.sortIndex < rhsProvider.sortIndex
+        case (nil, nil):
+            return lhsProvider.sortIndex < rhsProvider.sortIndex
+        case (nil, _):
+            return false
+        case (_, nil):
+            return true
         }
     }
 
@@ -112,13 +190,20 @@ public struct WidgetGlanceWindow: Sendable, Identifiable {
     public let provider: Provider
     public let window: UsageWindow
     public let fetchedAt: Date
+    public let lastUsedAt: Date?
 
     public var id: String { provider.rawValue }
 
-    public init(provider: Provider, window: UsageWindow, fetchedAt: Date) {
+    public init(
+        provider: Provider,
+        window: UsageWindow,
+        fetchedAt: Date,
+        lastUsedAt: Date? = nil
+    ) {
         self.provider = provider
         self.window = window
         self.fetchedAt = fetchedAt
+        self.lastUsedAt = lastUsedAt
     }
 }
 
@@ -140,6 +225,16 @@ extension ProviderUsageSnapshot {
             return preferred
         }
         return live.max { $0.isLessUrgent(than: $1, now: now) }
+    }
+
+    /// Highest-utilization live window. Utilization ties prefer the sooner reset.
+    public func hottestLiveWindow(now: Date) -> UsageWindow? {
+        liveWindows(now: now).max { lhs, rhs in
+            if lhs.utilization != rhs.utilization {
+                return lhs.utilization < rhs.utilization
+            }
+            return lhs.resetsAt > rhs.resetsAt
+        }
     }
 }
 

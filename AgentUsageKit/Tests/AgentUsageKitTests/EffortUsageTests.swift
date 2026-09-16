@@ -80,11 +80,13 @@ struct EffortUsageTests {
             classifiedSessionCount: 12,
             unclassifiedSessionCount: 3
         )
+        let lastUsedAt = Date(timeIntervalSince1970: 1_750_000_100)
         let snapshot = ProviderUsageSnapshot(
             provider: .codex,
             windows: [],
             effortSummaries: [summary],
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            lastUsedAt: lastUsedAt
         )
 
         let data = try JSONEncoder().encode(snapshot)
@@ -92,6 +94,7 @@ struct EffortUsageTests {
 
         #expect(decoded.provider == .codex)
         #expect(decoded.fetchedAt == fetchedAt)
+        #expect(decoded.lastUsedAt == lastUsedAt)
         #expect(decoded.effortSummaries == [summary])
         #expect(decoded.effortSummary(for: .last30Days) == summary)
     }
@@ -149,6 +152,7 @@ struct EffortUsageTests {
         #expect(snapshot.provider == .codex)
         #expect(snapshot.windows.isEmpty)
         #expect(snapshot.effortSummaries.isEmpty)
+        #expect(snapshot.lastUsedAt == nil)
         #expect(snapshot.fetchedAt == Date(timeIntervalSince1970: 1000))
     }
 }

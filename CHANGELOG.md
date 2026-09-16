@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Remove blog usage sync
-- Sort usage lists by current quota pressure
+- Sort usage lists by most recently used local session, then live utilization
 - Surface SuperGrok weekly usage limits on Grok from the Grok Build billing API
 - Use official provider marks instead of SF Symbols for provider attribution
 - Split the iOS dashboard into Usage, Activity, and Effort segments

@@ -569,6 +569,9 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
     /// Session effort distributions, grouped by aggregation period.
     public let effortSummaries: [EffortPeriodSummary]
     public let fetchedAt: Date
+    /// Newest local session or token-log timestamp. Nil when the provider has
+    /// quota data but no local activity we can date (for example Cursor).
+    public let lastUsedAt: Date?
 
     public var id: String { provider.id }
 
@@ -579,7 +582,8 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         planName: String? = nil,
         rateLimitResetCredits: RateLimitResetCredits? = nil,
         effortSummaries: [EffortPeriodSummary] = [],
-        fetchedAt: Date
+        fetchedAt: Date,
+        lastUsedAt: Date? = nil
     ) {
         self.provider = provider
         self.windows = windows
@@ -588,13 +592,15 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.rateLimitResetCredits = rateLimitResetCredits
         self.effortSummaries = effortSummaries
         self.fetchedAt = fetchedAt
+        self.lastUsedAt = lastUsedAt
     }
 
     /// Bridge an existing Claude `UsageSnapshot` into the provider-agnostic shape.
     public init(
         claude snapshot: UsageSnapshot,
         planName: String? = nil,
-        effortSummaries: [EffortPeriodSummary] = []
+        effortSummaries: [EffortPeriodSummary] = [],
+        lastUsedAt: Date? = nil
     ) {
         self.provider = .claude
         self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable].compactMap { $0 }
@@ -603,6 +609,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.rateLimitResetCredits = nil
         self.effortSummaries = effortSummaries
         self.fetchedAt = snapshot.fetchedAt
+        self.lastUsedAt = lastUsedAt
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -613,6 +620,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         case rateLimitResetCredits
         case effortSummaries
         case fetchedAt
+        case lastUsedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -630,6 +638,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
             forKey: .effortSummaries
         ) ?? []
         fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
+        lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -641,6 +650,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         try container.encodeIfPresent(rateLimitResetCredits, forKey: .rateLimitResetCredits)
         try container.encode(effortSummaries, forKey: .effortSummaries)
         try container.encode(fetchedAt, forKey: .fetchedAt)
+        try container.encodeIfPresent(lastUsedAt, forKey: .lastUsedAt)
     }
 
     public func effortSummary(for period: EffortPeriod) -> EffortPeriodSummary? {

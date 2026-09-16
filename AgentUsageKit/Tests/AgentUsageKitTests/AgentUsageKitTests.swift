@@ -325,7 +325,7 @@ struct UsageActivitySelectionTests {
         #expect(UsageActivitySelection.mostUrgent(in: [], now: now) == nil)
     }
 
-    @Test func glanceWindowsOrderByUrgencyAndHonorPreferredWindow() {
+    @Test func glanceWindowsOrderByRecencyAndHonorPreferredWindow() {
         let now = Date()
         let claude = ProviderUsageSnapshot(
             provider: .claude,
@@ -333,21 +333,24 @@ struct UsageActivitySelectionTests {
                 UsageWindow(utilization: 20, resetsAt: now.addingTimeInterval(3_600), windowType: .session),
                 UsageWindow(utilization: 88, resetsAt: now.addingTimeInterval(86_400), windowType: .opus),
             ],
-            fetchedAt: now
+            fetchedAt: now,
+            lastUsedAt: now.addingTimeInterval(-7_200)
         )
         let codex = snapshot(
             provider: .codex,
             utilization: 50,
             resetsIn: 3_600,
             now: now,
-            type: .codexFiveHour
+            type: .codexFiveHour,
+            lastUsedAt: now.addingTimeInterval(-3_600)
         )
         let cursor = snapshot(
             provider: .cursor,
             utilization: 92,
             resetsIn: 86_400,
             now: now,
-            windowID: "cursor.monthly"
+            windowID: "cursor.monthly",
+            lastUsedAt: now.addingTimeInterval(-60)
         )
 
         let preferred = UsageActivitySelection(provider: .claude, windowID: "session")
@@ -358,8 +361,99 @@ struct UsageActivitySelectionTests {
         )
 
         #expect(glances.map(\.provider) == [.cursor, .codex, .claude])
+        #expect(glances.first?.window.windowID.rawValue == "cursor.monthly")
         #expect(glances.last?.window.windowID.rawValue == "session")
         #expect(glances.contains { $0.provider == .grok } == false)
+    }
+
+    @Test func sortedByRecencyPutsDatedActivityFirstAndBreaksTiesCanonically() {
+        let now = Date()
+        let grok = ProviderUsageSnapshot(provider: .grok, windows: [], fetchedAt: now)
+        let cursor = snapshot(
+            provider: .cursor,
+            utilization: 91,
+            resetsIn: 3_600,
+            now: now,
+            windowID: "cursor.monthly",
+            lastUsedAt: now.addingTimeInterval(-3_600)
+        )
+        let claude = snapshot(
+            provider: .claude,
+            utilization: 20,
+            resetsIn: 3_600,
+            now: now,
+            type: .session,
+            lastUsedAt: now.addingTimeInterval(-60)
+        )
+        let expiredCodex = snapshot(
+            provider: .codex,
+            utilization: 99,
+            resetsIn: -60,
+            now: now,
+            type: .codexFiveHour
+        )
+
+        let ordered = UsageActivitySelection.sortedByRecency(
+            [grok, cursor, expiredCodex, claude],
+            now: now
+        )
+
+        #expect(ordered.map(\.provider) == [.claude, .cursor, .codex, .grok])
+    }
+
+    @Test func sortedByRecencyUsesLiveUtilizationWhenActivityIsUnknown() {
+        let now = Date()
+        let grok = ProviderUsageSnapshot(provider: .grok, windows: [], fetchedAt: now)
+        let cursor = snapshot(
+            provider: .cursor,
+            utilization: 91,
+            resetsIn: 86_400,
+            now: now,
+            windowID: "cursor.monthly"
+        )
+        let claude = snapshot(
+            provider: .claude,
+            utilization: 20,
+            resetsIn: 3_600,
+            now: now,
+            type: .session
+        )
+        let expiredCodex = snapshot(
+            provider: .codex,
+            utilization: 99,
+            resetsIn: -60,
+            now: now,
+            type: .codexFiveHour
+        )
+
+        let ordered = UsageActivitySelection.sortedByRecency(
+            [grok, cursor, expiredCodex, claude],
+            now: now
+        )
+
+        #expect(ordered.map(\.provider) == [.cursor, .claude, .codex, .grok])
+    }
+
+    @Test func sortedByRecencyPrefersSoonerResetWhenUtilizationTies() {
+        let now = Date()
+        let cursor = snapshot(
+            provider: .cursor,
+            utilization: 80,
+            resetsIn: 86_400,
+            now: now,
+            windowID: "cursor.monthly"
+        )
+        let claude = snapshot(
+            provider: .claude,
+            utilization: 80,
+            resetsIn: 3_600,
+            now: now,
+            type: .session
+        )
+
+        let ordered = UsageActivitySelection.sortedByRecency([cursor, claude], now: now)
+
+        #expect(ordered.map(\.provider) == [.claude, .cursor])
     }
 
     @Test func sortedByUrgencyPutsLiveQuotaBeforeEmptyWindowsAndBreaksTiesCanonically() {
@@ -429,7 +523,8 @@ struct UsageActivitySelectionTests {
         resetsIn: TimeInterval,
         now: Date,
         type: UsageWindowType? = nil,
-        windowID: UsageWindowID? = nil
+        windowID: UsageWindowID? = nil,
+        lastUsedAt: Date? = nil
     ) -> ProviderUsageSnapshot {
         let window: UsageWindow
         if let type {
@@ -447,7 +542,12 @@ struct UsageActivitySelectionTests {
                 totalDuration: 86_400
             )
         }
-        return ProviderUsageSnapshot(provider: provider, windows: [window], fetchedAt: now)
+        return ProviderUsageSnapshot(
+            provider: provider,
+            windows: [window],
+            fetchedAt: now,
+            lastUsedAt: lastUsedAt
+        )
     }
 }
 

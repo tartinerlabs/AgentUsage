@@ -93,9 +93,8 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.hasProviderData(.codex))
         #expect(viewModel.hasProviderData(.cursor))
         #expect(!viewModel.hasProviderData(.claude))
-        // Cursor is 24% into a barely-started 31-day window (pace warning);
-        // Codex is 42% with most of a 5-hour window elapsed (on track).
-        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.cursor, .codex])
+        // No local-activity timestamps on a quota-only cache, so order is canonical.
+        #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex, .cursor])
         #if os(macOS)
         #expect(viewModel.providerDetails[.codex]?.hasTokenUsage == false)
         #expect(viewModel.providerDetails[.codex]?.effortSummaries.isEmpty == true)
@@ -103,7 +102,7 @@ struct UsageViewModelInitialStateTests {
         #endif
     }
 
-    @Test @MainActor func availableProviderSnapshotsFollowUrgencyOrderAndBridgeClaude() async {
+    @Test @MainActor func availableProviderSnapshotsFollowUtilizationWhenLastUsedUnknown() async {
         let testDefaults = TestUserDefaults()
         let fetchedAt = Date()
         let claudeSnapshot = UsageSnapshot(
@@ -162,6 +161,73 @@ struct UsageViewModelInitialStateTests {
         #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex, .cursor, .claude])
         #expect(viewModel.usageSnapshot(for: .claude)?.planName == "Max")
         #expect(viewModel.usageSnapshot(for: .claude)?.windows.map(\.windowType) == [.session, .opus])
+    }
+
+    @Test @MainActor func availableProvidersSortByMostRecentLocalUse() async {
+        let testDefaults = TestUserDefaults()
+        let fetchedAt = Date()
+        let claudeSnapshot = ProviderUsageSnapshot(
+            provider: .claude,
+            windows: [
+                UsageWindow(
+                    utilization: 12,
+                    resetsAt: fetchedAt.addingTimeInterval(3_600),
+                    windowType: .session
+                ),
+            ],
+            planName: "Max",
+            fetchedAt: fetchedAt,
+            lastUsedAt: fetchedAt.addingTimeInterval(-7_200)
+        )
+        let cursorSnapshot = ProviderUsageSnapshot(
+            provider: .cursor,
+            windows: [
+                UsageWindow(
+                    utilization: 56,
+                    resetsAt: fetchedAt.addingTimeInterval(10_800),
+                    windowID: "cursor.total",
+                    displayName: "Total usage",
+                    totalDuration: 30 * 24 * 3_600
+                ),
+            ],
+            planName: "Pro",
+            fetchedAt: fetchedAt,
+            lastUsedAt: fetchedAt.addingTimeInterval(-60)
+        )
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 78,
+                    resetsAt: fetchedAt.addingTimeInterval(14_400),
+                    windowType: .codexFiveHour
+                ),
+            ],
+            planName: "Plus",
+            fetchedAt: fetchedAt,
+            lastUsedAt: fetchedAt.addingTimeInterval(-3_600)
+        )
+        UsageSnapshotStore(defaults: testDefaults.defaults).save(
+            snapshot: nil,
+            planType: "Max",
+            providerSnapshots: [claudeSnapshot, cursorSnapshot, codexSnapshot],
+            fetchedAt: fetchedAt
+        )
+
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            defaults: testDefaults.defaults
+        )
+
+        #expect(viewModel.availableProviders == [.cursor, .codex, .claude])
+        #if os(macOS)
+        #expect(viewModel.menuBarProviders == [.cursor, .codex, .claude])
+        #endif
+        #expect(viewModel.availableProviderSnapshots.map(\.lastUsedAt) == [
+            cursorSnapshot.lastUsedAt,
+            codexSnapshot.lastUsedAt,
+            claudeSnapshot.lastUsedAt,
+        ])
     }
 
     @Test @MainActor func cacheLoadBridgesClaudeOnlySnapshotIntoProviderUsage() async {

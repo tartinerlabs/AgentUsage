@@ -112,7 +112,8 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
                 ),
                 last30Days: snapshot.last30Days,
                 byModel: snapshot.byModel,
-                dailyCosts: points.map(\.costUSD)
+                dailyCosts: points.map(\.costUSD),
+                lastUsedAt: snapshot.lastUsedAt
             )
         }
 
@@ -139,6 +140,11 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
             from: effortSamples,
             now: currentDate
         )
+        var latestActivity: [Provider: Date] = [:]
+        for sample in effortSamples {
+            let timestamp = latestActivity[sample.provider]
+            latestActivity[sample.provider] = timestamp.map { max($0, sample.timestamp) } ?? sample.timestamp
+        }
         for (provider, summaries) in effortSummaries {
             let existing = details[provider]
             let emptyToday = TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today)
@@ -150,7 +156,8 @@ final class TokenUsageCoordinator: TokenUsageCoordinating {
                 byModel: existing?.byModel ?? [:],
                 dailyCosts: existing?.dailyCosts ?? [],
                 effortSummaries: summaries,
-                hasTokenUsage: existing?.hasTokenUsage ?? false
+                hasTokenUsage: existing?.hasTokenUsage ?? false,
+                lastUsedAt: [existing?.lastUsedAt, latestActivity[provider]].compactMap { $0 }.max()
             )
         }
 

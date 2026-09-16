@@ -9,7 +9,8 @@ import WidgetKit
 
 struct MediumWidgetView: View {
     /// Two-line compact rows fit three providers in the Medium container;
-    /// glances arrive hottest first, so the fourth onward is the calmest.
+    /// glances arrive most recently used first, so the fourth onward is the
+    /// least active.
     private static let maxGlances = 3
 
     let entry: WidgetEntry
