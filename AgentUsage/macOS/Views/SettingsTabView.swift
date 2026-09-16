@@ -31,8 +31,6 @@ struct SettingsTabView: View {
 
                 NotificationSettingsCard()
 
-                BlogUsageSyncCard()
-
                 #if DEBUG
                 // Debug Section (only in debug builds)
                 settingsCard(title: "Debug", systemImage: "ladybug") {

@@ -100,8 +100,7 @@ nonisolated enum EffortUsageAggregator {
         return result
     }
 
-    /// Exposes the same session semantics to consumers that need non-rolling
-    /// buckets, such as the blog's durable daily aggregates.
+    /// Exposes the same session semantics to consumers that need non-rolling buckets.
     static func sessionSummaries(from samples: [EffortUsageSample]) -> [EffortSessionSummary] {
         var sessions: [SessionKey: SessionAccumulator] = [:]
 
