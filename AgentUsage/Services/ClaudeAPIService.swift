@@ -365,12 +365,14 @@ extension ClaudeAPIService {
     nonisolated static func providerSnapshot(
         from snapshot: UsageSnapshot,
         planName: String? = nil,
-        effortSummaries: [EffortPeriodSummary] = []
+        effortSummaries: [EffortPeriodSummary] = [],
+        lastUsedAt: Date? = nil
     ) -> ProviderUsageSnapshot {
         ProviderUsageSnapshot(
             claude: snapshot,
             planName: planName,
-            effortSummaries: effortSummaries
+            effortSummaries: effortSummaries,
+            lastUsedAt: lastUsedAt
         )
     }
 }

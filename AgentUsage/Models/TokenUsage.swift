@@ -709,6 +709,8 @@ nonisolated struct ProviderDetail: Sendable {
     /// state distinct prevents an unavailable token refresh from looking like
     /// a successful refresh with genuine $0 / 0-token totals.
     let hasTokenUsage: Bool
+    /// Newest local session or token-log timestamp, when known.
+    let lastUsedAt: Date?
 
     init(
         today: TokenUsageSummary,
@@ -717,7 +719,8 @@ nonisolated struct ProviderDetail: Sendable {
         byModel: [String: TokenCount],
         dailyCosts: [Double],
         effortSummaries: [EffortPeriodSummary] = [],
-        hasTokenUsage: Bool = true
+        hasTokenUsage: Bool = true,
+        lastUsedAt: Date? = nil
     ) {
         self.today = today
         self.yesterday = yesterday
@@ -726,6 +729,7 @@ nonisolated struct ProviderDetail: Sendable {
         self.dailyCosts = dailyCosts
         self.effortSummaries = effortSummaries
         self.hasTokenUsage = hasTokenUsage
+        self.lastUsedAt = lastUsedAt
     }
 
     func effortSummary(for period: EffortPeriod) -> EffortPeriodSummary? {
@@ -751,19 +755,23 @@ nonisolated struct TokenUsageSnapshot: Sendable {
     /// Per-provider 30-day breakdown (Claude / Codex / OpenCode / Grok).
     let byProvider: [Provider: TokenUsageSummary]
     let fetchedAt: Date
+    /// Newest Claude token-log timestamp in the 30-day window, when any exist.
+    let lastUsedAt: Date?
 
     init(
         today: TokenUsageSummary,
         last30Days: TokenUsageSummary,
         byModel: [String: TokenCount],
         byProvider: [Provider: TokenUsageSummary] = [:],
-        fetchedAt: Date
+        fetchedAt: Date,
+        lastUsedAt: Date? = nil
     ) {
         self.today = today
         self.last30Days = last30Days
         self.byModel = byModel
         self.byProvider = byProvider
         self.fetchedAt = fetchedAt
+        self.lastUsedAt = lastUsedAt
     }
 }
 
