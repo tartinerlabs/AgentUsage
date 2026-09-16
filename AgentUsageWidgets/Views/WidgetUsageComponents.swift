@@ -42,30 +42,52 @@ struct WidgetProviderIdentity: View {
     }
 }
 
-/// System-updating reset text so the countdown moves between timeline entries.
+/// Reset countdown for widget rows.
+///
+/// Only the final hour uses a system-updating `.timer`. Longer horizons use a
+/// static phrase derived from the entry date: WidgetKit reserves the widest
+/// possible width for `Text(_:style:)`, which starves neighbouring titles and
+/// progress bars, and the timeline already re-renders every five minutes.
 struct WidgetResetLabel: View {
-    let resetsAt: Date
+    let usage: UsageWindow
     let now: Date
     var includePrefix: Bool = true
 
     var body: some View {
         Group {
-            if resetsAt <= now {
+            if usage.resetsAt <= now {
                 Text(includePrefix ? "Resets now" : "now")
-            } else if resetsAt.timeIntervalSince(now) < 3600 {
+            } else if usage.resetsAt.timeIntervalSince(now) < 3600 {
                 if includePrefix {
-                    Text("Resets in ") + Text(resetsAt, style: .timer)
+                    Text("Resets in ") + Text(usage.resetsAt, style: .timer)
                 } else {
-                    Text(resetsAt, style: .timer)
+                    Text(usage.resetsAt, style: .timer)
                 }
             } else if includePrefix {
-                Text("Resets ") + Text(resetsAt, style: .relative)
+                Text(usage.resetDescription(from: now))
             } else {
-                Text(resetsAt, style: .relative)
+                Text(usage.timeUntilReset(from: now))
             }
         }
         .monospacedDigit()
         .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
+/// `UsageProgressBar` is a custom shape, so `.redacted` never touches it. Blank
+/// the fill while a placeholder or privacy redaction is active.
+struct WidgetRedactableProgressBar: View {
+    @Environment(\.redactionReasons) private var redactionReasons
+
+    let usage: UsageWindow
+
+    var body: some View {
+        if redactionReasons.isEmpty {
+            UsageProgressBar(usage: usage)
+        } else {
+            UsageProgressBar(progress: 0)
+        }
     }
 }
 
@@ -88,12 +110,12 @@ struct WidgetUsageRow: View {
                     .fontWeight(.semibold)
                     .lineLimit(1)
                 Spacer(minLength: 4)
-                WidgetResetLabel(resetsAt: usage.resetsAt, now: now)
+                WidgetResetLabel(usage: usage, now: now)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
-            UsageProgressBar(usage: usage)
+            WidgetRedactableProgressBar(usage: usage)
                 .accessibilityHidden(true)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -191,12 +213,11 @@ struct WidgetProviderGlanceRow: View {
             .font(.caption)
 
             HStack(spacing: 8) {
-                UsageProgressBar(usage: usage)
+                WidgetRedactableProgressBar(usage: usage)
                     .accessibilityHidden(true)
-                WidgetResetLabel(resetsAt: usage.resetsAt, now: now, includePrefix: false)
+                WidgetResetLabel(usage: usage, now: now, includePrefix: false)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .layoutPriority(1)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -207,10 +228,49 @@ struct WidgetProviderGlanceRow: View {
 
     private var regularRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            WidgetProviderIdentity(provider: provider, font: .subheadline)
-            WidgetUsageRow(title: usage.displayName, usage: usage, now: now)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                ProviderIcon(provider, size: 14)
+                    .foregroundStyle(AgentUsageColors.usageProgress)
+                    .widgetAccentable()
+                Text(provider.displayName)
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .layoutPriority(1)
+                    .lineLimit(1)
+                Text(usage.displayName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text("\(usage.percentUsed)%")
+                    .font(.system(.callout, design: .rounded, weight: .bold))
+                    .layoutPriority(1)
+            }
+
+            WidgetRedactableProgressBar(usage: usage)
+                .accessibilityHidden(true)
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                WidgetResetLabel(usage: usage, now: now)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if usage.isUsingExtraUsage {
+                    Text("+\(usage.extraUsagePercent)% extra")
+                        .font(.footnote)
+                        .foregroundStyle(AgentUsageColors.extraUsageAccent)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                Label(status.label, systemImage: status.icon)
+                    .font(.footnote)
+                    .foregroundStyle(status.color)
+                    .lineLimit(1)
+            }
         }
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(provider.displayName), \(usage.displayName) usage")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint(usage.resetDescription(from: now))
     }
 
     private var accessibilityValue: String {
@@ -219,5 +279,33 @@ struct WidgetProviderGlanceRow: View {
             parts.append("\(usage.extraUsagePercent) percent extra usage")
         }
         return parts.joined(separator: ", ")
+    }
+}
+
+/// One-line secondary window under a Large overview row: name, short bar, percent.
+struct WidgetSecondaryWindowRow: View {
+    let usage: UsageWindow
+    let now: Date
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Text(usage.displayName)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            WidgetRedactableProgressBar(usage: usage)
+                .frame(width: 72)
+                .accessibilityHidden(true)
+            Text("\(usage.percentUsed)%")
+                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .monospacedDigit()
+                .frame(minWidth: 36, alignment: .trailing)
+        }
+        .padding(.leading, 20)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(usage.displayName) usage")
+        .accessibilityValue("\(usage.percentUsed) percent used")
+        .accessibilityHint(usage.resetDescription(from: now))
     }
 }

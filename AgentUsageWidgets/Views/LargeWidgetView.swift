@@ -27,28 +27,52 @@ struct LargeWidgetView: View {
 
     private func overview(_ glances: [WidgetGlanceWindow]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Spacer(minLength: 0)
-                WidgetFreshnessLabel(
-                    entry: entry,
-                    fetchedAt: glances.map(\.fetchedAt).max(),
-                    font: .caption
-                )
+            if let fetchedAt = glances.map(\.fetchedAt).max(), entry.isStale(fetchedAt: fetchedAt) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Spacer(minLength: 0)
+                    WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt, font: .caption)
+                }
             }
 
-            VStack(spacing: glances.count > 3 ? 8 : 10) {
-                ForEach(glances) { glance in
+            // Large adds a second layer of the same content (HIG: larger sizes
+            // support additional layers). Smaller phones fall back to one
+            // window per provider rather than clipping.
+            ViewThatFits(in: .vertical) {
+                providerList(glances, secondaryWindows: true)
+                providerList(glances, secondaryWindows: false)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func providerList(_ glances: [WidgetGlanceWindow], secondaryWindows: Bool) -> some View {
+        VStack(spacing: 10) {
+            ForEach(glances) { glance in
+                VStack(alignment: .leading, spacing: 5) {
                     WidgetProviderGlanceRow(
                         provider: glance.provider,
                         usage: glance.window,
                         now: entry.date,
                         style: .regular
                     )
+                    if secondaryWindows {
+                        ForEach(secondaryWindow(for: glance), id: \.windowID) { usage in
+                            WidgetSecondaryWindowRow(usage: usage, now: entry.date)
+                        }
+                    }
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .accessibilityElement(children: .contain)
+    }
+
+    /// The next live window after the glance, if the provider publishes more than one.
+    private func secondaryWindow(for glance: WidgetGlanceWindow) -> [UsageWindow] {
+        Array(
+            entry.liveWindows(for: glance.provider)
+                .filter { $0.windowID != glance.window.windowID }
+                .prefix(1)
+        )
     }
 
     private func singleProvider(
@@ -60,7 +84,9 @@ struct LargeWidgetView: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 WidgetProviderIdentity(provider: provider, font: .headline)
                 Spacer(minLength: 8)
-                WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt, font: .caption)
+                if entry.isStale(fetchedAt: fetchedAt) {
+                    WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt, font: .caption)
+                }
             }
 
             VStack(spacing: windows.count > 4 ? 8 : 10) {

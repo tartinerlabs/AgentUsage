@@ -78,7 +78,7 @@ struct SmallWidgetView: View {
             }
 
             if showBar {
-                UsageProgressBar(usage: usage)
+                WidgetRedactableProgressBar(usage: usage)
                     .accessibilityHidden(true)
             }
         }
@@ -95,7 +95,7 @@ struct SmallWidgetView: View {
             if entry.isStale, !isStandBy {
                 staleUpdatedLabel
             } else {
-                WidgetResetLabel(resetsAt: usage.resetsAt, now: entry.date)
+                WidgetResetLabel(usage: usage, now: entry.date)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
