@@ -20,6 +20,7 @@ struct AgentUsageApp: App {
     // Direct-distribution updater support is dormant while releases use App Store/TestFlight.
     // @StateObject private var updaterController = UpdaterController()
     @AppStorage("selectedMainWindowTab") private var selectedTab: NavigationTarget = .section(.dashboard)
+    @AppStorage(Constants.commandQClosesWindowKey) private var commandQClosesWindow = false
     @Environment(\.openWindow) private var openWindow
 
     let modelContainer: ModelContainer
@@ -139,6 +140,19 @@ struct AgentUsageApp: App {
                     NSApp.activate(ignoringOtherApps: true)
                 }
                 .keyboardShortcut(",", modifiers: .command)
+            }
+
+            if commandQClosesWindow {
+                CommandGroup(replacing: .appTermination) {
+                    Button("Close Window") {
+                        AppDelegate.closeMainWindows()
+                    }
+                    .keyboardShortcut("q")
+
+                    Button("Quit \(Constants.appDisplayName)") {
+                        NSApp.terminate(nil)
+                    }
+                }
             }
         }
 

@@ -107,6 +107,10 @@ nonisolated enum Constants {
     // MARK: - Continuity Sync (CloudKit)
     static let continuitySyncRevokedKey = "appConnectionRevoked"
 
+    /// When true, ⌘Q closes the main window and leaves the menu bar extra running.
+    /// Actual quit is the status-item context menu (and the popover Quit button).
+    static let commandQClosesWindowKey = "commandQClosesWindow"
+
     /// How stale a macOS-published snapshot may be before iOS stops treating it
     /// as fresh. iOS never fetches provider usage directly; it waits for the Mac
     /// to publish the next snapshot.
