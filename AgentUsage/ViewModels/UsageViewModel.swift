@@ -1029,15 +1029,17 @@ extension UsageViewModel {
             let effortSummaries = providerDetails[.claude]?.effortSummaries
                 ?? providerUsage[.claude]?.effortSummaries
                 ?? []
+            let lastUsedAt = providerDetails[.claude]?.lastUsedAt
+                ?? providerUsage[.claude]?.lastUsedAt
             #else
             let effortSummaries = providerUsage[.claude]?.effortSummaries ?? []
+            let lastUsedAt = providerUsage[.claude]?.lastUsedAt
             #endif
             providerUsage[.claude] = ClaudeAPIService.providerSnapshot(
                 from: newSnapshot,
                 planName: planType,
                 effortSummaries: effortSummaries,
-                lastUsedAt: providerDetails[.claude]?.lastUsedAt
-                    ?? providerUsage[.claude]?.lastUsedAt
+                lastUsedAt: lastUsedAt
             )
 
             // Cache the successful response
