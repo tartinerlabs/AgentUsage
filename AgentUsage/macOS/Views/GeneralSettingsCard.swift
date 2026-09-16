@@ -10,6 +10,7 @@ import SwiftUI
 struct GeneralSettingsCard: View {
     @Environment(UsageViewModel.self) private var viewModel
     @StateObject private var launchAtLogin = LaunchAtLoginService.shared
+    @AppStorage(Constants.commandQClosesWindowKey) private var commandQClosesWindow = false
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -26,6 +27,21 @@ struct GeneralSettingsCard: View {
                     }
                     Spacer()
                     Toggle("", isOn: $launchAtLogin.isEnabled)
+                        .labelsHidden()
+                }
+
+                Divider()
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("⌘Q Closes Window")
+                            .font(.body)
+                        Text("Hide the main window instead of quitting. Right-click the menu bar icon to quit.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $commandQClosesWindow)
                         .labelsHidden()
                 }
 
