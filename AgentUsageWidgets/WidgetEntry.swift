@@ -83,6 +83,7 @@ struct WidgetEntry: TimelineEntry {
 
     func lastUpdatedDescription(for fetchedAt: Date?) -> String {
         guard let fetchedAt else { return "never" }
+        if date.timeIntervalSince(fetchedAt) < 60 { return "just now" }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: fetchedAt, relativeTo: date)

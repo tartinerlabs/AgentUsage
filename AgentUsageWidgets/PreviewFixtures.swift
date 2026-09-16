@@ -74,6 +74,20 @@ extension ProviderUsageSnapshot {
                 planName: "Pro",
                 fetchedAt: now
             ),
+            ProviderUsageSnapshot(
+                provider: .grok,
+                windows: [
+                    UsageWindow(
+                        utilization: 55,
+                        resetsAt: now.addingTimeInterval(5 * 24 * 60 * 60 + 18 * 60 * 60),
+                        windowID: "grok.weekly",
+                        displayName: "Weekly limit",
+                        totalDuration: 7 * 24 * 60 * 60
+                    ),
+                ],
+                planName: "SuperGrok",
+                fetchedAt: now
+            ),
         ]
     }
 }
