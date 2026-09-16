@@ -293,28 +293,39 @@ final class UsageViewModel {
     private(set) var notificationTestResult: NotificationTestResult?
 
     #if os(macOS)
+    /// Pinnable providers in `availableProviders` order (newest local session first),
+    /// so the compact strip's provider cap keeps the most recently used tools.
     var menuBarProviders: [Provider] {
-        MenuBarSettingsManager.supportedProviders
+        availableProviders.filter { MenuBarSettingsManager.supportedProviders.contains($0) }
     }
 
-    func menuBarSupportedWindows(for provider: Provider) -> [UsageWindowType] {
-        MenuBarSettingsManager.supportedWindows(for: provider)
+    /// How many providers the compact strip may show at once, most recently used first.
+    var menuBarMaximumProviders: Int {
+        get { menuBarSettingsManager.maximumProviders }
+        set { menuBarSettingsManager.maximumProviders = newValue }
     }
 
-    func menuBarPinnedWindows(for provider: Provider) -> [UsageWindowType] {
+    func menuBarWindowOptions(for provider: Provider) -> [MenuBarWindowOption] {
+        MenuBarSettingsManager.windowOptions(
+            snapshot: usageSnapshot(for: provider),
+            pinned: menuBarPinnedWindows(for: provider)
+        )
+    }
+
+    func menuBarPinnedWindows(for provider: Provider) -> [UsageWindowID] {
         menuBarSettingsManager.pinnedWindows(for: provider)
     }
 
-    func isMenuBarWindowPinned(_ window: UsageWindowType, for provider: Provider) -> Bool {
+    func isMenuBarWindowPinned(_ window: UsageWindowID, for provider: Provider) -> Bool {
         menuBarSettingsManager.isPinned(window, for: provider)
     }
 
-    func canPinMenuBarWindow(_ window: UsageWindowType, for provider: Provider) -> Bool {
+    func canPinMenuBarWindow(_ window: UsageWindowID, for provider: Provider) -> Bool {
         menuBarSettingsManager.canPin(window, for: provider)
     }
 
     func setMenuBarWindowPinned(
-        _ window: UsageWindowType,
+        _ window: UsageWindowID,
         for provider: Provider,
         isPinned: Bool
     ) {

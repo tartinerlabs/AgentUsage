@@ -41,29 +41,29 @@ struct MenuBarStatusContent: Equatable {
 }
 
 enum MenuBarStatusContentBuilder {
-    private static let providerOrder: [Provider] = [.claude, .codex]
-
     static func build(
         snapshots: [Provider: ProviderUsageSnapshot],
-        pinnedWindows: [Provider: [UsageWindowType]],
+        pinnedWindows: [Provider: [UsageWindowID]],
+        providers: [Provider] = MenuBarSettingsManager.supportedProviders,
+        maximumProviders: Int = MenuBarSettingsManager.defaultMaximumProviders,
         now: Date = Date()
     ) -> MenuBarStatusContent {
-        let groups = providerOrder.compactMap { provider -> MenuBarStatusContent.Group? in
+        let groups = providers.compactMap { provider -> MenuBarStatusContent.Group? in
             guard let snapshot = snapshots[provider] else { return nil }
 
             let metrics = (pinnedWindows[provider] ?? [])
                 .prefix(MenuBarSettingsManager.maximumPinsPerProvider)
-                .compactMap { windowType -> MenuBarStatusContent.Metric? in
+                .compactMap { windowID -> MenuBarStatusContent.Metric? in
                     guard let window = snapshot.windows.first(where: {
-                        $0.windowID.rawValue == windowType.rawValue && !$0.isExpired(from: now)
+                        $0.windowID == windowID && !$0.isExpired(from: now)
                     }),
                     window.utilization.isFinite,
                     window.utilization >= Double(Int.min),
                     window.utilization <= Double(Int.max) else { return nil }
 
                     return MenuBarStatusContent.Metric(
-                        id: windowType.rawValue,
-                        label: windowType.displayName,
+                        id: windowID.rawValue,
+                        label: window.displayName,
                         percentUsed: window.percentUsed
                     )
                 }
@@ -75,8 +75,9 @@ enum MenuBarStatusContentBuilder {
                 metrics: metrics
             )
         }
+        .prefix(maximumProviders)
 
-        return MenuBarStatusContent(groups: groups)
+        return MenuBarStatusContent(groups: Array(groups))
     }
 }
 
@@ -201,16 +202,19 @@ struct MenuBarIconView: View {
 
     private var statusContent: MenuBarStatusContent {
         var snapshots: [Provider: ProviderUsageSnapshot] = [:]
-        var pinnedWindows: [Provider: [UsageWindowType]] = [:]
+        var pinnedWindows: [Provider: [UsageWindowID]] = [:]
 
-        for provider in viewModel.menuBarProviders {
+        let providers = viewModel.menuBarProviders
+        for provider in providers {
             snapshots[provider] = viewModel.usageSnapshot(for: provider)
             pinnedWindows[provider] = viewModel.menuBarPinnedWindows(for: provider)
         }
 
         return MenuBarStatusContentBuilder.build(
             snapshots: snapshots,
-            pinnedWindows: pinnedWindows
+            pinnedWindows: pinnedWindows,
+            providers: providers,
+            maximumProviders: viewModel.menuBarMaximumProviders
         )
     }
 }
