@@ -97,7 +97,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
                 yesterday: aggregateSummary(entries: yesterdayEntries, period: .today),
                 last30Days: aggregateSummary(entries: entries, period: .last30Days),
                 byModel: byModel,
-                dailyCosts: dailyCosts(from: entries, days: 30, todayStart: todayStart, calendar: calendar)
+                dailyCosts: dailyCosts(from: entries, days: 30, todayStart: todayStart, calendar: calendar),
+                lastUsedAt: entries.map(\.timestamp).max()
             )
         }
         return result
@@ -607,7 +608,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             last30Days: self.aggregateSummary(entries: unified, period: .last30Days),
             byModel: byModel,
             byProvider: byProvider,
-            fetchedAt: now
+            fetchedAt: now,
+            lastUsedAt: unified.filter { $0.provider == .claude }.map(\.timestamp).max()
         )
 
         // Update file state and cache

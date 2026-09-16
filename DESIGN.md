@@ -243,8 +243,9 @@ Corner radius is assigned by component scale:
   the data's age), yesterday, sparkline, effort, and models when those fields exist. Status is
   per provider — never an app-wide stale-data banner; only device-offline is app-wide. Fill
   = Timefold Ink @ 0.06, border @ 0.15. `compact` toggles paddings/fonts only. The iOS dashboard
-  Usage segment is a `.summary` stack in urgency order (worst status, then higher
-  utilization, then sooner reset; canonical provider order breaks ties); the iOS/iPad provider
+  Usage segment is a `.summary` stack in recency order (newest local session first;
+  equal or unknown activity uses higher live utilization, then sooner reset;
+  canonical provider order is the last tie-break); the iOS/iPad provider
   destination and the macOS dashboard/popover provider page use `.detail`. A segmented control
   (Usage / Activity / Effort) is the landing-screen disclosure: Usage is the default glance,
   Activity holds Live Activity controls, and Effort holds the cross-provider effort card.
@@ -272,7 +273,8 @@ Corner radius is assigned by component scale:
   rows add window name, compact reset, and an icon-only status on two lines. Medium
   single-provider and Large keep `WidgetUsageRow`. Small and Lock Screen default to the most
   urgent live window, not Claude. Medium and Large show one primary window per provider that
-  currently has quota data; a single-provider payload still lists that provider's windows.
+  currently has quota data, most recently used first, then higher live utilization; a
+  single-provider payload still lists that provider's windows.
   Grok does not appear until it has rate windows. Only the provider glyph is
   `.widgetAccentable()` so tinted/clear appearances keep the percent in the primary group.
 - **Accessory widgets & Live Activities** — where the platform shape requires a gauge, use

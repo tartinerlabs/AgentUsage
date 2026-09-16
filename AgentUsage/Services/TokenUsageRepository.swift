@@ -115,11 +115,13 @@ actor TokenUsageQuerier {
         var totalTokens = TokenCount.zero
         var totalCost = 0.0
         var byModel: [String: TokenCount] = [:]
+        var lastUsedAt: Date?
         for entry in try modelContext.fetch(descriptor) {
             let tokens = entry.tokenCount
             totalTokens = totalTokens + tokens
             totalCost += entry.costUSD
             byModel[entry.modelName] = (byModel[entry.modelName] ?? .zero) + tokens
+            lastUsedAt = lastUsedAt.map { max($0, entry.timestamp) } ?? entry.timestamp
         }
 
         return TokenUsageSnapshot(
@@ -130,7 +132,8 @@ actor TokenUsageQuerier {
                 period: .last30Days
             ),
             byModel: byModel,
-            fetchedAt: Date()
+            fetchedAt: Date(),
+            lastUsedAt: lastUsedAt
         )
     }
 }
