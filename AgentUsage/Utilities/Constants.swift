@@ -21,6 +21,7 @@ nonisolated enum Constants {
 
     // MARK: - Window IDs
     static let mainWindowID = "main-window"
+    static let onboardingWindowID = "onboarding-window"
 
     // MARK: - App Group
     /// Shared App Group container identifier. Backs the SwiftData store, widget data

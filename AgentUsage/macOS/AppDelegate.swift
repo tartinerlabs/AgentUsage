@@ -15,8 +15,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var windowObservers: [NSObjectProtocol] = []
     private var statusItemRightClickMonitor: Any?
     private var didAttachStatusItemQuitRecognizer = false
-    private var onboardingWindow: NSWindow?
-    private let onboardingStore = OnboardingStore(platform: .mac)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindowObservers()
@@ -25,8 +23,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         // Set notification delegate to show banners even when app is in foreground
         UNUserNotificationCenter.current().delegate = self
-
-        presentDataAccessOnboardingIfNeeded()
     }
 
     /// Closes the dashboard and onboarding windows, leaving the menu bar extra running.
@@ -34,61 +30,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         for window in NSApp.windows where window.isVisible && !isMenuBarExtraWindow(window) {
             window.close()
         }
-    }
-
-    // MARK: - First-run local data access
-
-    /// Show setup on a new install. Completion and skipping are persisted separately
-    /// so dismissing the window does not silently mark setup as finished.
-    private func presentDataAccessOnboardingIfNeeded() {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--show-onboarding") {
-            presentDataAccessOnboarding()
-            return
-        }
-        #endif
-        guard onboardingStore.shouldPresent else { return }
-        presentDataAccessOnboarding()
-    }
-
-    private func presentDataAccessOnboarding() {
-        if let onboardingWindow {
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-            onboardingWindow.makeKeyAndOrderFront(nil)
-            return
-        }
-
-        onboardingStore.present()
-
-        let content = DataAccessOnboardingView(onComplete: { [weak self] in
-            self?.onboardingStore.complete()
-            self?.onboardingWindow?.close()
-            self?.onboardingWindow = nil
-            self?.updateActivationPolicy()
-        }, onSkip: { [weak self] in
-            self?.onboardingStore.skip()
-            self?.onboardingWindow?.close()
-            self?.onboardingWindow = nil
-            self?.updateActivationPolicy()
-        })
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 920, height: 680),
-            styleMask: [.titled, .closable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = Constants.appDisplayName
-        window.titlebarAppearsTransparent = true
-        window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: content)
-        window.center()
-        onboardingWindow = window
-
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -120,13 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             forName: NSWindow.willCloseNotification,
             object: nil,
             queue: .main
-        ) { [weak self] notification in
+        ) { [weak self] _ in
             MainActor.assumeIsolated {
-                if let closingWindow = notification.object as? NSWindow,
-                   closingWindow === self?.onboardingWindow {
-                    self?.onboardingStore.dismissWithoutCompleting()
-                    self?.onboardingWindow = nil
-                }
                 // Delay to allow window to actually close
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     MainActor.assumeIsolated {
@@ -136,17 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
         }
 
-        let showOnboarding = NotificationCenter.default.addObserver(
-            forName: .showOnboarding,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.presentDataAccessOnboarding()
-            }
-        }
-
-        windowObservers = [didBecomeVisible, willClose, showOnboarding]
+        windowObservers = [didBecomeVisible, willClose]
     }
 
     private func updateActivationPolicy() {
