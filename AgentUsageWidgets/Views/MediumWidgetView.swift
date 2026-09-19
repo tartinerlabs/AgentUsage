@@ -8,12 +8,17 @@ import AgentUsageKit
 import WidgetKit
 
 struct MediumWidgetView: View {
+    /// Two-line compact rows fit three providers in the Medium container;
+    /// glances arrive most recently used first, so the fourth onward is the
+    /// least active.
+    private static let maxGlances = 3
+
     let entry: WidgetEntry
 
     var body: some View {
         let glances = entry.glanceWindows
         if glances.count >= 2 {
-            overview(glances)
+            overview(Array(glances.prefix(Self.maxGlances)))
         } else if let glance = glances.first {
             singleProvider(
                 windows: Array(entry.liveWindows(for: glance.provider).prefix(2)),
@@ -27,12 +32,11 @@ struct MediumWidgetView: View {
 
     private func overview(_ glances: [WidgetGlanceWindow]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Spacer(minLength: 0)
-                WidgetFreshnessLabel(
-                    entry: entry,
-                    fetchedAt: glances.map(\.fetchedAt).max()
-                )
+            if let fetchedAt = glances.map(\.fetchedAt).max(), entry.isStale(fetchedAt: fetchedAt) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Spacer(minLength: 0)
+                    WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt)
+                }
             }
 
             VStack(spacing: 8) {
@@ -59,7 +63,9 @@ struct MediumWidgetView: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 WidgetProviderIdentity(provider: provider, font: .headline)
                 Spacer(minLength: 8)
-                WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt)
+                if entry.isStale(fetchedAt: fetchedAt) {
+                    WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt)
+                }
             }
 
             VStack(spacing: 8) {

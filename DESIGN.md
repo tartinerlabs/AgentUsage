@@ -273,8 +273,11 @@ Corner radius is assigned by component scale:
   rows add window name, compact reset, and an icon-only status on two lines. Medium
   single-provider and Large keep `WidgetUsageRow`. Small and Lock Screen default to the most
   urgent live window, not Claude. Medium and Large show one primary window per provider that
-  currently has quota data, most recently used first, then higher live utilization; a
-  single-provider payload still lists that provider's windows.
+  currently has quota data, most recently used first, then higher live utilization;
+  Medium stops at three rows; Large adds one secondary window per provider as a
+  one-line name · short bar · percent row when the container has room
+  (`ViewThatFits`); a single-provider payload still lists that provider's windows.
+  Every family shows last-updated only when the snapshot is stale.
   Grok does not appear until it has rate windows. Only the provider glyph is
   `.widgetAccentable()` so tinted/clear appearances keep the percent in the primary group.
 - **Accessory widgets & Live Activities** — where the platform shape requires a gauge, use

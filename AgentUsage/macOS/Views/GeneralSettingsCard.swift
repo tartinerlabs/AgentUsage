@@ -10,6 +10,7 @@ import SwiftUI
 struct GeneralSettingsCard: View {
     @Environment(UsageViewModel.self) private var viewModel
     @StateObject private var launchAtLogin = LaunchAtLoginService.shared
+    @AppStorage(Constants.commandQClosesWindowKey) private var commandQClosesWindow = false
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -26,6 +27,21 @@ struct GeneralSettingsCard: View {
                     }
                     Spacer()
                     Toggle("", isOn: $launchAtLogin.isEnabled)
+                        .labelsHidden()
+                }
+
+                Divider()
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("⌘Q Closes Window")
+                            .font(.body)
+                        Text("Hide the main window instead of quitting. Right-click the menu bar icon to quit.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $commandQClosesWindow)
                         .labelsHidden()
                 }
 
@@ -70,9 +86,22 @@ struct GeneralSettingsCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Menu Bar Display")
                         .font(.body)
-                    Text("Pin up to two quota windows per provider. Providers without live pinned data take no space.")
+                    Text("Pin up to two quota windows per provider. The most recently used providers appear first; those without live pinned data take no space.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    HStack {
+                        Text("Providers shown")
+                            .font(.caption)
+                        Spacer()
+                        Picker("", selection: $viewModel.menuBarMaximumProviders) {
+                            ForEach(Array(MenuBarSettingsManager.maximumProvidersRange), id: \.self) { count in
+                                Text("Up to \(count)").tag(count)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 120)
+                    }
 
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(viewModel.menuBarProviders) { provider in
@@ -86,22 +115,19 @@ struct GeneralSettingsCard: View {
                                         .foregroundStyle(.tertiary)
                                 }
 
-                                ForEach(
-                                    viewModel.menuBarSupportedWindows(for: provider),
-                                    id: \.rawValue
-                                ) { window in
+                                ForEach(viewModel.menuBarWindowOptions(for: provider)) { window in
                                     let isPinned = viewModel.isMenuBarWindowPinned(
-                                        window,
+                                        window.id,
                                         for: provider
                                     )
                                     Toggle(
                                         window.displayName,
-                                        isOn: menuBarPinBinding(window, provider: provider)
+                                        isOn: menuBarPinBinding(window.id, provider: provider)
                                     )
                                     .disabled(
                                         !isPinned
                                             && !viewModel.canPinMenuBarWindow(
-                                                window,
+                                                window.id,
                                                 for: provider
                                             )
                                     )
@@ -132,7 +158,7 @@ struct GeneralSettingsCard: View {
     }
 
     private func menuBarPinBinding(
-        _ window: UsageWindowType,
+        _ window: UsageWindowID,
         provider: Provider
     ) -> Binding<Bool> {
         Binding(

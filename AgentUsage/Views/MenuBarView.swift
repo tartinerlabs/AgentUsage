@@ -14,6 +14,7 @@ struct MenuBarView: View {
     // @EnvironmentObject private var updaterController: UpdaterController
     @Environment(\.openWindow) private var openWindow
     @AppStorage("selectedMainWindowTab") private var selectedTab: NavigationTarget = .section(.dashboard)
+    @AppStorage(Constants.commandQClosesWindowKey) private var commandQClosesWindow = false
 
     @State private var selectedPage: SidebarPage = .overview
     @State private var lastRefreshTap: Date?
@@ -80,7 +81,11 @@ struct MenuBarView: View {
                 openWindow(id: Constants.mainWindowID)
                 NSApp.activate(ignoringOtherApps: true)
             }
-            railAction("power", help: "Quit (⌘Q)", key: "q") {
+            railAction(
+                "power",
+                help: commandQClosesWindow ? "Quit" : "Quit (⌘Q)",
+                key: commandQClosesWindow ? nil : "q"
+            ) {
                 NSApplication.shared.terminate(nil)
             }
         }
@@ -88,6 +93,22 @@ struct MenuBarView: View {
         .frame(width: 56)
         .frame(maxHeight: .infinity)
         .background(.bar)
+        .background { closeWindowShortcut }
+    }
+
+    /// The popover is its own key window, so the app menu's ⌘Q does not reach it.
+    @ViewBuilder
+    private var closeWindowShortcut: some View {
+        if commandQClosesWindow {
+            Button("Close Window") {
+                AppDelegate.closeMainWindows()
+            }
+            .keyboardShortcut("q", modifiers: .command)
+            .opacity(0)
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     private func railTab<Icon: View>(
@@ -112,13 +133,14 @@ struct MenuBarView: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
+    @ViewBuilder
     private func railAction(
         _ systemImage: String,
         help: String,
-        key: KeyEquivalent,
+        key: KeyEquivalent?,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        let button = Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
@@ -126,9 +148,14 @@ struct MenuBarView: View {
         }
         .buttonStyle(.plain)
         .help(help)
+
         // The popover is its own key window, so the app's main-menu shortcuts do not
         // reach it. Bind them here to match what each tooltip advertises.
-        .keyboardShortcut(key, modifiers: .command)
+        if let key {
+            button.keyboardShortcut(key, modifiers: .command)
+        } else {
+            button
+        }
     }
 
     // MARK: - Content

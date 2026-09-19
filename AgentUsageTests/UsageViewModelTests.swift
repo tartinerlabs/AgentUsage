@@ -220,6 +220,9 @@ struct UsageViewModelInitialStateTests {
         )
 
         #expect(viewModel.availableProviders == [.cursor, .codex, .claude])
+        #if os(macOS)
+        #expect(viewModel.menuBarProviders == [.cursor, .codex, .claude])
+        #endif
         #expect(viewModel.availableProviderSnapshots.map(\.lastUsedAt) == [
             cursorSnapshot.lastUsedAt,
             codexSnapshot.lastUsedAt,
