@@ -1,7 +1,151 @@
-# Agent Instructions
+# AGENTS.md
 
-See [CLAUDE.md](CLAUDE.md) — it is the single source of truth for agents working
-in this repository, and covers build commands, the multi-provider architecture,
-and the repo's gotchas.
+Guidance for coding agents working in this repository. This file covers what you
+cannot infer by reading the code — everything else, read the code.
 
-`DESIGN.md` is the source of truth for the SwiftUI visual system.
+AgentUsage is a multi-platform SwiftUI app (macOS menu bar + iOS/iPadOS
+dashboard + widgets) that monitors usage across several AI coding CLIs.
+
+## Design system
+
+`DESIGN.md` is the source of truth for the SwiftUI visual system. Consult it
+before changing views, widgets, menu bar UI, or Live Activities. Note that the
+palette lives in `Utilities/Constants.swift`, not `Assets.xcassets`.
+
+## Build
+
+`AgentUsage` is one destination-aware scheme for macOS, iOS, and iPadOS.
+The simulator destination strings that are actually used:
+
+```bash
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug build
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test
+
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M3)' build
+```
+
+## Multi-provider architecture
+
+The app is not Claude-only. Usage is collected per provider through two seams:
+
+- `AgentUsageKit/Sources/AgentUsageKit/Models/Provider.swift` — `Provider` enum
+  (`claude`, `codex`, `openCode`, `openCodeGo`, `cursor`, `grok`). Each carries a `Capability` set
+  (`.rateWindows` for live quota windows, `.tokenCost` for token/cost from local
+  logs), a `pricingProviderKey` ("anthropic" / "openai" / "xai"), and a `family` rollup.
+  Check capabilities before assuming a provider surfaces a given kind of data.
+- `AgentUsage/Shared/Protocols/UsageLogSource.swift` — `protocol UsageLogSource: Actor`,
+  which normalizes each CLI's local logs into `ProviderUsageEntry` (provider,
+  model, tokens, `dedupKey`, optional `precomputedCostUSD`, `fastMode`).
+- `AgentUsage/Shared/Protocols/APIServiceProtocol.swift:24` —
+  `ProviderUsageServiceProtocol` for live quota snapshots fetched from a provider's API.
+- `AgentUsage/DependencyContainer.swift` wires the concrete implementations.
+  Start here when adding a provider.
+
+A subsystem that is easy to miss: provider outage tracking (`OutageIncident`).
+
+## Gotchas
+
+These are non-obvious and have caused wrong changes before.
+
+**OpenCode is deliberately disabled.** `DependencyContainer.swift:46` and `:87`
+have `OpenCodeLogSource()` and `.openCodeGo: OpenCodeGoLocalUsageService()`
+commented out — "OpenCode usage is currently unreliable". Tests exist for code
+paths the app does not wire up. Uncommenting these reverts a deliberate
+decision; don't do it to make a provider "work".
+
+**Credentials come from the Keychain, not the filesystem.**
+`macOS/Services/MacOSCredentialService.swift` shells out to `/usr/bin/security`
+to read Claude Code's Keychain entry, which is why the App Sandbox doesn't block
+it and why no folder grant is needed for auth.
+
+**Reading CLI logs does need a folder grant.**
+`macOS/Services/SandboxFolderAccessService.swift` resolves security-scoped
+bookmarks for `~/.claude`, `~/.codex`, `~/.local/share/opencode`, and `~/.grok` at launch and
+holds them for the process lifetime. It also grants read access to Cursor's
+`~/Library/Application Support/Cursor/User/globalStorage` session database; the
+user grants these paths in Settings → Local Data Access. Under the sandbox,
+`NSHomeDirectory()` returns the container — use
+`Constants.realHomeDirectory`, which resolves the true home via
+`getpwuid(getuid())` (`Constants.swift:133`).
+
+**Grok subscription windows come from Grok Build's billing API.** `Provider.grok`
+is `.rateWindows` and `.tokenCost`. Live quota is `GET`
+`https://cli-chat-proxy.grok.com/v1/billing?format=credits` with the session
+token in `~/.grok/auth.json` — the same JSON Grok Build `/usage` uses, not a
+grok.com HTML scrape. Grok Build still does not log billable input/output
+tokens; `GrokLogSource` estimates spend from the per-turn context-fill curve in
+`updates.jsonl`.
+
+**The SwiftData store is pinned to the App Group.** `AgentUsageApp.swift:66`
+passes `ModelConfiguration(groupContainer: .identifier(Constants.appGroupIdentifier))`
+explicitly, with an in-memory fallback when `isRunningTests`. Dropping the
+`groupContainer:` argument silently moves the store and orphans existing data.
+
+**Live Activities start in the foreground.** Auto-pin at limit calls
+`Activity.request` only while the iOS scene is active. Background refresh may
+update an existing activity but cannot start one (`pushType` remains `nil`). Do
+not add ActivityKit push or a grok.com scrape to make pocket auto-start "work".
+Reset alerts are local `UNTimeIntervalNotificationTrigger`s armed from
+`resetsAt`. Waiting-room activities are only for short rate windows (≤ 8 hours
+remaining); weekly/monthly limits stay on notifications and widgets.
+
+**iOS never fetches provider usage directly.** It consumes snapshots the Mac
+publishes over CloudKit
+(`AgentUsageKit/Sources/AgentUsageKit/Services/UsageSyncService.swift`).
+`iOS/Services/iOSCredentialService.swift` exists, but the
+`~/.claude/.credentials.json` path it refers to does not exist on iOS.
+
+**New types are MainActor-isolated by default** —
+`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` is set project-wide. Mark types
+`nonisolated` when they need to cross actor boundaries.
+
+**Sparkle is dormant and unlinked.** There are zero Sparkle references in
+`AgentUsage.xcodeproj`. The complete implementation remains inside an outer
+comment in `UpdaterController.swift`, and its app wiring, settings UI, debug
+action, and update banners are commented at their former call sites. The
+`SUFeedURL`, `SUPublicEDKey`, `SUEnableAutomaticChecks`, and
+`SUScheduledCheckInterval` entries remain XML-commented in `AgentUsage/Info.plist`.
+Restore these pieces only for a separate direct-distribution build; App Store and
+TestFlight builds must continue using Apple's update path.
+
+**The GitHub Actions workflows cannot trigger.** `.github/workflows/ci.yml`,
+`release.yml`, and `pages.yml` contain zero non-comment lines, and a fully
+commented file registers no workflow. `gh workflow run release.yml`
+fails silently. CI, archiving, and distribution run on Xcode Cloud, configured in
+App Store Connect.
+
+**Version lives only in `Config/Version.xcconfig`**, wired as the project-level
+base configuration for Debug and Release, so every target inherits
+`MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`. Adding either to a target's
+build settings overrides the xcconfig — never do that. Bump by hand.
+
+**Shipping macOS builds are a menu bar agent; Debug is not.** Release sets
+`INFOPLIST_KEY_LSUIElement[sdk=macosx*] = YES` so archived/TestFlight builds stay
+out of the Dock. Debug and DebugCloud leave it `NO` so Xcode Cloud and local
+XCTest can launch the test host. Putting `LSUIElement` back in
+`AgentUsage/Info.plist` wins over the generated key and, together with
+restricted DebugCloud entitlements, brings back `Runningboard error 5`
+(`Could not launch “AgentUsageTests”`). Xcode Cloud does not embed a Mac
+development profile for Keychain Sharing or iCloud on the test host — the shared
+scheme’s Test action uses the `DebugCloud` configuration, whose macOS
+entitlements are `AgentUsage/AgentUsage-Debug.entitlements` (no
+`keychain-access-groups` or iCloud). The name must keep a `Debug` prefix so
+Swift packages still emit Debug modules; a name like `CloudTest` builds
+`AgentUsageKit` as Release and tests fail with `Unable to resolve Swift module
+dependency`. Debug local runs keep `AgentUsage/AgentUsage.entitlements` so
+CloudKit continuity still works. Release uses the same full file. Do not add
+Keychain Sharing or iCloud to the DebugCloud entitlements file. Xcode Cloud
+test actions must use scheme settings (or explicitly select `DebugCloud`).
+
+**The shared scheme’s default test plan is unit tests only**
+(`AgentUsage.xctestplan`). Xcode Cloud “Use Scheme Settings” follows that plan,
+so PR Validation can be marked Required to Pass once macOS is green. UI tests
+live in `AgentUsageUI.xctestplan` — run them locally (and optionally point the
+iOS Cloud test action at that plan). A menu bar extra is not a reliable Cloud
+macOS UI destination. Much of the unit suite is `#if os(macOS)` (credentials,
+Codex/OpenCode log sources). Still run
+`xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage test` locally
+before merging macOS changes.

@@ -49,7 +49,7 @@ One SwiftUI product that adapts per OS. It is not a website and not an Android a
 
 ## Evidence on Hand
 
-- Product and visual records: this file, `DESIGN.md`, `CLAUDE.md`.
+- Product and visual records: this file, `DESIGN.md`, `AGENTS.md`.
 - Mark artwork under `Design/AppIcon/` (marketing 1024, `usage-ring-1024`, Icon Composer source). The approved mockup path is the named target; compare production exports to the artwork that actually ships.
 - No customer testimonials, case studies, press quotes, pricing pages, or third-party benchmarks. Do not invent them.
 - `README.md` is stale (still Claude-only, still describes an archived GitHub-release build). Do not treat it as product truth.
