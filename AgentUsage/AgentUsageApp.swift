@@ -21,6 +21,8 @@ struct AgentUsageApp: App {
     // @StateObject private var updaterController = UpdaterController()
     @AppStorage("selectedMainWindowTab") private var selectedTab: NavigationTarget = .section(.dashboard)
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
+    @State private var onboardingStore = OnboardingStore(platform: .mac)
 
     let modelContainer: ModelContainer
     #else
@@ -113,6 +115,20 @@ struct AgentUsageApp: App {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
+    #if os(macOS)
+    /// Show setup on a new install. Completion and skipping are persisted separately
+    /// so dismissing the window does not silently mark setup as finished.
+    private var shouldPresentOnboardingAtLaunch: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--show-onboarding") {
+            return true
+        }
+        #endif
+        guard !Self.isRunningTests else { return false }
+        return onboardingStore.shouldPresent
+    }
+    #endif
+
     @SceneBuilder
     var body: some Scene {
         #if os(macOS)
@@ -142,6 +158,33 @@ struct AgentUsageApp: App {
             }
         }
 
+        // First-run local data access setup. Presented at launch while pending
+        // and reopened on demand from Settings via `.showOnboarding`.
+        Window(Constants.appDisplayName, id: Constants.onboardingWindowID) {
+            DataAccessOnboardingView(
+                onComplete: {
+                    onboardingStore.complete()
+                    dismissWindow(id: Constants.onboardingWindowID)
+                },
+                onSkip: {
+                    onboardingStore.skip()
+                    dismissWindow(id: Constants.onboardingWindowID)
+                }
+            )
+            .windowMinimizeBehavior(.disabled)
+            .windowResizeBehavior(.disabled)
+            .onAppear { onboardingStore.present() }
+            // Closing with the window button must not count as finishing setup.
+            .onDisappear { onboardingStore.dismissWithoutCompleting() }
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .restorationBehavior(.disabled)
+        .defaultPosition(.center)
+        // `.presented` is not honoured alongside a MenuBarExtra, so launch
+        // presentation is driven explicitly from the menu bar label's task.
+        .defaultLaunchBehavior(.suppressed)
+
         // Menu bar popover
         MenuBarExtra {
             MenuBarView()
@@ -159,6 +202,18 @@ struct AgentUsageApp: App {
                     // from the first-run onboarding, without waiting for the next cycle.
                     for await _ in NotificationCenter.default.notifications(named: .localDataAccessGranted) {
                         _ = await viewModel.refresh(force: true)
+                    }
+                }
+                .task {
+                    // Present first-run setup on launch, and again whenever
+                    // "Run Setup Again" in Settings posts `.showOnboarding`.
+                    if shouldPresentOnboardingAtLaunch {
+                        openWindow(id: Constants.onboardingWindowID)
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                    for await _ in NotificationCenter.default.notifications(named: .showOnboarding) {
+                        openWindow(id: Constants.onboardingWindowID)
+                        NSApp.activate(ignoringOtherApps: true)
                     }
                 }
         }
