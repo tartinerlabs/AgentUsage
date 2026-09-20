@@ -163,6 +163,7 @@ public actor UsageSyncService: UsageSyncServicing {
     private static let deviceKindKey = "deviceKind"
     private static let acknowledgedAtKey = "acknowledgedAt"
     private static let engineStateFilename = "ContinuitySyncEngineState.json"
+    private static let maxSendAttempts = 3
 
     private var injectedDatabase: (any UsageSyncDatabase)?
     private var cloudDatabase: CKDatabase?
@@ -172,7 +173,12 @@ public actor UsageSyncService: UsageSyncServicing {
 
     private var syncEngine: CKSyncEngine?
     private var lastKnownRecords: [CKRecord.ID: CKRecord] = [:]
+    /// Encoded CKRecord system fields by record name, persisted with the engine
+    /// state so saves after a relaunch carry the server change tag.
+    private var systemFields: [String: Data] = [:]
+    private var engineState: CKSyncEngine.State.Serialization?
     private var sendFailure: UsageSyncError?
+    private var zoneSaveQueued = false
     private let usesEngine: Bool
 
     public init(containerIdentifier: String = UsageSyncService.containerIdentifier) {
@@ -202,8 +208,7 @@ public actor UsageSyncService: UsageSyncServicing {
             ?? Date()
 
         do {
-            let record = lastKnownRecords[snapshotRecordID]
-                ?? CKRecord(recordType: Self.snapshotRecordType, recordID: snapshotRecordID)
+            let record = baseRecord(type: Self.snapshotRecordType, id: snapshotRecordID)
             if let snapshot {
                 record[Self.payloadKey] = try JSONEncoder().encode(snapshot) as CKRecordValue
             } else {
@@ -254,8 +259,7 @@ public actor UsageSyncService: UsageSyncServicing {
             acknowledgedAt: Date()
         )
         let recordID = Self.receiptRecordID(for: device)
-        let record = lastKnownRecords[recordID]
-            ?? CKRecord(recordType: Self.receiptRecordType, recordID: recordID)
+        let record = baseRecord(type: Self.receiptRecordType, id: recordID)
         record[Self.deviceKindKey] = device.rawValue as CKRecordValue
         record[Self.syncGenerationKey] = generation as CKRecordValue
         record[Self.acknowledgedAtKey] = receipt.acknowledgedAt as CKRecordValue
@@ -295,7 +299,7 @@ public actor UsageSyncService: UsageSyncServicing {
 
                 do {
                     let record = try result.get()
-                    lastKnownRecords[recordID] = record
+                    remember(record)
                     receipts[device] = try Self.receipt(from: record, expectedDevice: device)
                 } catch where Self.isUnknownItem(error) {
                     continue
@@ -329,10 +333,20 @@ public actor UsageSyncService: UsageSyncServicing {
         if usesEngine {
             startEngineIfNeeded()
             guard let syncEngine else { return false }
+            sendFailure = nil
             syncEngine.state.add(pendingDatabaseChanges: [.deleteZone(Self.zoneID)])
             do {
                 try await syncEngine.sendChanges()
-                lastKnownRecords.removeAll()
+                if let sendFailure {
+                    logger.error("CloudKit zone revoke failed: \(sendFailure.localizedDescription, privacy: .public)")
+                    return false
+                }
+                guard !syncEngine.state.pendingDatabaseChanges.contains(.deleteZone(Self.zoneID)) else {
+                    logger.error("CloudKit zone revoke is still pending")
+                    return false
+                }
+                forgetAllRecords()
+                zoneSaveQueued = false
                 _ = await deleteLegacyQuerySubscription()
                 logger.debug("Revoked Continuity CloudKit zone")
                 return true
@@ -374,14 +388,29 @@ public actor UsageSyncService: UsageSyncServicing {
                     message: "CKSyncEngine is not available."
                 )
             }
-            sendFailure = nil
-            syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: Self.zoneID))])
-            syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(record.recordID)])
-            try await syncEngine.sendChanges()
-            if let sendFailure {
-                throw sendFailure
+            if !zoneSaveQueued {
+                syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: Self.zoneID))])
+                zoneSaveQueued = true
             }
-            return lastKnownRecords[record.recordID] ?? record
+            let change = CKSyncEngine.PendingRecordZoneChange.saveRecord(record.recordID)
+            syncEngine.state.add(pendingRecordZoneChanges: [change])
+
+            // A conflict or missing zone re-queues the save, so send again
+            // until the record leaves the pending list.
+            for _ in 0..<Self.maxSendAttempts {
+                sendFailure = nil
+                try await syncEngine.sendChanges()
+                if let sendFailure {
+                    throw sendFailure
+                }
+                if !syncEngine.state.pendingRecordZoneChanges.contains(change) {
+                    return lastKnownRecords[record.recordID] ?? record
+                }
+            }
+            throw UsageSyncError.recordOperationFailed(
+                recordName: record.recordID.recordName,
+                message: "CloudKit has not accepted the change yet; it stays queued for retry."
+            )
         }
 
         let database = resolvedDatabase()
@@ -400,19 +429,21 @@ public actor UsageSyncService: UsageSyncServicing {
     }
 
     private func delete(recordIDs: [CKRecord.ID]) async -> Bool {
-        for recordID in recordIDs {
-            lastKnownRecords[recordID] = nil
-        }
-
         if usesEngine {
             startEngineIfNeeded()
             guard let syncEngine else { return false }
+            forget(recordIDs)
             sendFailure = nil
-            syncEngine.state.add(pendingRecordZoneChanges: recordIDs.map { .deleteRecord($0) })
+            let changes = recordIDs.map { CKSyncEngine.PendingRecordZoneChange.deleteRecord($0) }
+            syncEngine.state.add(pendingRecordZoneChanges: changes)
             do {
                 try await syncEngine.sendChanges()
                 if let sendFailure {
                     logger.error("CloudKit revoke failed: \(sendFailure.localizedDescription, privacy: .public)")
+                    return false
+                }
+                guard !syncEngine.state.pendingRecordZoneChanges.contains(where: changes.contains) else {
+                    logger.error("CloudKit revoke is still pending")
                     return false
                 }
                 logger.debug("Revoked requested CloudKit continuity records")
@@ -421,6 +452,10 @@ public actor UsageSyncService: UsageSyncServicing {
                 logger.error("CloudKit revoke failed: \(Self.describe(error), privacy: .public)")
                 return false
             }
+        }
+
+        for recordID in recordIDs {
+            lastKnownRecords[recordID] = nil
         }
 
         do {
@@ -465,7 +500,7 @@ public actor UsageSyncService: UsageSyncServicing {
                 throw UsageSyncError.missingRecordResult(recordName: id.recordName)
             }
             let record = try result.get()
-            lastKnownRecords[record.recordID] = record
+            remember(record)
 
             let snapshot: UsageSnapshot?
             if let payload = record[Self.payloadKey] as? Data {
@@ -505,15 +540,16 @@ public actor UsageSyncService: UsageSyncServicing {
 
     private func startEngineIfNeeded() {
         guard usesEngine, syncEngine == nil else { return }
+        let persisted = Self.loadPersistedState()
+        engineState = persisted?.engineState
+        systemFields = persisted?.systemFields ?? [:]
         var configuration = CKSyncEngine.Configuration(
             database: ckDatabase(),
-            stateSerialization: Self.loadEngineState(),
+            stateSerialization: engineState,
             delegate: self
         )
         configuration.automaticallySync = true
-        let engine = CKSyncEngine(configuration)
-        syncEngine = engine
-        engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: Self.zoneID))])
+        syncEngine = CKSyncEngine(configuration)
         logger.debug("Initialized CKSyncEngine for Continuity")
         Task { await self.deleteLegacyQuerySubscription() }
     }
@@ -615,22 +651,66 @@ public actor UsageSyncService: UsageSyncServicing {
             .appendingPathComponent(engineStateFilename)
     }
 
-    private static func loadEngineState() -> CKSyncEngine.State.Serialization? {
+    /// Engine state and record system fields are written together so the
+    /// engine's change tokens never get ahead of the records they describe.
+    private struct PersistedState: Codable {
+        var engineState: CKSyncEngine.State.Serialization?
+        var systemFields: [String: Data]
+    }
+
+    private static func loadPersistedState() -> PersistedState? {
         guard let url = stateFileURL(),
               let data = try? Data(contentsOf: url) else {
             return nil
         }
-        return try? JSONDecoder().decode(CKSyncEngine.State.Serialization.self, from: data)
+        return try? JSONDecoder().decode(PersistedState.self, from: data)
     }
 
-    private func persistEngineState(_ state: CKSyncEngine.State.Serialization) {
-        guard let url = Self.stateFileURL() else { return }
+    private func persistState() {
+        guard usesEngine, let url = Self.stateFileURL() else { return }
         do {
-            let data = try JSONEncoder().encode(state)
-            try data.write(to: url, options: .atomic)
+            let persisted = PersistedState(engineState: engineState, systemFields: systemFields)
+            try JSONEncoder().encode(persisted).write(to: url, options: .atomic)
         } catch {
             logger.error("Could not persist CKSyncEngine state: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// The record to mutate for a save: the latest server copy when known, so
+    /// the save carries its change tag instead of conflicting.
+    private func baseRecord(type: CKRecord.RecordType, id: CKRecord.ID) -> CKRecord {
+        if let record = lastKnownRecords[id] {
+            return record
+        }
+        if let data = systemFields[id.recordName],
+           let coder = try? NSKeyedUnarchiver(forReadingFrom: data) {
+            coder.requiresSecureCoding = true
+            if let record = CKRecord(coder: coder), record.recordID == id {
+                return record
+            }
+        }
+        return CKRecord(recordType: type, recordID: id)
+    }
+
+    private func remember(_ record: CKRecord) {
+        lastKnownRecords[record.recordID] = record
+        guard usesEngine else { return }
+        let coder = NSKeyedArchiver(requiringSecureCoding: true)
+        record.encodeSystemFields(with: coder)
+        systemFields[record.recordID.recordName] = coder.encodedData
+    }
+
+    private func forget(_ recordIDs: [CKRecord.ID]) {
+        for recordID in recordIDs {
+            lastKnownRecords[recordID] = nil
+            systemFields[recordID.recordName] = nil
+        }
+    }
+
+    private func forgetAllRecords() {
+        lastKnownRecords.removeAll()
+        systemFields.removeAll()
+        persistState()
     }
 
     private static func syncError(_ error: Error, recordName: String) -> UsageSyncError {
@@ -668,26 +748,43 @@ extension UsageSyncService: CKSyncEngineDelegate {
     public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
         switch event {
         case .stateUpdate(let event):
-            persistEngineState(event.stateSerialization)
+            engineState = event.stateSerialization
+            persistState()
 
         case .fetchedRecordZoneChanges(let event):
             for modification in event.modifications {
-                lastKnownRecords[modification.record.recordID] = modification.record
+                remember(modification.record)
             }
-            for deletion in event.deletions {
-                lastKnownRecords[deletion.recordID] = nil
-            }
+            forget(event.deletions.map(\.recordID))
+            persistState()
 
         case .fetchedDatabaseChanges(let event):
-            for deletion in event.deletions where deletion.zoneID == Self.zoneID {
-                lastKnownRecords.removeAll()
+            if event.deletions.contains(where: { $0.zoneID == Self.zoneID }) {
+                forgetAllRecords()
+                zoneSaveQueued = false
             }
 
         case .sentRecordZoneChanges(let event):
             handleSentRecordZoneChanges(event, syncEngine: syncEngine)
 
-        case .accountChange, .sentDatabaseChanges,
-             .willFetchChanges, .willFetchRecordZoneChanges, .didFetchRecordZoneChanges,
+        case .sentDatabaseChanges(let event):
+            for (zoneID, error) in event.failedZoneDeletes where error.code != .zoneNotFound {
+                sendFailure = Self.syncError(error, recordName: zoneID.zoneName)
+            }
+
+        case .accountChange(let event):
+            // Cached records and change tags belong to the previous account.
+            switch event.changeType {
+            case .signOut, .switchAccounts:
+                forgetAllRecords()
+                zoneSaveQueued = false
+            case .signIn:
+                break
+            @unknown default:
+                break
+            }
+
+        case .willFetchChanges, .willFetchRecordZoneChanges, .didFetchRecordZoneChanges,
              .didFetchChanges, .willSendChanges, .didSendChanges:
             break
 
@@ -717,7 +814,16 @@ extension UsageSyncService: CKSyncEngineDelegate {
         syncEngine: CKSyncEngine
     ) {
         for saved in event.savedRecords {
-            lastKnownRecords[saved.recordID] = saved
+            remember(saved)
+        }
+        forget(event.deletedRecordIDs)
+        for (recordID, error) in event.failedRecordDeletes {
+            switch error.code {
+            case .unknownItem, .zoneNotFound, .userDeletedZone:
+                syncEngine.state.remove(pendingRecordZoneChanges: [.deleteRecord(recordID)])
+            default:
+                sendFailure = Self.syncError(error, recordName: recordID.recordName)
+            }
         }
 
         var retryRecords: [CKSyncEngine.PendingRecordZoneChange] = []
@@ -726,17 +832,28 @@ extension UsageSyncService: CKSyncEngineDelegate {
         for failed in event.failedRecordSaves {
             switch failed.error.code {
             case .serverRecordChanged:
+                // Every save is a full overwrite, so ours wins: replay our
+                // fields onto the server copy to pick up its change tag.
                 if let serverRecord = failed.error.serverRecord {
-                    lastKnownRecords[serverRecord.recordID] = serverRecord
+                    for key in Set(serverRecord.allKeys()).union(failed.record.allKeys()) {
+                        serverRecord[key] = failed.record[key]
+                    }
+                    remember(serverRecord)
                 }
                 retryRecords.append(.saveRecord(failed.record.recordID))
 
-            case .zoneNotFound:
+            case .zoneNotFound, .userDeletedZone:
                 retryZones.append(.saveZone(CKRecordZone(zoneID: failed.record.recordID.zoneID)))
                 retryRecords.append(.saveRecord(failed.record.recordID))
 
             case .unknownItem:
-                lastKnownRecords[failed.record.recordID] = failed.record
+                // The server copy is gone, so the stored change tag is stale.
+                let fresh = CKRecord(recordType: failed.record.recordType, recordID: failed.record.recordID)
+                for key in failed.record.allKeys() {
+                    fresh[key] = failed.record[key]
+                }
+                forget([fresh.recordID])
+                lastKnownRecords[fresh.recordID] = fresh
                 retryRecords.append(.saveRecord(failed.record.recordID))
 
             case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable,
@@ -756,6 +873,7 @@ extension UsageSyncService: CKSyncEngineDelegate {
         if !retryRecords.isEmpty {
             syncEngine.state.add(pendingRecordZoneChanges: retryRecords)
         }
+        persistState()
     }
 }
 #endif

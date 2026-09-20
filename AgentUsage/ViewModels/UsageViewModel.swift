@@ -1215,9 +1215,12 @@ extension UsageViewModel {
         await armResetNotifications()
     }
 
-    /// Register the CloudKit silent-push subscription only after Continuity has
-    /// a verified Mac snapshot. Failures are logged; BGAppRefresh remains the floor.
-    private func ensureSilentPushSubscription() async {
+    /// Start the sync engine that owns the CloudKit silent-push subscription.
+    /// Called at process start so background launches can receive pushes, and
+    /// again after a verified Mac snapshot. Failures are logged; BGAppRefresh
+    /// remains the floor.
+    func ensureSilentPushSubscription() async {
+        guard !appConnectionRevoked else { return }
         do {
             try await usageSyncService.ensureSnapshotSubscription()
         } catch {
