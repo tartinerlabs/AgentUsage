@@ -91,6 +91,8 @@ final class UsageViewModel {
     var continuitySyncErrorMessage: String?
     #if os(macOS)
     private(set) var publishedSyncGeneration: String?
+    @ObservationIgnored private var lastPublishedSignature: String?
+    @ObservationIgnored private var lastPublishedAt: Date?
     private(set) var continuityReceipts: [UsageSyncDevice: ContinuityReceipt] = [:]
     private(set) var isCheckingContinuityReceipts = false
     var tokenUsageError: TokenUsageError?
@@ -831,7 +833,7 @@ extension UsageViewModel {
         if !appConnectionRevoked,
            snapshot != nil || !providerUsage.isEmpty || !providersWithEffortUsage.isEmpty {
             Task { [weak self] in
-                await self?.publishContinuitySnapshot()
+                await self?.publishContinuitySnapshot(force: false)
             }
         }
         await armResetNotifications()
@@ -1246,7 +1248,7 @@ extension UsageViewModel {
             continuitySyncErrorMessage = "Refresh usage once before sharing it with iPhone and iPad."
             return
         }
-        await publishContinuitySnapshot()
+        await publishContinuitySnapshot(force: true)
         #else
         _ = await refresh(force: true)
         #endif
@@ -1266,7 +1268,27 @@ extension UsageViewModel {
         }
     }
 
-    private func publishContinuitySnapshot() async {
+    /// Every publish costs the iPhone one silent push, and iOS stops delivering
+    /// them when they arrive too often. Automatic publishes therefore go out only
+    /// when a displayed value changed, spaced apart, plus a slow heartbeat that
+    /// keeps the shared snapshot's fetch time fresh. Manual shares always publish.
+    private static let minimumPublishSpacing: TimeInterval = 5 * 60
+    private static let publishHeartbeat: TimeInterval = 30 * 60
+
+    private func publishContinuitySnapshot(force: Bool) async {
+        let providerSnapshots = continuityProviderSnapshots()
+        let signature = Self.publishSignature(planType: planType, providerSnapshots: providerSnapshots)
+        if !force, let lastPublishedAt, publishedSyncGeneration != nil {
+            let elapsed = Date().timeIntervalSince(lastPublishedAt)
+            let required = signature == lastPublishedSignature
+                ? Self.publishHeartbeat
+                : Self.minimumPublishSpacing
+            if elapsed < required {
+                await refreshContinuityReceipts()
+                return
+            }
+        }
+
         publishedSyncGeneration = nil
         continuitySyncErrorMessage = nil
 
@@ -1274,13 +1296,33 @@ extension UsageViewModel {
             let publication = try await usageSyncService.publish(
                 snapshot: snapshot,
                 planType: planType,
-                providerSnapshots: continuityProviderSnapshots()
+                providerSnapshots: providerSnapshots
             )
             publishedSyncGeneration = publication.syncGeneration
+            lastPublishedSignature = signature
+            lastPublishedAt = Date()
             await refreshContinuityReceipts()
         } catch {
             continuitySyncErrorMessage = "This Mac could not share usage through iCloud: \(error.localizedDescription)"
         }
+    }
+
+    /// The values a widget actually shows: whole-percent utilization and reset
+    /// times per window. Fetch timestamps are excluded because they change on
+    /// every refresh.
+    private static func publishSignature(
+        planType: String,
+        providerSnapshots: [ProviderUsageSnapshot]
+    ) -> String {
+        let providers = providerSnapshots
+            .sorted { $0.provider.rawValue < $1.provider.rawValue }
+            .map { snapshot in
+                let windows = snapshot.windows.map { window in
+                    "\(window.windowID.rawValue)=\(Int(window.utilization.rounded()))@\(Int(window.resetsAt.timeIntervalSince1970 / 60))"
+                }
+                return "\(snapshot.provider.rawValue):\(snapshot.planName ?? ""):\(windows.joined(separator: ","))"
+            }
+        return ([planType] + providers).joined(separator: "|")
     }
 
     /// Builds the normal provider payload with local effort summaries attached.
