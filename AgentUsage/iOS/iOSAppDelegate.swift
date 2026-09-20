@@ -4,7 +4,6 @@
 //
 
 #if os(iOS)
-import AgentUsageKit
 import CloudKit
 import UIKit
 import UserNotifications
@@ -37,9 +36,7 @@ final class iOSAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationC
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo),
-              notification.subscriptionID == UsageSyncService.snapshotSubscriptionID
-        else {
+        guard CKNotification(fromRemoteNotificationDictionary: userInfo) != nil else {
             completionHandler(.noData)
             return
         }

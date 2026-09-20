@@ -108,6 +108,7 @@ struct AgentUsageApp: App {
         appDelegate.viewModel = viewModel
         if !Self.isRunningTests {
             coordinator.start()
+            Task { await viewModel.ensureSilentPushSubscription() }
         }
         #endif
     }

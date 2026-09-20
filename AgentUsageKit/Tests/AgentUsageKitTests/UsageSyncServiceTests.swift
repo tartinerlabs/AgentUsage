@@ -266,65 +266,15 @@ struct UsageSyncServiceTests {
         #expect(await database.record(named: "latest") == nil)
         #expect(await database.record(named: UsageSyncService.receiptRecordID(for: .iPhone).recordName) == nil)
         #expect(await database.record(named: UsageSyncService.receiptRecordID(for: .iPad).recordName) == nil)
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) == nil)
     }
 
-    @Test func ensureSnapshotSubscriptionSavesContentAvailableQuery() async throws {
-        let database = StubUsageSyncDatabase()
-        let service = UsageSyncService(database: database)
-
-        try await service.ensureSnapshotSubscription()
-
-        let saved = try #require(
-            await database.subscription(id: UsageSyncService.snapshotSubscriptionID) as? CKQuerySubscription
-        )
-        #expect(saved.subscriptionID == UsageSyncService.snapshotSubscriptionID)
-        #expect(saved.recordType == "UsageSnapshot")
-        #expect(saved.notificationInfo?.shouldSendContentAvailable == true)
-        #expect(saved.querySubscriptionOptions.contains(.firesOnRecordCreation))
-        #expect(saved.querySubscriptionOptions.contains(.firesOnRecordUpdate))
-        #expect(await database.saveSubscriptionCount() == 1)
-    }
-
-    @Test func ensureSnapshotSubscriptionIsIdempotentForDuplicateID() async throws {
-        let database = StubUsageSyncDatabase()
-        let service = UsageSyncService(database: database)
+    @Test func ensureSnapshotSubscriptionIsANoOpWithoutAnEngine() async throws {
+        let service = UsageSyncService(database: StubUsageSyncDatabase())
         try await service.ensureSnapshotSubscription()
         try await service.ensureSnapshotSubscription()
-
-        #expect(await database.saveSubscriptionCount() == 2)
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) != nil)
     }
 
-    @Test func ensureSnapshotSubscriptionSurfacesNonDuplicateFailure() async {
-        let database = StubUsageSyncDatabase()
-        await database.failSaveSubscription(code: .networkFailure)
-        let service = UsageSyncService(database: database)
-
-        do {
-            try await service.ensureSnapshotSubscription()
-            Issue.record("Expected a non-duplicate subscription save failure to be thrown")
-        } catch let error as UsageSyncError {
-            guard case .recordOperationFailed(let recordName, _) = error else {
-                Issue.record("Unexpected sync error: \(error)")
-                return
-            }
-            #expect(recordName == UsageSyncService.snapshotSubscriptionID)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
-        }
-    }
-
-    @Test func macRevokeDeletesSilentPushSubscription() async throws {
-        let database = StubUsageSyncDatabase()
-        let service = UsageSyncService(database: database)
-        try await service.ensureSnapshotSubscription()
-
-        #expect(await service.revokeAll())
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) == nil)
-    }
-
-    @Test func mobileRevokeKeepsSilentPushSubscription() async throws {
+    @Test func mobileRevokeLeavesTheSharedSnapshot() async throws {
         let database = StubUsageSyncDatabase()
         let service = UsageSyncService(database: database)
         let synced = SyncedUsageSnapshot(
@@ -333,12 +283,12 @@ struct UsageSyncServiceTests {
             fetchedAt: Date(),
             syncGeneration: "generation-5"
         )
+        _ = try await service.publish(snapshot: synced.snapshot, planType: "Pro")
         _ = try await service.acknowledge(snapshot: synced, from: .iPhone)
-        try await service.ensureSnapshotSubscription()
 
         #expect(await service.revoke(device: .iPhone))
+        #expect(await database.record(named: "latest") != nil)
         #expect(await database.record(named: UsageSyncService.receiptRecordID(for: .iPhone).recordName) == nil)
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) != nil)
     }
 
     @Test func deleteSnapshotSubscriptionTreatsMissingSubscriptionAsSuccess() async {
@@ -347,29 +297,9 @@ struct UsageSyncServiceTests {
         #expect(await service.deleteSnapshotSubscription())
     }
 
-    @Test func ensureSnapshotSubscriptionRecreatesAfterRevoke() async throws {
-        let database = StubUsageSyncDatabase()
-        let service = UsageSyncService(database: database)
-        try await service.ensureSnapshotSubscription()
-        #expect(await service.revokeAll())
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) == nil)
-        #expect(await database.saveSubscriptionCount() == 1)
-
-        try await service.ensureSnapshotSubscription()
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) != nil)
-        #expect(await database.saveSubscriptionCount() == 2)
-    }
-
-    @Test func ensureSnapshotSubscriptionRecreatesAfterRemoteDelete() async throws {
-        let database = StubUsageSyncDatabase()
-        let service = UsageSyncService(database: database)
-        try await service.ensureSnapshotSubscription()
-        await database.dropSubscription(id: UsageSyncService.snapshotSubscriptionID)
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) == nil)
-
-        try await service.ensureSnapshotSubscription()
-        #expect(await database.subscription(id: UsageSyncService.snapshotSubscriptionID) != nil)
-        #expect(await database.saveSubscriptionCount() == 2)
+    @Test func snapshotRecordLivesInTheContinuityZone() {
+        #expect(UsageSyncService.makeSnapshotRecordID().zoneID == UsageSyncService.zoneID)
+        #expect(UsageSyncService.receiptRecordID(for: .iPhone).zoneID == UsageSyncService.zoneID)
     }
 
     private static func snapshot() -> UsageSnapshot {
@@ -394,9 +324,6 @@ private actor StubUsageSyncDatabase: UsageSyncDatabase {
     private var recordsByName: [String: CKRecord] = [:]
     private var saveFailures: [String: CKError.Code] = [:]
     private var omittedSaveResults: Set<String> = []
-    private var subscriptionsByID: [CKSubscription.ID: CKSubscription] = [:]
-    private var saveSubscriptionFailure: CKError.Code?
-    private var savedSubscriptionCount = 0
 
     func seed(_ record: CKRecord) {
         recordsByName[record.recordID.recordName] = record
@@ -410,24 +337,8 @@ private actor StubUsageSyncDatabase: UsageSyncDatabase {
         omittedSaveResults.insert(recordName)
     }
 
-    func failSaveSubscription(code: CKError.Code) {
-        saveSubscriptionFailure = code
-    }
-
     func record(named name: String) -> CKRecord? {
         recordsByName[name]
-    }
-
-    func subscription(id: CKSubscription.ID) -> CKSubscription? {
-        subscriptionsByID[id]
-    }
-
-    func saveSubscriptionCount() -> Int {
-        savedSubscriptionCount
-    }
-
-    func dropSubscription(id: CKSubscription.ID) {
-        subscriptionsByID.removeValue(forKey: id)
     }
 
     func records(
@@ -474,29 +385,8 @@ private actor StubUsageSyncDatabase: UsageSyncDatabase {
         return (saveResults, deleteResults)
     }
 
-    func saveSubscription(_ subscription: CKSubscription) async throws -> CKSubscription {
-        savedSubscriptionCount += 1
-        if let code = saveSubscriptionFailure {
-            throw CKError(code)
-        }
-        if subscriptionsByID[subscription.subscriptionID] != nil {
-            throw CKError(
-                .serverRejectedRequest,
-                userInfo: [
-                    NSLocalizedDescriptionKey:
-                        "Error saving record subscription with id \(subscription.subscriptionID) to server: subscription is duplicate of '\(subscription.subscriptionID)'",
-                ]
-            )
-        }
-        subscriptionsByID[subscription.subscriptionID] = subscription
-        return subscription
-    }
-
-    func deleteSubscription(withID subscriptionID: CKSubscription.ID) async throws -> CKSubscription.ID {
-        guard subscriptionsByID.removeValue(forKey: subscriptionID) != nil else {
-            throw CKError(.unknownItem)
-        }
-        return subscriptionID
+    func deleteSubscription(withID _: CKSubscription.ID) async throws -> CKSubscription.ID {
+        throw CKError(.unknownItem)
     }
 }
 #endif
