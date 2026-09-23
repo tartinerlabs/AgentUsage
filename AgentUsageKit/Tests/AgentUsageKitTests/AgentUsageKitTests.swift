@@ -131,6 +131,8 @@ struct UsageProgressBarTests {
         #expect(UsageProgressBar(progress: -0.1).progress == 0)
         #expect(UsageProgressBar(progress: 0.42).progress == 0.42)
         #expect(UsageProgressBar(progress: 1.1).progress == 1)
+        #expect(UsageProgressBar(progress: .nan).progress == 0)
+        #expect(UsageProgressBar(progress: .infinity).progress == 0)
     }
 
     @Test @MainActor func usageFillUsesSemanticStatusColor() {
