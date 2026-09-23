@@ -143,6 +143,28 @@ struct ClaudeAPIServiceTests {
     @Test func ineligibleAccountHasNoBankedResets() throws {
         #expect(try bankedResets("") == nil)
     }
+
+    // MARK: - Claude Code Version (User-Agent)
+
+    #if os(macOS)
+    @Test func claudeCodeVersionPicksHighestSessionVersion() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        for (pid, version) in [("1", "2.1.99"), ("2", "2.1.280"), ("3", "2.1.9")] {
+            try Data(#"{"pid": \#(pid), "version": "\#(version)"}"#.utf8)
+                .write(to: directory.appendingPathComponent("\(pid).json"))
+        }
+        try Data("not json".utf8).write(to: directory.appendingPathComponent("4.key"))
+
+        #expect(ClaudeAPIService.claudeCodeVersion(sessionsDirectory: directory) == "2.1.280")
+    }
+
+    @Test func claudeCodeVersionFallsBackWithoutSessions() {
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        #expect(ClaudeAPIService.claudeCodeVersion(sessionsDirectory: missing) == Constants.claudeCodeVersionFallback)
+    }
+    #endif
 }
 
 // MARK: - API Response Parsing Tests

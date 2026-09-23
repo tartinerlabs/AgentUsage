@@ -127,7 +127,9 @@ actor ClaudeAPIService: APIServiceProtocol {
         request.setValue(Constants.anthropicBetaHeader, forHTTPHeaderField: "anthropic-beta")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("AgentUsage/1.0", forHTTPHeaderField: "User-Agent")
+        // `cedar_ember` (banked limit resets) is only served to the Claude Code CLI
+        // surface; any other User-Agent comes back `eligible: false`.
+        request.setValue("claude-cli/\(Self.claudeCodeVersion()) (external, cli)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = Constants.requestTimeout
 
         let (data, response): (Data, URLResponse)
@@ -360,6 +362,33 @@ actor ClaudeAPIService: APIServiceProtocol {
             rateLimitResetCredits: response.cedarEmber.flatMap { Self.resetCredits(from: $0, now: Date()) },
             fetchedAt: Date()
         )
+    }
+}
+
+extension ClaudeAPIService {
+    /// Installed Claude Code version, read from the `version` each running CLI
+    /// session records in `~/.claude/sessions/*.json` (inside the granted folder).
+    /// The highest version wins; falls back when no session file is readable.
+    nonisolated static func claudeCodeVersion(
+        sessionsDirectory: URL? = nil
+    ) -> String {
+        #if os(macOS)
+        let directory = sessionsDirectory ?? Constants.claudeHomeDirectory.appendingPathComponent("sessions")
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        let versions = files
+            .filter { $0.pathExtension == "json" }
+            .compactMap { url -> String? in
+                guard let data = try? Data(contentsOf: url),
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let version = json["version"] as? String,
+                      !version.isEmpty else { return nil }
+                return version
+            }
+        if let latest = versions.max(by: { $0.compare($1, options: .numeric) == .orderedAscending }) {
+            return latest
+        }
+        #endif
+        return Constants.claudeCodeVersionFallback
     }
 }
 

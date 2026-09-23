@@ -41,6 +41,9 @@ nonisolated enum Constants {
     static let apiBaseURL = "https://api.anthropic.com"
     static let apiUsagePath = "/api/oauth/usage"
     static let anthropicBetaHeader = "oauth-2025-04-20"
+    /// Used in the `claude-cli/<version>` User-Agent when no installed Claude Code
+    /// version can be read from `~/.claude/sessions`.
+    static let claudeCodeVersionFallback = "2.1.280"
 
     /// Full URL for the Anthropic OAuth usage endpoint. `cedar_ember=1` asks it to
     /// include banked "reset your limits" grants; without it `cedar_ember` is null.
