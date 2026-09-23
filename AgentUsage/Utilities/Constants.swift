@@ -41,9 +41,10 @@ nonisolated enum Constants {
     static let apiUsagePath = "/api/oauth/usage"
     static let anthropicBetaHeader = "oauth-2025-04-20"
 
-    /// Full URL for the Anthropic OAuth usage endpoint.
+    /// Full URL for the Anthropic OAuth usage endpoint. `cedar_ember=1` asks it to
+    /// include banked "reset your limits" grants; without it `cedar_ember` is null.
     static var usageURL: URL {
-        URL(string: apiBaseURL + apiUsagePath)!
+        URL(string: apiBaseURL + apiUsagePath + "?cedar_ember=1")!
     }
 
     // MARK: - Codex (ChatGPT subscription live usage)

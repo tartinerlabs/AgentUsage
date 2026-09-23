@@ -203,6 +203,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             let sevenDayOmelette: UsageWindowResponse?  // Claude Design ("omelette" is Anthropic's internal codename)
             let extraUsage: ExtraUsageResponse?
             let limits: [LimitEntry]?  // Generalized per-model/session limits (source of Fable, etc.)
+            let cedarEmber: CedarEmberResponse?  // Banked limit resets; present only with `cedar_ember=1`
 
             enum CodingKeys: String, CodingKey {
                 case fiveHour = "five_hour"
@@ -211,6 +212,7 @@ actor ClaudeAPIService: APIServiceProtocol {
                 case sevenDayOmelette = "seven_day_omelette"
                 case extraUsage = "extra_usage"
                 case limits
+                case cedarEmber = "cedar_ember"
             }
         }
 
@@ -355,8 +357,52 @@ actor ClaudeAPIService: APIServiceProtocol {
             design: design,
             fable: fable,
             extraUsage: extraUsage,
+            rateLimitResetCredits: response.cedarEmber.flatMap { Self.resetCredits(from: $0, now: Date()) },
             fetchedAt: Date()
         )
+    }
+}
+
+extension ClaudeAPIService {
+    /// Banked "reset your limits" grants (claude.ai → Settings → Usage → Resets),
+    /// returned under `cedar_ember` when the usage endpoint is asked with `cedar_ember=1`.
+    nonisolated struct CedarEmberResponse: Decodable {
+        let grants: [Grant]?
+
+        struct Grant: Decodable {
+            let resetsLeft: Int?
+            let endsAt: String?
+            let paused: Bool?
+
+            enum CodingKeys: String, CodingKey {
+                case resetsLeft = "resets_left"
+                case endsAt = "ends_at"
+                case paused
+            }
+        }
+    }
+
+    /// One credit per reset left in each live grant, each expiring at its grant's
+    /// `ends_at`. Paused, spent and expired grants bank nothing. nil when nothing is banked.
+    nonisolated static func resetCredits(from response: CedarEmberResponse, now: Date) -> RateLimitResetCredits? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let wholeSecondFormatter = ISO8601DateFormatter()
+
+        var count = 0
+        var expirations: [Date] = []
+        for grant in response.grants ?? [] {
+            let left = max(0, grant.resetsLeft ?? 0)
+            guard left > 0, grant.paused != true else { continue }
+            let endsAt = grant.endsAt.flatMap { formatter.date(from: $0) ?? wholeSecondFormatter.date(from: $0) }
+            if let endsAt, endsAt <= now { continue }
+            count += left
+            if let endsAt {
+                expirations.append(contentsOf: repeatElement(endsAt, count: left))
+            }
+        }
+        guard count > 0 else { return nil }
+        return RateLimitResetCredits(availableCount: count, expirations: expirations.sorted())
     }
 }
 
