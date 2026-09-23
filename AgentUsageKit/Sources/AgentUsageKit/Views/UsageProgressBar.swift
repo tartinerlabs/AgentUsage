@@ -19,7 +19,8 @@ public struct UsageProgressBar: View {
     let tint: Color
 
     public init(progress: Double, tint: Color = AgentUsageColors.usageProgress) {
-        self.progress = min(max(progress, 0), 1)
+        // `min`/`max` pass NaN straight through, so reject non-finite values first.
+        self.progress = progress.isFinite ? min(max(progress, 0), 1) : 0
         self.tint = tint
     }
 
@@ -56,26 +57,52 @@ public struct UsageBarGaugeStyle: GaugeStyle {
         self.showsTicks = showsTicks
     }
 
+    /// Drawn with shapes rather than a `GeometryReader`: widget layout on iOS 27
+    /// traps in `GeometryReaderLayout.placeSubviews` when a measured width goes
+    /// non-finite, while a shape only ever sees its final rect.
     public func makeBody(configuration: Configuration) -> some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(track)
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(track)
 
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(tint)
-                    .frame(width: geometry.size.width * configuration.value)
+            UsageBarFill(fraction: configuration.value)
+                .fill(tint)
 
-                if showsTicks {
-                    ForEach([0.25, 0.5, 0.75], id: \.self) { position in
-                        Rectangle()
-                            .fill(Color.primary.opacity(0.15))
-                            .frame(width: 1)
-                            .offset(x: geometry.size.width * position)
-                    }
-                }
+            if showsTicks {
+                UsageBarTicks()
+                    .fill(Color.primary.opacity(0.15))
             }
         }
         .frame(height: 8)
+    }
+}
+
+/// The leading `fraction` of the track, keeping the track's 4-point corners.
+private struct UsageBarFill: Shape {
+    var fraction: Double
+
+    var animatableData: Double {
+        get { fraction }
+        set { fraction = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let clamped = fraction.isFinite ? min(max(fraction, 0), 1) : 0
+        guard rect.width.isFinite, clamped > 0 else { return Path() }
+        var fill = rect
+        fill.size.width = rect.width * clamped
+        return RoundedRectangle(cornerRadius: 4).path(in: fill)
+    }
+}
+
+/// One-point dividers at 25%, 50% and 75% of the track.
+private struct UsageBarTicks: Shape {
+    func path(in rect: CGRect) -> Path {
+        guard rect.width.isFinite else { return Path() }
+        var path = Path()
+        for position in [0.25, 0.5, 0.75] {
+            path.addRect(CGRect(x: rect.minX + rect.width * position, y: rect.minY, width: 1, height: rect.height))
+        }
+        return path
     }
 }
