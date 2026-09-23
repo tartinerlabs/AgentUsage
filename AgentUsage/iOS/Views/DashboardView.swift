@@ -279,6 +279,7 @@ struct DashboardView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(Constants.brandPrimary)
+            .foregroundStyle(.background)
             .accessibilityHint("Attempts to reload usage data")
         }
         .stateCard()
@@ -336,6 +337,7 @@ struct DashboardView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Constants.brandPrimary)
+                .foregroundStyle(.background)
 
                 Button("Setup Guide") {
                     NotificationCenter.default.post(name: .showOnboarding, object: nil)

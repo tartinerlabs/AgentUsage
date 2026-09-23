@@ -129,6 +129,7 @@ struct DataAccessOnboardingView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(Constants.brandPrimary)
+            .foregroundStyle(.background)
             .keyboardShortcut(.defaultAction)
             .transition(.scale(scale: 0.96).combined(with: .opacity))
         } else {
@@ -142,6 +143,7 @@ struct DataAccessOnboardingView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .tint(Constants.brandPrimary)
+                .foregroundStyle(.background)
                 .keyboardShortcut(.defaultAction)
 
                 Button {

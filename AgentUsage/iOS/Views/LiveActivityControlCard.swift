@@ -90,6 +90,7 @@ struct LiveActivityControlCard: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Constants.brandPrimary)
+                .foregroundStyle(.background)
 
                 if manager.isRunning {
                     stopButton
@@ -172,6 +173,7 @@ struct LiveActivityControlCard: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Constants.brandPrimary)
+                    .foregroundStyle(.background)
                     .disabled(draftSelection == nil || isPerformingAction)
 
                     stopButton
@@ -190,6 +192,7 @@ struct LiveActivityControlCard: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(Constants.brandPrimary)
+            .foregroundStyle(.background)
             .disabled(draftSelection == nil || isPerformingAction)
         }
     }
@@ -215,6 +218,7 @@ struct LiveActivityControlCard: View {
                 }
             )
         )
+            .tint(Constants.controlTint)
         .font(.caption)
         .disabled(!manager.activitiesEnabled || isPerformingAction)
         .accessibilityHint("Starts a Live Activity for a 5-hour window that has reached 100 percent. Requires the app to be open.")

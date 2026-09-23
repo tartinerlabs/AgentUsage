@@ -33,7 +33,7 @@ struct UsageRowView: View {
             }
 
             // Progress bar
-            UsageProgressBar(usage: usage)
+            UsageProgressBar(usage: usage, now: now)
                 .accessibilityHidden(true) // Progress bar is decorative; info is in text
 
             // Stats row
@@ -97,6 +97,16 @@ struct UsageRowView: View {
         resetsAt: Date().addingTimeInterval(86400 * 3),
         windowType: .sonnet
     )
+    let warningUsage = UsageWindow(
+        utilization: 80,
+        resetsAt: Date().addingTimeInterval(3600 * 4),
+        windowType: .session
+    )
+    let criticalUsage = UsageWindow(
+        utilization: 94,
+        resetsAt: Date().addingTimeInterval(86400 * 2),
+        windowType: .opus
+    )
 
     return VStack(spacing: 20) {
         UsageRowView(
@@ -110,6 +120,14 @@ struct UsageRowView: View {
         UsageRowView(
             title: sonnetUsage.displayName,
             usage: sonnetUsage
+        )
+        UsageRowView(
+            title: warningUsage.displayName,
+            usage: warningUsage
+        )
+        UsageRowView(
+            title: criticalUsage.displayName,
+            usage: criticalUsage
         )
     }
     .padding()

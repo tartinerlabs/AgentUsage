@@ -316,13 +316,8 @@ struct MainNavigationView: View {
 
 // MARK: - Liquid Glass behaviours
 
-/// The iOS 26 tab-bar behaviours: the bar minimizes as content scrolls away, and
-/// a persistent status pill rides above it. A no-op on older systems, which keep
-/// the standard bar.
-///
-/// Deliberately iOS-only. The Mac equivalent would be a sidebar footer, which
-/// both looks wrong under a sidebar and duplicates what the dashboard header and
-/// the menu bar popover already show.
+/// The iOS 26 tab-bar behaviour: the bar minimizes as content scrolls away. A
+/// no-op on older systems, which keep the standard bar.
 private struct LiquidGlassTabBarBehaviour: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
@@ -330,9 +325,6 @@ private struct LiquidGlassTabBarBehaviour: ViewModifier {
         if #available(iOS 26, *) {
             content
                 .tabBarMinimizeBehavior(.onScrollDown)
-                .tabViewBottomAccessory {
-                    UsageStatusAccessory()
-                }
         } else {
             content
         }
@@ -341,64 +333,6 @@ private struct LiquidGlassTabBarBehaviour: ViewModifier {
         #endif
     }
 }
-
-#if os(iOS)
-/// Persistent status pill: overall usage pressure, how fresh the numbers are,
-/// and a refresh affordance — visible whichever destination is showing.
-///
-/// Deliberately one line, so it reads the same in the collapsed inline placement
-/// as in the expanded one.
-@available(iOS 26, *)
-private struct UsageStatusAccessory: View {
-    @Environment(UsageViewModel.self) private var viewModel
-
-    var body: some View {
-        HStack(spacing: 8) {
-            statusIcon
-                .frame(width: 16)
-
-            Text(viewModel.overallStatus.label)
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(viewModel.overallStatus.color)
-                .lineLimit(1)
-
-            if let relativeText = viewModel.timeSinceLastUpdate {
-                LastUpdatedLabel(
-                    relativeText: relativeText,
-                    isCached: viewModel.hasStaleProviderStatus,
-                    isOffline: viewModel.isOffline,
-                    neutralStyle: AnyShapeStyle(.secondary)
-                )
-                .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-
-            Button {
-                Task { await viewModel.refresh(force: true) }
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
-                    .labelStyle(.iconOnly)
-            }
-            .buttonStyle(.plain)
-            .disabled(viewModel.isLoading)
-            .accessibilityLabel("Refresh usage")
-        }
-        .padding(.horizontal, 14)
-    }
-
-    @ViewBuilder
-    private var statusIcon: some View {
-        if viewModel.isLoading {
-            ProgressView()
-                .controlSize(.small)
-        } else {
-            Image(systemName: viewModel.overallStatus.icon)
-                .foregroundStyle(viewModel.overallStatus.color)
-        }
-    }
-}
-#endif
 
 // MARK: - Provider destinations
 

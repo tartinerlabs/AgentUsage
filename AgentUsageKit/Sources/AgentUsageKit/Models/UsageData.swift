@@ -132,7 +132,7 @@ public struct UsageWindowScope: Hashable, Codable, Sendable {
 
 // MARK: - Usage Window
 
-public struct UsageWindow: Sendable, Codable {
+public struct UsageWindow: Sendable, Codable, Identifiable {
     public let utilization: Double  // API returns percentage (0-100), not decimal (0-1)
     public let resetsAt: Date
     public let windowID: UsageWindowID
@@ -141,6 +141,11 @@ public struct UsageWindow: Sendable, Codable {
     public let scope: UsageWindowScope?
     /// Legacy compatibility for existing menu-pin and notification code.
     public let windowType: UsageWindowType
+
+    /// Stable per-provider identity. Providers may reorder windows between
+    /// fetches (Codex moves its weekly limit into the primary slot while the
+    /// five-hour limit is unavailable), so views must not identify by position.
+    public var id: UsageWindowID { windowID }
 
     public init(utilization: Double, resetsAt: Date, windowType: UsageWindowType) {
         self.utilization = utilization

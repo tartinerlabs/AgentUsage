@@ -103,12 +103,23 @@ struct AgentUsageColorsTests {
         expectSameColor(extraUsageAccentColor, AgentUsageColors.extraUsageAccent)
     }
 
-    @Test func usageProgressUsesPacificBlueInDarkAppearance() {
-        let ink = Color(red: 59 / 255, green: 107 / 255, blue: 206 / 255)
-        expectResolvedColor(AgentUsageColors.usageProgress, ink, colorScheme: .light)
+    /// The app tint carries no hue — status colours are the only colour in the UI —
+    /// and it contrasts with the background in both appearances.
+    @Test func usageProgressIsNeutralInBothAppearances() {
+        for scheme in [ColorScheme.light, .dark] {
+            let (red, green, blue, _) = resolvedRGB(AgentUsageColors.usageProgress, colorScheme: scheme)
+            #expect(abs(red - green) < 0.0001 && abs(green - blue) < 0.0001)
+        }
+        #expect(resolvedRGB(AgentUsageColors.usageProgress, colorScheme: .light).0 < 0.3)
+        #expect(resolvedRGB(AgentUsageColors.usageProgress, colorScheme: .dark).0 > 0.7)
+    }
+
+    /// Toggle fill stays dark enough in both appearances for the white knob to show.
+    @Test func controlTintKeepsToggleKnobVisible() {
+        expectResolvedColor(AgentUsageColors.controlTint, AgentUsageColors.iconGraphite, colorScheme: .light)
         expectResolvedColor(
-            AgentUsageColors.usageProgress,
-            AgentUsageColors.iconPacificBlue,
+            AgentUsageColors.controlTint,
+            Color(red: 99 / 255, green: 99 / 255, blue: 102 / 255),
             colorScheme: .dark
         )
     }
@@ -120,6 +131,18 @@ struct UsageProgressBarTests {
         #expect(UsageProgressBar(progress: -0.1).progress == 0)
         #expect(UsageProgressBar(progress: 0.42).progress == 0.42)
         #expect(UsageProgressBar(progress: 1.1).progress == 1)
+    }
+
+    @Test @MainActor func usageFillUsesSemanticStatusColor() {
+        let now = Date()
+        for utilization in [10.0, 80, 94] {
+            let usage = UsageWindow(
+                utilization: utilization,
+                resetsAt: now.addingTimeInterval(3600),
+                windowType: .session
+            )
+            #expect(UsageProgressBar(usage: usage, now: now).tint == usage.status(from: now).color)
+        }
     }
 }
 

@@ -121,6 +121,7 @@ struct ContinuityOnboardingView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(Constants.brandPrimary)
+            .foregroundStyle(.background)
             .transition(.scale(scale: 0.96).combined(with: .opacity))
         } else {
             Button {
@@ -139,6 +140,7 @@ struct ContinuityOnboardingView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(Constants.brandPrimary)
+            .foregroundStyle(.background)
             .disabled(connectionState == .connecting)
 
             Button("Explore Without Data") {

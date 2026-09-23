@@ -126,16 +126,10 @@ private struct EffortLevelRow: View {
                 }
             }
 
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(tint.opacity(0.12))
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(tint)
-                        .frame(width: geometry.size.width * fraction)
-                }
+            Gauge(value: fraction) {
+                Text("\(levelCount.level.displayName) effort")
             }
-            .frame(height: 8)
+            .gaugeStyle(UsageBarGaugeStyle(tint: tint, track: tint.opacity(0.12)))
             .accessibilityHidden(true)
         }
         .accessibilityElement(children: .ignore)

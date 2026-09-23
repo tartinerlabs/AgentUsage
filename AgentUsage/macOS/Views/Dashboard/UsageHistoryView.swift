@@ -22,7 +22,7 @@ struct UsageHistoryView: View {
     @State private var selectedProvider: Provider?
 
     /// Categorical hues so overlapping series stay distinguishable. Cards keep a
-    /// single Timefold Ink accent; this palette is chart-only and skips status
+    /// single neutral accent; this palette is chart-only and skips status
     /// green/orange/red and extra-usage Dusty Plum. Indexed by `Provider.allCases`
     /// in the all-providers view so a missing provider does not recolor the rest.
     private static let seriesPalette: [Color] = [

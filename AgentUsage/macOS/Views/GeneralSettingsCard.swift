@@ -27,6 +27,7 @@ struct GeneralSettingsCard: View {
                     }
                     Spacer()
                     Toggle("", isOn: $launchAtLogin.isEnabled)
+                        .tint(Constants.controlTint)
                         .labelsHidden()
                 }
 
@@ -42,6 +43,7 @@ struct GeneralSettingsCard: View {
                     }
                     Spacer()
                     Toggle("", isOn: $commandQClosesWindow)
+                        .tint(Constants.controlTint)
                         .labelsHidden()
                 }
 
@@ -124,6 +126,7 @@ struct GeneralSettingsCard: View {
                                         window.displayName,
                                         isOn: menuBarPinBinding(window.id, provider: provider)
                                     )
+                                        .tint(Constants.controlTint)
                                     .disabled(
                                         !isPinned
                                             && !viewModel.canPinMenuBarWindow(
@@ -151,6 +154,7 @@ struct GeneralSettingsCard: View {
                     }
                     Spacer()
                     Toggle("", isOn: $viewModel.showExtraUsageIndicators)
+                        .tint(Constants.controlTint)
                         .labelsHidden()
                 }
             }

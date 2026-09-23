@@ -78,7 +78,7 @@ struct SmallWidgetView: View {
             }
 
             if showBar {
-                WidgetRedactableProgressBar(usage: usage)
+                WidgetRedactableProgressBar(usage: usage, now: entry.date)
                     .accessibilityHidden(true)
             }
         }
