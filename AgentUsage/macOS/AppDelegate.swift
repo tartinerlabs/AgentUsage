@@ -115,11 +115,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// item is observed here and presents a one-item Quit menu.
     private func installStatusItemQuitMenu() {
         statusItemRightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown]) { event in
-            MainActor.assumeIsolated {
-                guard Self.isStatusItemEvent(event) else { return event }
+            // `NSEvent` is explicitly non-Sendable, so it cannot be the generic
+            // result of `assumeIsolated`. Decide on the main actor, then hand the
+            // event back (or swallow it) outside the isolated region.
+            let consumed = MainActor.assumeIsolated { () -> Bool in
+                guard Self.isStatusItemEvent(event) else { return false }
                 Self.popStatusItemQuitMenu(with: event)
-                return nil
+                return true
             }
+            return consumed ? nil : event
         }
         attachStatusItemQuitRecognizerIfNeeded()
         DispatchQueue.main.async { [weak self] in

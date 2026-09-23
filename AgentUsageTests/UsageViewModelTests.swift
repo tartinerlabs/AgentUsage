@@ -816,37 +816,37 @@ struct UsageViewModelNoUsageDataTests {
 @Suite("RefreshFrequency")
 struct RefreshFrequencyTests {
 
-    @Test func oneMinuteInterval() {
+    @Test @MainActor func oneMinuteInterval() {
         let freq = RefreshFrequency.oneMinute
         #expect(freq.timeInterval == 60)
         #expect(freq.rawValue == "1min")
     }
 
-    @Test func twoMinutesInterval() {
+    @Test @MainActor func twoMinutesInterval() {
         let freq = RefreshFrequency.twoMinutes
         #expect(freq.timeInterval == 120)
         #expect(freq.rawValue == "2min")
     }
 
-    @Test func fiveMinutesInterval() {
+    @Test @MainActor func fiveMinutesInterval() {
         let freq = RefreshFrequency.fiveMinutes
         #expect(freq.timeInterval == 300)
         #expect(freq.rawValue == "5min")
     }
 
-    @Test func fifteenMinutesInterval() {
+    @Test @MainActor func fifteenMinutesInterval() {
         let freq = RefreshFrequency.fifteenMinutes
         #expect(freq.timeInterval == 900)
         #expect(freq.rawValue == "15min")
     }
 
-    @Test func manualHasNoInterval() {
+    @Test @MainActor func manualHasNoInterval() {
         let freq = RefreshFrequency.manual
         #expect(freq.timeInterval == nil)
         #expect(freq.rawValue == "manual")
     }
 
-    @Test func initializesFromRawValue() {
+    @Test @MainActor func initializesFromRawValue() {
         #expect(RefreshFrequency(rawValue: "1min") == .oneMinute)
         #expect(RefreshFrequency(rawValue: "2min") == .twoMinutes)
         #expect(RefreshFrequency(rawValue: "5min") == .fiveMinutes)
@@ -855,7 +855,7 @@ struct RefreshFrequencyTests {
         #expect(RefreshFrequency(rawValue: "invalid") == nil)
     }
 
-    @Test func allCasesContainsAllFrequencies() {
+    @Test @MainActor func allCasesContainsAllFrequencies() {
         let allCases = RefreshFrequency.allCases
         #expect(allCases.contains(.oneMinute))
         #expect(allCases.contains(.twoMinutes))
@@ -870,12 +870,12 @@ struct RefreshFrequencyTests {
 @Suite("UsageCalculations")
 struct UsageCalculationsTests {
 
-    @Test func overallStatusFromNilSnapshot() {
+    @Test @MainActor func overallStatusFromNilSnapshot() {
         let status = UsageCalculations.overallStatus(from: nil)
         #expect(status == .onTrack)
     }
 
-    @Test func overallStatusTakesWorstCase() {
+    @Test @MainActor func overallStatusTakesWorstCase() {
         // Use future reset dates so status calculation runs fully
         let futureReset = Date().addingTimeInterval(3600) // 1 hour from now
 
@@ -906,7 +906,7 @@ struct UsageCalculationsTests {
         #expect(status == .critical)
     }
 
-    @Test func overallStatusWithAllOnTrack() {
+    @Test @MainActor func overallStatusWithAllOnTrack() {
         // Use future reset dates so status calculation runs fully
         let futureReset = Date().addingTimeInterval(3600)
 

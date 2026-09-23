@@ -254,8 +254,13 @@ actor GrokLogSource: UsageLogSource {
             ?? session.directory.lastPathComponent
         let model = (summary["current_model_id"] as? String)?.nonEmpty
             ?? "grok-4.6"
-        let timestamp = parseTimestamp(summary["updated_at"] as? String)
-            ?? parseTimestamp(summary["last_active_at"] as? String)
+        // Read the raw values out first: `??` wraps its right-hand side in an
+        // autoclosure, and capturing `summary` there makes the dictionary escape
+        // into a concurrently-callable closure.
+        let updatedAtRaw = summary["updated_at"] as? String
+        let lastActiveAtRaw = summary["last_active_at"] as? String
+        let timestamp = parseTimestamp(updatedAtRaw)
+            ?? parseTimestamp(lastActiveAtRaw)
             ?? session.fingerprint.summary.modificationDate
         let effortLevel = Self.normalizedEffortLevel(summary["reasoning_effort"])
         let isSubagentSession = Self.isSubagentSession(summary: summary, directory: session.directory)

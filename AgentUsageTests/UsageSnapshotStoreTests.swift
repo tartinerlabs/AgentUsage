@@ -10,7 +10,7 @@ import Testing
 
 @Suite("UsageSnapshotStore")
 struct UsageSnapshotStoreTests {
-    @Test func roundTripsSnapshotPlanAndFetchTime() throws {
+    @Test @MainActor func roundTripsSnapshotPlanAndFetchTime() throws {
         let testDefaults = TestUserDefaults()
         let store = UsageSnapshotStore(defaults: testDefaults.defaults)
         let fetchedAt = Date(timeIntervalSince1970: 1_750_000_000)
@@ -27,7 +27,7 @@ struct UsageSnapshotStoreTests {
         #expect(store.lastSuccessfulFetchTime == fetchedAt)
     }
 
-    @Test func roundTripsProviderSnapshotsWithoutClaudeSnapshot() throws {
+    @Test @MainActor func roundTripsProviderSnapshotsWithoutClaudeSnapshot() throws {
         let testDefaults = TestUserDefaults()
         let store = UsageSnapshotStore(defaults: testDefaults.defaults)
         let fetchedAt = Date(timeIntervalSince1970: 1_750_000_000)
@@ -58,7 +58,7 @@ struct UsageSnapshotStoreTests {
         #expect(cached.lastSuccessfulFetchTime == fetchedAt)
     }
 
-    @Test func roundTripsProviderEffortSummaries() throws {
+    @Test @MainActor func roundTripsProviderEffortSummaries() throws {
         let testDefaults = TestUserDefaults()
         let store = UsageSnapshotStore(defaults: testDefaults.defaults)
         let fetchedAt = Date(timeIntervalSince1970: 1_750_000_000)
@@ -92,7 +92,7 @@ struct UsageSnapshotStoreTests {
         #expect(cachedProvider.effortSummary(for: .last7Days)?.totalSessionCount == 6)
     }
 
-    @Test func roundTripsCursorDynamicWindowsAndExtraUsage() throws {
+    @Test @MainActor func roundTripsCursorDynamicWindowsAndExtraUsage() throws {
         let testDefaults = TestUserDefaults()
         let store = UsageSnapshotStore(defaults: testDefaults.defaults)
         let fetchedAt = Date(timeIntervalSince1970: 1_750_000_000)
@@ -127,7 +127,7 @@ struct UsageSnapshotStoreTests {
         #expect(cached.extraUsage?.limit == 50)
     }
 
-    @Test func invalidSnapshotDataIsIgnored() {
+    @Test @MainActor func invalidSnapshotDataIsIgnored() {
         let testDefaults = TestUserDefaults()
         testDefaults.defaults.set(Data("not-json".utf8), forKey: UsageSnapshotStore.snapshotKey)
         let store = UsageSnapshotStore(defaults: testDefaults.defaults)
@@ -135,7 +135,7 @@ struct UsageSnapshotStoreTests {
         #expect(store.load() == nil)
     }
 
-    @Test func missingPlanAndFetchTimeUseExistingDefaults() throws {
+    @Test @MainActor func missingPlanAndFetchTimeUseExistingDefaults() throws {
         let testDefaults = TestUserDefaults()
         let snapshot = makeSnapshot(fetchedAt: Date())
         testDefaults.defaults.set(

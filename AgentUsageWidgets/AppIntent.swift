@@ -18,9 +18,9 @@ enum MetricType: String, AppEnum {
     case design
     case fable
 
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Metric")
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Metric")
 
-    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+    static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
         .session: DisplayRepresentation(title: "Current session (5h)"),
         .opus: DisplayRepresentation(title: "All models (7d)"),
         .sonnet: DisplayRepresentation(title: "Sonnet (7d)"),
@@ -35,8 +35,8 @@ enum MetricType: String, AppEnum {
 /// window ID. The remaining fields let WidgetKit preserve the selection without
 /// reducing dynamic Cursor windows to `UsageWindowType.custom`.
 struct WidgetUsageWindowEntity: AppEntity {
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Usage Window")
-    static var defaultQuery = WidgetUsageWindowQuery()
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Usage Window")
+    static let defaultQuery = WidgetUsageWindowQuery()
 
     let id: String
     let providerRawValue: String
@@ -125,8 +125,8 @@ struct WidgetUsageWindowQuery: EntityQuery {
 }
 
 struct ConfigurationAppIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Select Usage Window"
-    static var description = IntentDescription(
+    static let title: LocalizedStringResource = "Select Usage Window"
+    static let description = IntentDescription(
         "Choose a window for Small and Lock Screen widgets. Medium and Large widgets show every provider."
     )
 

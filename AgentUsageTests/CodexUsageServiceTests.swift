@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import Foundation
+import Synchronization
 import Testing
 @testable import AgentUsage
 @testable import AgentUsageKit
@@ -146,20 +147,20 @@ struct CodexUsageServiceTests {
             }
             let host = request.url?.host ?? ""
             if host == Self.refreshHost {
-                counter.refreshCalls += 1
+                counter.refreshCalls.withLock { $0 += 1 }
                 return (Self.response(200), Data(#"{"access_token":"new-token"}"#.utf8))
             }
-            counter.usageCalls += 1
+            counter.usageCalls.withLock { $0 += 1 }
             // First usage call is unauthorized; after refresh it succeeds.
-            if counter.usageCalls == 1 {
+            if counter.usageCalls.withLock({ $0 }) == 1 {
                 return (Self.response(401), Data())
             }
             return (Self.response(200), Data(body.utf8))
         }
         let snapshot = try await service.fetchSnapshot()
 
-        #expect(counter.usageCalls == 2)
-        #expect(counter.refreshCalls == 1)
+        #expect(counter.usageCalls.withLock { $0 } == 2)
+        #expect(counter.refreshCalls.withLock { $0 } == 1)
         #expect(snapshot?.windows.first?.utilization == 5)
     }
 
@@ -269,18 +270,18 @@ struct CodexUsageServiceTests {
 
         let service = try Self.makeService(now: now) { request in
             if Self.isResetCreditsPath(request) {
-                capture.openAIBeta = request.value(forHTTPHeaderField: "OpenAI-Beta")
-                capture.originator = request.value(forHTTPHeaderField: "originator")
-                capture.authorization = request.value(forHTTPHeaderField: "Authorization")
+                capture.openAIBeta.withLock { $0 = request.value(forHTTPHeaderField: "OpenAI-Beta") }
+                capture.originator.withLock { $0 = request.value(forHTTPHeaderField: "originator") }
+                capture.authorization.withLock { $0 = request.value(forHTTPHeaderField: "Authorization") }
                 return (Self.response(url: Constants.codexResetCreditsURL, 200), Data(#"{"available_count":1,"credits":[]}"#.utf8))
             }
             return (Self.response(200), Data(body.utf8))
         }
         _ = try await service.fetchSnapshot()
 
-        #expect(capture.openAIBeta == "codex-1")
-        #expect(capture.originator == "Codex Desktop")
-        #expect(capture.authorization == "Bearer test-access")
+        #expect(capture.openAIBeta.withLock { $0 } == "codex-1")
+        #expect(capture.originator.withLock { $0 } == "Codex Desktop")
+        #expect(capture.authorization.withLock { $0 } == "Bearer test-access")
     }
 
     @Test func resetCreditsFiltersNonAvailableCredits() async throws {
@@ -331,15 +332,15 @@ struct CodexUsageServiceTests {
 
     // MARK: - Helpers
 
-    private final class CallCounter {
-        var usageCalls = 0
-        var refreshCalls = 0
+    private final class CallCounter: Sendable {
+        let usageCalls = Mutex(0)
+        let refreshCalls = Mutex(0)
     }
 
-    private final class HeaderCapture {
-        var openAIBeta: String?
-        var originator: String?
-        var authorization: String?
+    private final class HeaderCapture: Sendable {
+        let openAIBeta = Mutex<String?>(nil)
+        let originator = Mutex<String?>(nil)
+        let authorization = Mutex<String?>(nil)
     }
 
     private static func isResetCreditsPath(_ request: URLRequest) -> Bool {
