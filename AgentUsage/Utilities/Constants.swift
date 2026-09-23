@@ -236,3 +236,13 @@ nonisolated enum Constants {
     }
     #endif
 }
+
+/// `UserDefaults` is documented by Apple as thread-safe, but Foundation does not
+/// mark it `Sendable`. The injected `defaults` instance legitimately crosses
+/// isolation domains here — `UsageViewModel` (main actor) hands it to the
+/// `UsageHistoryService` actor, which passes it on to the `UsageHistoryRepository`
+/// model actor. `.standard` is a shared singleton used by several objects at once,
+/// so `sending` is not an option; this conformance states the guarantee Foundation
+/// leaves implicit. `TestUserDefaults` wraps a real suite rather than subclassing,
+/// so no unsynchronized subclass inherits this.
+extension UserDefaults: @retroactive @unchecked Sendable {}

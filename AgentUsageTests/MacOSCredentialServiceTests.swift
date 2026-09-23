@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import Foundation
+import Synchronization
 import Testing
 @testable import AgentUsage
 
@@ -16,7 +17,7 @@ struct MacOSCredentialServiceTests {
             expiresIn: 3_600,
             refreshToken: nil
         )
-        var mirroredCredentials: ClaudeOAuthCredentials?
+        let mirroredCredentials = Mutex<ClaudeOAuthCredentials?>(nil)
         let service = MacOSCredentialService(
             claudeCodeKeychainLoader: {
                 throw CredentialError.keychainNotFound
@@ -25,14 +26,14 @@ struct MacOSCredentialServiceTests {
                 fallbackCredentials
             },
             appKeychainSaver: { credentials in
-                mirroredCredentials = credentials
+                mirroredCredentials.withLock { $0 = credentials }
             }
         )
 
         let loaded = try await service.loadCredentials()
 
         #expect(loaded.accessToken == "fallback-token")
-        #expect(mirroredCredentials?.accessToken == "fallback-token")
+        #expect(mirroredCredentials.withLock { $0 }?.accessToken == "fallback-token")
     }
 
     @Test func macOSCredentialServicePrefersClaudeCodeKeychain() async throws {
@@ -46,7 +47,7 @@ struct MacOSCredentialServiceTests {
             expiresIn: 3_600,
             refreshToken: nil
         )
-        var mirroredCredentials: ClaudeOAuthCredentials?
+        let mirroredCredentials = Mutex<ClaudeOAuthCredentials?>(nil)
         let service = MacOSCredentialService(
             claudeCodeKeychainLoader: {
                 (claudeCodeCredentials, Data(#"{"claudeAiOauth":{"accessToken":"claude-code-token"}}"#.utf8))
@@ -55,14 +56,14 @@ struct MacOSCredentialServiceTests {
                 fallbackCredentials
             },
             appKeychainSaver: { credentials in
-                mirroredCredentials = credentials
+                mirroredCredentials.withLock { $0 = credentials }
             }
         )
 
         let loaded = try await service.loadCredentials()
 
         #expect(loaded.accessToken == "claude-code-token")
-        #expect(mirroredCredentials?.accessToken == "claude-code-token")
+        #expect(mirroredCredentials.withLock { $0 }?.accessToken == "claude-code-token")
     }
 
     @Test func macOSCredentialServiceValidatesFallbackCredentials() async {

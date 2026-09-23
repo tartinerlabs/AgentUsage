@@ -267,7 +267,7 @@ actor GrokUsageService: ProviderUsageServiceProtocol {
         let object: [String: Any]?
     }
 
-    private func fetchJSON(url: URL, accessToken: String) async throws -> JSONResponse {
+    private func fetchJSON(url: URL, accessToken: String) async throws -> sending JSONResponse {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -501,7 +501,7 @@ actor GrokUsageService: ProviderUsageServiceProtocol {
     }
 }
 
-private extension UsageWindow {
+private nonisolated extension UsageWindow {
     func withDuration(_ duration: TimeInterval) -> UsageWindow {
         UsageWindow(
             utilization: utilization,

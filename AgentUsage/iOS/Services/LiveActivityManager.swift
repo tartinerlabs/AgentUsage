@@ -640,4 +640,16 @@ private extension LiveActivityLifecycleState {
         }
     }
 }
+/// `ActivityKit.Activity` is a class with no `Sendable` conformance, and its
+/// `update`/`end` methods are `@concurrent` async. That combination means *any*
+/// call site, in any isolation domain, has to send the activity across a
+/// boundary — there is no arrangement of this code that avoids it, which is why
+/// Apple's own samples call these directly from main-actor types.
+///
+/// The assertion is sound here because every one of our accesses to the stored
+/// activity is serialized: `LiveActivityTracker` and `LiveActivityManager` are
+/// both `@MainActor`, so we never touch it concurrently. The only overlapping
+/// access is ActivityKit's own internal handling during the async call, which
+/// the framework synchronizes itself.
+extension Activity: @retroactive @unchecked Sendable {}
 #endif
