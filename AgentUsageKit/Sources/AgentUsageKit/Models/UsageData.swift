@@ -429,15 +429,17 @@ public struct UsageSnapshot: Sendable, Codable {
     public let design: UsageWindow?   // Claude Design limit (if available)
     public let fable: UsageWindow?    // Separate Fable limit (if available)
     public let extraUsage: ExtraUsageCost?  // Monthly extra usage spending
+    public let rateLimitResetCredits: RateLimitResetCredits?  // Banked "reset your limits" grants
     public let fetchedAt: Date
 
-    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, design: UsageWindow? = nil, fable: UsageWindow? = nil, extraUsage: ExtraUsageCost? = nil, fetchedAt: Date) {
+    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, design: UsageWindow? = nil, fable: UsageWindow? = nil, extraUsage: ExtraUsageCost? = nil, rateLimitResetCredits: RateLimitResetCredits? = nil, fetchedAt: Date) {
         self.session = session
         self.opus = opus
         self.sonnet = sonnet
         self.design = design
         self.fable = fable
         self.extraUsage = extraUsage
+        self.rateLimitResetCredits = rateLimitResetCredits
         self.fetchedAt = fetchedAt
     }
 
@@ -449,6 +451,7 @@ public struct UsageSnapshot: Sendable, Codable {
         design = try container.decodeIfPresent(UsageWindow.self, forKey: .design)
         fable = try container.decodeIfPresent(UsageWindow.self, forKey: .fable)
         extraUsage = try container.decodeIfPresent(ExtraUsageCost.self, forKey: .extraUsage)
+        rateLimitResetCredits = try container.decodeIfPresent(RateLimitResetCredits.self, forKey: .rateLimitResetCredits)
         fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
     }
 
@@ -493,12 +496,15 @@ public struct UsageSnapshot: Sendable, Codable {
 
 // MARK: - Rate Limit Reset Credits
 
-/// On-demand rate-limit reset credits for a Codex account.
+/// On-demand rate-limit reset credits for a Codex or Claude account.
 ///
-/// The count comes from the usage body's `rate_limit_reset_credits.available_count`
+/// Codex: the count comes from the usage body's `rate_limit_reset_credits.available_count`
 /// (always available) or the dedicated `/wham/rate-limit-reset-credits` endpoint
 /// (which also carries each credit's expiry). When only the count is available,
 /// `expirations` is empty.
+///
+/// Claude: banked "reset your limits" grants from the usage body's `cedar_ember`
+/// block, one credit per `resets_left`, each expiring at its grant's `ends_at`.
 public struct RateLimitResetCredits: Sendable, Codable, Equatable {
     /// Number of reset credits still available (floored).
     public let availableCount: Int
@@ -563,7 +569,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
     public let extraUsage: ExtraUsageCost?
     /// Plan / tier name reported by the provider, if any (e.g. Codex `plan_type`).
     public let planName: String?
-    /// On-demand rate-limit reset credits (Codex only). nil when the provider
+    /// On-demand rate-limit reset credits (Codex and Claude). nil when the provider
     /// doesn't report them or the account has no reset-credit balance.
     public let rateLimitResetCredits: RateLimitResetCredits?
     /// Session effort distributions, grouped by aggregation period.
@@ -606,7 +612,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable].compactMap { $0 }
         self.extraUsage = snapshot.extraUsage
         self.planName = planName
-        self.rateLimitResetCredits = nil
+        self.rateLimitResetCredits = snapshot.rateLimitResetCredits
         self.effortSummaries = effortSummaries
         self.fetchedAt = snapshot.fetchedAt
         self.lastUsedAt = lastUsedAt

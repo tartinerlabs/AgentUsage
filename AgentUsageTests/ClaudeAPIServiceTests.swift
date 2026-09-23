@@ -80,6 +80,69 @@ struct ClaudeAPIServiceTests {
         #expect(mapped.fetchedAt == fetchedAt)
         #expect(mapped.rateLimitResetCredits == nil)
     }
+
+    @Test func bridgeCarriesBankedResets() {
+        let fetchedAt = Date()
+        let credits = RateLimitResetCredits(availableCount: 1, expirations: [fetchedAt.addingTimeInterval(86_400)])
+        let snapshot = UsageSnapshot(
+            session: UsageWindow(utilization: 12, resetsAt: fetchedAt, windowType: .session),
+            opus: UsageWindow(utilization: 34, resetsAt: fetchedAt, windowType: .opus),
+            sonnet: nil,
+            rateLimitResetCredits: credits,
+            fetchedAt: fetchedAt
+        )
+
+        #expect(ClaudeAPIService.providerSnapshot(from: snapshot).rateLimitResetCredits == credits)
+    }
+
+    // MARK: - Banked Resets (cedar_ember)
+
+    /// Grant shape observed on `/usage?cedar_ember=1`, 2026-09-22.
+    private static let launchGrant = """
+    {"id": "opus55-launch-promax-20260921",
+     "label": "Claude Opus 5.5 launch: one usage-limit reset for Pro and Max",
+     "resets_total": 1, "resets_left": 1,
+     "starts_at": "2026-09-22T16:00:00+00:00", "ends_at": "2026-10-22T16:00:00+00:00",
+     "clears": ["five_hour", "seven_day"], "paused": false, "usable_now": true,
+     "use_requires_limit": false, "blocking": []}
+    """
+
+    private static let now = ISO8601DateFormatter().date(from: "2026-09-23T00:00:00Z")!
+
+    private func bankedResets(_ grants: String) throws -> RateLimitResetCredits? {
+        let json = """
+        {"eligible": true, "ineligible_reason": null, "at_limit": false, "exhausted": [],
+         "grants": [\(grants)], "next_grant_id": null, "weekly_resets_at": null, "cooldown_until": null}
+        """
+        let response = try JSONDecoder().decode(ClaudeAPIService.CedarEmberResponse.self, from: Data(json.utf8))
+        return ClaudeAPIService.resetCredits(from: response, now: Self.now)
+    }
+
+    @Test func bankedResetParsedWithExpiry() throws {
+        let credits = try #require(try bankedResets(Self.launchGrant))
+        #expect(credits.availableCount == 1)
+        #expect(credits.expirations == [ISO8601DateFormatter().date(from: "2026-10-22T16:00:00Z")!])
+    }
+
+    @Test func multipleResetsInOneGrantCountSeparately() throws {
+        let two = Self.launchGrant.replacingOccurrences(of: "\"resets_left\": 1", with: "\"resets_left\": 2")
+        let credits = try #require(try bankedResets(two))
+        #expect(credits.availableCount == 2)
+        #expect(credits.expirations.count == 2)
+    }
+
+    @Test func spentPausedAndExpiredGrantsBankNothing() throws {
+        let spent = Self.launchGrant.replacingOccurrences(of: "\"resets_left\": 1", with: "\"resets_left\": 0")
+        let paused = Self.launchGrant.replacingOccurrences(of: "\"paused\": false", with: "\"paused\": true")
+        let expired = Self.launchGrant.replacingOccurrences(of: "2026-10-22T16:00:00+00:00", with: "2026-09-22T20:00:00+00:00")
+        for grant in [spent, paused, expired] {
+            #expect(try bankedResets(grant) == nil)
+        }
+    }
+
+    @Test func ineligibleAccountHasNoBankedResets() throws {
+        #expect(try bankedResets("") == nil)
+    }
 }
 
 // MARK: - API Response Parsing Tests
