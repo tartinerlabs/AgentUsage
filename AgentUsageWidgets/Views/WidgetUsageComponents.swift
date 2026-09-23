@@ -81,10 +81,11 @@ struct WidgetRedactableProgressBar: View {
     @Environment(\.redactionReasons) private var redactionReasons
 
     let usage: UsageWindow
+    let now: Date
 
     var body: some View {
         if redactionReasons.isEmpty {
-            UsageProgressBar(usage: usage)
+            UsageProgressBar(usage: usage, now: now)
         } else {
             UsageProgressBar(progress: 0)
         }
@@ -92,7 +93,7 @@ struct WidgetRedactableProgressBar: View {
 }
 
 /// The widget-sized counterpart to `UsageRowView`: same title/reset hierarchy,
-/// canonical Timefold Ink progress track, rounded usage figure, and semantic status.
+/// status-tinted progress track, rounded usage figure, and semantic status.
 struct WidgetUsageRow: View {
     let title: String
     let usage: UsageWindow
@@ -115,7 +116,7 @@ struct WidgetUsageRow: View {
                     .foregroundStyle(.secondary)
             }
 
-            WidgetRedactableProgressBar(usage: usage)
+            WidgetRedactableProgressBar(usage: usage, now: now)
                 .accessibilityHidden(true)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -213,7 +214,7 @@ struct WidgetProviderGlanceRow: View {
             .font(.caption)
 
             HStack(spacing: 8) {
-                WidgetRedactableProgressBar(usage: usage)
+                WidgetRedactableProgressBar(usage: usage, now: now)
                     .accessibilityHidden(true)
                 WidgetResetLabel(usage: usage, now: now, includePrefix: false)
                     .font(.caption2)
@@ -247,7 +248,7 @@ struct WidgetProviderGlanceRow: View {
                     .layoutPriority(1)
             }
 
-            WidgetRedactableProgressBar(usage: usage)
+            WidgetRedactableProgressBar(usage: usage, now: now)
                 .accessibilityHidden(true)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -287,6 +288,10 @@ struct WidgetSecondaryWindowRow: View {
     let usage: UsageWindow
     let now: Date
 
+    private var status: UsageStatus {
+        usage.status(from: now)
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Text(usage.displayName)
@@ -294,18 +299,22 @@ struct WidgetSecondaryWindowRow: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 8)
-            WidgetRedactableProgressBar(usage: usage)
+            WidgetRedactableProgressBar(usage: usage, now: now)
                 .frame(width: 72)
                 .accessibilityHidden(true)
             Text("\(usage.percentUsed)%")
                 .font(.system(.footnote, design: .rounded, weight: .semibold))
                 .monospacedDigit()
                 .frame(minWidth: 36, alignment: .trailing)
+            Image(systemName: status.icon)
+                .font(.footnote)
+                .foregroundStyle(status.color)
+                .accessibilityHidden(true)
         }
         .padding(.leading, 20)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(usage.displayName) usage")
-        .accessibilityValue("\(usage.percentUsed) percent used")
+        .accessibilityValue("\(usage.percentUsed) percent used, \(status.label)")
         .accessibilityHint(usage.resetDescription(from: now))
     }
 }

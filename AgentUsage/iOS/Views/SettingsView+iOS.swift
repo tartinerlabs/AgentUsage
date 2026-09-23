@@ -40,6 +40,7 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                    .tint(Constants.controlTint)
 
                 if viewModel.notificationPermissionState == .denied {
                     Label("Notifications are disabled in iOS Settings", systemImage: "bell.slash")
@@ -58,6 +59,7 @@ struct SettingsView: View {
                                 Task { await viewModel.setNotifyOnReset(enabled) }
                             }
                         ))
+                            .tint(Constants.controlTint)
 
                         Toggle("Extra Usage Alert", isOn: Binding(
                             get: { notificationSettings.notifyExtraUsage },
@@ -66,6 +68,7 @@ struct SettingsView: View {
                                 notificationSettings.save()
                             }
                         ))
+                            .tint(Constants.controlTint)
                     }
 
                     Button("Send Test Notification") {
@@ -82,6 +85,7 @@ struct SettingsView: View {
 
             Section {
                 Toggle("Extra Usage Indicators", isOn: $viewModel.showExtraUsageIndicators)
+                    .tint(Constants.controlTint)
             } header: {
                 Text("Display")
             } footer: {
@@ -256,5 +260,7 @@ private struct RevokeSyncConfirmationPopover: View {
                 credentialProvider: iOSCredentialService()
             ))
     }
+    // Match the app-wide tint MainNavigationView applies.
+    .tint(Constants.brandPrimary)
 }
 #endif

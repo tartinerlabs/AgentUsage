@@ -32,6 +32,7 @@ nonisolated enum Constants {
     // MARK: - Brand Colors
     static let iconPacificBlue = AgentUsageColors.iconPacificBlue
     static let brandPrimary = AgentUsageColors.usageProgress
+    static let controlTint = AgentUsageColors.controlTint
     static let brandSecondary = AgentUsageColors.brandSecondary
     static let brandBackground = AgentUsageColors.brandBackground
     static let extraUsageAccent = AgentUsageColors.extraUsageAccent

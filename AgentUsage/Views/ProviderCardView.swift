@@ -26,7 +26,7 @@ struct ProviderCostLine: Identifiable {
 }
 
 /// Renders one provider's usage as a card. Sections appear only when data or a
-/// capability is present. Attribution is name + glyph; chrome is always Timefold Ink.
+/// capability is present. Attribution is name + glyph; chrome is always the neutral primary.
 struct ProviderCardView: View {
     let provider: Provider
     var planName: String? = nil
@@ -62,7 +62,7 @@ struct ProviderCardView: View {
 
             if !windows.isEmpty {
                 VStack(spacing: compact ? 10 : 14) {
-                    ForEach(Array(windows.enumerated()), id: \.offset) { _, window in
+                    ForEach(windows) { window in
                         UsageRowView(
                             title: window.displayName,
                             usage: window,
@@ -413,17 +413,10 @@ struct ExtraUsageBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 8)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Constants.extraUsageAccent)
-                        .frame(width: geo.size.width * extraUsage.normalized, height: 8)
-                }
+            Gauge(value: extraUsage.normalized) {
+                Text("Extra usage spend")
             }
-            .frame(height: 8)
+            .gaugeStyle(UsageBarGaugeStyle(tint: Constants.extraUsageAccent))
 
             Text("Extra usage: \(extraUsage.formattedUsed) / \(extraUsage.formattedLimit)")
                 .font(.footnote)

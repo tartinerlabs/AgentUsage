@@ -23,6 +23,7 @@ struct NotificationSettingsCard: View {
                     }
                     Spacer()
                     Toggle("", isOn: notificationsEnabledBinding)
+                        .tint(Constants.controlTint)
                         .labelsHidden()
                 }
 
@@ -45,6 +46,7 @@ struct NotificationSettingsCard: View {
                                 Task { await viewModel.setNotifyOnReset(enabled) }
                             }
                         ))
+                            .tint(Constants.controlTint)
                         .labelsHidden()
                     }
 
@@ -66,6 +68,7 @@ struct NotificationSettingsCard: View {
                                 notificationSettings.save()
                             }
                         ))
+                            .tint(Constants.controlTint)
                         .labelsHidden()
                     }
 

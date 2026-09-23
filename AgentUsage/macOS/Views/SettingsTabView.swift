@@ -45,6 +45,7 @@ struct SettingsTabView: View {
                             }
                             Spacer()
                             Toggle("", isOn: $viewModel.debugSimulate100Percent)
+                                .tint(Constants.controlTint)
                                 .labelsHidden()
                         }
 

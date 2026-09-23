@@ -30,14 +30,20 @@ public enum AgentUsageColors {
     /// Warm off-white (`#FAF4EF`), the app-icon background field.
     public static let iconBackground = Color(red: 250 / 255, green: 244 / 255, blue: 239 / 255)
 
-    /// Timefold Ink (`#3B6BCE`) in light appearance; Pacific Blue (`#7197D4`) in dark
-    /// so caption and plan-badge text keeps a 4.5:1 contrast against system backgrounds.
-    public static let usageProgress = Color(
-        light: Color(red: 59 / 255, green: 107 / 255, blue: 206 / 255),
-        dark: iconPacificBlue
+    /// The neutral application tint: provider glyphs, plan badges, cost figures, and
+    /// card fill/border. It is the system label colour, so it adapts to light, dark,
+    /// and Increase Contrast, and leaves hue to the status colours alone.
+    public static let usageProgress = Color.primary
+
+    /// Fill for switched-on toggles. `usageProgress` is white in dark mode, which
+    /// hides the switch's white knob, so controls get their own neutral: graphite
+    /// in light appearance, mid-grey (`#636366`) in dark.
+    public static let controlTint = Color(
+        light: iconGraphite,
+        dark: Color(red: 99 / 255, green: 99 / 255, blue: 102 / 255)
     )
 
-    /// Pacific Blue (`#7197D4`), the lighter application-brand sibling of Timefold Ink.
+    /// Pacific Blue (`#7197D4`), retained as an app-icon sample; not used by the UI.
     public static let brandSecondary = Color(red: 113 / 255, green: 151 / 255, blue: 212 / 255)
 
     /// Pampas (`#F4F3EE`), the light provider-neutral brand ground.
