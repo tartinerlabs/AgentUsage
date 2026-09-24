@@ -20,7 +20,7 @@ struct AboutTabView: View {
                         featureRow(
                             icon: "chart.bar.fill",
                             title: "Provider quota windows",
-                            description: "Monitor Claude, Codex, Cursor, OpenCode, and Grok usage pressure without opening provider dashboards."
+                            description: "Monitor \(ProviderSettings.shippedProviderNames) usage pressure without opening provider dashboards."
                         )
                         Divider()
                         featureRow(

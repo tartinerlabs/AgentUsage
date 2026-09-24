@@ -27,7 +27,13 @@ final class SandboxFolderAccessService {
 
     /// Providers whose logs or local session state require disk access.
     /// `.openCodeGo` is remote-only, so it is not included.
+    /// `.openCode` stays listed while unshipped so legacy bookmarks still resolve.
     static let grantableProviders: [Provider] = [.claude, .codex, .openCode, .cursor, .grok]
+
+    /// Grantable providers named in user-facing copy: unshipped ones are left out.
+    static var shippedGrantableProviders: [Provider] {
+        grantableProviders.filter { !ProviderSettings.unshippedProviders.contains($0) }
+    }
 
     /// Whether the app appears to have Full Disk Access to the real home directory.
     private(set) var hasFullAccess = false
@@ -88,7 +94,8 @@ final class SandboxFolderAccessService {
         panel.canCreateDirectories = false
         panel.showsHiddenFiles = true
         panel.directoryURL = target
-        panel.message = "Grant read access to your home folder so \(Constants.appDisplayName) can read local Claude, Codex, OpenCode, Cursor, and Grok usage data."
+        panel.message = "Grant read access to your home folder so \(Constants.appDisplayName) can read local "
+            + "\(ProviderSettings.displayList(Self.shippedGrantableProviders)) usage data."
         panel.prompt = "Grant Access"
 
         guard panel.runModal() == .OK,

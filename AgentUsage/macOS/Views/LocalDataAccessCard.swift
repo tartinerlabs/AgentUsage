@@ -16,7 +16,7 @@ struct LocalDataAccessCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(
                     "\(Constants.appDisplayName) runs sandboxed, so macOS blocks direct reads "
-                        + "from the folders where Claude, Codex, OpenCode, Cursor, and Grok keep local "
+                        + "from the folders where \(ProviderSettings.displayList(readableProviders)) keep local "
                         + "usage logs or session state. Grant your home folder here, or use Full Disk Access in Privacy & Security as a fallback."
                 )
                 .font(.caption)
@@ -50,7 +50,7 @@ struct LocalDataAccessCard: View {
                     Text("Reads")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    ForEach(SandboxFolderAccessService.grantableProviders) { provider in
+                    ForEach(readableProviders) { provider in
                         HStack(spacing: 6) {
                             Label(provider)
                                 .font(.caption)
@@ -62,6 +62,12 @@ struct LocalDataAccessCard: View {
                 }
             }
         }
+    }
+
+    /// Grantable providers the app ships. Unshipped ones keep their legacy
+    /// bookmark handling in `SandboxFolderAccessService` but are not mentioned here.
+    private var readableProviders: [Provider] {
+        SandboxFolderAccessService.shippedGrantableProviders
     }
 
     private var localDataAccessStatusLabel: some View {
