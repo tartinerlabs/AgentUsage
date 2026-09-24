@@ -148,7 +148,10 @@ final class SystemBackgroundRefreshScheduler: BackgroundRefreshScheduling {
         identifier: String,
         handler: @escaping (any BackgroundRefreshTask) -> Void
     ) -> Bool {
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
+        // The launch handler inherits this type's main-actor isolation, so it must be
+        // delivered on the main queue; `nil` uses a background queue and traps the
+        // runtime isolation check.
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: .main) { task in
             guard let task = task as? BGAppRefreshTask else {
                 task.setTaskCompleted(success: false)
                 return
