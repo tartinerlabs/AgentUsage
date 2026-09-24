@@ -333,24 +333,42 @@ struct MenuBarView: View {
     }
 
     private var footer: some View {
-        HStack {
-            Text("\(Constants.appDisplayName) v\(Bundle.main.appVersion)")
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
-            Spacer()
-            if let fetchedAt = latestProviderFetchDate {
-                LastUpdatedLabel(
-                    relativeText: DateFormatters.relativeDescription(from: fetchedAt, to: now),
-                    isCached: viewModel.hasStaleProviderStatus,
-                    isOffline: viewModel.isOffline
-                )
+        // Ticks faster than the page's minute clock so the refresh countdown
+        // steps close to its minute boundaries.
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            HStack {
+                Text("\(Constants.appDisplayName) v\(Bundle.main.appVersion)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if let fetchedAt = latestProviderFetchDate {
+                    LastUpdatedLabel(
+                        relativeText: DateFormatters.relativeDescription(from: fetchedAt, to: context.date),
+                        isCached: viewModel.hasStaleProviderStatus,
+                        isOffline: viewModel.isOffline,
+                        nextRefreshText: nextRefreshText(now: context.date)
+                    )
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                }
+                if isRefreshing {
+                    ProgressView().scaleEffect(0.5)
+                }
             }
-            if viewModel.isLoading || viewModel.isLoadingTokenUsage {
-                ProgressView().scaleEffect(0.5)
-            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+    }
+
+    private var isRefreshing: Bool {
+        viewModel.isLoading || viewModel.isLoadingTokenUsage
+    }
+
+    /// Hidden for Manual, when nothing is scheduled, and while a refresh is running.
+    private func nextRefreshText(now: Date) -> String? {
+        guard viewModel.refreshInterval != .manual, !isRefreshing else { return nil }
+        return RefreshCountdown.text(until: viewModel.nextScheduledRefresh, now: now)
     }
 
     /// Global freshness reports the most recent visible provider fetch; a provider

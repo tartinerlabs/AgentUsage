@@ -301,6 +301,11 @@ final class UsageViewModel {
         set { refreshScheduler.refreshInterval = newValue }
     }
 
+    /// When auto-refresh fires next; `nil` for Manual, when stopped, or mid-refresh.
+    var nextScheduledRefresh: Date? {
+        refreshScheduler.nextScheduledRefresh
+    }
+
     var showExtraUsageIndicators: Bool {
         didSet {
             defaults.set(showExtraUsageIndicators, forKey: "showExtraUsageIndicators")
