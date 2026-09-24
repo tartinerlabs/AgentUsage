@@ -69,6 +69,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let yesterdayStart = calendar.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
 
         var entriesByProvider: [Provider: [ProviderUsageEntry]] = [:]
+        // Deduplicate across sources by provider-scoped key, as `computeSnapshot` does.
+        var seen = Set<String>()
         for source in extraSources {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
             // An empty result is still a successful read. Preserve the source
@@ -78,6 +80,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
                 entriesByProvider[source.provider] = []
             }
             for entry in entries {
+                guard seen.insert(entry.dedupKey).inserted else { continue }
                 entriesByProvider[entry.provider, default: []].append(entry)
             }
         }
@@ -106,13 +109,15 @@ actor TokenUsageService: TokenUsageServiceProtocol {
 
     func fetchExtraProviderEffortSamples(since: Date) async -> [EffortUsageSample] {
         var samples: [EffortUsageSample] = []
+        var seen = Set<String>()
         for source in extraSources {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
             // Codex and Grok are the extra providers whose local logs expose a
             // reasoning-effort setting. Do not turn providers without that
             // concept into a misleading all-unclassified distribution.
             samples.append(contentsOf: entries.compactMap { entry in
-                guard entry.provider == .codex || entry.provider == .grok else { return nil }
+                guard entry.provider == .codex || entry.provider == .grok,
+                      seen.insert(entry.dedupKey).inserted else { return nil }
                 return EffortUsageSample(
                     provider: entry.provider,
                     sessionID: entry.sessionID,
