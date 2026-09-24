@@ -25,9 +25,12 @@ struct AboutView: View {
                         .font(.title)
                         .fontWeight(.bold)
 
-                    Text("Version \(appVersion)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Text("Version \(Bundle.main.marketingVersion)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        AppBuildBadge()
+                    }
                 }
 
                 // Description
@@ -86,12 +89,6 @@ struct AboutView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
-        return "\(version) (\(build))"
     }
 }
 

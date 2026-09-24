@@ -84,9 +84,12 @@ struct AboutTabView: View {
                 Text(Constants.appDisplayName)
                     .font(.title2.weight(.semibold))
 
-                Text("Version \(Bundle.main.appVersion)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text("Version \(Bundle.main.marketingVersion)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    AppBuildBadge()
+                }
 
                 Text("A local-first usage monitor for AI coding tools.")
                     .font(.body)
@@ -207,14 +210,6 @@ struct AboutTabView: View {
                     .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 1)
             )
         }
-    }
-}
-
-extension Bundle {
-    var appVersion: String {
-        let version = infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "\(version) (\(build))"
     }
 }
 
