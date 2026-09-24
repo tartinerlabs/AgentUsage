@@ -239,6 +239,11 @@ final class UsageViewModel {
         return nil
     }
 
+    /// When the snapshot on screen was fetched — by the Mac, for synced data on iOS.
+    var lastSyncedAt: Date? {
+        snapshotStore.lastSuccessfulFetchTime
+    }
+
     /// Time since last successful fetch (for "Last updated X ago" display)
     var timeSinceLastUpdate: String? {
         guard let lastUpdate = snapshotStore.lastSuccessfulFetchTime else { return nil }
