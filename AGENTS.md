@@ -27,6 +27,16 @@ xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Debug
   -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M3)' build
 ```
 
+## Commits and pull requests
+
+- Conventional Commits: `type(scope): imperative summary`, lower-case, no trailing period.
+  Types in use: `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci`, `chore`.
+- Scope is optional; use it when a change is confined to one area: `ios`, `macos`,
+  `kit`, `widgets`, `notifications`.
+- Mark breaking changes with `!` after the type/scope and a `BREAKING CHANGE:` footer.
+- PRs land as merge commits; squash merging is not used, so keep each commit clean.
+- For a user-visible change, add an imperative bullet under `## [Unreleased]` in `CHANGELOG.md`.
+
 ## Multi-provider architecture
 
 The app is not Claude-only. Usage is collected per provider through two seams:
