@@ -96,8 +96,9 @@ actor MacOSCredentialService: CredentialProvider {
     /// triggers when reading another app's keychain item, because the `security` binary
     /// has a stable code signature so "Always Allow" persists across app rebuilds.
     ///
-    /// Returns the decoded credentials plus the raw JSON bytes (needed to round-trip a
-    /// write-back without dropping fields we don't model).
+    /// Returns the decoded credentials plus the raw JSON bytes. The raw bytes are only
+    /// carried along in `CredentialSource.claudeCode`; nothing writes them back, since
+    /// AgentUsage no longer refreshes or rewrites Claude Code's Keychain item.
     private static func loadFromClaudeCodeKeychain() throws -> (credentials: ClaudeOAuthCredentials, rawData: Data) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")

@@ -5,7 +5,8 @@
 
 import Foundation
 
-// Root structure matching ~/.claude/.credentials.json
+// Root structure of the JSON payload stored in Claude Code's
+// `Claude Code-credentials` Keychain item
 nonisolated struct CredentialsFile: Codable {
     let claudeAiOauth: ClaudeOAuthCredentials?
 }
