@@ -109,6 +109,23 @@ struct SettingsView: View {
                 }
             }
 
+            if !viewModel.removableDeviceLedgers.isEmpty {
+                Section {
+                    ForEach(viewModel.removableDeviceLedgers) { ledger in
+                        SyncedMacRow(ledger: ledger)
+                    }
+                    if let message = viewModel.deviceRemovalErrorMessage {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                } header: {
+                    Text("Macs")
+                } footer: {
+                    Text("Macs sharing token and cost usage. Remove one that no longer runs \(Constants.appDisplayName).")
+                }
+            }
+
             Section {
                 Label("Mac keeps this device up to date", systemImage: "laptopcomputer.and.iphone")
                 Text("Open \(Constants.appDisplayName) on your Mac to share the latest usage with this device through iCloud.")

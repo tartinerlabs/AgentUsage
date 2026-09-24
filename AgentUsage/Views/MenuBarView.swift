@@ -169,6 +169,11 @@ struct MenuBarView: View {
             }
             */
 
+            if viewModel.showsUsageSourcePicker {
+                usageSourceBar
+                Divider()
+            }
+
             ScrollView {
                 pageContent
                     .padding(16)
@@ -198,7 +203,7 @@ struct MenuBarView: View {
                 rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits,
                 density: .detail,
                 detail: viewModel.providerDetail(for: provider),
-                effortSummaries: viewModel.usageSnapshot(for: provider)?.effortSummaries ?? [],
+                effortSummaries: viewModel.effortSummaries(for: provider),
                 effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
                 usageBreakdown: viewModel.usageSnapshot(for: provider)?.usageBreakdown ?? []
             )
@@ -248,7 +253,7 @@ struct MenuBarView: View {
     // MARK: - Per-provider data
 
     private func costLines(for provider: Provider) -> [ProviderCostLine] {
-        guard let detail = viewModel.providerDetails[provider], detail.hasTokenUsage else { return [] }
+        guard let detail = viewModel.providerDetail(for: provider), detail.hasTokenUsage else { return [] }
         return [
             ProviderCostLine(label: "Today", cost: detail.today.formattedCost, tokens: detail.today.formattedTokens),
             ProviderCostLine(label: "30 Days", cost: detail.last30Days.formattedCost, tokens: detail.last30Days.formattedTokens)
@@ -313,6 +318,19 @@ struct MenuBarView: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange))
     }
     */
+
+    /// Scopes token and cost lines on every page; quota windows are account-wide.
+    private var usageSourceBar: some View {
+        HStack {
+            Spacer(minLength: 0)
+            UsageSourcePicker()
+                .controlSize(.small)
+                .fixedSize()
+                .help("Token and cost usage from every Mac, or one Mac")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+    }
 
     private var footer: some View {
         HStack {

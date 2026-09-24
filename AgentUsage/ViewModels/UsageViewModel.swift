@@ -57,6 +57,18 @@ actor InactiveUsageSyncService: UsageSyncServicing {
     func deleteSnapshotSubscription() async -> Bool {
         true
     }
+
+    func publishDeviceLedger(_: DeviceUsageLedger) async throws {
+        throw unavailableError
+    }
+
+    func fetchDeviceLedgers() async -> [DeviceUsageLedger] {
+        []
+    }
+
+    func deleteDeviceLedger(deviceID _: String) async -> Bool {
+        true
+    }
 }
 
 @MainActor @Observable
@@ -95,9 +107,25 @@ final class UsageViewModel {
     @ObservationIgnored private var lastPublishedAt: Date?
     private(set) var continuityReceipts: [UsageSyncDevice: ContinuityReceipt] = [:]
     private(set) var isCheckingContinuityReceipts = false
+    /// Identifies this Mac's local usage ledger in Continuity Sync.
+    let localDeviceID: String
+    @ObservationIgnored private var lastPublishedLedgerSignature: String?
+    @ObservationIgnored private var lastPublishedLedgerAt: Date?
     var tokenUsageError: TokenUsageError?
     var isLoadingTokenUsage = false
     #endif
+    /// Local token and cost ledgers published by every Mac, this one included.
+    private(set) var deviceLedgers: [DeviceUsageLedger] = []
+    /// Macs whose ledger removal is in flight, for per-row progress.
+    private(set) var removingDeviceIDs: Set<String> = []
+    var deviceRemovalErrorMessage: String?
+    /// Whose local token and cost usage to show. Quota windows are account-wide.
+    var usageSource: UsageSourceSelection = .allMacs {
+        didSet {
+            defaults.set(usageSource.rawValue, forKey: Self.usageSourceKey)
+        }
+    }
+    private static let usageSourceKey = "usageSource"
     var selectedTokenPeriod: UsagePeriod = .last30Days {
         didSet {
             #if os(macOS)
@@ -505,17 +533,25 @@ final class UsageViewModel {
 
     #if os(macOS)
     private var hasCurrentDeviceAcknowledgement: Bool {
+        guard publishedSyncGeneration != nil else { return false }
+        return continuityReceipts.values.contains(where: receiptConfirmsCurrentPublish)
+    }
+
+    /// Another Mac can publish after this one, and iPhone then acknowledges that
+    /// newer generation instead. A receipt written at or after this Mac's publish
+    /// still proves the round trip works.
+    private func receiptConfirmsCurrentPublish(_ receipt: ContinuityReceipt) -> Bool {
         guard let publishedSyncGeneration else { return false }
-        return continuityReceipts.values.contains {
-            $0.syncGeneration == publishedSyncGeneration
-        }
+        if receipt.syncGeneration == publishedSyncGeneration { return true }
+        guard let lastPublishedAt else { return false }
+        return receipt.acknowledgedAt >= lastPublishedAt
     }
 
     private func continuityNodeState(for device: UsageSyncDevice) -> ContinuityNodeState {
         guard let receipt = continuityReceipts[device] else {
             return isCheckingContinuityReceipts ? .checking : .unavailable
         }
-        guard receipt.syncGeneration == publishedSyncGeneration else {
+        guard receiptConfirmsCurrentPublish(receipt) else {
             return .waiting(lastSeenAt: receipt.acknowledgedAt)
         }
         return .connected(lastSeenAt: receipt.acknowledgedAt)
@@ -549,10 +585,13 @@ final class UsageViewModel {
             ?? TokenUsageCoordinator(tokenService: nil, defaults: defaults)
         self.menuBarSettingsManager = MenuBarSettingsManager(defaults: defaults)
         self.providerUsageServices = providerUsageServices
+        self.localDeviceID = LocalDeviceIdentity.deviceID(defaults: defaults)
         self.showExtraUsageIndicators = defaults.object(forKey: "showExtraUsageIndicators") as? Bool ?? true
         self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
         self.rateLimitedUntil = Self.loadRateLimitedUntil(from: defaults)
+        self.usageSource = defaults.string(forKey: Self.usageSourceKey)
+            .flatMap(UsageSourceSelection.init(rawValue:)) ?? .allMacs
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -583,6 +622,8 @@ final class UsageViewModel {
         self.appConnectionRevoked = defaults.bool(forKey: Constants.continuitySyncRevokedKey)
         self.notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
         self.rateLimitedUntil = Self.loadRateLimitedUntil(from: defaults)
+        self.usageSource = defaults.string(forKey: Self.usageSourceKey)
+            .flatMap(UsageSourceSelection.init(rawValue:)) ?? .allMacs
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -839,6 +880,7 @@ extension UsageViewModel {
            snapshot != nil || !providerUsage.isEmpty || !providersWithEffortUsage.isEmpty {
             Task { [weak self] in
                 await self?.publishContinuitySnapshot(force: false)
+                await self?.syncDeviceLedgers(force: false)
             }
         }
         await armResetNotifications()
@@ -909,14 +951,36 @@ extension UsageViewModel {
         )
     }
 
-    /// Session effort distribution received from local logs (macOS) or Continuity Sync (iOS).
+    /// Session effort distribution for the Macs `usageSource` selects: this Mac's
+    /// own logs or other Macs' ledgers on macOS, synced ledgers or snapshot on iOS.
     func effortSummary(for provider: Provider, period: EffortPeriod) -> EffortPeriodSummary? {
+        // Published ledgers are per Mac; the synced snapshot's effort is only
+        // whichever Mac published last, so it must not stand in for them.
+        if usesDeviceLedgerUsage {
+            return providerDetail(for: provider)?.effortSummary(for: period)
+        }
         #if os(macOS)
         if let summary = providerDetails[provider]?.effortSummary(for: period) {
             return summary
         }
         #endif
         return providerUsage[provider]?.effortSummary(for: period)
+    }
+
+    /// Effort distributions for the Macs `usageSource` selects, one per period.
+    func effortSummaries(for provider: Provider) -> [EffortPeriodSummary] {
+        EffortPeriod.allCases.compactMap { effortSummary(for: provider, period: $0) }
+    }
+
+    /// Whether token, cost, and effort detail come from published ledgers
+    /// rather than this Mac's own logs (macOS) or the synced snapshot (iOS).
+    private var usesDeviceLedgerUsage: Bool {
+        #if os(macOS)
+        if case .mac(let id) = effectiveUsageSource, id == localDeviceID { return false }
+        return deviceLedgers.contains { $0.deviceID != localDeviceID }
+        #else
+        return !deviceLedgers.isEmpty
+        #endif
     }
 
     /// Providers with at least one classified or explicitly unclassified effort session.
@@ -978,13 +1042,100 @@ extension UsageViewModel {
         availableProviders.contains(provider)
     }
 
-    /// Token/trend/model detail from local logs. Always nil on iOS.
+    /// Token/trend/model/effort detail from local logs, for the Macs
+    /// `usageSource` selects. On macOS this Mac's own detail comes from its live local
+    /// refresh; other Macs come from their published ledgers.
     func providerDetail(for provider: Provider) -> ProviderDetail? {
         #if os(macOS)
-        providerDetails[provider]
+        let local = providerDetails[provider]
+        let remote = deviceLedgers.filter { $0.deviceID != localDeviceID }
+        switch effectiveUsageSource {
+        case .mac(let id) where id == localDeviceID:
+            return local
+        case .mac(let id):
+            return DeviceUsageMerge.detail(for: provider, from: remote.filter { $0.deviceID == id })
+        case .allMacs:
+            guard !remote.isEmpty else { return local }
+            let localLedger = DeviceUsageMerge.ledger(
+                deviceID: localDeviceID,
+                deviceName: "",
+                details: providerDetails
+            )
+            return DeviceUsageMerge.detail(for: provider, from: remote + [localLedger])
+        }
         #else
-        nil
+        switch effectiveUsageSource {
+        case .allMacs:
+            return DeviceUsageMerge.detail(for: provider, from: deviceLedgers)
+        case .mac(let id):
+            return DeviceUsageMerge.detail(
+                for: provider,
+                from: deviceLedgers.filter { $0.deviceID == id }
+            )
+        }
         #endif
+    }
+
+    /// "All Macs", then each Mac with published usage. On macOS this Mac is
+    /// listed first even before its own ledger has synced.
+    var usageSourceOptions: [UsageSourceOption] {
+        var macs: [UsageSourceOption] = []
+        #if os(macOS)
+        macs.append(UsageSourceOption(selection: .mac(id: localDeviceID), title: "This Mac"))
+        #endif
+        let others = deviceLedgers.sorted {
+            $0.deviceName.localizedStandardCompare($1.deviceName) == .orderedAscending
+        }
+        for ledger in others {
+            #if os(macOS)
+            if ledger.deviceID == localDeviceID { continue }
+            #endif
+            macs.append(UsageSourceOption(selection: .mac(id: ledger.deviceID), title: ledger.deviceName))
+        }
+        return [UsageSourceOption(selection: .allMacs, title: "All Macs")] + macs
+    }
+
+    /// Macs that can be removed from here, newest first. On macOS this Mac is
+    /// left out: it would publish its ledger again on the next refresh.
+    var removableDeviceLedgers: [DeviceUsageLedger] {
+        deviceLedgers
+            .filter { ledger in
+                #if os(macOS)
+                return ledger.deviceID != localDeviceID
+                #else
+                return true
+                #endif
+            }
+            .sorted { $0.publishedAt > $1.publishedAt }
+    }
+
+    /// Remove a Mac's shared usage, e.g. one that no longer runs AgentUsage. A
+    /// Mac that is still active publishes its usage again on its next refresh.
+    func removeDevice(_ ledger: DeviceUsageLedger) async {
+        guard !removingDeviceIDs.contains(ledger.deviceID) else { return }
+        removingDeviceIDs.insert(ledger.deviceID)
+        defer { removingDeviceIDs.remove(ledger.deviceID) }
+        deviceRemovalErrorMessage = nil
+
+        if await usageSyncService.deleteDeviceLedger(deviceID: ledger.deviceID) {
+            deviceLedgers.removeAll { $0.deviceID == ledger.deviceID }
+        } else {
+            deviceRemovalErrorMessage = "Could not remove \(ledger.deviceName). Check your iCloud connection and try again."
+        }
+    }
+
+    /// Only offered once there is more than one Mac to choose from.
+    var showsUsageSourcePicker: Bool {
+        usageSourceOptions.count > 2
+    }
+
+    /// The stored choice, or All Macs when that Mac no longer publishes.
+    var effectiveUsageSource: UsageSourceSelection {
+        guard case .mac(let id) = usageSource else { return .allMacs }
+        #if os(macOS)
+        if id == localDeviceID { return usageSource }
+        #endif
+        return deviceLedgers.contains { $0.deviceID == id } ? usageSource : .allMacs
     }
 
     #if os(macOS)
@@ -1174,6 +1325,7 @@ extension UsageViewModel {
                     )
                 }
             }
+            deviceLedgers = await usageSyncService.fetchDeviceLedgers()
             Logger.viewModel.debug("Applied macOS-synced snapshot (age \(Int(synced.age()))s)")
             return isCached ? .failed : .updated
         }
@@ -1254,6 +1406,7 @@ extension UsageViewModel {
             return
         }
         await publishContinuitySnapshot(force: true)
+        await syncDeviceLedgers(force: true)
         #else
         _ = await refresh(force: true)
         #endif
@@ -1310,6 +1463,54 @@ extension UsageViewModel {
         } catch {
             continuitySyncErrorMessage = "This Mac could not share usage through iCloud: \(error.localizedDescription)"
         }
+    }
+
+    /// Ledgers change with every request logged, so they follow the same
+    /// spacing and heartbeat as snapshot publishes to keep silent pushes rare.
+    private static let ledgerPublishSpacing: TimeInterval = 5 * 60
+    private static let ledgerPublishHeartbeat: TimeInterval = 30 * 60
+
+    /// Share this Mac's local token and cost usage when it changed, then read
+    /// every Mac's ledger for the usage source picker and combined totals.
+    private func syncDeviceLedgers(force: Bool) async {
+        guard !appConnectionRevoked else { return }
+        let ledger = DeviceUsageMerge.ledger(
+            deviceID: localDeviceID,
+            deviceName: LocalDeviceIdentity.deviceName,
+            details: providerDetails
+        )
+        let signature = Self.ledgerSignature(ledger)
+        var shouldPublish = true
+        if !force, let lastPublishedLedgerAt {
+            let required = signature == lastPublishedLedgerSignature
+                ? Self.ledgerPublishHeartbeat
+                : Self.ledgerPublishSpacing
+            shouldPublish = Date().timeIntervalSince(lastPublishedLedgerAt) >= required
+        }
+
+        if shouldPublish, !ledger.providers.isEmpty {
+            do {
+                try await usageSyncService.publishDeviceLedger(ledger)
+                lastPublishedLedgerSignature = signature
+                lastPublishedLedgerAt = Date()
+            } catch {
+                Logger.viewModel.error("Could not share this Mac's local usage: \(error.localizedDescription)")
+            }
+        }
+
+        deviceLedgers = await usageSyncService.fetchDeviceLedgers()
+    }
+
+    /// Whole cents per provider for today and 30 days, effort session counts,
+    /// plus the day and name.
+    private static func ledgerSignature(_ ledger: DeviceUsageLedger) -> String {
+        let providers = ledger.providers.map { entry in
+            let today = Int((entry.today.costUSD * 100).rounded())
+            let month = Int((entry.last30Days.costUSD * 100).rounded())
+            let sessions = entry.effortSummaries.map { "\($0.period.rawValue)=\($0.totalSessionCount)" }
+            return "\(entry.provider.rawValue):\(today):\(month):\(sessions.joined(separator: ","))"
+        }
+        return ([ledger.anchorDay, ledger.deviceName] + providers).joined(separator: "|")
     }
 
     /// The values a widget actually shows: whole-percent utilization and reset
@@ -1404,6 +1605,7 @@ extension UsageViewModel {
         rateLimitedUntil.removeAll()
         activeIncidents.removeAll()
         receivedMacSyncedSnapshot = false
+        deviceLedgers = []
         await WidgetDataManager.shared.clear()
         await liveActivityManager.stop()
         #endif
@@ -1412,6 +1614,9 @@ extension UsageViewModel {
         _ = await usageSyncService.revokeAll()
         publishedSyncGeneration = nil
         continuityReceipts = [:]
+        deviceLedgers = []
+        lastPublishedLedgerSignature = nil
+        lastPublishedLedgerAt = nil
         continuitySyncErrorMessage = nil
         #else
         _ = await usageSyncService.revoke(device: Self.currentSyncDevice)

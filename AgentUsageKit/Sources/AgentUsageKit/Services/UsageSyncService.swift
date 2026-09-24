@@ -10,6 +10,11 @@
 //  exact sync generation they received. macOS uses those receipts to show a
 //  verified round trip instead of inferring connectivity from local data.
 //
+//  Several Macs can publish at once. They share one account, so the quota
+//  snapshot stays a single last-writer-wins record: whichever Mac fetched last
+//  is freshest. Local token and cost usage differs per Mac, so each Mac also
+//  writes its own `DeviceUsageLedger` record that readers combine or filter.
+//
 //  Production uses CKSyncEngine for sends and scheduled pulls. Widget
 //  extensions and tests never create the engine: widgets do a one-shot record
 //  read, and tests inject an in-memory database.
@@ -114,6 +119,12 @@ public protocol UsageSyncServicing: Sendable {
     func revoke(device: UsageSyncDevice) async -> Bool
     func ensureSnapshotSubscription() async throws
     func deleteSnapshotSubscription() async -> Bool
+    /// Publish this Mac's local token and cost usage, replacing its previous ledger.
+    func publishDeviceLedger(_ ledger: DeviceUsageLedger) async throws
+    /// Every Mac's latest ledger. Best-effort: failures return an empty list.
+    func fetchDeviceLedgers() async -> [DeviceUsageLedger]
+    /// Remove one Mac's ledger, e.g. for a Mac that no longer runs AgentUsage.
+    func deleteDeviceLedger(deviceID: String) async -> Bool
 }
 
 protocol UsageSyncDatabase: AnyObject, Sendable {
@@ -133,9 +144,31 @@ protocol UsageSyncDatabase: AnyObject, Sendable {
     )
 
     func deleteSubscription(withID subscriptionID: CKSubscription.ID) async throws -> CKSubscription.ID
+
+    /// Every record currently in the zone. Record-zone changes need no query
+    /// index, unlike `CKQuery`, so this works on an undeployed schema.
+    func allRecords(inZone zoneID: CKRecordZone.ID) async throws -> [CKRecord]
 }
 
-extension CKDatabase: UsageSyncDatabase {}
+extension CKDatabase: UsageSyncDatabase {
+    func allRecords(inZone zoneID: CKRecordZone.ID) async throws -> [CKRecord] {
+        var records: [CKRecord] = []
+        var changeToken: CKServerChangeToken?
+        while true {
+            let (modifications, _, nextToken, moreComing) = try await recordZoneChanges(
+                inZoneWith: zoneID,
+                since: changeToken
+            )
+            for result in modifications.values {
+                if case .success(let modification) = result {
+                    records.append(modification.record)
+                }
+            }
+            changeToken = nextToken
+            guard moreComing else { return records }
+        }
+    }
+}
 
 /// Publishes and reads the latest usage snapshot through the user's private
 /// CloudKit database. Reads remain best-effort so callers can use cached data;
@@ -155,6 +188,10 @@ public actor UsageSyncService: UsageSyncServicing {
     private static let snapshotRecordType = "UsageSnapshot"
     private static let snapshotRecordName = "latest"
     private static let receiptRecordType = "ContinuityReceipt"
+    private static let ledgerRecordType = "DeviceUsageLedger"
+    private static let ledgerRecordPrefix = "device-"
+    private static let deviceNameKey = "deviceName"
+    private static let publishedAtKey = "publishedAt"
     private static let payloadKey = "payload"
     private static let planTypeKey = "planType"
     private static let providerSnapshotsKey = "providerSnapshots"
@@ -356,8 +393,11 @@ public actor UsageSyncService: UsageSyncServicing {
             }
         }
 
+        let ledgerIDs = ((try? await resolvedDatabase().allRecords(inZone: Self.zoneID)) ?? [])
+            .filter { $0.recordType == Self.ledgerRecordType }
+            .map(\.recordID)
         let recordsDeleted = await delete(
-            recordIDs: [snapshotRecordID] + UsageSyncDevice.allCases.map(Self.receiptRecordID(for:))
+            recordIDs: [snapshotRecordID] + UsageSyncDevice.allCases.map(Self.receiptRecordID(for:)) + ledgerIDs
         )
         let subscriptionDeleted = await deleteLegacyQuerySubscription()
         return recordsDeleted && subscriptionDeleted
@@ -369,6 +409,57 @@ public actor UsageSyncService: UsageSyncServicing {
     /// `appConnectionRevoked`.
     public func revoke(device: UsageSyncDevice) async -> Bool {
         await delete(recordIDs: [Self.receiptRecordID(for: device)])
+    }
+
+    public func publishDeviceLedger(_ ledger: DeviceUsageLedger) async throws {
+        let recordID = Self.ledgerRecordID(for: ledger.deviceID)
+        do {
+            let record = baseRecord(type: Self.ledgerRecordType, id: recordID)
+            record[Self.payloadKey] = try JSONEncoder().encode(ledger) as CKRecordValue
+            record[Self.deviceNameKey] = ledger.deviceName as CKRecordValue
+            record[Self.publishedAtKey] = ledger.publishedAt as CKRecordValue
+            _ = try await save(record)
+            logger.debug("Published usage ledger for device \(ledger.deviceID, privacy: .public)")
+        } catch {
+            let syncError = Self.syncError(error, recordName: recordID.recordName)
+            logger.error("CloudKit ledger publish failed: \(syncError.localizedDescription, privacy: .public)")
+            throw syncError
+        }
+    }
+
+    /// Reads the whole zone directly rather than through CKSyncEngine: the
+    /// engine only delivers changes since its saved token, so after a relaunch
+    /// it would not return other Macs' unchanged ledgers.
+    public func fetchDeviceLedgers() async -> [DeviceUsageLedger] {
+        let records: [CKRecord]
+        do {
+            records = try await resolvedDatabase().allRecords(inZone: Self.zoneID)
+        } catch {
+            if Self.isUnknownItem(error) || (error as? CKError)?.code == .zoneNotFound {
+                return []
+            }
+            logger.error("CloudKit ledger fetch failed: \(Self.describe(error), privacy: .public)")
+            return []
+        }
+
+        var ledgers: [DeviceUsageLedger] = []
+        for record in records where record.recordType == Self.ledgerRecordType {
+            remember(record)
+            guard let payload = record[Self.payloadKey] as? Data else { continue }
+            do {
+                ledgers.append(try JSONDecoder().decode(DeviceUsageLedger.self, from: payload))
+            } catch {
+                // A ledger from a newer build may not decode here; skip only that Mac.
+                logger.error(
+                    "Skipping undecodable ledger \(record.recordID.recordName, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+        return ledgers.sorted { $0.deviceID < $1.deviceID }
+    }
+
+    public func deleteDeviceLedger(deviceID: String) async -> Bool {
+        await delete(recordIDs: [Self.ledgerRecordID(for: deviceID)])
     }
 
     /// Backward-compatible whole-setup revoke for existing callers.
@@ -622,6 +713,10 @@ public actor UsageSyncService: UsageSyncServicing {
 
     static func receiptRecordID(for device: UsageSyncDevice) -> CKRecord.ID {
         CKRecord.ID(recordName: "continuity-\(device.rawValue.lowercased())", zoneID: zoneID)
+    }
+
+    static func ledgerRecordID(for deviceID: String) -> CKRecord.ID {
+        CKRecord.ID(recordName: "\(ledgerRecordPrefix)\(deviceID)", zoneID: zoneID)
     }
 
     private func resolvedDatabase() -> any UsageSyncDatabase {

@@ -97,6 +97,10 @@ struct DashboardView: View {
             if providerSnapshots.isEmpty {
                 dashboardState
             } else {
+                if viewModel.showsUsageSourcePicker {
+                    UsageSourcePicker()
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
                 providerCards(providerSnapshots)
             }
         case .activity:
@@ -106,6 +110,10 @@ struct DashboardView: View {
                 now: now
             )
         case .effort:
+            if viewModel.showsUsageSourcePicker {
+                UsageSourcePicker()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
             if viewModel.providersWithEffortUsage.isEmpty {
                 effortEmptyView
             } else {
@@ -217,7 +225,8 @@ struct DashboardView: View {
                 showExtraUsage: viewModel.showExtraUsageIndicators,
                 status: viewModel.status(for: snapshot.provider, now: now),
                 fetchedAt: snapshot.fetchedAt,
-                rateLimitResetCredits: snapshot.rateLimitResetCredits
+                rateLimitResetCredits: snapshot.rateLimitResetCredits,
+                detail: viewModel.providerDetail(for: snapshot.provider)
             )
             .accessibilityLabel("\(snapshot.provider.displayName) usage")
         }

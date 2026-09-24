@@ -297,9 +297,152 @@ struct UsageSyncServiceTests {
         #expect(await service.deleteSnapshotSubscription())
     }
 
+    @Test func eachMacPublishesItsOwnLedger() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-a", name: "Studio", cost: 4))
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-b", name: "MacBook", cost: 6))
+        // Republishing replaces that Mac's ledger instead of adding another.
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-a", name: "Studio", cost: 5))
+
+        let ledgers = await service.fetchDeviceLedgers()
+
+        #expect(ledgers.map(\.deviceID) == ["mac-a", "mac-b"])
+        #expect(ledgers.map(\.deviceName) == ["Studio", "MacBook"])
+        #expect(ledgers.first?.provider(.claude)?.today.costUSD == 5)
+    }
+
+    @Test func ledgersDoNotDisturbTheSharedSnapshot() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        _ = try await service.publish(snapshot: Self.snapshot(), planType: "Max")
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-a", name: "Studio", cost: 1))
+
+        let synced = try #require(await service.fetchLatest())
+        let ledgers = await service.fetchDeviceLedgers()
+
+        #expect(synced.planType == "Max")
+        #expect(ledgers.map(\.deviceID) == ["mac-a"])
+    }
+
+    @Test func deleteDeviceLedgerRemovesOnlyThatMac() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-a", name: "Studio", cost: 1))
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-b", name: "MacBook", cost: 2))
+
+        #expect(await service.deleteDeviceLedger(deviceID: "mac-a"))
+
+        #expect(await service.fetchDeviceLedgers().map(\.deviceID) == ["mac-b"])
+    }
+
+    @Test func macRevokeAlsoDeletesEveryLedger() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        _ = try await service.publish(snapshot: Self.snapshot(), planType: "Pro")
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-a", name: "Studio", cost: 1))
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-b", name: "MacBook", cost: 2))
+
+        #expect(await service.revokeAll())
+
+        #expect(await service.fetchDeviceLedgers().isEmpty)
+        #expect(await database.record(named: "latest") == nil)
+    }
+
+    @Test func undecodableLedgerIsSkipped() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        try await service.publishDeviceLedger(Self.ledger(deviceID: "mac-a", name: "Studio", cost: 1))
+        let broken = CKRecord(
+            recordType: "DeviceUsageLedger",
+            recordID: UsageSyncService.ledgerRecordID(for: "mac-z")
+        )
+        broken["payload"] = Data("not json".utf8) as CKRecordValue
+        await database.seed(broken)
+
+        #expect(await service.fetchDeviceLedgers().map(\.deviceID) == ["mac-a"])
+    }
+
+    @Test func ledgerWithoutEffortFieldsStillDecodes() throws {
+        let json = """
+        {"provider":"claude","today":{"tokens":{"input":1,"output":2,"cacheCreation":0,"cacheRead":0,\
+        "reasoning":0,"cacheCreation1h":0},"costUSD":1.5},\
+        "yesterday":{"tokens":{"input":0,"output":0,"cacheCreation":0,"cacheRead":0,"reasoning":0,\
+        "cacheCreation1h":0},"costUSD":0},\
+        "last30Days":{"tokens":{"input":1,"output":2,"cacheCreation":0,"cacheRead":0,"reasoning":0,\
+        "cacheCreation1h":0},"costUSD":1.5},\
+        "byModel":{},"dailyCosts":[1.5]}
+        """
+
+        let entry = try JSONDecoder().decode(ProviderLedger.self, from: Data(json.utf8))
+
+        #expect(entry.hasTokenUsage)
+        #expect(entry.effortSummaries.isEmpty)
+        #expect(entry.lastUsedAt == nil)
+        #expect(entry.today.costUSD == 1.5)
+    }
+
+    @Test func ledgerEffortRoundTrips() throws {
+        let summary = EffortPeriodSummary(
+            period: .last7Days,
+            levels: [EffortLevelCount(level: .xhigh, sessionCount: 2)],
+            classifiedSessionCount: 2,
+            unclassifiedSessionCount: 1
+        )
+        let entry = ProviderLedger(
+            provider: .codex,
+            hasTokenUsage: false,
+            today: .zero,
+            yesterday: .zero,
+            last30Days: .zero,
+            byModel: [:],
+            dailyCosts: [],
+            effortSummaries: [summary],
+            lastUsedAt: nil
+        )
+
+        let decoded = try JSONDecoder().decode(ProviderLedger.self, from: JSONEncoder().encode(entry))
+
+        #expect(decoded == entry)
+    }
+
+    @Test func ledgerDayOffsetCountsCalendarDays() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+        let date = try #require(calendar.date(from: DateComponents(year: 2026, month: 3, day: 2, hour: 23)))
+
+        #expect(DeviceUsageLedger.dayKey(for: date, calendar: calendar) == "2026-03-02")
+        #expect(DeviceUsageLedger.dayOffset(from: "2026-03-02", to: date, calendar: calendar) == 0)
+        #expect(DeviceUsageLedger.dayOffset(from: "2026-02-28", to: date, calendar: calendar) == 2)
+        #expect(DeviceUsageLedger.dayOffset(from: "2026-03-03", to: date, calendar: calendar) == -1)
+        #expect(DeviceUsageLedger.dayOffset(from: "garbage", to: date, calendar: calendar) == nil)
+    }
+
     @Test func snapshotRecordLivesInTheContinuityZone() {
         #expect(UsageSyncService.makeSnapshotRecordID().zoneID == UsageSyncService.zoneID)
         #expect(UsageSyncService.receiptRecordID(for: .iPhone).zoneID == UsageSyncService.zoneID)
+    }
+
+    private static func ledger(deviceID: String, name: String, cost: Double) -> DeviceUsageLedger {
+        let totals = LedgerTotals(tokens: LedgerTokens(input: 100, output: 50), costUSD: cost)
+        return DeviceUsageLedger(
+            deviceID: deviceID,
+            deviceName: name,
+            anchorDay: DeviceUsageLedger.dayKey(for: Date()),
+            publishedAt: Date(),
+            providers: [
+                ProviderLedger(
+                    provider: .claude,
+                    today: totals,
+                    yesterday: .zero,
+                    last30Days: totals,
+                    byModel: ["claude-opus": totals.tokens],
+                    dailyCosts: [cost],
+                    lastUsedAt: Date()
+                ),
+            ]
+        )
     }
 
     private static func snapshot() -> UsageSnapshot {
@@ -387,6 +530,10 @@ private actor StubUsageSyncDatabase: UsageSyncDatabase {
 
     func deleteSubscription(withID _: CKSubscription.ID) async throws -> CKSubscription.ID {
         throw CKError(.unknownItem)
+    }
+
+    func allRecords(inZone zoneID: CKRecordZone.ID) async throws -> [CKRecord] {
+        recordsByName.values.filter { $0.recordID.zoneID == zoneID }
     }
 }
 #endif

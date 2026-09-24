@@ -1066,6 +1066,165 @@ struct UsageViewModelVerifiedContinuitySyncTests {
         #expect(codex.effortSummaries == [summary])
     }
 
+    @Test @MainActor func receiptForAnotherMacsNewerPublishStillVerifies() async {
+        let acknowledgedAt = Date().addingTimeInterval(60)
+        let syncService = MockUsageSyncService()
+        await syncService.configurePublication(generation: "this-mac")
+        await syncService.configureReceipts([
+            .iPhone: ContinuityReceipt(
+                device: .iPhone,
+                syncGeneration: "other-mac",
+                acknowledgedAt: acknowledgedAt
+            ),
+        ])
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.continuityNetworkStatus.iPhone == .connected(lastSeenAt: acknowledgedAt))
+    }
+
+    @Test @MainActor func localUsageIsSharedAndCombinedWithOtherMacs() async throws {
+        let syncService = MockUsageSyncService()
+        await syncService.configureLedgers([
+            Self.remoteLedger(deviceID: "other", name: "Studio", todayCost: 3, monthCost: 5),
+        ])
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+        viewModel.providerDetails[.claude] = Self.detail(todayCost: 2, monthCost: 10)
+
+        await viewModel.refreshContinuitySync()
+
+        let published = try #require(await syncService.publishedLedgers().last)
+        #expect(published.deviceID == viewModel.localDeviceID)
+        #expect(published.provider(.claude)?.today.costUSD == 2)
+        #expect(viewModel.showsUsageSourcePicker)
+        #expect(viewModel.usageSourceOptions.map(\.title) == ["All Macs", "This Mac", "Studio"])
+
+        #expect(viewModel.providerDetail(for: .claude)?.today.costUSD == 5)
+        #expect(viewModel.providerDetail(for: .claude)?.last30Days.costUSD == 15)
+
+        viewModel.usageSource = .mac(id: viewModel.localDeviceID)
+        #expect(viewModel.providerDetail(for: .claude)?.today.costUSD == 2)
+
+        viewModel.usageSource = .mac(id: "other")
+        #expect(viewModel.providerDetail(for: .claude)?.today.costUSD == 3)
+
+        // A Mac that stopped publishing falls back to every Mac.
+        viewModel.usageSource = .mac(id: "gone")
+        #expect(viewModel.effectiveUsageSource == .allMacs)
+        #expect(viewModel.providerDetail(for: .claude)?.today.costUSD == 5)
+    }
+
+    @Test @MainActor func effortFollowsTheUsageSource() async {
+        let syncService = MockUsageSyncService()
+        await syncService.configureLedgers([
+            Self.remoteLedger(deviceID: "other", name: "Studio", todayCost: 3, monthCost: 5, highSessions: 4),
+        ])
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+        viewModel.providerDetails[.claude] = Self.detail(todayCost: 2, monthCost: 10, highSessions: 1)
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.effortSummary(for: .claude, period: .last30Days)?.sessionCount(for: .high) == 5)
+        #expect(viewModel.effortSummaries(for: .claude).map(\.period) == [.last30Days])
+
+        viewModel.usageSource = .mac(id: viewModel.localDeviceID)
+        #expect(viewModel.effortSummary(for: .claude, period: .last30Days)?.sessionCount(for: .high) == 1)
+
+        viewModel.usageSource = .mac(id: "other")
+        #expect(viewModel.effortSummary(for: .claude, period: .last30Days)?.sessionCount(for: .high) == 4)
+    }
+
+    @Test @MainActor func removingAnotherMacDropsItsUsage() async throws {
+        let syncService = MockUsageSyncService()
+        await syncService.configureLedgers([
+            Self.remoteLedger(deviceID: "other", name: "Studio", todayCost: 3, monthCost: 5),
+        ])
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+        viewModel.providerDetails[.claude] = Self.detail(todayCost: 2, monthCost: 10)
+        await viewModel.refreshContinuitySync()
+
+        // This Mac republishes on every refresh, so only other Macs are removable.
+        let other = try #require(viewModel.removableDeviceLedgers.first)
+        #expect(viewModel.removableDeviceLedgers.map(\.deviceID) == ["other"])
+
+        await viewModel.removeDevice(other)
+
+        #expect(viewModel.removableDeviceLedgers.isEmpty)
+        #expect(!viewModel.showsUsageSourcePicker)
+        #expect(viewModel.providerDetail(for: .claude)?.today.costUSD == 2)
+        #expect(await syncService.fetchDeviceLedgers().map(\.deviceID) == [viewModel.localDeviceID])
+        #expect(viewModel.deviceRemovalErrorMessage == nil)
+    }
+
+    @Test @MainActor func failedMacRemovalKeepsItAndExplains() async throws {
+        let syncService = MockUsageSyncService()
+        await syncService.configureLedgers([
+            Self.remoteLedger(deviceID: "other", name: "Studio", todayCost: 3, monthCost: 5),
+        ])
+        await syncService.configureLedgerDeletionFailure(true)
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+        await viewModel.refreshContinuitySync()
+        let other = try #require(viewModel.removableDeviceLedgers.first)
+
+        await viewModel.removeDevice(other)
+
+        #expect(viewModel.removableDeviceLedgers.map(\.deviceID) == ["other"])
+        #expect(viewModel.deviceRemovalErrorMessage?.contains("Studio") == true)
+        #expect(viewModel.removingDeviceIDs.isEmpty)
+    }
+
+    @Test @MainActor func singleMacKeepsLocalDetailWithoutPicker() async {
+        let syncService = MockUsageSyncService()
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+        viewModel.providerDetails[.claude] = Self.detail(todayCost: 2, monthCost: 10)
+
+        await viewModel.refreshContinuitySync()
+
+        #expect(!viewModel.showsUsageSourcePicker)
+        #expect(viewModel.providerDetail(for: .claude)?.today.costUSD == 2)
+    }
+
+    private static func detail(todayCost: Double, monthCost: Double, highSessions: Int = 0) -> ProviderDetail {
+        let tokens = TokenCount(inputTokens: 100, outputTokens: 10, cacheCreationTokens: 0, cacheReadTokens: 0)
+        let effort = highSessions > 0
+            ? [EffortPeriodSummary(
+                period: .last30Days,
+                levels: [EffortLevelCount(level: .high, sessionCount: highSessions)],
+                classifiedSessionCount: highSessions,
+                unclassifiedSessionCount: 0
+            )]
+            : []
+        return ProviderDetail(
+            today: TokenUsageSummary(tokens: tokens, costUSD: todayCost, period: .today),
+            yesterday: TokenUsageSummary(tokens: .zero, costUSD: 0, period: .today),
+            last30Days: TokenUsageSummary(tokens: tokens, costUSD: monthCost, period: .last30Days),
+            byModel: ["claude-opus": tokens],
+            dailyCosts: [todayCost],
+            effortSummaries: effort
+        )
+    }
+
+    private static func remoteLedger(
+        deviceID: String,
+        name: String,
+        todayCost: Double,
+        monthCost: Double,
+        highSessions: Int = 0
+    ) -> DeviceUsageLedger {
+        DeviceUsageMerge.ledger(
+            deviceID: deviceID,
+            deviceName: name,
+            details: [.claude: detail(todayCost: todayCost, monthCost: monthCost, highSessions: highSessions)]
+        )
+    }
+
     @Test @MainActor func macRevokeRemovesTheWholeContinuitySetup() async {
         let syncService = MockUsageSyncService()
         let viewModel = makeViewModel(syncService: syncService)
@@ -1598,6 +1757,24 @@ actor MockUsageSyncService: UsageSyncServicing {
     private var revokedAll = false
     private var publishedProviderSnapshots: [ProviderUsageSnapshot]?
     private var ensureSnapshotSubscriptionCalls = 0
+    private var ledgersByDevice: [String: DeviceUsageLedger] = [:]
+    private var publishedLedgerValues: [DeviceUsageLedger] = []
+
+    func configureLedgers(_ ledgers: [DeviceUsageLedger]) {
+        for ledger in ledgers {
+            ledgersByDevice[ledger.deviceID] = ledger
+        }
+    }
+
+    func publishedLedgers() -> [DeviceUsageLedger] {
+        publishedLedgerValues
+    }
+
+    private var ledgerDeletionFails = false
+
+    func configureLedgerDeletionFailure(_ fails: Bool) {
+        ledgerDeletionFails = fails
+    }
 
     func configurePublication(generation: String) {
         publication = PublishedUsageSnapshot(syncGeneration: generation, fetchedAt: Date())
@@ -1696,5 +1873,20 @@ actor MockUsageSyncService: UsageSyncServicing {
 
     func deleteSnapshotSubscription() async -> Bool {
         true
+    }
+
+    func publishDeviceLedger(_ ledger: DeviceUsageLedger) async throws {
+        publishedLedgerValues.append(ledger)
+        ledgersByDevice[ledger.deviceID] = ledger
+    }
+
+    func fetchDeviceLedgers() async -> [DeviceUsageLedger] {
+        ledgersByDevice.values.sorted { $0.deviceID < $1.deviceID }
+    }
+
+    func deleteDeviceLedger(deviceID: String) async -> Bool {
+        guard !ledgerDeletionFails else { return false }
+        ledgersByDevice[deviceID] = nil
+        return true
     }
 }
