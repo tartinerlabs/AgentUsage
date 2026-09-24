@@ -128,6 +128,65 @@ struct CodexLogSourceTests {
         #expect(EffortUsageAggregator.summaries(from: samples).isEmpty)
     }
 
+    /// `codex exec` records through the same rollout writer as interactive Codex,
+    /// into `sessions/<yyyy>/<mm>/<dd>/`. Only `session_meta` tells them apart.
+    @Test func readsHeadlessExecRolloutLikeInteractiveSessions() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let dayDirectory = directory.appendingPathComponent("2026/09/20", isDirectory: true)
+        try FileManager.default.createDirectory(at: dayDirectory, withIntermediateDirectories: true)
+        let sessionID = "019f8c2a-4d51-7a30-9e6b-5f0c1d2e3a4b"
+        let file = dayDirectory.appendingPathComponent("rollout-2026-09-20T10-00-00-\(sessionID).jsonl")
+        let firstResponse = Self.codexTokenUsage(input: 12_000, cached: 8_000, output: 900, reasoning: 300)
+        let secondResponse = Self.codexTokenUsage(input: 15_000, cached: 12_000, output: 400, reasoning: 100)
+        let cumulative = Self.codexTokenUsage(input: 27_000, cached: 20_000, output: 1_300, reasoning: 400)
+        let lines: [String] = [
+            Self.execSessionMeta(sessionID: sessionID, timestamp: "2026-09-20T10:00:00.100Z"),
+            Self.pagedTurnContext(
+                timestamp: "2026-09-20T10:00:00.200Z", ordinal: 1, model: "gpt-5.5-codex", effort: "high"
+            ),
+            #"{"timestamp":"2026-09-20T10:00:00.210Z","ordinal":2,"type":"response_item","#
+                + #""payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Summarize"}]}}"#,
+            // A rate-limit update streamed before the response completes has no `info`.
+            #"{"timestamp":"2026-09-20T10:00:01.000Z","ordinal":3,"type":"event_msg","#
+                + #""payload":{"type":"token_count","info":null,"rate_limits":\#(Self.codexRateLimits)}}"#,
+            Self.tokenUsageRecord(
+                timestamp: "2026-09-20T10:00:04.500Z", ordinal: 4, sessionID: sessionID,
+                responseID: "resp-1", usage: firstResponse, threadUsage: firstResponse
+            ),
+            Self.pagedTokenCount(
+                timestamp: "2026-09-20T10:00:04.510Z", ordinal: 5, total: firstResponse, last: firstResponse
+            ),
+            Self.tokenUsageRecord(
+                timestamp: "2026-09-20T10:00:09.800Z", ordinal: 6, sessionID: sessionID,
+                responseID: "resp-2", usage: secondResponse, threadUsage: cumulative
+            ),
+            Self.pagedTokenCount(
+                timestamp: "2026-09-20T10:00:09.810Z", ordinal: 7, total: cumulative, last: secondResponse
+            ),
+            #"{"timestamp":"2026-09-20T10:00:09.900Z","ordinal":8,"type":"event_msg","#
+                + #""payload":{"type":"task_complete","turn_id":"turn-1","last_agent_message":"Done"}}"#,
+        ]
+        try Self.write(lines.joined(separator: "\n") + "\n", to: file)
+
+        let source = CodexLogSource(directories: [directory], readChunkSize: 97)
+        let entries = try await source.fetchEntries(since: .distantPast)
+        let entry = try #require(entries.first)
+        let lastTokenCount = try Self.codexDate("2026-09-20T10:00:09.810Z")
+
+        #expect(entries.count == 1)
+        #expect(entry.provider == .codex)
+        #expect(entry.model == "gpt-5.5-codex")
+        #expect(entry.effortLevel?.rawValue == "high")
+        #expect(!entry.isSubagentSession)
+        #expect(entry.tokens.inputTokens == 7_000)
+        #expect(entry.tokens.cacheReadTokens == 20_000)
+        #expect(entry.tokens.outputTokens == 900)
+        #expect(entry.tokens.reasoningTokens == 400)
+        #expect(entry.timestamp == lastTokenCount)
+        #expect(entry.dedupKey == "codex:\(sessionID)")
+    }
+
     @Test @MainActor func successfulEmptyThirtyDayReadRemainsAvailableAlongsideOlderEffort() async throws {
         let directory = try Self.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -1346,6 +1405,78 @@ extension CodexLogSourceTests {
             + #""latest_token_usage_record":\#(latestRecordPayload)}"#
         return record(type: "compacted", payload: payload, timestamp: timestamp, ordinal: nil)
     }
+
+    // MARK: - Codex rollout records, shaped after codex-rs protocol types
+
+    private static func codexDate(_ timestamp: String) throws -> Date {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return try #require(formatter.date(from: timestamp))
+    }
+
+    /// `SessionMetaLine` as `codex exec` writes it: `SessionSource::Exec`, the
+    /// `codex_exec` originator, and paginated history, whose records carry `ordinal`.
+    private static func execSessionMeta(sessionID: String, timestamp: String) -> String {
+        #"{"timestamp":"\#(timestamp)","ordinal":0,"type":"session_meta","payload":{"session_id":"\#(sessionID)","#
+            + #""id":"\#(sessionID)","timestamp":"\#(timestamp)","cwd":"/Users/dev/project","originator":"codex_exec","#
+            + #""cli_version":"0.0.0","source":"exec","thread_source":"user","model_provider":"openai","#
+            + #""base_instructions":{"text":"You are Codex."},"history_mode":"paginated"}}"#
+    }
+
+    /// `TurnContextItem` with only its required fields plus `turn_id` and `effort`.
+    private static func pagedTurnContext(
+        timestamp: String,
+        ordinal: Int,
+        turnID: String = "turn-1",
+        model: String,
+        effort: String
+    ) -> String {
+        #"{"timestamp":"\#(timestamp)","ordinal":\#(ordinal),"type":"turn_context","payload":{"turn_id":"\#(turnID)","#
+            + #""cwd":"/Users/dev/project","approval_policy":"never","sandbox_policy":{"type":"read-only"},"#
+            + #""model":"\#(model)","effort":"\#(effort)","summary":"auto"}}"#
+    }
+
+    /// `TokenUsage`. The Responses API reports `total_tokens` as input plus output.
+    private static func codexTokenUsage(
+        input: Int,
+        cached: Int = 0,
+        output: Int = 0,
+        reasoning: Int = 0,
+        total: Int? = nil
+    ) -> String {
+        let totalTokens = total ?? input + output
+        return #"{"input_tokens":\#(input),"cached_input_tokens":\#(cached),"cache_write_input_tokens":0,"#
+            + #""output_tokens":\#(output),"reasoning_output_tokens":\#(reasoning),"total_tokens":\#(totalTokens)}"#
+    }
+
+    /// `EventMsg::TokenCount` with `TokenUsageInfo`.
+    private static func pagedTokenCount(timestamp: String, ordinal: Int, total: String, last: String) -> String {
+        #"{"timestamp":"\#(timestamp)","ordinal":\#(ordinal),"type":"event_msg","payload":{"type":"token_count","#
+            + #""info":{"total_token_usage":\#(total),"last_token_usage":\#(last),"model_context_window":272000},"#
+            + #""rate_limits":\#(codexRateLimits)}}"#
+    }
+
+    /// `RolloutItem::TokenUsageRecord`, written once per completed response.
+    private static func tokenUsageRecord(
+        timestamp: String,
+        ordinal: Int,
+        sessionID: String,
+        responseID: String,
+        usage: String,
+        threadUsage: String
+    ) -> String {
+        #"{"timestamp":"\#(timestamp)","ordinal":\#(ordinal),"type":"token_usage_record","payload":{"#
+            + #""thread_id":"\#(sessionID)","turn_id":"turn-1","session_id":"\#(sessionID)","root_turn_id":"turn-1","#
+            + #""response_id":"\#(responseID)","usage":\#(usage),"turn_token_usage":\#(threadUsage),"#
+            + #""thread_token_usage":\#(threadUsage)}}"#
+    }
+
+    /// `RateLimitSnapshot` as serialized in codex-rs/rollout/src/tests.rs.
+    private static let codexRateLimits: String = #"{"limit_id":null,"limit_name":null,"#
+        + #""primary":{"used_percent":0.0,"window_minutes":60,"resets_at":1800000000},"#
+        + #""secondary":{"used_percent":12.5,"window_minutes":10080,"resets_at":1800100000},"#
+        + #""credits":null,"individual_limit":null,"spend_control_reached":null,"plan_type":null,"#
+        + #""rate_limit_reached_type":null}"#
 }
 
 private final class SandboxDeniedFileManager: FileManager, @unchecked Sendable {
