@@ -45,6 +45,8 @@ struct ProviderCardView: View {
     var detail: ProviderDetail? = nil
     var effortSummaries: [EffortPeriodSummary] = []
     var effortPeriod: EffortPeriod = .last30Days
+    /// The provider's usage split for the current period (Claude: this week by surface).
+    var usageBreakdown: [UsageShare] = []
     /// Max models to list in the breakdown.
     var maxModels: Int = 6
 
@@ -80,6 +82,10 @@ struct ProviderCardView: View {
 
             if showExtraUsage, let extraUsage {
                 ExtraUsageBarView(extraUsage: extraUsage)
+            }
+
+            if density == .detail, usageBreakdown.contains(where: { $0.percent > 0 }) {
+                breakdownSection
             }
 
             if let detail {
@@ -218,6 +224,31 @@ struct ProviderCardView: View {
                 .help(credits.tooltipText(now: now) ?? "")
         }
         .help(credits.tooltipText(now: now) ?? "")
+    }
+
+    // MARK: - Usage Breakdown
+
+    private var breakdownSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("This Week by Surface")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(usageBreakdown.filter { $0.percent > 0 }) { share in
+                HStack {
+                    Text(share.displayName)
+                        .font(.footnote)
+                        .lineLimit(1)
+                    Spacer()
+                    Text("\(Int(share.percent.rounded()))%")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
     }
 
     // MARK: - Cost

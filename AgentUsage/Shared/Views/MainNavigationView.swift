@@ -420,7 +420,8 @@ struct ProviderSectionView: View {
                     density: .detail,
                     detail: viewModel.providerDetail(for: provider),
                     effortSummaries: usage?.effortSummaries ?? [],
-                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod
+                    effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
+                    usageBreakdown: usage?.usageBreakdown ?? []
                 )
             }
             .frame(maxWidth: 760)
