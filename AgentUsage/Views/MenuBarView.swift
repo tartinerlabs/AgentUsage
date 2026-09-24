@@ -169,6 +169,11 @@ struct MenuBarView: View {
             }
             */
 
+            if viewModel.showsUsageSourcePicker {
+                usageSourceBar
+                Divider()
+            }
+
             ScrollView {
                 pageContent
                     .padding(16)
@@ -313,6 +318,19 @@ struct MenuBarView: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange))
     }
     */
+
+    /// Scopes token and cost lines on every page; quota windows are account-wide.
+    private var usageSourceBar: some View {
+        HStack {
+            Spacer(minLength: 0)
+            UsageSourcePicker()
+                .controlSize(.small)
+                .fixedSize()
+                .help("Token and cost usage from every Mac, or one Mac")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+    }
 
     private var footer: some View {
         HStack {
