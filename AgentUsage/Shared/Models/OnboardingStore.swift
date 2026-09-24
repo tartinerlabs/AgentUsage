@@ -128,4 +128,8 @@ final class OnboardingStore {
 extension Notification.Name {
     static let showOnboarding = Notification.Name("showOnboarding")
     static let localDataAccessGranted = Notification.Name("localDataAccessGranted")
+    /// Posted by the macOS status item's right-click menu.
+    static let refreshUsageRequested = Notification.Name("refreshUsageRequested")
+    static let showDashboard = Notification.Name("showDashboard")
+    static let showSettings = Notification.Name("showSettings")
 }

@@ -14,11 +14,11 @@ import UserNotifications
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var windowObservers: [NSObjectProtocol] = []
     private var statusItemRightClickMonitor: Any?
-    private var didAttachStatusItemQuitRecognizer = false
+    private var didAttachStatusItemMenuRecognizer = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindowObservers()
-        installStatusItemQuitMenu()
+        installStatusItemMenu()
         updateActivationPolicy()
 
         // Set notification delegate to show banners even when app is in foreground
@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             // `@Sendable` and so nonisolated to the compiler. Assert the isolation we
             // already have rather than hopping and losing ordering.
             MainActor.assumeIsolated {
-                self?.attachStatusItemQuitRecognizerIfNeeded()
+                self?.attachStatusItemMenuRecognizerIfNeeded()
                 self?.updateActivationPolicy()
             }
         }
@@ -109,42 +109,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         false
     }
 
-    // MARK: - Status item quit menu
+    // MARK: - Status item menu
 
     /// SwiftUI `MenuBarExtra` has no context-menu API, so right-click on the status
-    /// item is observed here and presents a one-item Quit menu.
-    private func installStatusItemQuitMenu() {
-        statusItemRightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown]) { event in
+    /// item is observed here and presents the status item menu (Refresh, Open
+    /// Dashboard, Settings…, Quit). Left-click still opens the popover.
+    private func installStatusItemMenu() {
+        statusItemRightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown]) { [weak self] event in
             // `NSEvent` is explicitly non-Sendable, so it cannot be the generic
             // result of `assumeIsolated`. Decide on the main actor, then hand the
             // event back (or swallow it) outside the isolated region.
             let consumed = MainActor.assumeIsolated { () -> Bool in
-                guard Self.isStatusItemEvent(event) else { return false }
-                Self.popStatusItemQuitMenu(with: event)
+                guard let self, Self.isStatusItemEvent(event) else { return false }
+                self.popStatusItemMenu(with: event)
                 return true
             }
             return consumed ? nil : event
         }
-        attachStatusItemQuitRecognizerIfNeeded()
+        attachStatusItemMenuRecognizerIfNeeded()
         DispatchQueue.main.async { [weak self] in
-            self?.attachStatusItemQuitRecognizerIfNeeded()
+            self?.attachStatusItemMenuRecognizerIfNeeded()
         }
     }
 
-    private func attachStatusItemQuitRecognizerIfNeeded() {
-        guard !didAttachStatusItemQuitRecognizer else { return }
+    private func attachStatusItemMenuRecognizerIfNeeded() {
+        guard !didAttachStatusItemMenuRecognizer else { return }
         guard let button = Self.findStatusBarButton() else { return }
 
         let recognizer = NSClickGestureRecognizer(target: self, action: #selector(handleStatusItemRightClick(_:)))
         recognizer.buttonMask = 1 << 1
         recognizer.numberOfClicksRequired = 1
         button.addGestureRecognizer(recognizer)
-        didAttachStatusItemQuitRecognizer = true
+        didAttachStatusItemMenuRecognizer = true
     }
 
     @objc private func handleStatusItemRightClick(_ sender: NSClickGestureRecognizer) {
         guard sender.state == .ended, let view = sender.view else { return }
-        Self.makeQuitMenu().popUp(positioning: nil, at: sender.location(in: view), in: view)
+        Self.makeStatusItemMenu(target: self).popUp(positioning: nil, at: sender.location(in: view), in: view)
+    }
+
+    // The status item menu has no SwiftUI environment, so its actions post
+    // notifications that the MenuBarExtra label's tasks in `AgentUsageApp` handle
+    // with the same view model, tab selection, and `openWindow` the popover uses.
+
+    @objc func refreshFromStatusItemMenu(_ sender: Any?) {
+        NotificationCenter.default.post(name: .refreshUsageRequested, object: nil)
+    }
+
+    @objc func openDashboardFromStatusItemMenu(_ sender: Any?) {
+        NotificationCenter.default.post(name: .showDashboard, object: nil)
+    }
+
+    @objc func openSettingsFromStatusItemMenu(_ sender: Any?) {
+        NotificationCenter.default.post(name: .showSettings, object: nil)
     }
 
     private static func findStatusBarButton() -> NSStatusBarButton? {
@@ -176,13 +193,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return false
     }
 
-    private static func popStatusItemQuitMenu(with event: NSEvent) {
+    private func popStatusItemMenu(with event: NSEvent) {
         guard let view = event.window?.contentView else { return }
-        NSMenu.popUpContextMenu(makeQuitMenu(), with: event, for: view)
+        NSMenu.popUpContextMenu(Self.makeStatusItemMenu(target: self), with: event, for: view)
     }
 
-    private static func makeQuitMenu() -> NSMenu {
+    /// Builds the status item's right-click menu. Refresh, Open Dashboard, and
+    /// Settings… dispatch to `target`; Quit goes to `NSApplication` through the
+    /// responder chain, as before.
+    static func makeStatusItemMenu(target: AppDelegate?) -> NSMenu {
         let menu = NSMenu()
+
+        let refresh = NSMenuItem(
+            title: "Refresh",
+            action: #selector(AppDelegate.refreshFromStatusItemMenu(_:)),
+            keyEquivalent: ""
+        )
+        refresh.target = target
+        menu.addItem(refresh)
+
+        let dashboard = NSMenuItem(
+            title: "Open Dashboard",
+            action: #selector(AppDelegate.openDashboardFromStatusItemMenu(_:)),
+            keyEquivalent: ""
+        )
+        dashboard.target = target
+        menu.addItem(dashboard)
+
+        // Matches the app menu's Settings command (⌘,).
+        let settings = NSMenuItem(
+            title: "Settings…",
+            action: #selector(AppDelegate.openSettingsFromStatusItemMenu(_:)),
+            keyEquivalent: ","
+        )
+        settings.keyEquivalentModifierMask = .command
+        settings.target = target
+        menu.addItem(settings)
+
+        menu.addItem(.separator())
+
         menu.addItem(NSMenuItem(
             title: "Quit \(Constants.appDisplayName)",
             action: #selector(NSApplication.terminate(_:)),
