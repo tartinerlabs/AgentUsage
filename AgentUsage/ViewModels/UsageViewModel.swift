@@ -116,6 +116,9 @@ final class UsageViewModel {
     #endif
     /// Local token and cost ledgers published by every Mac, this one included.
     private(set) var deviceLedgers: [DeviceUsageLedger] = []
+    /// Macs whose ledger removal is in flight, for per-row progress.
+    private(set) var removingDeviceIDs: Set<String> = []
+    var deviceRemovalErrorMessage: String?
     /// Whose local token and cost usage to show. Quota windows are account-wide.
     var usageSource: UsageSourceSelection = .allMacs {
         didSet {
@@ -1094,6 +1097,35 @@ extension UsageViewModel {
             macs.append(UsageSourceOption(selection: .mac(id: ledger.deviceID), title: ledger.deviceName))
         }
         return [UsageSourceOption(selection: .allMacs, title: "All Macs")] + macs
+    }
+
+    /// Macs that can be removed from here, newest first. On macOS this Mac is
+    /// left out: it would publish its ledger again on the next refresh.
+    var removableDeviceLedgers: [DeviceUsageLedger] {
+        deviceLedgers
+            .filter { ledger in
+                #if os(macOS)
+                return ledger.deviceID != localDeviceID
+                #else
+                return true
+                #endif
+            }
+            .sorted { $0.publishedAt > $1.publishedAt }
+    }
+
+    /// Remove a Mac's shared usage, e.g. one that no longer runs AgentUsage. A
+    /// Mac that is still active publishes its usage again on its next refresh.
+    func removeDevice(_ ledger: DeviceUsageLedger) async {
+        guard !removingDeviceIDs.contains(ledger.deviceID) else { return }
+        removingDeviceIDs.insert(ledger.deviceID)
+        defer { removingDeviceIDs.remove(ledger.deviceID) }
+        deviceRemovalErrorMessage = nil
+
+        if await usageSyncService.deleteDeviceLedger(deviceID: ledger.deviceID) {
+            deviceLedgers.removeAll { $0.deviceID == ledger.deviceID }
+        } else {
+            deviceRemovalErrorMessage = "Could not remove \(ledger.deviceName). Check your iCloud connection and try again."
+        }
     }
 
     /// Only offered once there is more than one Mac to choose from.

@@ -30,6 +30,11 @@ struct ContinuitySettingsCard: View {
                     }
                 }
 
+                if !viewModel.removableDeviceLedgers.isEmpty {
+                    Divider()
+                    otherMacs
+                }
+
                 Divider()
 
                 HStack {
@@ -61,6 +66,27 @@ struct ContinuitySettingsCard: View {
         } message: {
             Text("This turns off Continuity Sync on this Mac and removes the latest shared update for iPhone and iPad.")
         }
+    }
+
+    private var otherMacs: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Other Macs")
+                    .font(.body)
+                Text("Macs sharing token and cost usage. Remove one that no longer runs \(Constants.appDisplayName).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(viewModel.removableDeviceLedgers) { ledger in
+                SyncedMacRow(ledger: ledger)
+            }
+            if let message = viewModel.deviceRemovalErrorMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 #endif

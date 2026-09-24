@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support several Macs: each shares its local token cost, and a "Usage from" picker shows every Mac combined or one Mac on its own
 - Show local token cost on iPhone and iPad provider cards
+- Remove a Mac that no longer runs AgentUsage from Continuity Sync settings
 - Show Mac sync freshness and a refresh control in the iOS tab-bar accessory
 - Remove blog usage sync
 - Sort usage lists by most recently used local session, then live utilization

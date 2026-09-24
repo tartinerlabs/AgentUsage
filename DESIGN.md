@@ -277,6 +277,10 @@ Corner radius is assigned by component scale:
   account-wide and never change with it. Shown only when two or more Macs have published usage:
   trailing in the macOS dashboard header row, and above the provider cards in the iOS Usage
   segment. A Mac that stops publishing falls back to All Macs.
+- **Synced Mac rows** — name, "Updated … ago", and a destructive Remove button behind a
+  confirmation dialog. macOS lists other Macs under "Other Macs" in the Continuity Sync card
+  (this Mac republishes on refresh, so it is never listed); iOS lists every Mac in a "Macs"
+  settings section. Removal failures show inline in red under the rows.
 - **Tab-bar sync accessory** (iOS 26+) — Continuity Sync freshness in
   `tabViewBottomAccessory`, on every tab, laid out like Music's mini player: status on the
   left, a refresh control on the right. Neutral "Synced from Mac · Updated 4m ago" while healthy;

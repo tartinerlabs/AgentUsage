@@ -1117,6 +1117,47 @@ struct UsageViewModelVerifiedContinuitySyncTests {
         #expect(viewModel.providerDetail(for: .claude)?.today.costUSD == 5)
     }
 
+    @Test @MainActor func removingAnotherMacDropsItsUsage() async throws {
+        let syncService = MockUsageSyncService()
+        await syncService.configureLedgers([
+            Self.remoteLedger(deviceID: "other", name: "Studio", todayCost: 3, monthCost: 5),
+        ])
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+        viewModel.providerDetails[.claude] = Self.detail(todayCost: 2, monthCost: 10)
+        await viewModel.refreshContinuitySync()
+
+        // This Mac republishes on every refresh, so only other Macs are removable.
+        let other = try #require(viewModel.removableDeviceLedgers.first)
+        #expect(viewModel.removableDeviceLedgers.map(\.deviceID) == ["other"])
+
+        await viewModel.removeDevice(other)
+
+        #expect(viewModel.removableDeviceLedgers.isEmpty)
+        #expect(!viewModel.showsUsageSourcePicker)
+        #expect(viewModel.providerDetail(for: .claude)?.today.costUSD == 2)
+        #expect(await syncService.fetchDeviceLedgers().map(\.deviceID) == [viewModel.localDeviceID])
+        #expect(viewModel.deviceRemovalErrorMessage == nil)
+    }
+
+    @Test @MainActor func failedMacRemovalKeepsItAndExplains() async throws {
+        let syncService = MockUsageSyncService()
+        await syncService.configureLedgers([
+            Self.remoteLedger(deviceID: "other", name: "Studio", todayCost: 3, monthCost: 5),
+        ])
+        await syncService.configureLedgerDeletionFailure(true)
+        let viewModel = makeViewModel(syncService: syncService)
+        viewModel.snapshot = Self.snapshot()
+        await viewModel.refreshContinuitySync()
+        let other = try #require(viewModel.removableDeviceLedgers.first)
+
+        await viewModel.removeDevice(other)
+
+        #expect(viewModel.removableDeviceLedgers.map(\.deviceID) == ["other"])
+        #expect(viewModel.deviceRemovalErrorMessage?.contains("Studio") == true)
+        #expect(viewModel.removingDeviceIDs.isEmpty)
+    }
+
     @Test @MainActor func singleMacKeepsLocalDetailWithoutPicker() async {
         let syncService = MockUsageSyncService()
         let viewModel = makeViewModel(syncService: syncService)
@@ -1698,6 +1739,12 @@ actor MockUsageSyncService: UsageSyncServicing {
         publishedLedgerValues
     }
 
+    private var ledgerDeletionFails = false
+
+    func configureLedgerDeletionFailure(_ fails: Bool) {
+        ledgerDeletionFails = fails
+    }
+
     func configurePublication(generation: String) {
         publication = PublishedUsageSnapshot(syncGeneration: generation, fetchedAt: Date())
     }
@@ -1807,6 +1854,7 @@ actor MockUsageSyncService: UsageSyncServicing {
     }
 
     func deleteDeviceLedger(deviceID: String) async -> Bool {
+        guard !ledgerDeletionFails else { return false }
         ledgersByDevice[deviceID] = nil
         return true
     }
