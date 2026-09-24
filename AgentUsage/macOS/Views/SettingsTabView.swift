@@ -27,6 +27,8 @@ struct SettingsTabView: View {
 
                 GeneralSettingsCard()
 
+                ProviderSettingsCard()
+
                 LocalDataAccessCard()
 
                 NotificationSettingsCard()
@@ -237,7 +239,7 @@ struct SettingsTabView: View {
             Text("Settings")
                 .font(.title2.weight(.semibold))
             // Text("Control refresh cadence, notifications, syncing, and updates.")
-            Text("Control refresh cadence, notifications, and syncing.")
+            Text("Choose providers and control refresh cadence, notifications, and syncing.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

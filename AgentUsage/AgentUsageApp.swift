@@ -129,6 +129,14 @@ struct AgentUsageApp: App {
         guard !Self.isRunningTests else { return false }
         return onboardingStore.shouldPresent
     }
+
+    /// Selects `target` in the main window, then opens and activates it — the
+    /// same steps the popover's Settings button takes.
+    private func openMainWindow(to target: NavigationTarget) {
+        selectedTab = target
+        openWindow(id: Constants.mainWindowID)
+        NSApp.activate(ignoringOtherApps: true)
+    }
     #endif
 
     @SceneBuilder
@@ -152,9 +160,7 @@ struct AgentUsageApp: App {
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {
-                    selectedTab = .section(.settings)
-                    openWindow(id: Constants.mainWindowID)
-                    NSApp.activate(ignoringOtherApps: true)
+                    openMainWindow(to: .section(.settings))
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
@@ -229,6 +235,24 @@ struct AgentUsageApp: App {
                     for await _ in NotificationCenter.default.notifications(named: .showOnboarding) {
                         openWindow(id: Constants.onboardingWindowID)
                         NSApp.activate(ignoringOtherApps: true)
+                    }
+                }
+                .task {
+                    // Status item right-click menu: Refresh.
+                    for await _ in NotificationCenter.default.notifications(named: .refreshUsageRequested) {
+                        _ = await viewModel.refresh(force: true)
+                    }
+                }
+                .task {
+                    // Status item right-click menu: Open Dashboard.
+                    for await _ in NotificationCenter.default.notifications(named: .showDashboard) {
+                        openMainWindow(to: .section(.dashboard))
+                    }
+                }
+                .task {
+                    // Status item right-click menu: Settings….
+                    for await _ in NotificationCenter.default.notifications(named: .showSettings) {
+                        openMainWindow(to: .section(.settings))
                     }
                 }
         }

@@ -26,7 +26,7 @@ struct ContinuitySettingsCard: View {
                         Button("Sync Now") {
                             Task { await viewModel.refreshContinuitySync() }
                         }
-                        .disabled(viewModel.appConnectionRevoked || viewModel.snapshot == nil)
+                        .disabled(viewModel.appConnectionRevoked || !viewModel.hasContinuityPayload)
                     }
                 }
 

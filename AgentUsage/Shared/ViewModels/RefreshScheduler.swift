@@ -21,12 +21,18 @@ final class RefreshScheduler {
     /// Callback to execute on each refresh
     var onRefresh: (() async -> Void)?
 
+    /// When the running schedule fires next. `nil` while no schedule is running
+    /// (Manual, or stopped) and while a scheduled refresh is in flight.
+    private(set) var nextScheduledRefresh: Date?
+
     private static let refreshIntervalKey = "refreshInterval"
     private let defaults: UserDefaults
+    private let now: () -> Date
     private var refreshTask: Task<Void, Never>?
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init) {
         self.defaults = defaults
+        self.now = now
         let savedInterval = defaults.string(forKey: Self.refreshIntervalKey)
         self.refreshInterval = RefreshFrequency(rawValue: savedInterval ?? "") ?? .fiveMinutes
     }
@@ -40,20 +46,30 @@ final class RefreshScheduler {
     func stopAutoRefresh() {
         refreshTask?.cancel()
         refreshTask = nil
+        nextScheduledRefresh = nil
     }
 
     /// Restart the auto-refresh schedule with current interval
     private func restartAutoRefresh() {
         refreshTask?.cancel()
+        refreshTask = nil
 
-        guard let interval = refreshInterval.timeInterval else { return }
+        guard let interval = refreshInterval.timeInterval else {
+            nextScheduledRefresh = nil
+            return
+        }
 
+        nextScheduledRefresh = now().addingTimeInterval(interval)
         refreshTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(interval))
-                if !Task.isCancelled {
-                    await onRefresh?()
-                }
+                // A cancelled loop must not write: a newer schedule owns the date.
+                guard !Task.isCancelled else { return }
+                nextScheduledRefresh = nil
+                await onRefresh?()
+                guard !Task.isCancelled else { return }
+                // The next sleep starts once the refresh finishes.
+                nextScheduledRefresh = now().addingTimeInterval(interval)
             }
         }
     }

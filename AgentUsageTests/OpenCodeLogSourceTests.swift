@@ -170,17 +170,4 @@ private enum OpenCodeLogSourceTestError: Error {
     case sqliteOpenFailed
     case sqliteExecFailed
 }
-
-private actor StaticUsageLogSource: UsageLogSource {
-    nonisolated let provider: Provider = .openCode
-    private let entries: [ProviderUsageEntry]
-
-    init(entries: [ProviderUsageEntry]) {
-        self.entries = entries
-    }
-
-    func fetchEntries(since: Date) async throws -> [ProviderUsageEntry] {
-        entries.filter { $0.timestamp >= since }
-    }
-}
 #endif

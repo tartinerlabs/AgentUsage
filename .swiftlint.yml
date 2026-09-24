@@ -4,11 +4,9 @@
 # Paths to include
 included:
   - AgentUsage
-  - AgentUsage-iOS
   - AgentUsageWidgets
   - AgentUsageKit/Sources
   - AgentUsageTests
-  - AgentUsage-iOSTests
 
 # Paths to exclude
 excluded:
@@ -17,7 +15,6 @@ excluded:
   - DerivedData
   - AgentUsageKit/.build
   - AgentUsageUITests
-  - AgentUsage-iOSUITests
 
 # Rules to disable (conflict with SwiftUI patterns)
 disabled_rules:

@@ -17,10 +17,25 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     /// Claude is read directly by this service.
     private let extraSources: [any UsageLogSource]
 
-    init(extraSources: [any UsageLogSource] = [], readChunkSize: Int = 256 * 1_024) {
+    /// Whether a provider's local logs may be read. Checked on every fetch so a
+    /// provider turned off in Settings is skipped without rebuilding the service.
+    private let isProviderEnabled: @Sendable (Provider) -> Bool
+
+    init(
+        extraSources: [any UsageLogSource] = [],
+        readChunkSize: Int = 256 * 1_024,
+        isProviderEnabled: @escaping @Sendable (Provider) -> Bool = { _ in true }
+    ) {
         precondition(readChunkSize > 0)
         self.extraSources = extraSources
         self.readChunkSize = readChunkSize
+        self.isProviderEnabled = isProviderEnabled
+    }
+
+    /// Providers enabled right now. Read once per fetch so a toggle made mid-fetch
+    /// cannot split one fetch's results.
+    private func enabledProviders() -> Set<Provider> {
+        Set(Provider.allCases.filter { isProviderEnabled($0) })
     }
 
     // Reentrancy guard: reuse in-flight fetch instead of starting a new one
@@ -69,7 +84,10 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         let yesterdayStart = calendar.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
 
         var entriesByProvider: [Provider: [ProviderUsageEntry]] = [:]
-        for source in extraSources {
+        // Deduplicate across sources by provider-scoped key, as `computeSnapshot` does.
+        var seen = Set<String>()
+        let enabled = enabledProviders()
+        for source in extraSources where enabled.contains(source.provider) {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
             // An empty result is still a successful read. Preserve the source
             // provider so callers can distinguish genuine zero usage from an
@@ -77,7 +95,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             if entries.isEmpty, entriesByProvider[source.provider] == nil {
                 entriesByProvider[source.provider] = []
             }
-            for entry in entries {
+            for entry in entries where enabled.contains(entry.provider) {
+                guard seen.insert(entry.dedupKey).inserted else { continue }
                 entriesByProvider[entry.provider, default: []].append(entry)
             }
         }
@@ -106,13 +125,17 @@ actor TokenUsageService: TokenUsageServiceProtocol {
 
     func fetchExtraProviderEffortSamples(since: Date) async -> [EffortUsageSample] {
         var samples: [EffortUsageSample] = []
-        for source in extraSources {
+        var seen = Set<String>()
+        let enabled = enabledProviders()
+        for source in extraSources where enabled.contains(source.provider) {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
             // Codex and Grok are the extra providers whose local logs expose a
             // reasoning-effort setting. Do not turn providers without that
             // concept into a misleading all-unclassified distribution.
             samples.append(contentsOf: entries.compactMap { entry in
-                guard entry.provider == .codex || entry.provider == .grok else { return nil }
+                guard entry.provider == .codex || entry.provider == .grok,
+                      enabled.contains(entry.provider),
+                      seen.insert(entry.dedupKey).inserted else { return nil }
                 return EffortUsageSample(
                     provider: entry.provider,
                     sessionID: entry.sessionID,
@@ -161,6 +184,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     func fetchParsedEntries(
         fileStates: [String: FileState] = [:]
     ) async throws -> [URL: IncrementalParseResult] {
+        // Claude turned off in Settings: leave its logs unread.
+        guard isProviderEnabled(.claude) else { return [:] }
         let fileCutoff = Calendar.current.date(byAdding: .month, value: -13, to: Date()) ?? Date()
         let jsonlFiles = try await self.loadAllJSONLFiles(modifiedAfter: fileCutoff)
 
@@ -575,10 +600,11 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             )
         }
 
-        for source in extraSources {
+        let enabled = enabledProviders()
+        for source in extraSources where enabled.contains(source.provider) {
             do {
                 let entries = try await source.fetchEntries(since: last30DaysStart)
-                unified.append(contentsOf: entries)
+                unified.append(contentsOf: entries.filter { enabled.contains($0.provider) })
             } catch {
                 Logger.tokenUsage.warning("Source \(source.provider.rawValue) failed: \(error.localizedDescription)")
             }
@@ -678,7 +704,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     private func parseJSONLFile(at url: URL, cutoff: Date?) throws -> [UsageEntry] {
         let parsed = try parseJSONLFileStreaming(at: url, cutoff: cutoff)
 
-        // Sidechain-aware dedup (ccusage approach): collapse streaming duplicates and sidechain replays.
+        // Sidechain-aware dedup (see `deduplicate`): collapse streaming duplicates and sidechain replays.
         return Self.deduplicate(parsed).map(\.entry)
     }
 

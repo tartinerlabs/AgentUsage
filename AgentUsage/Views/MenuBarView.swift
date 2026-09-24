@@ -13,13 +13,22 @@ struct MenuBarView: View {
     // Direct-distribution updater support is dormant while releases use App Store/TestFlight.
     // @EnvironmentObject private var updaterController: UpdaterController
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("selectedMainWindowTab") private var selectedTab: NavigationTarget = .section(.dashboard)
     @AppStorage(Constants.commandQClosesWindowKey) private var commandQClosesWindow = false
 
     @State private var selectedPage: SidebarPage = .overview
     @State private var lastRefreshTap: Date?
     @State private var now = Date()
+    /// Natural height of the selected page (padding included); `nil` until measured.
+    @State private var pageContentHeight: CGFloat?
+    /// Usage-source bar and its divider; zero while the picker is hidden.
+    @State private var topChromeHeight: CGFloat = 0
+    /// Footer and the divider above it.
+    @State private var bottomChromeHeight: CGFloat = 0
     private let uiThrottle: TimeInterval = 5
+    private static let scrollTopID = "menuBarPageTop"
+    private typealias Layout = MenuBarPopoverLayout
 
     private enum SidebarPage: Hashable {
         case overview
@@ -41,12 +50,50 @@ struct MenuBarView: View {
             Divider()
             content
         }
-        .frame(width: 372, height: 560)
+        // An explicit height: a `.window` MenuBarExtra sizes to its content, and a
+        // ScrollView has no natural height of its own (see `scrollHeight`).
+        .frame(width: Layout.width, height: popoverHeight, alignment: .top)
         .task {
             await viewModel.refresh()
         }
+        // A provider turned off in Settings loses its rail tab; fall back to Overview.
+        .onChange(of: availableProviders) { _, providers in
+            if case .provider(let provider) = selectedPage, !providers.contains(provider) {
+                selectedPage = .overview
+            }
+        }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
             now = date
+        }
+    }
+
+    private var scrollHeight: CGFloat {
+        Layout.scrollHeight(
+            pageContentHeight: pageContentHeight,
+            chromeHeight: visibleTopChromeHeight + bottomChromeHeight,
+            providerCount: availableProviders.count
+        )
+    }
+
+    private var popoverHeight: CGFloat {
+        visibleTopChromeHeight + scrollHeight + bottomChromeHeight
+    }
+
+    /// The last measurement lingers after the picker hides, so gate it here.
+    private var visibleTopChromeHeight: CGFloat {
+        viewModel.showsUsageSourcePicker ? topChromeHeight : 0
+    }
+
+    /// Animates later changes; the first measurement lands without animation so
+    /// the popover opens at its size.
+    private func updatePageContentHeight(_ height: CGFloat) {
+        guard let current = pageContentHeight else {
+            pageContentHeight = height
+            return
+        }
+        guard abs(current - height) > 0.5 else { return }
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
+            pageContentHeight = height
         }
     }
 
@@ -57,7 +104,7 @@ struct MenuBarView: View {
     // MARK: - Rail
 
     private var rail: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Layout.railSpacing) {
             railTab(.overview, tint: .primary) {
                 Image(systemName: "gauge.with.dots.needle.bottom.50percent")
                     .font(.system(size: 16))
@@ -68,7 +115,7 @@ struct MenuBarView: View {
                 }
             }
 
-            Spacer()
+            Spacer(minLength: Layout.railSpacerMinLength)
 
             railAction("arrow.clockwise", help: "Refresh (⌘R)", key: "r") {
                 let tapped = Date()
@@ -89,7 +136,7 @@ struct MenuBarView: View {
                 NSApplication.shared.terminate(nil)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, Layout.railVerticalPadding)
         .frame(width: 56)
         .frame(maxHeight: .infinity)
         .background(.bar)
@@ -122,7 +169,7 @@ struct MenuBarView: View {
         } label: {
             icon()
                 .foregroundStyle(isSelected ? tint : .secondary)
-                .frame(width: 34, height: 30)
+                .frame(width: 34, height: Layout.railTabHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 7)
                         .fill(isSelected ? tint.opacity(0.15) : .clear)
@@ -144,7 +191,7 @@ struct MenuBarView: View {
             Image(systemName: systemImage)
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
-                .frame(width: 34, height: 28)
+                .frame(width: 34, height: Layout.railActionHeight)
         }
         .buttonStyle(.plain)
         .help(help)
@@ -170,18 +217,49 @@ struct MenuBarView: View {
             */
 
             if viewModel.showsUsageSourcePicker {
-                usageSourceBar
+                VStack(spacing: 0) {
+                    usageSourceBar
+                    Divider()
+                }
+                .onGeometryChange(for: CGFloat.self) { geometry in
+                    geometry.size.height
+                } action: { height in
+                    topChromeHeight = height
+                }
+            }
+
+            // A ScrollView has no natural height inside a `.window` MenuBarExtra, so
+            // measure the page it holds and give it that height, up to the cap.
+            ScrollViewReader { proxy in
+                ScrollView {
+                    pageContent
+                        .padding(16)
+                        .onGeometryChange(for: CGFloat.self) { geometry in
+                            geometry.size.height
+                        } action: { height in
+                            updatePageContentHeight(height)
+                        }
+                        // Pages shorter than the rail sit at the top, not centred.
+                        .frame(minHeight: scrollHeight, alignment: .top)
+                        .id(Self.scrollTopID)
+                }
+                .frame(height: scrollHeight)
+                .onChange(of: selectedPage) {
+                    proxy.scrollTo(Self.scrollTopID, anchor: .top)
+                }
+            }
+
+            VStack(spacing: 0) {
                 Divider()
+                footer
             }
-
-            ScrollView {
-                pageContent
-                    .padding(16)
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                geometry.size.height
+            } action: { height in
+                bottomChromeHeight = height
             }
-
-            Divider()
-            footer
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     @ViewBuilder
@@ -333,30 +411,94 @@ struct MenuBarView: View {
     }
 
     private var footer: some View {
-        HStack {
-            Text("\(Constants.appDisplayName) v\(Bundle.main.appVersion)")
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
-            Spacer()
-            if let fetchedAt = latestProviderFetchDate {
-                LastUpdatedLabel(
-                    relativeText: DateFormatters.relativeDescription(from: fetchedAt, to: now),
-                    isCached: viewModel.hasStaleProviderStatus,
-                    isOffline: viewModel.isOffline
-                )
+        // Ticks faster than the page's minute clock so the refresh countdown
+        // steps close to its minute boundaries.
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            HStack {
+                Text("\(Constants.appDisplayName) v\(Bundle.main.appVersion)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if let fetchedAt = latestProviderFetchDate {
+                    LastUpdatedLabel(
+                        relativeText: DateFormatters.relativeDescription(from: fetchedAt, to: context.date),
+                        isCached: viewModel.hasStaleProviderStatus,
+                        isOffline: viewModel.isOffline,
+                        nextRefreshText: nextRefreshText(now: context.date)
+                    )
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                }
+                if isRefreshing {
+                    ProgressView().controlSize(.small)
+                }
             }
-            if viewModel.isLoading || viewModel.isLoadingTokenUsage {
-                ProgressView().scaleEffect(0.5)
-            }
+            // Room for the spinner at all times, so the footer (and with it the
+            // popover height) does not jump when a refresh starts or ends.
+            .frame(minHeight: 16)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+    }
+
+    private var isRefreshing: Bool {
+        viewModel.isLoading || viewModel.isLoadingTokenUsage
+    }
+
+    /// Hidden for Manual, when nothing is scheduled, and while a refresh is running.
+    private func nextRefreshText(now: Date) -> String? {
+        guard viewModel.refreshInterval != .manual, !isRefreshing else { return nil }
+        return RefreshCountdown.text(until: viewModel.nextScheduledRefresh, now: now)
     }
 
     /// Global freshness reports the most recent visible provider fetch; a provider
     /// with stale data flags itself on its own card.
     private var latestProviderFetchDate: Date? {
         viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
+    }
+}
+
+/// Sizing for the menu bar popover. The popover fits the selected page, never taller
+/// than `maxHeight` (taller pages scroll) and never shorter than the rail.
+nonisolated enum MenuBarPopoverLayout {
+    static let width: CGFloat = 372
+    static let maxHeight: CGFloat = 560
+
+    // Rail metrics, shared by `MenuBarView.rail` and `railMinimumHeight`.
+    static let railSpacing: CGFloat = 8
+    static let railVerticalPadding: CGFloat = 12
+    static let railTabHeight: CGFloat = 30
+    static let railActionHeight: CGFloat = 28
+    /// Refresh, Settings, and Quit.
+    static let railActionCount = 3
+    static let railSpacerMinLength: CGFloat = 8
+
+    /// The rail's Overview tab, one tab per provider, and its actions at their fixed
+    /// sizes, with the Spacer between them at its minimum length.
+    static func railMinimumHeight(providerCount: Int) -> CGFloat {
+        let tabs = CGFloat(providerCount + 1)
+        let actions = CGFloat(railActionCount)
+        let gaps = tabs + actions  // Between tabs, the Spacer, and actions.
+        return railVerticalPadding * 2
+            + tabs * railTabHeight
+            + actions * railActionHeight
+            + railSpacerMinLength
+            + gaps * railSpacing
+    }
+
+    /// Height for the page's ScrollView: the page's natural height, capped so the
+    /// popover (page + chrome) stays within `maxHeight`, and floored so the content
+    /// column is at least as tall as the rail. An unmeasured page takes the cap.
+    static func scrollHeight(
+        pageContentHeight: CGFloat?,
+        chromeHeight: CGFloat,
+        providerCount: Int
+    ) -> CGFloat {
+        let available = max(maxHeight - chromeHeight, 0)
+        let minimum = max(railMinimumHeight(providerCount: providerCount) - chromeHeight, 0)
+        let natural = pageContentHeight ?? available
+        return max(min(natural, available), minimum)
     }
 }
 

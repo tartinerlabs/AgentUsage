@@ -20,21 +20,34 @@ struct LastUpdatedLabel: View {
     var font: Font = .caption2
     /// Style used when the data is live (each surface has its own neutral tone).
     var neutralStyle: AnyShapeStyle = AnyShapeStyle(.tertiary)
+    /// Optional countdown to the next scheduled refresh, e.g. "next in 3m".
+    var nextRefreshText: String? = nil
 
     private var isStale: Bool { isCached || isOffline }
+
+    private var displayText: String {
+        Self.text(relativeText: relativeText, nextRefreshText: nextRefreshText)
+    }
+
+    /// "Updated 2 min. ago", plus " · next in 3m" when a refresh is scheduled.
+    nonisolated static func text(relativeText: String, nextRefreshText: String?) -> String {
+        let updated = "Updated \(relativeText)"
+        guard let nextRefreshText else { return updated }
+        return "\(updated) · \(nextRefreshText)"
+    }
 
     var body: some View {
         HStack(spacing: 4) {
             if isStale {
                 Image(systemName: isOffline ? "wifi.slash" : "clock.arrow.circlepath")
             }
-            Text("Updated \(relativeText)")
+            Text(displayText)
         }
         .font(font)
         .foregroundStyle(isStale ? AnyShapeStyle(.orange) : neutralStyle)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(isOffline ? "Offline, showing cached data"
                             : isCached ? "Showing cached data" : "Last updated")
-        .accessibilityValue("Updated \(relativeText)")
+        .accessibilityValue(displayText)
     }
 }

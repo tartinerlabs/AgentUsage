@@ -117,6 +117,11 @@ nonisolated enum Constants {
     /// Actual quit is the status-item context menu (and the popover Quit button).
     static let commandQClosesWindowKey = "commandQClosesWindow"
 
+    // MARK: - Providers
+    /// Raw values of the providers the user turned off in Settings (macOS). Stored as
+    /// the disabled list so providers added later start enabled.
+    static let disabledProvidersKey = "disabledProviders"
+
     /// How stale a macOS-published snapshot may be before iOS stops treating it
     /// as fresh. iOS never fetches provider usage directly; it waits for the Mac
     /// to publish the next snapshot.

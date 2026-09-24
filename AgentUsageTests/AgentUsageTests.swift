@@ -823,7 +823,7 @@ struct CredentialsFileTests {
     }
 }
 
-// MARK: - Cost Model Accuracy (ccusage-derived)
+// MARK: - Cost Model Accuracy
 
 @Suite("CostModelAccuracy", .serialized)
 struct CostModelAccuracyTests {

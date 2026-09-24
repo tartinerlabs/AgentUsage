@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Turn individual providers off in macOS Settings; they are no longer checked, are hidden on the Mac, and stop syncing to iPhone and iPad
+- Add Refresh, Open Dashboard, and Settings to the menu bar icon's right-click menu
+- Size the menu bar popover to the selected page, up to its previous height, and scroll taller pages
+- Show when the next automatic refresh runs in the menu bar popover footer
+- Stop counting the same Codex or Grok session twice in local token and cost totals
+- Stop mentioning OpenCode in Settings and About while it is unavailable
+- Add privacy manifests for the app and widget
+
+## [0.33.0] - 2026-09-24
+
+Consolidates the untagged 0.29.1–0.32.1 builds.
+
 - Support several Macs: each shares its local token cost, and a "Usage from" picker shows every Mac combined or one Mac on its own
 - Show local token cost on iPhone and iPad provider cards
 - Remove a Mac that no longer runs AgentUsage from Continuity Sync settings
@@ -17,6 +29,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Surface SuperGrok weekly usage limits on Grok from the Grok Build billing API
 - Use official provider marks instead of SF Symbols for provider attribution
 - Split the iOS dashboard into Usage, Activity, and Effort segments
+- Sync usage from the Mac to iPhone, iPad, and widgets over CloudKit Continuity Sync, with macOS as the source of truth
+- Move Continuity Sync to CKSyncEngine and refresh iOS in the background via silent push
+- Add Continuity Sync controls to Settings
+- Add Cursor as a provider, reading usage from Cursor's local session database
+- Add Grok as a provider, estimating token cost from Grok Build session logs
+- Run the macOS app in the App Sandbox and ask once for access to local CLI logs in Local Data Access, with Full Disk Access as a fallback
+- Include Claude Code and Codex sessions run from Xcode's coding assistant
+- Stop the recurring Keychain permission prompt when reading Claude Code credentials
+- Track reasoning effort levels per session across dashboards
+- Show usage trends for every provider
+- Auto-pin a waiting-room Live Activity when a short rate window hits its limit, and end it when the window resets
+- Schedule local notifications for when a usage window resets
+- Redesign Home Screen widgets around the most urgent window per provider
+- Show Claude banked limit resets, dollar-denominated and locked windows, and this week's usage by surface
+- Colour usage gauges by status, switch to a neutral theme, and redesign the app icon as a usage ring
+- Show any provider in the macOS menu bar strip
+- Add a setting to make ⌘Q close the window instead of quitting
+- Show the most urgent usage window in the iOS tab-bar accessory
+- Show the build number next to the version on macOS and iOS
+- Persist rate-limit cooldowns across relaunches and scope them per provider
+- Replace placeholder data with empty states when no usage is available
+- Hide OpenCode and OpenCode Go while their usage data is unreliable
+- Remove the Claude token auto-refresh option
+- Remove Sparkle from the App Store build; updates come through the App Store and TestFlight
+- Set the user-facing name to "Agent Usage"
+- Adopt Swift 6 language mode
+- Move CI, archiving, and distribution to Xcode Cloud
 
 ## [0.29.0] - 2026-07-13
 
@@ -145,7 +184,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.14.10] - 2026-06-24
 
 - Add opt-in Claude OAuth token auto-refresh (macOS)
-- Improve token/cost accuracy & coverage to match ccusage/OpenUsage
+- Improve token/cost accuracy and coverage
 - Improve Claude token cost accuracy: 1h cache tier, fast mode, sidechain dedup
 
 ## [0.14.9] - 2026-06-24
@@ -236,7 +275,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-provider usage monitoring (macOS): track **OpenAI Codex CLI** and **OpenCode** alongside Claude.
 - Codex rate-limit windows (5-hour + weekly) and plan, read from local Codex rollout logs — no login required.
 - Token usage & cost for Codex and OpenCode, computed from local logs (OpenCode via its SQLite database) using built-in pricing.
-- OpenUsage-style menu-bar popover: a provider sidebar that switches between an overview and per-provider detail pages, each with Status/Console links, window status dots, Today/Yesterday/30-day cost, a usage-trend sparkline, and a per-model breakdown.
+- Menu-bar popover with a provider sidebar that switches between an overview and per-provider detail pages, each with Status/Console links, window status dots, Today/Yesterday/30-day cost, a usage-trend sparkline, and a per-model breakdown.
 - Shared per-provider cards across the menu bar and Dashboard.
 - "Codex (5h)" menu-bar display toggle in Settings.
 
@@ -249,7 +288,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.12.1] - 2026-06-06
 
 ### Changed
-- Removed the ccusage backend; the native Claude JSONL parser is now the sole source of token usage and cost. Displayed totals are Claude-only and priced at Anthropic rates, fixing discrepancies caused by ccusage running unscoped across all coding agents with LiteLLM pricing.
+- Removed the external CLI backend; the native Claude JSONL parser is now the sole source of token usage and cost. Displayed totals are Claude-only and priced at Anthropic rates, fixing discrepancies caused by the external tool running unscoped across all coding agents with LiteLLM pricing.
 
 ## [0.12.0] - 2026-06-06
 
@@ -533,7 +572,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix token usage and cost calculation being ~2.8x higher than actual
-- Add deduplication of streaming response entries by message.id + requestId (matching ccusage behavior)
+- Add deduplication of streaming response entries by message.id + requestId (one entry per message and request)
 
 ## [0.1.0] - 2026-01-02
 
@@ -556,7 +595,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/AgentUsage/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/AgentUsage/compare/v0.33.0...HEAD
+[0.33.0]: https://github.com/tartinerlabs/AgentUsage/compare/2dd14fe...v0.33.0
 [0.29.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.26.1...v0.27.0

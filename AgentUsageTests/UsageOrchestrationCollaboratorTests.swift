@@ -25,6 +25,40 @@ struct RefreshSchedulerTests {
         #expect(testDefaults.defaults.string(forKey: "refreshInterval") == "manual")
         scheduler.stopAutoRefresh()
     }
+
+    @Test @MainActor func exposesNextScheduledRefreshWhileRunning() {
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(RefreshFrequency.twoMinutes.rawValue, forKey: "refreshInterval")
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let scheduler = RefreshScheduler(defaults: testDefaults.defaults, now: { now })
+
+        #expect(scheduler.nextScheduledRefresh == nil)
+
+        scheduler.startAutoRefresh()
+        #expect(scheduler.nextScheduledRefresh == now.addingTimeInterval(120))
+
+        scheduler.refreshInterval = .fifteenMinutes
+        #expect(scheduler.nextScheduledRefresh == now.addingTimeInterval(900))
+
+        scheduler.stopAutoRefresh()
+        #expect(scheduler.nextScheduledRefresh == nil)
+    }
+
+    @Test @MainActor func manualHasNoNextScheduledRefresh() {
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(RefreshFrequency.oneMinute.rawValue, forKey: "refreshInterval")
+        let scheduler = RefreshScheduler(defaults: testDefaults.defaults)
+
+        scheduler.startAutoRefresh()
+        #expect(scheduler.nextScheduledRefresh != nil)
+
+        scheduler.refreshInterval = .manual
+        #expect(scheduler.nextScheduledRefresh == nil)
+
+        scheduler.startAutoRefresh()
+        #expect(scheduler.nextScheduledRefresh == nil)
+        scheduler.stopAutoRefresh()
+    }
 }
 
 @Suite("MenuBarSettingsManager")

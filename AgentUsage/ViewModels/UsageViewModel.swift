@@ -301,6 +301,11 @@ final class UsageViewModel {
         set { refreshScheduler.refreshInterval = newValue }
     }
 
+    /// When auto-refresh fires next; `nil` for Manual, when stopped, or mid-refresh.
+    var nextScheduledRefresh: Date? {
+        refreshScheduler.nextScheduledRefresh
+    }
+
     var showExtraUsageIndicators: Bool {
         didSet {
             defaults.set(showExtraUsageIndicators, forKey: "showExtraUsageIndicators")
@@ -383,7 +388,21 @@ final class UsageViewModel {
     #if os(iOS)
     let liveActivityManager: LiveActivityManager
     #endif
-    private static let disabledProviders: Set<Provider> = [.openCode, .openCodeGo]
+
+    /// Providers the user turned off in Settings (macOS). They are never fetched,
+    /// shown, or shared over Continuity Sync. Always empty on iPhone and iPad, which
+    /// follow whatever the Mac publishes.
+    private(set) var userDisabledProviders: Set<Provider>
+
+    /// Unshipped providers plus the ones the user turned off: the single choke
+    /// point every provider surface filters through.
+    var disabledProviders: Set<Provider> {
+        ProviderSettings.unshippedProviders.union(userDisabledProviders)
+    }
+
+    func isProviderEnabled(_ provider: Provider) -> Bool {
+        !disabledProviders.contains(provider)
+    }
 
     #if os(macOS)
     private let tokenUsageCoordinator: any TokenUsageCoordinating
@@ -424,7 +443,10 @@ final class UsageViewModel {
     /// Overall status computed from the worst status across every provider's windows,
     /// not Claude's alone — a single app-wide indicator must reflect Codex too.
     var overallStatus: UsageStatus {
-        UsageCalculations.overallStatus(from: snapshot, providerSnapshots: providerUsage.values)
+        UsageCalculations.overallStatus(
+            from: isProviderEnabled(.claude) ? snapshot : nil,
+            providerSnapshots: enabledProviderSnapshots(from: providerUsage.values)
+        )
     }
 
     /// A clear, user-facing summary of the app's connection to Claude's usage API,
@@ -475,7 +497,8 @@ final class UsageViewModel {
         if let continuitySyncErrorMessage {
             return .needsSetup(message: continuitySyncErrorMessage)
         }
-        if snapshot != nil || isNoUsageData {
+        // Any provider's data counts: Claude can be turned off in Settings.
+        if snapshot != nil || !availableProviders.isEmpty || isNoUsageData {
             return .waitingForDevices(message: nil)
         }
         #else
@@ -592,6 +615,7 @@ final class UsageViewModel {
         self.rateLimitedUntil = Self.loadRateLimitedUntil(from: defaults)
         self.usageSource = defaults.string(forKey: Self.usageSourceKey)
             .flatMap(UsageSourceSelection.init(rawValue:)) ?? .allMacs
+        self.userDisabledProviders = ProviderSettings.userDisabledProviders(defaults: defaults)
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -624,6 +648,9 @@ final class UsageViewModel {
         self.rateLimitedUntil = Self.loadRateLimitedUntil(from: defaults)
         self.usageSource = defaults.string(forKey: Self.usageSourceKey)
             .flatMap(UsageSourceSelection.init(rawValue:)) ?? .allMacs
+        // Provider settings live on the Mac; the synced payload already leaves
+        // out anything turned off there.
+        self.userDisabledProviders = []
 
         loadCachedSnapshot()
         refreshScheduler.onRefresh = { [weak self] in
@@ -636,7 +663,7 @@ final class UsageViewModel {
 
     private func loadCachedSnapshot() {
         guard let cached = snapshotStore.load() else { return }
-        snapshot = cached.snapshot
+        snapshot = isProviderEnabled(.claude) ? cached.snapshot : nil
         planType = cached.planType
         providerUsage = providerUsageDictionary(from: cached.providerSnapshots)
         // Older caches stored Claude only as `UsageSnapshot`.
@@ -680,7 +707,7 @@ final class UsageViewModel {
 
     private func enabledProviderSnapshots(from snapshots: some Sequence<ProviderUsageSnapshot>) -> [ProviderUsageSnapshot] {
         snapshots
-            .filter { !Self.disabledProviders.contains($0.provider) }
+            .filter { !disabledProviders.contains($0.provider) }
             .sorted { $0.provider.rawValue < $1.provider.rawValue }
     }
 
@@ -724,6 +751,77 @@ final class UsageViewModel {
             hasTokenUsage: false,
             lastUsedAt: lastUsedAt
         )
+    }
+    #endif
+
+    // MARK: - Provider Settings
+
+    #if os(macOS)
+    /// Whether this Mac has anything to share over Continuity Sync yet.
+    var hasContinuityPayload: Bool {
+        snapshot != nil || !providerUsage.isEmpty || !providersWithEffortUsage.isEmpty
+    }
+
+    /// Whether the Settings toggle for `provider` may be switched off: at least
+    /// one provider must stay enabled.
+    func canDisableProvider(_ provider: Provider) -> Bool {
+        ProviderSettings.canDisable(provider, userDisabled: userDisabledProviders)
+    }
+
+    /// Turn a provider on or off. A provider turned off stops being fetched,
+    /// disappears from every Mac surface, and is withdrawn from Continuity Sync;
+    /// turning it back on fetches it right away.
+    func setProviderEnabled(_ provider: Provider, enabled: Bool) async {
+        let updated = ProviderSettings.setEnabled(enabled, for: provider, defaults: defaults)
+        guard updated != userDisabledProviders else { return }
+        userDisabledProviders = updated
+        removeDisabledProviderState()
+
+        if enabled {
+            await refresh(force: true)
+            // Share it right away, as turning a provider off does, rather than
+            // waiting for the automatic publish spacing.
+            if !appConnectionRevoked {
+                await publishContinuitySnapshot(force: true)
+                await syncDeviceLedgers(force: true)
+            }
+            return
+        }
+
+        usageHistory = enabledHistory(usageHistory)
+        cacheSnapshot(snapshot, planType: planType)
+        if !appConnectionRevoked {
+            // A settings change is a deliberate action, like a manual share, so it
+            // publishes now rather than waiting for the automatic spacing.
+            await publishContinuitySnapshot(force: true)
+            await syncDeviceLedgers(force: true, removesEmptyLedger: true)
+        }
+        await armResetNotifications()
+    }
+
+    private func enabledHistory(_ history: ProviderUsageHistory) -> ProviderUsageHistory {
+        let disabled = disabledProviders
+        guard history.peaks.contains(where: { disabled.contains($0.provider) }) else { return history }
+        return ProviderUsageHistory(peaks: history.peaks.filter { !disabled.contains($0.provider) })
+    }
+
+    /// Forget every piece of state held for providers that are now disabled, so no
+    /// stale data, error, or outage lingers until the next relaunch.
+    private func removeDisabledProviderState() {
+        let disabled = disabledProviders
+        for provider in disabled {
+            providerUsage[provider] = nil
+            providerErrors[provider] = nil
+            activeIncidents[provider] = nil
+        }
+        providerDetails = providerDetails.filter { !disabled.contains($0.key) }
+        if disabled.contains(.claude) {
+            snapshot = nil
+            isNoUsageData = false
+            isUsingCachedData = false
+            errorMessage = nil
+            clearClaudeTokenUsage()
+        }
     }
     #endif
 
@@ -872,7 +970,7 @@ extension UsageViewModel {
         async let providersArm: Void = refreshExtraProviders()
         let (outcome, _) = await (claudeArm, providersArm)
         // Both arms record into history, so reload once they have both landed.
-        usageHistory = await usageHistoryService.getProviderHistory()
+        usageHistory = enabledHistory(await usageHistoryService.getProviderHistory())
         // Persist the enriched provider payload after local log aggregation has
         // finished so effort summaries survive a relaunch before the next refresh.
         cacheSnapshot(snapshot, planType: planType)
@@ -895,7 +993,7 @@ extension UsageViewModel {
     /// back to bridging `UsageSnapshot`. Other providers come from local macOS
     /// services or macOS-published continuity sync.
     func usageSnapshot(for provider: Provider) -> ProviderUsageSnapshot? {
-        guard !Self.disabledProviders.contains(provider) else { return nil }
+        guard !disabledProviders.contains(provider) else { return nil }
         if provider == .claude {
             if let stored = providerUsage[.claude] {
                 return overlayingLocalUsage(on: stored, planName: planType)
@@ -986,7 +1084,7 @@ extension UsageViewModel {
     /// Providers with at least one classified or explicitly unclassified effort session.
     var providersWithEffortUsage: [Provider] {
         Provider.allCases.filter { provider in
-            guard !Self.disabledProviders.contains(provider) else { return false }
+            guard !disabledProviders.contains(provider) else { return false }
             return EffortPeriod.allCases.contains { period in
                 (effortSummary(for: provider, period: period)?.totalSessionCount ?? 0) > 0
             }
@@ -1000,7 +1098,7 @@ extension UsageViewModel {
     /// `Provider` order.
     var availableProviders: [Provider] {
         let members = Provider.allCases.filter { provider in
-            guard !Self.disabledProviders.contains(provider) else { return false }
+            guard !disabledProviders.contains(provider) else { return false }
             if usageSnapshot(for: provider) != nil { return true }
             #if os(macOS)
             if let detail = providerDetails[provider] {
@@ -1046,6 +1144,7 @@ extension UsageViewModel {
     /// `usageSource` selects. On macOS this Mac's own detail comes from its live local
     /// refresh; other Macs come from their published ledgers.
     func providerDetail(for provider: Provider) -> ProviderDetail? {
+        guard isProviderEnabled(provider) else { return nil }
         #if os(macOS)
         let local = providerDetails[provider]
         let remote = deviceLedgers.filter { $0.deviceID != localDeviceID }
@@ -1149,6 +1248,9 @@ extension UsageViewModel {
     /// Fetch the Claude rate-window usage snapshot. Runs as an independent arm of
     /// `refresh()`; its success/failure no longer gates the shared rate-limit timestamp.
     private func refreshClaude() async -> ClaudeRefreshOutcome {
+        // Claude turned off in Settings: no credential read, no API call.
+        guard isProviderEnabled(.claude) else { return .skipped }
+
         // Respect an active rate-limit cooldown for every refresh, manual included:
         // the endpoint will refuse the request, and hitting it again can extend the
         // cooldown. Other providers still refresh. Re-surface the countdown so a
@@ -1184,6 +1286,8 @@ extension UsageViewModel {
             let credentials = try await credentialProvider.loadCredentials()
             planType = credentials.planDisplayName
             let newSnapshot = try await apiService.fetchUsage(token: credentials.accessToken)
+            // Claude may have been turned off while the request was in flight.
+            guard isProviderEnabled(.claude) else { return .skipped }
             snapshot = newSnapshot
             isUsingCachedData = false
             isNoUsageData = false
@@ -1232,6 +1336,8 @@ extension UsageViewModel {
             #endif
             return .updated
         } catch {
+            // Claude was turned off while the request was in flight; its error is moot.
+            guard isProviderEnabled(.claude) else { return .skipped }
             // "No usage data" is not an error — the usage windows have reset but
             // no prompt has been sent yet. Drop any cached snapshot (it is stale
             // pre-reset data) and show a "No usage data" state in the UI.
@@ -1401,7 +1507,7 @@ extension UsageViewModel {
         }
 
         #if os(macOS)
-        guard snapshot != nil || !providerUsage.isEmpty || !providersWithEffortUsage.isEmpty else {
+        guard hasContinuityPayload else {
             continuitySyncErrorMessage = "Refresh usage once before sharing it with iPhone and iPad."
             return
         }
@@ -1452,7 +1558,7 @@ extension UsageViewModel {
 
         do {
             let publication = try await usageSyncService.publish(
-                snapshot: snapshot,
+                snapshot: isProviderEnabled(.claude) ? snapshot : nil,
                 planType: planType,
                 providerSnapshots: providerSnapshots
             )
@@ -1472,7 +1578,7 @@ extension UsageViewModel {
 
     /// Share this Mac's local token and cost usage when it changed, then read
     /// every Mac's ledger for the usage source picker and combined totals.
-    private func syncDeviceLedgers(force: Bool) async {
+    private func syncDeviceLedgers(force: Bool, removesEmptyLedger: Bool = false) async {
         guard !appConnectionRevoked else { return }
         let ledger = DeviceUsageMerge.ledger(
             deviceID: localDeviceID,
@@ -1495,6 +1601,13 @@ extension UsageViewModel {
                 lastPublishedLedgerAt = Date()
             } catch {
                 Logger.viewModel.error("Could not share this Mac's local usage: \(error.localizedDescription)")
+            }
+        } else if removesEmptyLedger, ledger.providers.isEmpty {
+            // Every provider with local usage was turned off: withdraw this Mac's
+            // earlier ledger so iPhone and iPad stop showing that usage.
+            if await usageSyncService.deleteDeviceLedger(deviceID: localDeviceID) {
+                lastPublishedLedgerSignature = nil
+                lastPublishedLedgerAt = nil
             }
         }
 
@@ -1537,7 +1650,7 @@ extension UsageViewModel {
         var snapshots = providerUsage
         let effortFetchedAt = tokenSnapshot?.fetchedAt ?? Date()
 
-        if let snapshot {
+        if let snapshot, isProviderEnabled(.claude) {
             snapshots[.claude] = ProviderUsageSnapshot(
                 claude: snapshot,
                 planName: planType,
@@ -1550,7 +1663,7 @@ extension UsageViewModel {
         // is unavailable. Carry effort through the same provider payload even if
         // there are no rate-limit windows to attach it to.
         for (provider, detail) in providerDetails
-        where snapshots[provider] == nil && !detail.effortSummaries.isEmpty {
+        where snapshots[provider] == nil && !detail.effortSummaries.isEmpty && isProviderEnabled(provider) {
             snapshots[provider] = ProviderUsageSnapshot(
                 provider: provider,
                 windows: [],
@@ -1633,11 +1746,15 @@ extension UsageViewModel {
     /// Claude/Codex/Grok token detail (today/yesterday/30-day, per-model, daily trend).
     private func refreshProviderUsage() async {
         for (provider, service) in providerUsageServices {
+            // A provider turned off in Settings is never fetched.
+            guard isProviderEnabled(provider) else { continue }
             // Like Claude, a provider in a rate-limit cooldown is skipped on every
             // refresh, manual included, and keeps its last snapshot meanwhile.
             if isCoolingDown(provider) { continue }
             do {
                 let providerSnapshot = try await service.fetchSnapshot()
+                // It may have been turned off while the request was in flight.
+                guard isProviderEnabled(provider) else { continue }
                 providerUsage[provider] = providerSnapshot
                 if let providerSnapshot {
                     await usageHistoryService.record(providerSnapshot: providerSnapshot)
@@ -1646,6 +1763,7 @@ extension UsageViewModel {
                 providerErrors[provider] = nil
                 clearIncident(for: provider)
             } catch {
+                guard isProviderEnabled(provider) else { continue }
                 // Keep the provider's cached usage on every failure; its card shows
                 // the error instead of disappearing. Signed-out services return nil
                 // rather than throwing, so this never resurrects a removed account.
@@ -1660,13 +1778,18 @@ extension UsageViewModel {
 
         let refreshedDetails = await tokenUsageCoordinator.providerDetails(using: tokenSnapshot)
         providerDetails = addingUnavailableLocalUsageDetails(
-            to: refreshedDetails,
-            from: providerUsage.values
+            to: refreshedDetails.filter { isProviderEnabled($0.key) },
+            from: enabledProviderSnapshots(from: providerUsage.values)
         )
     }
 
     /// Refresh token usage through the macOS persistence coordinator.
     private func refreshTokenUsage() async {
+        // The token snapshot is Claude's local log usage; turned off, it is not read.
+        guard isProviderEnabled(.claude) else {
+            clearClaudeTokenUsage()
+            return
+        }
         isLoadingTokenUsage = true
         tokenUsageError = nil
         defer { isLoadingTokenUsage = false }
@@ -1688,10 +1811,23 @@ extension UsageViewModel {
             tokenUsageError = .fileReadError(error)
             Logger.tokenUsage.error("Token usage error: \(error)")
         }
+        // Claude may have been turned off while its logs were being read.
+        if !isProviderEnabled(.claude) {
+            clearClaudeTokenUsage()
+        }
+    }
+
+    /// Drop Claude's local token usage so no stale totals or read errors remain.
+    private func clearClaudeTokenUsage() {
+        tokenSnapshot = nil
+        periodSummaries = [:]
+        selectedPeriodSummary = nil
+        tokenUsageError = nil
     }
 
     /// Refresh the summary for the currently selected period (async, non-blocking)
     func refreshSelectedPeriodSummary() async {
+        guard isProviderEnabled(.claude) else { return }
         do {
             let summary = try await tokenUsageCoordinator.summary(for: selectedTokenPeriod)
             periodSummaries[selectedTokenPeriod] = summary
