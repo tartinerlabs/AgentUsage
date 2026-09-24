@@ -588,7 +588,7 @@ Consolidates the untagged 0.29.1–0.32.1 builds.
 - xcconfig-based versioning with GitHub Actions automation
 
 [Unreleased]: https://github.com/tartinerlabs/AgentUsage/compare/v0.33.0...HEAD
-[0.33.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.29.0...v0.33.0
+[0.33.0]: https://github.com/tartinerlabs/AgentUsage/compare/2dd14fe...v0.33.0
 [0.29.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.26.1...v0.27.0
