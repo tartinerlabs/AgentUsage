@@ -398,12 +398,19 @@ struct ProviderCostRow: View {
                 Text(tokens)
                     .font(.footnote)
                     .fontWeight(.medium)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .foregroundStyle(.secondary)
+            // Combined multi-Mac totals can outgrow the row; shrink rather than wrap,
+            // and let the cost claim its width before the token count.
             Text(cost)
                 .font(.system(size: compact ? 16 : 20, weight: .bold, design: .rounded))
                 .foregroundStyle(AgentUsageColors.usageProgress)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .frame(minWidth: 60, alignment: .trailing)
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label) cost")
