@@ -21,8 +21,8 @@
 //
 //  `Tab(value:)`, `TabSection`, and `.sidebarAdaptable` all ship in iOS 18 /
 //  macOS 15, so the structure runs at the current deployment targets. Only the
-//  Liquid Glass tab-bar behaviours are iOS 26, and those sit behind an
-//  availability check in `LiquidGlassTabBarBehaviour`.
+//  Liquid Glass tab-bar behaviours are iOS 26 (the usage accessory, iOS 26.1), and
+//  those sit behind availability checks in `LiquidGlassTabBarBehaviour`.
 //
 
 import AgentUsageKit
@@ -115,6 +115,8 @@ struct MainNavigationView: View {
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var onboardingStore = OnboardingStore(platform: .mobile)
+    /// The provider whose detail the tab-bar accessory opened, if any.
+    @State private var accessoryDetailProvider: Provider?
     #endif
 
     /// Whether there's a sidebar to list providers in. When there isn't, they
@@ -183,6 +185,10 @@ struct MainNavigationView: View {
                 )
                 .environment(viewModel)
             }
+            .sheet(item: $accessoryDetailProvider) { provider in
+                UsageTabAccessoryDetail(provider: provider)
+                    .environment(viewModel)
+            }
         #endif
     }
 
@@ -248,7 +254,18 @@ struct MainNavigationView: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
-        .modifier(LiquidGlassTabBarBehaviour())
+        .modifier(liquidGlassTabBarBehaviour)
+    }
+
+    private var liquidGlassTabBarBehaviour: LiquidGlassTabBarBehaviour {
+        #if os(iOS)
+        LiquidGlassTabBarBehaviour(
+            showsUsageAccessory: viewModel.mostUrgentGlance(now: Date()) != nil,
+            onSelectAccessory: { accessoryDetailProvider = $0 }
+        )
+        #else
+        LiquidGlassTabBarBehaviour()
+        #endif
     }
 
     // MARK: Section content
@@ -316,13 +333,29 @@ struct MainNavigationView: View {
 
 // MARK: - Liquid Glass behaviours
 
-/// The iOS 26 tab-bar behaviour: the bar minimizes as content scrolls away. A
-/// no-op on older systems, which keep the standard bar.
+/// The iOS 26 tab-bar behaviour: the bar minimizes as content scrolls away, and
+/// from iOS 26.1 a `UsageTabAccessory` rides above it while any live window
+/// exists. A no-op on older systems, which keep the standard bar.
+///
+/// The accessory toggles through `isEnabled` rather than an `if` around the
+/// modifier: branching would swap the `TabView`'s identity and reset every tab's
+/// navigation stack the moment usage data arrives or the last window expires.
 private struct LiquidGlassTabBarBehaviour: ViewModifier {
+    #if os(iOS)
+    var showsUsageAccessory = false
+    var onSelectAccessory: (Provider) -> Void = { _ in }
+    #endif
+
     @ViewBuilder
     func body(content: Content) -> some View {
         #if os(iOS)
-        if #available(iOS 26, *) {
+        if #available(iOS 26.1, *) {
+            content
+                .tabBarMinimizeBehavior(.onScrollDown)
+                .tabViewBottomAccessory(isEnabled: showsUsageAccessory) {
+                    UsageTabAccessory(onSelect: onSelectAccessory)
+                }
+        } else if #available(iOS 26, *) {
             content
                 .tabBarMinimizeBehavior(.onScrollDown)
         } else {

@@ -272,6 +272,12 @@ Corner radius is assigned by component scale:
   short at-limit window when the scene is active. Disabled authorization remains visible
   with an Open Settings action; unavailable-window and start-error states stay inline in
   the same card.
+- **Tab-bar usage accessory** (iOS 26.1+) — a Music-style "now playing" strip in
+  `tabViewBottomAccessory` for the single most urgent live window (the same pick as an
+  unconfigured Small widget). Expanded: provider mark, name · window, `UsageProgressBar`,
+  percent + status symbol, compact reset countdown. Inline (tab bar minimized): mark, percent,
+  status symbol. Tapping opens that provider's `.detail` card as a sheet. Hidden via
+  `isEnabled` when no live window exists; never branch the modifier, which resets tab stacks.
 - **Home Screen widgets** — follow Apple HIG widget size roles while keeping the iOS
   provider-card grammar (identity, status-tinted `UsageProgressBar`, rounded numerals,
   `UsageStatus` icon). Use the system widget container as the surface; the 0.06 neutral
