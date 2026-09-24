@@ -39,7 +39,7 @@ struct UsageRowView: View {
             // Stats row
             HStack {
                 HStack(spacing: 4) {
-                    Text("\(usage.percentUsed)% used")
+                    Text(usedDescription)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     if showExtraUsage, usage.isUsingExtraUsage {
@@ -49,9 +49,15 @@ struct UsageRowView: View {
                     }
                 }
                 Spacer()
-                Label(status.label, systemImage: status.icon)
-                    .font(.footnote)
-                    .foregroundStyle(status.color)
+                if usage.lockedReason != nil {
+                    Label("Locked", systemImage: "lock.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Label(status.label, systemImage: status.icon)
+                        .font(.footnote)
+                        .foregroundStyle(status.color)
+                }
             }
         }
         // MARK: - Accessibility
@@ -67,8 +73,17 @@ struct UsageRowView: View {
         "\(title) usage"
     }
 
+    /// "12% used", or "$2.47 of $250.00 used" for a dollar-denominated window.
+    private var usedDescription: String {
+        guard let budget = usage.budget else { return "\(usage.percentUsed)% used" }
+        return "\(budget.formattedUsed) of \(budget.formattedLimit) used"
+    }
+
     private var accessibilityValue: String {
-        var parts = ["\(usage.percentUsed) percent used"]
+        var parts = [usage.budget == nil ? "\(usage.percentUsed) percent used" : usedDescription]
+        if usage.lockedReason != nil {
+            parts.append("locked")
+        }
         if showExtraUsage, usage.isUsingExtraUsage {
             parts.append("\(usage.extraUsagePercent) percent extra usage")
         }

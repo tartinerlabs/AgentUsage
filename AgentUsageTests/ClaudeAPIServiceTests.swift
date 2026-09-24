@@ -144,6 +144,155 @@ struct ClaudeAPIServiceTests {
         #expect(try bankedResets("") == nil)
     }
 
+    // MARK: - Full Response (real parser)
+
+    /// Trimmed from a live `/api/oauth/usage?cedar_ember=1` body, 2026-09-24.
+    private static let liveResponse = """
+    {
+      "five_hour": {"utilization": 9.0, "resets_at": "2026-09-24T11:39:59.671160+00:00",
+                    "limit_dollars": null, "used_dollars": null, "remaining_dollars": null, "locked_reason": null},
+      "seven_day": {"utilization": 22.0, "resets_at": "2026-09-30T07:59:59.671179+00:00",
+                    "limit_dollars": null, "used_dollars": null, "remaining_dollars": null, "locked_reason": null},
+      "seven_day_oauth_apps": null, "seven_day_opus": null, "seven_day_sonnet": null,
+      "seven_day_cowork": null, "seven_day_omelette": null, "tangelo": null,
+      "iguana_necktie": {"utilization": 0.9884844, "resets_at": "2026-11-05T07:59:00+00:00",
+                         "limit_dollars": 250, "used_dollars": 2.471211, "remaining_dollars": 247.528789, "locked_reason": null},
+      "nimbus_quill": {"utilization": 0.0, "resets_at": null, "limit_dollars": null,
+                       "used_dollars": null, "remaining_dollars": null, "locked_reason": null},
+      "cinder_cove": null,
+      "cedar_ember": {"eligible": true, "ineligible_reason": null, "at_limit": false, "exhausted": [],
+                      "grants": [\(launchGrant)], "next_grant_id": "opus55-launch-promax-20260921",
+                      "weekly_resets_at": "2026-09-30T08:00:00+00:00", "cooldown_until": null},
+      "extra_usage": {"is_enabled": false, "monthly_limit": null, "used_credits": null, "utilization": null,
+                      "currency": null, "disabled_reason": null, "user_disabled": true},
+      "limits": [
+        {"kind": "session", "group": "session", "percent": 9, "severity": "normal",
+         "resets_at": "2026-09-24T11:39:59.671160+00:00", "scope": null, "is_active": false},
+        {"kind": "weekly_all", "group": "weekly", "percent": 22, "severity": "normal",
+         "resets_at": "2026-09-30T07:59:59.671179+00:00", "scope": null, "is_active": true},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 0, "severity": "normal",
+         "resets_at": "2026-09-30T08:00:00+00:00",
+         "scope": {"model": {"id": null, "display_name": "Fable"}, "surface": null}, "is_active": false}
+      ],
+      "spend": {"used": {"amount_minor": 0, "currency": "USD", "exponent": 2}, "limit": null,
+                "percent": 0, "severity": "normal", "enabled": false},
+      "member_dashboard_available": false,
+      "seven_day_breakdown": {"as_of": "2026-09-24T07:36:59.752118+00:00",
+        "window_started_at": "2026-09-23T07:59:59.671179+00:00",
+        "rows": [{"key": "claude_code", "display_name": "Claude Code", "percent": 100},
+                 {"key": "chat", "display_name": "Chats", "percent": 0}]}
+    }
+    """
+
+    private func parse(_ json: String) async throws -> UsageSnapshot {
+        try await ClaudeAPIService().parseUsageResponse(Data(json.utf8))
+    }
+
+    @Test func parsesLiveResponse() async throws {
+        let snapshot = try await parse(Self.liveResponse)
+
+        #expect(snapshot.session.utilization == 9)
+        #expect(snapshot.session.serverStatus == .onTrack)
+        #expect(snapshot.opus.utilization == 22)
+        #expect(snapshot.sonnet == nil)
+        #expect(snapshot.fable?.utilization == 0)
+        #expect(snapshot.extraUsage == nil)
+
+        // iguana_necktie is a dollar budget; nimbus_quill is an empty placeholder.
+        #expect(snapshot.additionalWindows.map(\.windowID.rawValue) == ["claude.iguana_necktie"])
+        let credit = try #require(snapshot.additionalWindows.first)
+        #expect(credit.displayName == "Usage credit")
+        #expect(credit.budget?.limit == 250)
+        #expect(credit.budget?.used == 2.471211)
+        #expect(credit.windowType == .custom)
+
+        #expect(snapshot.weeklyBreakdown.map(\.key) == ["claude_code", "chat"])
+        #expect(snapshot.weeklyBreakdown.first?.percent == 100)
+
+        let credits = try #require(snapshot.rateLimitResetCredits)
+        #expect(credits.grantLabels == ["Claude Opus 5.5 launch: one usage-limit reset for Pro and Max"])
+
+        let bridged = ClaudeAPIService.providerSnapshot(from: snapshot)
+        #expect(bridged.windows.map(\.windowID.rawValue) == ["session", "opus", "fable", "claude.iguana_necktie"])
+        #expect(bridged.usageBreakdown == snapshot.weeklyBreakdown)
+    }
+
+    @Test func parsesScopedRowsCreditsAndServerSeverity() async throws {
+        let json = """
+        {
+          "five_hour": {"utilization": 40, "resets_at": "2099-01-01T00:00:00Z"},
+          "seven_day": {"utilization": 10, "resets_at": "2099-01-01T00:00:00Z", "locked_reason": "seat_removed"},
+          "seven_day_opus": {"utilization": 30, "resets_at": "2099-01-01T00:00:00Z"},
+          "cinder_cove": {"utilization": 50, "resets_at": "2099-01-01T00:00:00Z",
+                          "limit_dollars": 100, "used_dollars": 50},
+          "limits": [
+            {"kind": "session", "group": "session", "percent": 40, "severity": "critical", "resets_at": "2099-01-01T00:00:00Z"},
+            {"kind": "weekly_scoped", "group": "weekly", "percent": 12, "severity": "warning",
+             "resets_at": "2099-01-01T00:00:00Z", "scope": {"model": null, "surface": {"display_name": "Cowork"}}},
+            {"kind": "weekly_scoped", "group": "weekly", "percent": 5, "severity": "normal",
+             "resets_at": "2099-01-01T00:00:00Z", "scope": {"model": {"display_name": "Sonnet"}}}
+          ]
+        }
+        """
+        let snapshot = try await parse(json)
+
+        // Server severity floors the local pace status.
+        #expect(snapshot.session.status == .critical)
+        #expect(snapshot.opus.lockedReason == "seat_removed")
+        // A Sonnet row with no seven_day_sonnet key still fills the fixed Sonnet window.
+        #expect(snapshot.sonnet?.utilization == 5)
+
+        let names = snapshot.additionalWindows.map(\.displayName)
+        #expect(names == ["Cowork", "Opus", "Claude Code and Cowork credit"])
+        let cowork = snapshot.additionalWindows[0]
+        #expect(cowork.serverStatus == .warning)
+        #expect(cowork.totalDuration == UsageWindowType.opus.totalDuration)
+
+        let credit = snapshot.additionalWindows[2]
+        #expect(credit.isOneTime)
+        #expect(credit.budget?.used == 50)
+        #expect(credit.resetDescription().hasPrefix("Expires in"))
+    }
+
+    @Test func spendBlockBackfillsExtraUsage() async throws {
+        let json = """
+        {"five_hour": {"utilization": 1, "resets_at": "2099-01-01T00:00:00Z"},
+         "extra_usage": {"is_enabled": false},
+         "spend": {"enabled": true, "used": {"amount_minor": 1234, "currency": "USD", "exponent": 2},
+                   "limit": {"amount_minor": 5000, "currency": "USD", "exponent": 2}}}
+        """
+        let extra = try #require(try await parse(json).extraUsage)
+        #expect(extra.used == 12.34)
+        #expect(extra.limit == 50)
+    }
+
+    @Test func snapshotWithoutNewFieldsStillDecodes() throws {
+        let snapshot = UsageSnapshot(
+            session: UsageWindow(utilization: 1, resetsAt: Self.now, windowType: .session),
+            opus: UsageWindow(utilization: 2, resetsAt: Self.now, windowType: .opus),
+            sonnet: nil,
+            additionalWindows: [UsageWindow(
+                utilization: 3, resetsAt: Self.now, windowID: "claude.x", displayName: "X",
+                totalDuration: 0, budget: ExtraUsageCost(used: 1, limit: 4, currencyCode: "USD"), isOneTime: true
+            )],
+            weeklyBreakdown: [UsageShare(key: "chat", displayName: "Chats", percent: 5)],
+            fetchedAt: Self.now
+        )
+        let encoder = JSONEncoder()
+        let roundTripped = try JSONDecoder().decode(UsageSnapshot.self, from: encoder.encode(snapshot))
+        #expect(roundTripped.additionalWindows.first?.budget?.limit == 4)
+        #expect(roundTripped.additionalWindows.first?.isOneTime == true)
+        #expect(roundTripped.weeklyBreakdown == snapshot.weeklyBreakdown)
+
+        // Older app versions synced snapshots without the new keys.
+        var legacy = try JSONSerialization.jsonObject(with: encoder.encode(snapshot)) as! [String: Any]
+        legacy["additionalWindows"] = nil
+        legacy["weeklyBreakdown"] = nil
+        let decoded = try JSONDecoder().decode(UsageSnapshot.self, from: JSONSerialization.data(withJSONObject: legacy))
+        #expect(decoded.additionalWindows.isEmpty)
+        #expect(decoded.weeklyBreakdown.isEmpty)
+    }
+
     // MARK: - Claude Code Version (User-Agent)
 
     #if os(macOS)

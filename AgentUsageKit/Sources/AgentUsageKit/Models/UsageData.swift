@@ -141,6 +141,15 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
     public let scope: UsageWindowScope?
     /// Legacy compatibility for existing menu-pin and notification code.
     public let windowType: UsageWindowType
+    /// Dollar budget behind this window (e.g. a Claude usage credit), when the provider reports one.
+    public let budget: ExtraUsageCost?
+    /// A one-time allowance that expires at `resetsAt` instead of renewing.
+    public let isOneTime: Bool
+    /// The provider's own grading of this window (Claude `limits[].severity`).
+    /// It floors the local pace-based status rather than replacing it.
+    public let serverStatus: UsageStatus?
+    /// Why the provider has locked this window, when it has (Claude `locked_reason`).
+    public let lockedReason: String?
 
     /// Stable per-provider identity. Providers may reorder windows between
     /// fetches (Codex moves its weekly limit into the primary slot while the
@@ -155,6 +164,30 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
         self.totalDuration = windowType.totalDuration
         self.scope = nil
         self.windowType = windowType
+        self.budget = nil
+        self.isOneTime = false
+        self.serverStatus = nil
+        self.lockedReason = nil
+    }
+
+    /// Returns a copy carrying provider-reported extras on top of this window.
+    public func with(
+        budget: ExtraUsageCost? = nil,
+        serverStatus: UsageStatus? = nil,
+        lockedReason: String? = nil
+    ) -> UsageWindow {
+        UsageWindow(
+            utilization: utilization,
+            resetsAt: resetsAt,
+            windowID: windowID,
+            displayName: displayName,
+            totalDuration: totalDuration,
+            scope: scope,
+            budget: budget ?? self.budget,
+            isOneTime: isOneTime,
+            serverStatus: serverStatus ?? self.serverStatus,
+            lockedReason: lockedReason ?? self.lockedReason
+        )
     }
 
     public init(
@@ -163,7 +196,11 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
         windowID: UsageWindowID,
         displayName: String,
         totalDuration: TimeInterval,
-        scope: UsageWindowScope? = nil
+        scope: UsageWindowScope? = nil,
+        budget: ExtraUsageCost? = nil,
+        isOneTime: Bool = false,
+        serverStatus: UsageStatus? = nil,
+        lockedReason: String? = nil
     ) {
         self.utilization = utilization
         self.resetsAt = resetsAt
@@ -172,6 +209,10 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
         self.totalDuration = max(0, totalDuration)
         self.scope = scope
         self.windowType = UsageWindowType(rawValue: windowID.rawValue) ?? .custom
+        self.budget = budget
+        self.isOneTime = isOneTime
+        self.serverStatus = serverStatus
+        self.lockedReason = lockedReason
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -182,6 +223,10 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
         case totalDuration
         case scope
         case windowType
+        case budget
+        case isOneTime
+        case serverStatus
+        case lockedReason
     }
 
     public init(from decoder: Decoder) throws {
@@ -197,6 +242,10 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
         totalDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .totalDuration)
             ?? windowType.totalDuration
         scope = try container.decodeIfPresent(UsageWindowScope.self, forKey: .scope)
+        budget = try container.decodeIfPresent(ExtraUsageCost.self, forKey: .budget)
+        isOneTime = try container.decodeIfPresent(Bool.self, forKey: .isOneTime) ?? false
+        serverStatus = try container.decodeIfPresent(UsageStatus.self, forKey: .serverStatus)
+        lockedReason = try container.decodeIfPresent(String.self, forKey: .lockedReason)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -208,6 +257,10 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
         try container.encode(totalDuration, forKey: .totalDuration)
         try container.encodeIfPresent(scope, forKey: .scope)
         try container.encode(windowType, forKey: .windowType)
+        try container.encodeIfPresent(budget, forKey: .budget)
+        if isOneTime { try container.encode(isOneTime, forKey: .isOneTime) }
+        try container.encodeIfPresent(serverStatus, forKey: .serverStatus)
+        try container.encodeIfPresent(lockedReason, forKey: .lockedReason)
     }
 
     public var percentUsed: Int {
@@ -271,7 +324,14 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
     /// as "Resets in now" when callers prefix it. Use this wherever the countdown is
     /// presented as a sentence.
     public func resetDescription(from now: Date = Date()) -> String {
-        resetsAt <= now ? "Resets now" : "Resets in \(timeUntilReset(from: now))"
+        let verb = isOneTime ? "Expires" : "Resets"
+        if !hasResetDate { return isOneTime ? "No expiry" : "No reset date" }
+        return resetsAt <= now ? "\(verb) now" : "\(verb) in \(timeUntilReset(from: now))"
+    }
+
+    /// False when the provider reported no reset/expiry time (stored as `.distantFuture`).
+    public var hasResetDate: Bool {
+        resetsAt < .distantFuture
     }
 
     /// Calculate usage status based on absolute usage and consumption rate
@@ -286,8 +346,12 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
     /// Widgets must pass their entry's date here for a multi-entry timeline to
     /// advance the pace-based status over time.
     public func status(from now: Date) -> UsageStatus {
+        guard resetsAt.timeIntervalSince(now) > 0 else { return .onTrack }
+        return max(paceStatus(from: now), serverStatus ?? .onTrack)
+    }
+
+    private func paceStatus(from now: Date) -> UsageStatus {
         let timeRemaining = resetsAt.timeIntervalSince(now)
-        guard timeRemaining > 0 else { return .onTrack }
 
         // Check absolute usage first - high usage is always concerning
         if utilization >= 90 {
@@ -425,6 +489,25 @@ public struct ExtraUsageCost: Sendable, Codable {
     }
 }
 
+// MARK: - Usage Share
+
+/// One row of a provider's usage split, e.g. Claude's `seven_day_breakdown`
+/// ("Claude Code 80%, Chats 20%").
+public struct UsageShare: Sendable, Codable, Equatable, Identifiable {
+    public let key: String
+    public let displayName: String
+    /// Share of the period's usage, 0-100.
+    public let percent: Double
+
+    public var id: String { key }
+
+    public init(key: String, displayName: String, percent: Double) {
+        self.key = key
+        self.displayName = displayName
+        self.percent = percent
+    }
+}
+
 // MARK: - Usage Snapshot
 
 public struct UsageSnapshot: Sendable, Codable {
@@ -435,9 +518,14 @@ public struct UsageSnapshot: Sendable, Codable {
     public let fable: UsageWindow?    // Separate Fable limit (if available)
     public let extraUsage: ExtraUsageCost?  // Monthly extra usage spending
     public let rateLimitResetCredits: RateLimitResetCredits?  // Banked "reset your limits" grants
+    /// Every other window the endpoint reports (scoped `limits[]` rows, Opus/Cowork/OAuth-app
+    /// weeks, usage credits), in server order.
+    public let additionalWindows: [UsageWindow]
+    /// This week's usage split by surface (`seven_day_breakdown`), in server order.
+    public let weeklyBreakdown: [UsageShare]
     public let fetchedAt: Date
 
-    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, design: UsageWindow? = nil, fable: UsageWindow? = nil, extraUsage: ExtraUsageCost? = nil, rateLimitResetCredits: RateLimitResetCredits? = nil, fetchedAt: Date) {
+    public init(session: UsageWindow, opus: UsageWindow, sonnet: UsageWindow?, design: UsageWindow? = nil, fable: UsageWindow? = nil, extraUsage: ExtraUsageCost? = nil, rateLimitResetCredits: RateLimitResetCredits? = nil, additionalWindows: [UsageWindow] = [], weeklyBreakdown: [UsageShare] = [], fetchedAt: Date) {
         self.session = session
         self.opus = opus
         self.sonnet = sonnet
@@ -445,6 +533,8 @@ public struct UsageSnapshot: Sendable, Codable {
         self.fable = fable
         self.extraUsage = extraUsage
         self.rateLimitResetCredits = rateLimitResetCredits
+        self.additionalWindows = additionalWindows
+        self.weeklyBreakdown = weeklyBreakdown
         self.fetchedAt = fetchedAt
     }
 
@@ -457,7 +547,14 @@ public struct UsageSnapshot: Sendable, Codable {
         fable = try container.decodeIfPresent(UsageWindow.self, forKey: .fable)
         extraUsage = try container.decodeIfPresent(ExtraUsageCost.self, forKey: .extraUsage)
         rateLimitResetCredits = try container.decodeIfPresent(RateLimitResetCredits.self, forKey: .rateLimitResetCredits)
+        additionalWindows = try container.decodeIfPresent([UsageWindow].self, forKey: .additionalWindows) ?? []
+        weeklyBreakdown = try container.decodeIfPresent([UsageShare].self, forKey: .weeklyBreakdown) ?? []
         fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
+    }
+
+    /// Every window in display order: the fixed Claude windows, then `additionalWindows`.
+    public var allWindows: [UsageWindow] {
+        [session, opus, sonnet, design, fable].compactMap { $0 } + additionalWindows
     }
 
     /// Whether any window is currently in extra usage territory
@@ -471,9 +568,10 @@ public struct UsageSnapshot: Sendable, Codable {
     /// dropped in favor of a "No usage data" state.
     public var allWindowsExpired: Bool {
         let now = Date()
-        let allWindows = [session, opus, sonnet, design, fable].compactMap { $0 }
-        guard !allWindows.isEmpty else { return true }
-        return allWindows.allSatisfy { $0.isExpired(from: now) }
+        // One-time credits can outlive every rate window, so they don't keep a stale snapshot alive.
+        let rateWindows = allWindows.filter { !$0.isOneTime }
+        guard !rateWindows.isEmpty else { return true }
+        return rateWindows.allSatisfy { $0.isExpired(from: now) }
     }
 
     /// Whether extra usage is enabled (has cost data from the API)
@@ -516,10 +614,31 @@ public struct RateLimitResetCredits: Sendable, Codable, Equatable {
     /// Per-credit expiry dates for still-available credits, sorted soonest-first.
     /// Empty when only the usage-body count was available (no dedicated fetch).
     public let expirations: [Date]
+    /// Claude grant labels (e.g. "Claude Opus 5.5 launch: one usage-limit reset…"), one per live grant.
+    public let grantLabels: [String]
+    /// Claude `cooldown_until`: a banked reset can't be used again before this time.
+    public let cooldownUntil: Date?
 
-    public init(availableCount: Int, expirations: [Date] = []) {
+    public init(availableCount: Int, expirations: [Date] = [], grantLabels: [String] = [], cooldownUntil: Date? = nil) {
         self.availableCount = availableCount
         self.expirations = expirations
+        self.grantLabels = grantLabels
+        self.cooldownUntil = cooldownUntil
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case availableCount
+        case expirations
+        case grantLabels
+        case cooldownUntil
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        availableCount = try container.decode(Int.self, forKey: .availableCount)
+        expirations = try container.decodeIfPresent([Date].self, forKey: .expirations) ?? []
+        grantLabels = try container.decodeIfPresent([String].self, forKey: .grantLabels) ?? []
+        cooldownUntil = try container.decodeIfPresent(Date.self, forKey: .cooldownUntil)
     }
 
     /// The soonest expiry, if any — drives the 24-hour warning triangle.
@@ -537,16 +656,20 @@ public struct RateLimitResetCredits: Sendable, Codable, Equatable {
     /// Hover-tooltip text listing each credit's expiry countdown.
     /// Returns nil when there are no per-credit expiry dates (count-only fallback).
     public func tooltipText(now: Date = Date()) -> String? {
-        guard !expirations.isEmpty else { return nil }
+        var lines = grantLabels
+        if let cooldownUntil, cooldownUntil > now {
+            lines.append("Next reset usable in \(Self.countdownLabel(cooldownUntil, from: now))")
+        }
         let sorted = expirations.sorted()
         if sorted.count == 1 {
-            return "Reset expires in \(Self.countdownLabel(sorted[0], from: now))"
+            lines.append("Reset expires in \(Self.countdownLabel(sorted[0], from: now))")
+        } else if !sorted.isEmpty {
+            lines.append("Resets expire in:")
+            lines += sorted.enumerated().map { index, date in
+                "\(index + 1). \(Self.countdownLabel(date, from: now))"
+            }
         }
-        let entries = sorted.enumerated().compactMap { index, date -> String? in
-            "\(index + 1). \(Self.countdownLabel(date, from: now))"
-        }
-        guard !entries.isEmpty else { return nil }
-        return "Resets expire in:\n" + entries.joined(separator: "\n")
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
     }
 
     private static func countdownLabel(_ date: Date, from now: Date) -> String {
@@ -579,6 +702,8 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
     public let rateLimitResetCredits: RateLimitResetCredits?
     /// Session effort distributions, grouped by aggregation period.
     public let effortSummaries: [EffortPeriodSummary]
+    /// The provider's usage split for the current period (Claude: by surface this week).
+    public let usageBreakdown: [UsageShare]
     public let fetchedAt: Date
     /// Newest local session or token-log timestamp. Nil when the provider has
     /// quota data but no local activity we can date (for example Cursor).
@@ -593,6 +718,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         planName: String? = nil,
         rateLimitResetCredits: RateLimitResetCredits? = nil,
         effortSummaries: [EffortPeriodSummary] = [],
+        usageBreakdown: [UsageShare] = [],
         fetchedAt: Date,
         lastUsedAt: Date? = nil
     ) {
@@ -602,6 +728,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.planName = planName
         self.rateLimitResetCredits = rateLimitResetCredits
         self.effortSummaries = effortSummaries
+        self.usageBreakdown = usageBreakdown
         self.fetchedAt = fetchedAt
         self.lastUsedAt = lastUsedAt
     }
@@ -614,11 +741,12 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         lastUsedAt: Date? = nil
     ) {
         self.provider = .claude
-        self.windows = [snapshot.session, snapshot.opus, snapshot.sonnet, snapshot.design, snapshot.fable].compactMap { $0 }
+        self.windows = snapshot.allWindows
         self.extraUsage = snapshot.extraUsage
         self.planName = planName
         self.rateLimitResetCredits = snapshot.rateLimitResetCredits
         self.effortSummaries = effortSummaries
+        self.usageBreakdown = snapshot.weeklyBreakdown
         self.fetchedAt = snapshot.fetchedAt
         self.lastUsedAt = lastUsedAt
     }
@@ -630,6 +758,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         case planName
         case rateLimitResetCredits
         case effortSummaries
+        case usageBreakdown
         case fetchedAt
         case lastUsedAt
     }
@@ -648,6 +777,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
             [EffortPeriodSummary].self,
             forKey: .effortSummaries
         ) ?? []
+        usageBreakdown = try container.decodeIfPresent([UsageShare].self, forKey: .usageBreakdown) ?? []
         fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
         lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
     }
@@ -660,6 +790,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         try container.encodeIfPresent(planName, forKey: .planName)
         try container.encodeIfPresent(rateLimitResetCredits, forKey: .rateLimitResetCredits)
         try container.encode(effortSummaries, forKey: .effortSummaries)
+        if !usageBreakdown.isEmpty { try container.encode(usageBreakdown, forKey: .usageBreakdown) }
         try container.encode(fetchedAt, forKey: .fetchedAt)
         try container.encodeIfPresent(lastUsedAt, forKey: .lastUsedAt)
     }

@@ -199,7 +199,8 @@ struct MenuBarView: View {
                 density: .detail,
                 detail: viewModel.providerDetail(for: provider),
                 effortSummaries: viewModel.usageSnapshot(for: provider)?.effortSummaries ?? [],
-                effortPeriod: viewModel.selectedTokenPeriod.effortPeriod
+                effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
+                usageBreakdown: viewModel.usageSnapshot(for: provider)?.usageBreakdown ?? []
             )
         }
     }
