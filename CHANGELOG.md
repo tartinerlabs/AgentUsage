@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-09-24
+
+Consolidates the untagged 0.29.1–0.32.1 builds.
+
 - Support several Macs: each shares its local token cost, and a "Usage from" picker shows every Mac combined or one Mac on its own
 - Show local token cost on iPhone and iPad provider cards
 - Remove a Mac that no longer runs AgentUsage from Continuity Sync settings
@@ -17,6 +21,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Surface SuperGrok weekly usage limits on Grok from the Grok Build billing API
 - Use official provider marks instead of SF Symbols for provider attribution
 - Split the iOS dashboard into Usage, Activity, and Effort segments
+- Sync usage from the Mac to iPhone, iPad, and widgets over CloudKit Continuity Sync, with macOS as the source of truth
+- Move Continuity Sync to CKSyncEngine and refresh iOS in the background via silent push
+- Add Continuity Sync controls to Settings
+- Add Cursor as a provider, reading usage from Cursor's local session database
+- Add Grok as a provider, estimating token cost from Grok Build session logs
+- Run the macOS app in the App Sandbox and ask once for access to local CLI logs in Local Data Access, with Full Disk Access as a fallback
+- Include Claude Code and Codex sessions run from Xcode's coding assistant
+- Stop the recurring Keychain permission prompt when reading Claude Code credentials
+- Track reasoning effort levels per session across dashboards
+- Show usage trends for every provider
+- Auto-pin a waiting-room Live Activity when a short rate window hits its limit, and end it when the window resets
+- Schedule local notifications for when a usage window resets
+- Redesign Home Screen widgets around the most urgent window per provider
+- Show Claude banked limit resets, dollar-denominated and locked windows, and this week's usage by surface
+- Colour usage gauges by status, switch to a neutral theme, and redesign the app icon as a usage ring
+- Show any provider in the macOS menu bar strip
+- Add a setting to make ⌘Q close the window instead of quitting
+- Show the most urgent usage window in the iOS tab-bar accessory
+- Show the build number next to the version on macOS and iOS
+- Persist rate-limit cooldowns across relaunches and scope them per provider
+- Replace placeholder data with empty states when no usage is available
+- Hide OpenCode and OpenCode Go while their usage data is unreliable
+- Remove the Claude token auto-refresh option
+- Remove Sparkle from the App Store build; updates come through the App Store and TestFlight
+- Set the user-facing name to "Agent Usage"
+- Adopt Swift 6 language mode
+- Move CI, archiving, and distribution to Xcode Cloud
 
 ## [0.29.0] - 2026-07-13
 
@@ -556,7 +587,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token authentication from `~/.claude/.credentials.json`
 - xcconfig-based versioning with GitHub Actions automation
 
-[Unreleased]: https://github.com/tartinerlabs/AgentUsage/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/tartinerlabs/AgentUsage/compare/v0.33.0...HEAD
+[0.33.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.29.0...v0.33.0
 [0.29.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/tartinerlabs/AgentUsage/compare/v0.26.1...v0.27.0
