@@ -678,7 +678,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     private func parseJSONLFile(at url: URL, cutoff: Date?) throws -> [UsageEntry] {
         let parsed = try parseJSONLFileStreaming(at: url, cutoff: cutoff)
 
-        // Sidechain-aware dedup (ccusage approach): collapse streaming duplicates and sidechain replays.
+        // Sidechain-aware dedup (see `deduplicate`): collapse streaming duplicates and sidechain replays.
         return Self.deduplicate(parsed).map(\.entry)
     }
 

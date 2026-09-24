@@ -176,7 +176,7 @@ Consolidates the untagged 0.29.1–0.32.1 builds.
 ## [0.14.10] - 2026-06-24
 
 - Add opt-in Claude OAuth token auto-refresh (macOS)
-- Improve token/cost accuracy & coverage to match ccusage/OpenUsage
+- Improve token/cost accuracy and coverage
 - Improve Claude token cost accuracy: 1h cache tier, fast mode, sidechain dedup
 
 ## [0.14.9] - 2026-06-24
@@ -267,7 +267,7 @@ Consolidates the untagged 0.29.1–0.32.1 builds.
 - Multi-provider usage monitoring (macOS): track **OpenAI Codex CLI** and **OpenCode** alongside Claude.
 - Codex rate-limit windows (5-hour + weekly) and plan, read from local Codex rollout logs — no login required.
 - Token usage & cost for Codex and OpenCode, computed from local logs (OpenCode via its SQLite database) using built-in pricing.
-- OpenUsage-style menu-bar popover: a provider sidebar that switches between an overview and per-provider detail pages, each with Status/Console links, window status dots, Today/Yesterday/30-day cost, a usage-trend sparkline, and a per-model breakdown.
+- Menu-bar popover with a provider sidebar that switches between an overview and per-provider detail pages, each with Status/Console links, window status dots, Today/Yesterday/30-day cost, a usage-trend sparkline, and a per-model breakdown.
 - Shared per-provider cards across the menu bar and Dashboard.
 - "Codex (5h)" menu-bar display toggle in Settings.
 
@@ -280,7 +280,7 @@ Consolidates the untagged 0.29.1–0.32.1 builds.
 ## [0.12.1] - 2026-06-06
 
 ### Changed
-- Removed the ccusage backend; the native Claude JSONL parser is now the sole source of token usage and cost. Displayed totals are Claude-only and priced at Anthropic rates, fixing discrepancies caused by ccusage running unscoped across all coding agents with LiteLLM pricing.
+- Removed the external CLI backend; the native Claude JSONL parser is now the sole source of token usage and cost. Displayed totals are Claude-only and priced at Anthropic rates, fixing discrepancies caused by the external tool running unscoped across all coding agents with LiteLLM pricing.
 
 ## [0.12.0] - 2026-06-06
 
@@ -564,7 +564,7 @@ Consolidates the untagged 0.29.1–0.32.1 builds.
 
 ### Fixed
 - Fix token usage and cost calculation being ~2.8x higher than actual
-- Add deduplication of streaming response entries by message.id + requestId (matching ccusage behavior)
+- Add deduplication of streaming response entries by message.id + requestId (one entry per message and request)
 
 ## [0.1.0] - 2026-01-02
 
