@@ -184,7 +184,7 @@ struct DashboardTabView: View {
             rateLimitResetCredits: usage?.rateLimitResetCredits,
             density: .detail,
             detail: viewModel.providerDetail(for: provider),
-            effortSummaries: usage?.effortSummaries ?? [],
+            effortSummaries: viewModel.effortSummaries(for: provider),
             effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
             usageBreakdown: usage?.usageBreakdown ?? []
         )

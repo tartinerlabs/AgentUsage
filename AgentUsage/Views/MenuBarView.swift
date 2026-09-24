@@ -203,7 +203,7 @@ struct MenuBarView: View {
                 rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits,
                 density: .detail,
                 detail: viewModel.providerDetail(for: provider),
-                effortSummaries: viewModel.usageSnapshot(for: provider)?.effortSummaries ?? [],
+                effortSummaries: viewModel.effortSummaries(for: provider),
                 effortPeriod: viewModel.selectedTokenPeriod.effortPeriod,
                 usageBreakdown: viewModel.usageSnapshot(for: provider)?.usageBreakdown ?? []
             )

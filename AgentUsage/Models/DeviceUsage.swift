@@ -80,8 +80,8 @@ nonisolated enum DeviceUsageMerge {
     /// Days of daily cost carried per provider, matching `ProviderDetail.dailyCosts`.
     static let dailyCostDays = 30
 
-    /// Build this Mac's ledger from its local provider details. Details that
-    /// only carry effort metadata have no token usage to share and are left out.
+    /// Build this Mac's ledger from its local provider details. Details with
+    /// neither token usage nor effort sessions have nothing to share.
     static func ledger(
         deviceID: String,
         deviceName: String,
@@ -90,16 +90,18 @@ nonisolated enum DeviceUsageMerge {
         calendar: Calendar = .current
     ) -> DeviceUsageLedger {
         let providers = details
-            .filter { $0.value.hasTokenUsage }
+            .filter { $0.value.hasTokenUsage || !$0.value.effortSummaries.isEmpty }
             .sorted { $0.key.rawValue < $1.key.rawValue }
             .map { provider, detail in
                 ProviderLedger(
                     provider: provider,
+                    hasTokenUsage: detail.hasTokenUsage,
                     today: LedgerTotals(detail.today),
                     yesterday: LedgerTotals(detail.yesterday),
                     last30Days: LedgerTotals(detail.last30Days),
                     byModel: detail.byModel.mapValues { LedgerTokens($0) },
                     dailyCosts: detail.dailyCosts,
+                    effortSummaries: detail.effortSummaries,
                     lastUsedAt: detail.lastUsedAt
                 )
             }
@@ -117,7 +119,10 @@ nonisolated enum DeviceUsageMerge {
     /// A ledger published on an earlier day is shifted: its "today" becomes
     /// "yesterday" a day later, and its daily costs move left. Its 30-day total
     /// and model split are kept until the ledger is 30 days old, so they can
-    /// slightly overcount the oldest day. Nil when no ledger has the provider.
+    /// slightly overcount the oldest day. Effort periods follow the same rule
+    /// against their own length, so a stale ledger drops out of "Today" first
+    /// and out of "Year" last. Sessions live on one Mac, so counts add up.
+    /// Nil when no ledger has usage for the provider.
     static func detail(
         for provider: Provider,
         from ledgers: [DeviceUsageLedger],
@@ -129,8 +134,9 @@ nonisolated enum DeviceUsageMerge {
         var last30Days = LedgerTotals.zero
         var byModel: [String: LedgerTokens] = [:]
         var dailyCosts = Array(repeating: 0.0, count: dailyCostDays)
+        var effort: [EffortPeriodSummary] = []
         var lastUsedAt: Date?
-        var found = false
+        var hasTokenUsage = false
 
         for ledger in ledgers {
             guard let entry = ledger.provider(provider),
@@ -142,8 +148,11 @@ nonisolated enum DeviceUsageMerge {
             else { continue }
             // A Mac in a time zone ahead of this device can publish "tomorrow".
             let offset = max(rawOffset, 0)
-            guard offset < dailyCostDays else { continue }
-            found = true
+
+            effort.append(contentsOf: entry.effortSummaries.filter { offset < days(in: $0.period) })
+
+            guard entry.hasTokenUsage, offset < dailyCostDays else { continue }
+            hasTokenUsage = true
 
             if offset == 0 {
                 today = today + entry.today
@@ -170,15 +179,53 @@ nonisolated enum DeviceUsageMerge {
             }
         }
 
-        guard found else { return nil }
+        let effortSummaries = combinedEffort(effort)
+        guard hasTokenUsage || !effortSummaries.isEmpty else { return nil }
         return ProviderDetail(
             today: today.summary(period: .today),
             yesterday: yesterday.summary(period: .today),
             last30Days: last30Days.summary(period: .last30Days),
             byModel: byModel.mapValues { TokenCount($0) },
-            dailyCosts: dailyCosts,
+            dailyCosts: hasTokenUsage ? dailyCosts : [],
+            effortSummaries: effortSummaries,
+            hasTokenUsage: hasTokenUsage,
             lastUsedAt: lastUsedAt
         )
+    }
+
+    /// Sum session counts per period and level. Output follows
+    /// `EffortPeriod.allCases`, with levels in presentation order.
+    static func combinedEffort(_ summaries: [EffortPeriodSummary]) -> [EffortPeriodSummary] {
+        EffortPeriod.allCases.compactMap { period in
+            let matching = summaries.filter { $0.period == period }
+            guard !matching.isEmpty else { return nil }
+            var counts: [EffortLevel: Int] = [:]
+            for summary in matching {
+                for level in summary.levels {
+                    counts[level.level, default: 0] += level.sessionCount
+                }
+            }
+            return EffortPeriodSummary(
+                period: period,
+                levels: counts
+                    .map { EffortLevelCount(level: $0.key, sessionCount: $0.value) }
+                    .sorted { $0.level < $1.level },
+                classifiedSessionCount: matching.reduce(0) { $0 + $1.classifiedSessionCount },
+                unclassifiedSessionCount: matching.reduce(0) { $0 + $1.unclassifiedSessionCount }
+            )
+        }
+    }
+
+    /// Calendar days an effort period spans, counting today as one.
+    static func days(in period: EffortPeriod) -> Int {
+        switch period {
+        case .today: 1
+        case .last7Days: 7
+        case .last30Days: 30
+        case .last90Days: 90
+        case .last180Days: 180
+        case .lastYear: 365
+        }
     }
 }
 

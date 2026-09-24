@@ -104,8 +104,10 @@ same provider accounts, so the quota snapshot stays one last-writer-wins
 a `DeviceUsageLedger` record (`device-<id>`, id stored under
 `continuityDeviceID` in defaults), and `UsageViewModel.providerDetail(for:)`
 combines or filters ledgers according to the "Usage from" picker
-(`usageSource`). Ledgers carry 30 days of per-provider totals only; effort
-summaries stay local. A new CloudKit record type or field must be deployed
+(`usageSource`). Ledgers carry 30 days of per-provider token and cost totals
+plus effort summaries; effort session counts add up across Macs, and
+`effortSummary(for:period:)` follows the same source once any other Mac has
+published. A new CloudKit record type or field must be deployed
 from the Development to the Production schema in CloudKit Console before a
 TestFlight or App Store build uses it.
 

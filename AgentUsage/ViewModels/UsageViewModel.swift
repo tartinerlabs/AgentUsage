@@ -951,14 +951,36 @@ extension UsageViewModel {
         )
     }
 
-    /// Session effort distribution received from local logs (macOS) or Continuity Sync (iOS).
+    /// Session effort distribution for the Macs `usageSource` selects: this Mac's
+    /// own logs or other Macs' ledgers on macOS, synced ledgers or snapshot on iOS.
     func effortSummary(for provider: Provider, period: EffortPeriod) -> EffortPeriodSummary? {
+        // Published ledgers are per Mac; the synced snapshot's effort is only
+        // whichever Mac published last, so it must not stand in for them.
+        if usesDeviceLedgerUsage {
+            return providerDetail(for: provider)?.effortSummary(for: period)
+        }
         #if os(macOS)
         if let summary = providerDetails[provider]?.effortSummary(for: period) {
             return summary
         }
         #endif
         return providerUsage[provider]?.effortSummary(for: period)
+    }
+
+    /// Effort distributions for the Macs `usageSource` selects, one per period.
+    func effortSummaries(for provider: Provider) -> [EffortPeriodSummary] {
+        EffortPeriod.allCases.compactMap { effortSummary(for: provider, period: $0) }
+    }
+
+    /// Whether token, cost, and effort detail come from published ledgers
+    /// rather than this Mac's own logs (macOS) or the synced snapshot (iOS).
+    private var usesDeviceLedgerUsage: Bool {
+        #if os(macOS)
+        if case .mac(let id) = effectiveUsageSource, id == localDeviceID { return false }
+        return deviceLedgers.contains { $0.deviceID != localDeviceID }
+        #else
+        return !deviceLedgers.isEmpty
+        #endif
     }
 
     /// Providers with at least one classified or explicitly unclassified effort session.
@@ -1020,8 +1042,8 @@ extension UsageViewModel {
         availableProviders.contains(provider)
     }
 
-    /// Token/trend/model detail from local logs, for the Macs `usageSource`
-    /// selects. On macOS this Mac's own detail comes from its live local
+    /// Token/trend/model/effort detail from local logs, for the Macs
+    /// `usageSource` selects. On macOS this Mac's own detail comes from its live local
     /// refresh; other Macs come from their published ledgers.
     func providerDetail(for provider: Provider) -> ProviderDetail? {
         #if os(macOS)
@@ -1031,11 +1053,7 @@ extension UsageViewModel {
         case .mac(let id) where id == localDeviceID:
             return local
         case .mac(let id):
-            return mergedDetail(
-                for: provider,
-                ledgers: remote.filter { $0.deviceID == id },
-                local: local
-            )
+            return DeviceUsageMerge.detail(for: provider, from: remote.filter { $0.deviceID == id })
         case .allMacs:
             guard !remote.isEmpty else { return local }
             let localLedger = DeviceUsageMerge.ledger(
@@ -1043,7 +1061,7 @@ extension UsageViewModel {
                 deviceName: "",
                 details: providerDetails
             )
-            return mergedDetail(for: provider, ledgers: remote + [localLedger], local: local)
+            return DeviceUsageMerge.detail(for: provider, from: remote + [localLedger])
         }
         #else
         switch effectiveUsageSource {
@@ -1057,28 +1075,6 @@ extension UsageViewModel {
         }
         #endif
     }
-
-    #if os(macOS)
-    /// Ledgers carry token and cost only, so effort stays this Mac's own.
-    private func mergedDetail(
-        for provider: Provider,
-        ledgers: [DeviceUsageLedger],
-        local: ProviderDetail?
-    ) -> ProviderDetail? {
-        guard let merged = DeviceUsageMerge.detail(for: provider, from: ledgers) else {
-            return nil
-        }
-        return ProviderDetail(
-            today: merged.today,
-            yesterday: merged.yesterday,
-            last30Days: merged.last30Days,
-            byModel: merged.byModel,
-            dailyCosts: merged.dailyCosts,
-            effortSummaries: local?.effortSummaries ?? [],
-            lastUsedAt: merged.lastUsedAt
-        )
-    }
-    #endif
 
     /// "All Macs", then each Mac with published usage. On macOS this Mac is
     /// listed first even before its own ledger has synced.
@@ -1505,12 +1501,14 @@ extension UsageViewModel {
         deviceLedgers = await usageSyncService.fetchDeviceLedgers()
     }
 
-    /// Whole cents per provider for today and 30 days, plus the day and name.
+    /// Whole cents per provider for today and 30 days, effort session counts,
+    /// plus the day and name.
     private static func ledgerSignature(_ ledger: DeviceUsageLedger) -> String {
         let providers = ledger.providers.map { entry in
             let today = Int((entry.today.costUSD * 100).rounded())
             let month = Int((entry.last30Days.costUSD * 100).rounded())
-            return "\(entry.provider.rawValue):\(today):\(month)"
+            let sessions = entry.effortSummaries.map { "\($0.period.rawValue)=\($0.totalSessionCount)" }
+            return "\(entry.provider.rawValue):\(today):\(month):\(sessions.joined(separator: ","))"
         }
         return ([ledger.anchorDay, ledger.deviceName] + providers).joined(separator: "|")
     }

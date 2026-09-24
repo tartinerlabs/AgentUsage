@@ -73,6 +73,9 @@ public struct LedgerTotals: Codable, Equatable, Sendable {
 /// One provider's local usage on the publishing Mac, relative to `anchorDay`.
 public struct ProviderLedger: Codable, Equatable, Sendable {
     public let provider: Provider
+    /// False when the Mac only has effort data for this provider, so the token
+    /// and cost fields are placeholders rather than genuine zero usage.
+    public let hasTokenUsage: Bool
     public let today: LedgerTotals
     public let yesterday: LedgerTotals
     public let last30Days: LedgerTotals
@@ -80,24 +83,52 @@ public struct ProviderLedger: Codable, Equatable, Sendable {
     public let byModel: [String: LedgerTokens]
     /// Daily cost, oldest → newest, ending on the ledger's `anchorDay`.
     public let dailyCosts: [Double]
+    /// Session effort distributions per period, as of `anchorDay`.
+    public let effortSummaries: [EffortPeriodSummary]
     public let lastUsedAt: Date?
 
     public init(
         provider: Provider,
+        hasTokenUsage: Bool = true,
         today: LedgerTotals,
         yesterday: LedgerTotals,
         last30Days: LedgerTotals,
         byModel: [String: LedgerTokens],
         dailyCosts: [Double],
+        effortSummaries: [EffortPeriodSummary] = [],
         lastUsedAt: Date?
     ) {
         self.provider = provider
+        self.hasTokenUsage = hasTokenUsage
         self.today = today
         self.yesterday = yesterday
         self.last30Days = last30Days
         self.byModel = byModel
         self.dailyCosts = dailyCosts
+        self.effortSummaries = effortSummaries
         self.lastUsedAt = lastUsedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case provider, hasTokenUsage, today, yesterday, last30Days, byModel, dailyCosts
+        case effortSummaries, lastUsedAt
+    }
+
+    /// Ledgers written before effort was shared carry token usage only.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try container.decode(Provider.self, forKey: .provider)
+        hasTokenUsage = try container.decodeIfPresent(Bool.self, forKey: .hasTokenUsage) ?? true
+        today = try container.decode(LedgerTotals.self, forKey: .today)
+        yesterday = try container.decode(LedgerTotals.self, forKey: .yesterday)
+        last30Days = try container.decode(LedgerTotals.self, forKey: .last30Days)
+        byModel = try container.decode([String: LedgerTokens].self, forKey: .byModel)
+        dailyCosts = try container.decode([Double].self, forKey: .dailyCosts)
+        effortSummaries = try container.decodeIfPresent(
+            [EffortPeriodSummary].self,
+            forKey: .effortSummaries
+        ) ?? []
+        lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
     }
 }
 

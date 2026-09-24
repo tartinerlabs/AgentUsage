@@ -110,6 +110,10 @@ struct DashboardView: View {
                 now: now
             )
         case .effort:
+            if viewModel.showsUsageSourcePicker {
+                UsageSourcePicker()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
             if viewModel.providersWithEffortUsage.isEmpty {
                 effortEmptyView
             } else {

@@ -273,10 +273,10 @@ Corner radius is assigned by component scale:
   with an Open Settings action; unavailable-window and start-error states stay inline in
   the same card.
 - **Usage source picker** — a native menu picker labelled "Usage from" (All Macs, This Mac,
-  then other Macs by computer name) that scopes token and cost detail only; quota windows are
-  account-wide and never change with it. Shown only when two or more Macs have published usage:
+  then other Macs by computer name) that scopes token, cost, and effort detail; quota windows
+  are account-wide and never change with it. Shown only when two or more Macs have published usage:
   trailing in the macOS dashboard header row, in a small trailing bar above the menu bar popover's
-  scroll content, and above the provider cards in the iOS Usage segment. A Mac that stops publishing falls back to All Macs.
+  scroll content, and at the top of the iOS Usage and Effort segments. A Mac that stops publishing falls back to All Macs.
 - **Synced Mac rows** — name, "Updated … ago", and a destructive Remove button behind a
   confirmation dialog. macOS lists other Macs under "Other Macs" in the Continuity Sync card
   (this Mac republishes on refresh, so it is never listed); iOS lists every Mac in a "Macs"

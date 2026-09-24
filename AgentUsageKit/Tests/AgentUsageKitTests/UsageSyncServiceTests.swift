@@ -364,6 +364,49 @@ struct UsageSyncServiceTests {
         #expect(await service.fetchDeviceLedgers().map(\.deviceID) == ["mac-a"])
     }
 
+    @Test func ledgerWithoutEffortFieldsStillDecodes() throws {
+        let json = """
+        {"provider":"claude","today":{"tokens":{"input":1,"output":2,"cacheCreation":0,"cacheRead":0,\
+        "reasoning":0,"cacheCreation1h":0},"costUSD":1.5},\
+        "yesterday":{"tokens":{"input":0,"output":0,"cacheCreation":0,"cacheRead":0,"reasoning":0,\
+        "cacheCreation1h":0},"costUSD":0},\
+        "last30Days":{"tokens":{"input":1,"output":2,"cacheCreation":0,"cacheRead":0,"reasoning":0,\
+        "cacheCreation1h":0},"costUSD":1.5},\
+        "byModel":{},"dailyCosts":[1.5]}
+        """
+
+        let entry = try JSONDecoder().decode(ProviderLedger.self, from: Data(json.utf8))
+
+        #expect(entry.hasTokenUsage)
+        #expect(entry.effortSummaries.isEmpty)
+        #expect(entry.lastUsedAt == nil)
+        #expect(entry.today.costUSD == 1.5)
+    }
+
+    @Test func ledgerEffortRoundTrips() throws {
+        let summary = EffortPeriodSummary(
+            period: .last7Days,
+            levels: [EffortLevelCount(level: .xhigh, sessionCount: 2)],
+            classifiedSessionCount: 2,
+            unclassifiedSessionCount: 1
+        )
+        let entry = ProviderLedger(
+            provider: .codex,
+            hasTokenUsage: false,
+            today: .zero,
+            yesterday: .zero,
+            last30Days: .zero,
+            byModel: [:],
+            dailyCosts: [],
+            effortSummaries: [summary],
+            lastUsedAt: nil
+        )
+
+        let decoded = try JSONDecoder().decode(ProviderLedger.self, from: JSONEncoder().encode(entry))
+
+        #expect(decoded == entry)
+    }
+
     @Test func ledgerDayOffsetCountsCalendarDays() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
