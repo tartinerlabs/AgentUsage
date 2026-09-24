@@ -126,6 +126,13 @@ struct DashboardTabView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                if viewModel.showsUsageSourcePicker {
+                    Spacer(minLength: 16)
+                    UsageSourcePicker()
+                        .fixedSize()
+                        .help("Token and cost usage from every Mac, or one Mac")
+                }
             }
         }
     }

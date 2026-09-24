@@ -98,6 +98,17 @@ publishes over CloudKit
 `iOS/Services/iOSCredentialService.swift` exists, but the
 `~/.claude/.credentials.json` path it refers to does not exist on iOS.
 
+**Several Macs can publish to Continuity Sync.** All Macs are assumed to use the
+same provider accounts, so the quota snapshot stays one last-writer-wins
+`latest` record. Local token and cost usage is per machine: each Mac also writes
+a `DeviceUsageLedger` record (`device-<id>`, id stored under
+`continuityDeviceID` in defaults), and `UsageViewModel.providerDetail(for:)`
+combines or filters ledgers according to the "Usage from" picker
+(`usageSource`). Ledgers carry 30 days of per-provider totals only; effort
+summaries stay local. A new CloudKit record type or field must be deployed
+from the Development to the Production schema in CloudKit Console before a
+TestFlight or App Store build uses it.
+
 **New types are MainActor-isolated by default** —
 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` is set project-wide. Mark types
 `nonisolated` when they need to cross actor boundaries.
