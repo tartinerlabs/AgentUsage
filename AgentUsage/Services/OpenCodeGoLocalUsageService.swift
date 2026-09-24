@@ -3,7 +3,7 @@
 //  AgentUsage
 //
 //  OpenCode Go quota windows reconstructed from local files — no cookie,
-//  no workspace ID, no network. Mirrors what CodexBar's local reader does.
+//  no workspace ID, no network.
 //
 
 #if os(macOS)

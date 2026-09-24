@@ -2,8 +2,6 @@
 
 A multi-platform app (macOS + iOS) that monitors your Claude Code API usage in real-time.
 
-> **Archived:** This project was archived on 2026-05-01 and is no longer maintained. Releases and source code remain available as-is, but no further feature work, fixes, support, or releases are planned.
-
 ## Overview
 
 Multi-platform app that monitors Claude Code API usage in real-time. Tracks session (5-hour) and weekly (7-day) rate limits for Opus and Sonnet models, plus token usage and cost from local logs.
@@ -56,7 +54,7 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 
 **Prerequisites:**
 ```bash
-# Install and authenticate Claude CLI (creates ~/.claude/.credentials.json)
+# Install and authenticate Claude CLI (stores credentials in the macOS Keychain)
 claude auth login
 ```
 
@@ -105,7 +103,7 @@ xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Relea
 - iOS alerts are best-effort and are evaluated when the device receives a fresh Mac-synced snapshot during foreground or background refresh
 
 **Credentials:**
-- Reads `~/.claude/.credentials.json` for API access
+- Reads Claude Code's `Claude Code-credentials` Keychain entry for API access
 - Token usage from `~/.claude/projects/` JSONL logs
 - Manual file selection if not found
 
@@ -151,6 +149,6 @@ No data collection or transmission. All processing is local. Reads credentials f
 
 ## Support
 
-This project is archived and no longer accepts support requests. Existing issues and releases remain available for reference.
+Report bugs and request features in [GitHub Issues](https://github.com/tartinerlabs/AgentUsage/issues).
 
 **Releases:** https://github.com/tartinerlabs/AgentUsage/releases
