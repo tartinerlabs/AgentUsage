@@ -23,6 +23,14 @@
         "identifier" : "D8EFFF822F05796C006A2183",
         "name" : "AgentUsageTests"
       }
+    },
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:AgentUsageKit",
+        "identifier" : "AgentUsageKitTests",
+        "name" : "AgentUsageKitTests"
+      }
     }
   ],
   "version" : 1
