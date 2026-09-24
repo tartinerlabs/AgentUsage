@@ -126,6 +126,12 @@ struct SettingsView: View {
                 }
             }
 
+            Section("About") {
+                LabeledContent("Version", value: Bundle.main.marketingVersion)
+                LabeledContent("Build", value: Bundle.main.buildNumber)
+                    .monospacedDigit()
+            }
+
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)

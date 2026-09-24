@@ -31,6 +31,22 @@ struct SettingsTabView: View {
 
                 NotificationSettingsCard()
 
+                settingsCard(title: "Version", systemImage: "info.circle") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Current Version")
+                                .font(.body)
+                            Text("Installed app version and build")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Bundle.main.appVersion)
+                            .font(.body.monospaced())
+                            .textSelection(.enabled)
+                    }
+                }
+
                 #if DEBUG
                 // Debug Section (only in debug builds)
                 settingsCard(title: "Debug", systemImage: "ladybug") {

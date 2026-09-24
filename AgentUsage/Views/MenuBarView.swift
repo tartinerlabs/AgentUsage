@@ -316,11 +316,9 @@ struct MenuBarView: View {
 
     private var footer: some View {
         HStack {
-            if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-                Text("\(Constants.appDisplayName) v\(version)")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+            Text("\(Constants.appDisplayName) v\(Bundle.main.appVersion)")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
             Spacer()
             if let fetchedAt = latestProviderFetchDate {
                 LastUpdatedLabel(
