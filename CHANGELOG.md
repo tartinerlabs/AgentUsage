@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Turn individual providers off in macOS Settings; they are no longer checked, are hidden on the Mac, and stop syncing to iPhone and iPad
+- Add Refresh, Open Dashboard, and Settings to the menu bar icon's right-click menu
+- Size the menu bar popover to the selected page, up to its previous height, and scroll taller pages
+- Show when the next automatic refresh runs in the menu bar popover footer
+- Stop counting the same Codex or Grok session twice in local token and cost totals
+- Stop mentioning OpenCode in Settings and About while it is unavailable
+- Add privacy manifests for the app and widget
+
 ## [0.33.0] - 2026-09-24
 
 Consolidates the untagged 0.29.1–0.32.1 builds.
