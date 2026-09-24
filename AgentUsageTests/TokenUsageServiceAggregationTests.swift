@@ -85,5 +85,47 @@ struct TokenUsageServiceAggregationTests {
         #expect(samples.filter { $0.provider == .codex }.count == 1)
         #expect(samples.filter { $0.provider == .grok }.count == 1)
     }
+
+    @Test func disabledProviderSourceIsNeverRead() async {
+        let now = Date()
+        let codexSource = StaticUsageLogSource(provider: .codex, entries: [
+            ProviderUsageEntry(
+                provider: .codex,
+                model: "gpt-5.5",
+                tokens: TokenCount(inputTokens: 10, outputTokens: 5, cacheCreationTokens: 0, cacheReadTokens: 0),
+                timestamp: now,
+                dedupKey: "codex:session-1"
+            ),
+        ])
+        let grokSource = StaticUsageLogSource(provider: .grok, entries: [
+            ProviderUsageEntry(
+                provider: .grok,
+                model: "grok-4.6",
+                tokens: TokenCount(inputTokens: 10, outputTokens: 5, cacheCreationTokens: 0, cacheReadTokens: 0),
+                timestamp: now,
+                dedupKey: "grok:session-1"
+            ),
+        ])
+        let service = TokenUsageService(
+            extraSources: [codexSource, grokSource],
+            isProviderEnabled: { $0 != .grok }
+        )
+
+        let details = await service.fetchExtraProviderDetails(since: .distantPast)
+        let samples = await service.fetchExtraProviderEffortSamples(since: .distantPast)
+
+        #expect(details[.codex]?.last30Days.tokens.totalTokens == 15)
+        #expect(details[.grok] == nil)
+        #expect(samples.allSatisfy { $0.provider == .codex })
+        #expect(await grokSource.fetchCount == 0)
+    }
+
+    @Test func disabledClaudeLeavesClaudeLogsUnread() async throws {
+        let service = TokenUsageService(isProviderEnabled: { $0 != .claude })
+
+        let parsed = try await service.fetchParsedEntries(fileStates: [:])
+
+        #expect(parsed.isEmpty)
+    }
 }
 #endif

@@ -46,7 +46,12 @@ enum DependencyContainer {
             GrokLogSource(),
             // OpenCodeLogSource(), // Disabled: OpenCode usage is currently unreliable.
         ]
-        return TokenUsageService(extraSources: sources)
+        // Providers turned off in Settings are skipped at read time, so a toggle
+        // takes effect on the next refresh without rebuilding the service.
+        return TokenUsageService(
+            extraSources: sources,
+            isProviderEnabled: ProviderSettings.enabledCheck(defaults: defaults)
+        )
     }
 
     /// Create the macOS token import/query coordinator at the composition root.
