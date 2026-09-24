@@ -1106,3 +1106,85 @@ struct UsageSnapshotTests {
         #expect(decoded.hasExtraUsageEnabled == false)
     }
 }
+
+@Suite("CreditBalance")
+struct CreditBalanceTests {
+    @Test func displayValueIsUnlimitedOrTheBalance() {
+        #expect(CreditBalance.unlimited.displayValue == "Unlimited")
+        #expect(CreditBalance(remaining: 25).displayValue == "25 available")
+        #expect(CreditBalance(remaining: .infinity).displayValue == nil)
+    }
+
+    @Test func codableRoundTripsFiniteAndUnlimited() throws {
+        for balance in [CreditBalance(remaining: 9.99), .unlimited] {
+            let data = try JSONEncoder().encode(balance)
+            #expect(try JSONDecoder().decode(CreditBalance.self, from: data) == balance)
+        }
+    }
+
+    @Test func providerSnapshotRoundTripsCreditBalanceAndProviderDefinedWindows() throws {
+        let fetchedAt = Date(timeIntervalSince1970: 1_750_000_000)
+        let snapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 12,
+                    resetsAt: fetchedAt.addingTimeInterval(86_400),
+                    windowID: "codex.review.weekly",
+                    displayName: "Code review weekly limit",
+                    totalDuration: 604_800
+                ),
+                UsageWindow(
+                    utilization: 40,
+                    resetsAt: fetchedAt.addingTimeInterval(3_600),
+                    windowID: "codex.model.codex_spark.five_hour",
+                    displayName: "GPT-5.3-Codex-Spark 5-hour limit",
+                    totalDuration: 18_000,
+                    scope: UsageWindowScope(model: "GPT-5.3-Codex-Spark")
+                ),
+            ],
+            creditBalance: CreditBalance(remaining: 1_250),
+            fetchedAt: fetchedAt
+        )
+
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(ProviderUsageSnapshot.self, from: data)
+
+        #expect(decoded.creditBalance == CreditBalance(remaining: 1_250))
+        #expect(decoded.windows.map(\.windowID.rawValue) == [
+            "codex.review.weekly",
+            "codex.model.codex_spark.five_hour",
+        ])
+        #expect(decoded.windows.map(\.displayName) == [
+            "Code review weekly limit",
+            "GPT-5.3-Codex-Spark 5-hour limit",
+        ])
+        #expect(decoded.windows.last?.scope?.model == "GPT-5.3-Codex-Spark")
+
+        // Older iOS builds decode `windowType` strictly, so provider-defined windows
+        // must carry a legacy value they already know.
+        let object = try JSONSerialization.jsonObject(with: data)
+        let json = try #require(object as? [String: Any])
+        let windows = try #require(json["windows"] as? [[String: Any]])
+        #expect(windows.map { $0["windowType"] as? String } == ["custom", "custom"])
+    }
+
+    @Test func providerSnapshotWithoutCreditBalanceDecodesAsNil() throws {
+        let payload = """
+        {
+          "provider": "codex",
+          "windows": [],
+          "fetchedAt": 1000
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+
+        let snapshot = try decoder.decode(
+            ProviderUsageSnapshot.self,
+            from: try #require(payload.data(using: .utf8))
+        )
+
+        #expect(snapshot.creditBalance == nil)
+    }
+}

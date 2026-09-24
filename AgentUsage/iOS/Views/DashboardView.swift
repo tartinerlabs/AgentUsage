@@ -226,6 +226,7 @@ struct DashboardView: View {
                 status: viewModel.status(for: snapshot.provider, now: now),
                 fetchedAt: snapshot.fetchedAt,
                 rateLimitResetCredits: snapshot.rateLimitResetCredits,
+                creditBalance: snapshot.creditBalance,
                 detail: viewModel.providerDetail(for: snapshot.provider)
             )
             .accessibilityLabel("\(snapshot.provider.displayName) usage")

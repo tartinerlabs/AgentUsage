@@ -435,6 +435,7 @@ struct ProviderSectionView: View {
                     status: viewModel.status(for: provider, now: context.date),
                     fetchedAt: usage?.fetchedAt,
                     rateLimitResetCredits: usage?.rateLimitResetCredits,
+                    creditBalance: usage?.creditBalance,
                     density: .detail,
                     detail: viewModel.providerDetail(for: provider),
                     effortSummaries: viewModel.effortSummaries(for: provider),

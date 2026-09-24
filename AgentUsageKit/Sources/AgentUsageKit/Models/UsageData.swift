@@ -684,6 +684,48 @@ public struct RateLimitResetCredits: Sendable, Codable, Equatable {
     }
 }
 
+// MARK: - Credit Balance
+
+/// Spendable usage credits a provider reports next to its rate windows (Codex
+/// `credits` on `/wham/usage`). Unrelated to `RateLimitResetCredits`, which counts
+/// banked limit resets rather than a balance to spend.
+public struct CreditBalance: Sendable, Codable, Equatable {
+    /// Credits left to spend. nil when `isUnlimited`.
+    public let remaining: Double?
+    /// The account's credits are unlimited.
+    public let isUnlimited: Bool
+
+    public static let unlimited = CreditBalance(remaining: nil, isUnlimited: true)
+
+    public init(remaining: Double) {
+        self.init(remaining: remaining, isUnlimited: false)
+    }
+
+    private init(remaining: Double?, isUnlimited: Bool) {
+        self.remaining = remaining
+        self.isUnlimited = isUnlimited
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case remaining
+        case isUnlimited
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        remaining = try container.decodeIfPresent(Double.self, forKey: .remaining)
+        isUnlimited = try container.decodeIfPresent(Bool.self, forKey: .isUnlimited) ?? false
+    }
+
+    /// Card value: "Unlimited", or the balance, e.g. "1,250 available".
+    /// nil when there is no balance to show.
+    public var displayValue: String? {
+        if isUnlimited { return "Unlimited" }
+        guard let remaining, remaining.isFinite else { return nil }
+        return "\(remaining.formatted(.number.precision(.fractionLength(0...2)))) available"
+    }
+}
+
 // MARK: - Provider Usage Snapshot
 
 /// Provider-agnostic rate-window snapshot.
@@ -700,6 +742,9 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
     /// On-demand rate-limit reset credits (Codex and Claude). nil when the provider
     /// doesn't report them or the account has no reset-credit balance.
     public let rateLimitResetCredits: RateLimitResetCredits?
+    /// Spendable credits (Codex `credits`). nil when the provider doesn't report
+    /// them or the account has none to spend.
+    public let creditBalance: CreditBalance?
     /// Session effort distributions, grouped by aggregation period.
     public let effortSummaries: [EffortPeriodSummary]
     /// The provider's usage split for the current period (Claude: by surface this week).
@@ -717,6 +762,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         extraUsage: ExtraUsageCost? = nil,
         planName: String? = nil,
         rateLimitResetCredits: RateLimitResetCredits? = nil,
+        creditBalance: CreditBalance? = nil,
         effortSummaries: [EffortPeriodSummary] = [],
         usageBreakdown: [UsageShare] = [],
         fetchedAt: Date,
@@ -727,6 +773,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.extraUsage = extraUsage
         self.planName = planName
         self.rateLimitResetCredits = rateLimitResetCredits
+        self.creditBalance = creditBalance
         self.effortSummaries = effortSummaries
         self.usageBreakdown = usageBreakdown
         self.fetchedAt = fetchedAt
@@ -745,6 +792,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         self.extraUsage = snapshot.extraUsage
         self.planName = planName
         self.rateLimitResetCredits = snapshot.rateLimitResetCredits
+        self.creditBalance = nil
         self.effortSummaries = effortSummaries
         self.usageBreakdown = snapshot.weeklyBreakdown
         self.fetchedAt = snapshot.fetchedAt
@@ -757,6 +805,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         case extraUsage
         case planName
         case rateLimitResetCredits
+        case creditBalance
         case effortSummaries
         case usageBreakdown
         case fetchedAt
@@ -773,6 +822,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
             RateLimitResetCredits.self,
             forKey: .rateLimitResetCredits
         )
+        creditBalance = try container.decodeIfPresent(CreditBalance.self, forKey: .creditBalance)
         effortSummaries = try container.decodeIfPresent(
             [EffortPeriodSummary].self,
             forKey: .effortSummaries
@@ -789,6 +839,7 @@ public struct ProviderUsageSnapshot: Sendable, Codable, Identifiable {
         try container.encodeIfPresent(extraUsage, forKey: .extraUsage)
         try container.encodeIfPresent(planName, forKey: .planName)
         try container.encodeIfPresent(rateLimitResetCredits, forKey: .rateLimitResetCredits)
+        try container.encodeIfPresent(creditBalance, forKey: .creditBalance)
         try container.encode(effortSummaries, forKey: .effortSummaries)
         if !usageBreakdown.isEmpty { try container.encode(usageBreakdown, forKey: .usageBreakdown) }
         try container.encode(fetchedAt, forKey: .fetchedAt)

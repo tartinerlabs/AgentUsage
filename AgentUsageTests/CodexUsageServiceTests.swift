@@ -196,6 +196,284 @@ struct CodexUsageServiceTests {
         #expect(snapshot == nil)
     }
 
+    // MARK: - Code Review, Model Quotas, and Credits
+
+    @Test func codeReviewAndModelQuotasFollowPlanWindows() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let review = Self.rateLimitJSON(
+            primary: Self.windowJSON(usedPercent: 12, seconds: 604_800, now: now, resetsIn: 400_000),
+            secondary: nil
+        )
+        let spark = Self.rateLimitJSON(
+            primary: Self.windowJSON(usedPercent: 40, seconds: 18_000, now: now, resetsIn: 3_600),
+            secondary: Self.windowJSON(usedPercent: 8, seconds: 604_800, now: now, resetsIn: 500_000)
+        )
+        let body = Self.usageBody(now: now, extra: """
+        ,"code_review_rate_limit":\(review),"additional_rate_limits":[{"limit_name":"GPT-5.3-Codex-Spark","metered_feature":"codex_spark","rate_limit":\(spark)}],"credits":{"has_credits":true,"unlimited":false,"balance":"1250","approx_local_messages":[20,100],"approx_cloud_messages":[5,25]}
+        """)
+
+        let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                return (Self.response(url: Constants.codexResetCreditsURL, 404), Data())
+            }
+            return (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+        let codex = try #require(snapshot)
+
+        #expect(codex.windows.map(\.windowID.rawValue) == Self.planWindowIDs + [
+            "codex.review.weekly",
+            "codex.model.codex_spark.five_hour",
+            "codex.model.codex_spark.weekly",
+        ])
+        #expect(codex.windows.map(\.displayName) == [
+            "5-hour limit",
+            "Weekly limit",
+            "Code review weekly limit",
+            "GPT-5.3-Codex-Spark 5-hour limit",
+            "GPT-5.3-Codex-Spark weekly limit",
+        ])
+        // Provider-defined windows stay `.custom` so older iOS builds still decode them.
+        #expect(codex.windows.dropFirst(2).allSatisfy { $0.windowType == .custom })
+
+        let reviewWindow = try #require(codex.windows.first { $0.windowID == "codex.review.weekly" })
+        #expect(reviewWindow.utilization == 12)
+        #expect(reviewWindow.totalDuration == 604_800)
+        #expect(reviewWindow.resetsAt == now.addingTimeInterval(400_000))
+        #expect(reviewWindow.scope == nil)
+
+        let sparkFiveHour = try #require(codex.windows.first { $0.windowID == "codex.model.codex_spark.five_hour" })
+        #expect(sparkFiveHour.utilization == 40)
+        #expect(sparkFiveHour.totalDuration == 18_000)
+        #expect(sparkFiveHour.resetsAt == now.addingTimeInterval(3_600))
+        #expect(sparkFiveHour.scope?.model == "GPT-5.3-Codex-Spark")
+
+        let sparkWeekly = try #require(codex.windows.first { $0.windowID == "codex.model.codex_spark.weekly" })
+        #expect(sparkWeekly.utilization == 8)
+        #expect(sparkWeekly.resetsAt == now.addingTimeInterval(500_000))
+
+        #expect(codex.creditBalance == CreditBalance(remaining: 1_250))
+    }
+
+    @Test func planOnlyPayloadKeepsJustThePlanWindows() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = Self.usageBody(now: now)
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.windows.map(\.windowID.rawValue) == Self.planWindowIDs)
+        #expect(snapshot?.windows.map(\.utilization) == [22, 34])
+        #expect(snapshot?.creditBalance == nil)
+    }
+
+    @Test func absentOrEmptyExtraQuotasAddNoWindows() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let emptyRateLimit = Self.rateLimitJSON(primary: nil, secondary: nil)
+        let extras = [
+            #","code_review_rate_limit":null,"additional_rate_limits":null,"credits":null"#,
+            #","additional_rate_limits":[]"#,
+            #","additional_rate_limits":[null]"#,
+            #","additional_rate_limits":[{"limit_name":"GPT-5.3-Codex-Spark","metered_feature":"codex_spark","rate_limit":null}]"#,
+            #","additional_rate_limits":[{"limit_name":"GPT-5.3-Codex-Spark","metered_feature":"codex_spark"}]"#,
+            #","additional_rate_limits":[{"rate_limit":\#(emptyRateLimit)}]"#,
+            #","code_review_rate_limit":\#(emptyRateLimit),"additional_rate_limits":[{"limit_name":"GPT-5.3-Codex-Spark","metered_feature":"codex_spark","rate_limit":\#(emptyRateLimit)}]"#,
+        ]
+
+        for extra in extras {
+            let body = Self.usageBody(now: now, extra: extra)
+            let service = try Self.makeService(now: now) { _ in
+                (Self.response(200), Data(body.utf8))
+            }
+            let snapshot = try await service.fetchSnapshot()
+
+            #expect(snapshot?.windows.map(\.windowID.rawValue) == Self.planWindowIDs, "\(extra)")
+        }
+    }
+
+    @Test func malformedExtraBlocksNeverCostThePlanWindows() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let extras = [
+            #","code_review_rate_limit":"unavailable","additional_rate_limits":{"limit_name":"GPT-5.3-Codex-Spark"},"credits":42"#,
+            #","code_review_rate_limit":{"primary_window":{"used_percent":"high"}},"additional_rate_limits":[{"limit_name":7,"metered_feature":"codex_spark","rate_limit":{"primary_window":{"used_percent":"high"}}}],"credits":{"has_credits":"yes","balance":{"amount":5}}"#,
+            #","additional_rate_limits":["GPT-5.3-Codex-Spark"],"credits":[]"#,
+        ]
+
+        for extra in extras {
+            let body = Self.usageBody(now: now, extra: extra)
+            let service = try Self.makeService(now: now) { _ in
+                (Self.response(200), Data(body.utf8))
+            }
+            let snapshot = try await service.fetchSnapshot()
+
+            #expect(snapshot?.windows.map(\.windowID.rawValue) == Self.planWindowIDs, "\(extra)")
+            #expect(snapshot?.windows.map(\.utilization) == [22, 34], "\(extra)")
+            #expect(snapshot?.creditBalance == nil, "\(extra)")
+        }
+    }
+
+    @Test func extraQuotasShowWithoutPlanWindows() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let review = Self.rateLimitJSON(
+            primary: Self.windowJSON(usedPercent: 3, seconds: 604_800, now: now, resetsIn: 7_200),
+            secondary: nil
+        )
+        let body = """
+        {"plan_type":"plus","rate_limit":null,"code_review_rate_limit":\(review)}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.windows.map(\.windowID.rawValue) == ["codex.review.weekly"])
+        #expect(snapshot?.windows.first?.utilization == 3)
+    }
+
+    @Test func creditBalanceShowsWithoutRateLimitWindows() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"plus","rate_limit":null,"credits":{"has_credits":true,"unlimited":false,"balance":"300"}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+        let codex = try #require(snapshot)
+
+        #expect(codex.windows.isEmpty)
+        #expect(codex.creditBalance == CreditBalance(remaining: 300))
+    }
+
+    @Test func payloadWithNoWindowsAndNoCreditsIsInvalid() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = """
+        {"plan_type":"plus","rate_limit":null,"credits":{"has_credits":false,"unlimited":false,"balance":"0"}}
+        """
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+
+        await #expect(throws: CodexUsageService.CodexError.self) {
+            _ = try await service.fetchSnapshot()
+        }
+    }
+
+    @Test func extraQuotaIdentityFollowsLengthNotSlot() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        // Weekly review limit reported in the secondary slot.
+        let review = Self.rateLimitJSON(
+            primary: nil,
+            secondary: Self.windowJSON(usedPercent: 5, seconds: 604_800, now: now, resetsIn: 1_000)
+        )
+        let threeDay = Self.rateLimitJSON(
+            primary: Self.windowJSON(usedPercent: 7, seconds: 259_200, now: now, resetsIn: 2_000),
+            secondary: nil
+        )
+        let unsized = Self.rateLimitJSON(
+            primary: #"{"used_percent":9,"reset_after_seconds":90}"#,
+            secondary: nil
+        )
+        let body = Self.usageBody(now: now, extra: """
+        ,"code_review_rate_limit":\(review),"additional_rate_limits":[{"limit_name":"Model A","metered_feature":"codex_a","rate_limit":\(threeDay)},{"limit_name":"GPT-5.3-Codex-Spark","rate_limit":\(unsized)}]
+        """)
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+        let windows = try #require(snapshot?.windows)
+
+        #expect(windows.map(\.windowID.rawValue) == Self.planWindowIDs + [
+            "codex.review.weekly",
+            "codex.model.codex_a.3d",
+            "codex.model.gpt_5_3_codex_spark.primary",
+        ])
+        #expect(windows.dropFirst(2).map(\.displayName) == [
+            "Code review weekly limit",
+            "Model A 3-day limit",
+            "GPT-5.3-Codex-Spark limit",
+        ])
+        let unsizedWindow = try #require(windows.last)
+        #expect(unsizedWindow.totalDuration == 0)
+        #expect(unsizedWindow.resetsAt == now.addingTimeInterval(90))
+    }
+
+    @Test func repeatedModelQuotaAppearsOnce() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let spark = Self.rateLimitJSON(
+            primary: Self.windowJSON(usedPercent: 40, seconds: 18_000, now: now, resetsIn: 3_600),
+            secondary: nil
+        )
+        let entry = #"{"limit_name":"GPT-5.3-Codex-Spark","metered_feature":"codex_spark","rate_limit":\#(spark)}"#
+        let body = Self.usageBody(now: now, extra: #","additional_rate_limits":[\#(entry),\#(entry)]"#)
+
+        let service = try Self.makeService(now: now) { _ in
+            (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.windows.map(\.windowID.rawValue) == Self.planWindowIDs + [
+            "codex.model.codex_spark.five_hour",
+        ])
+    }
+
+    @Test func creditsSurfaceOnlyAsUnlimitedOrAPositiveBalance() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let cases: [(credits: String?, expected: CreditBalance?)] = [
+            (nil, nil),
+            ("null", nil),
+            (#"{"has_credits":false,"unlimited":false,"balance":"0"}"#, nil),
+            (#"{"has_credits":false,"unlimited":false,"balance":"25"}"#, nil),
+            (#"{"has_credits":true,"unlimited":false,"balance":null}"#, nil),
+            (#"{"has_credits":true,"unlimited":false,"balance":"0"}"#, nil),
+            (#"{"has_credits":true,"unlimited":false,"balance":"n/a"}"#, nil),
+            (#"{"has_credits":true,"unlimited":true,"balance":null}"#, .unlimited),
+            (#"{"has_credits":false,"unlimited":true}"#, .unlimited),
+            (#"{"has_credits":true,"unlimited":false,"balance":"9.99"}"#, CreditBalance(remaining: 9.99)),
+            (#"{"has_credits":true,"unlimited":false,"balance":" 25 "}"#, CreditBalance(remaining: 25)),
+            (#"{"has_credits":true,"unlimited":false,"balance":42}"#, CreditBalance(remaining: 42)),
+        ]
+
+        for (credits, expected) in cases {
+            let body = Self.usageBody(now: now, extra: credits.map { #","credits":\#($0)"# } ?? "")
+            let service = try Self.makeService(now: now) { _ in
+                (Self.response(200), Data(body.utf8))
+            }
+            let snapshot = try await service.fetchSnapshot()
+
+            #expect(snapshot?.creditBalance == expected, "credits: \(credits ?? "absent")")
+            #expect(snapshot?.windows.map(\.windowID.rawValue) == Self.planWindowIDs, "credits: \(credits ?? "absent")")
+        }
+    }
+
+    @Test func resetCreditsEnrichmentKeepsCreditBalance() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let body = Self.usageBody(now: now, extra: """
+        ,"rate_limit_reset_credits":{"available_count":1},"credits":{"has_credits":true,"unlimited":false,"balance":"300"}
+        """)
+        let expiry = now.addingTimeInterval(2 * 86400)
+        let resetBody = """
+        {"available_count":1,"credits":[{"status":"available","expires_at":"\(Self.iso8601(expiry))"}]}
+        """
+
+        let service = try Self.makeService(now: now) { request in
+            if Self.isResetCreditsPath(request) {
+                return (Self.response(url: Constants.codexResetCreditsURL, 200), Data(resetBody.utf8))
+            }
+            return (Self.response(200), Data(body.utf8))
+        }
+        let snapshot = try await service.fetchSnapshot()
+
+        #expect(snapshot?.rateLimitResetCredits?.expirations == [expiry])
+        #expect(snapshot?.creditBalance == CreditBalance(remaining: 300))
+    }
+
     // MARK: - Reset Credits
 
     @Test func resetCreditsCountParsedFromUsageBody() async throws {
@@ -341,6 +619,37 @@ struct CodexUsageServiceTests {
         let openAIBeta = Mutex<String?>(nil)
         let originator = Mutex<String?>(nil)
         let authorization = Mutex<String?>(nil)
+    }
+
+    private static let planWindowIDs = [
+        UsageWindowType.codexFiveHour.rawValue,
+        UsageWindowType.codexWeekly.rawValue,
+    ]
+
+    /// A window shaped like Codex's `RateLimitWindowSnapshot`.
+    private static func windowJSON(usedPercent: Int, seconds: Int, now: Date, resetsIn: Int) -> String {
+        """
+        {"used_percent":\(usedPercent),"limit_window_seconds":\(seconds),"reset_after_seconds":\(resetsIn),"reset_at":\(Int(now.timeIntervalSince1970) + resetsIn)}
+        """
+    }
+
+    /// A quota shaped like Codex's `RateLimitStatusDetails`.
+    private static func rateLimitJSON(primary: String?, secondary: String?) -> String {
+        """
+        {"allowed":true,"limit_reached":false,"primary_window":\(primary ?? "null"),"secondary_window":\(secondary ?? "null")}
+        """
+    }
+
+    /// A `/wham/usage` body shaped like Codex's `RateLimitStatusPayload`: the plan's
+    /// 5-hour (22%) and weekly (34%) windows, then `extra` top-level members.
+    private static func usageBody(now: Date, extra: String = "") -> String {
+        let plan = rateLimitJSON(
+            primary: windowJSON(usedPercent: 22, seconds: 18_000, now: now, resetsIn: 8_535),
+            secondary: windowJSON(usedPercent: 34, seconds: 604_800, now: now, resetsIn: 323_863)
+        )
+        return """
+        {"plan_type":"pro","rate_limit":\(plan),"spend_control":null,"rate_limit_reached_type":null\(extra)}
+        """
     }
 
     private static func isResetCreditsPath(_ request: URLRequest) -> Bool {

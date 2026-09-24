@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Show Codex code review and model-specific limits after the 5-hour and weekly limits, and the Codex credit balance when the account has one
 - Turn individual providers off in macOS Settings; they are no longer checked, are hidden on the Mac, and stop syncing to iPhone and iPad
 - Add Refresh, Open Dashboard, and Settings to the menu bar icon's right-click menu
 - Size the menu bar popover to the selected page, up to its previous height, and scroll taller pages
