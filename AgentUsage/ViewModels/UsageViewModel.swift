@@ -757,6 +757,11 @@ final class UsageViewModel {
     // MARK: - Provider Settings
 
     #if os(macOS)
+    /// Whether this Mac has anything to share over Continuity Sync yet.
+    var hasContinuityPayload: Bool {
+        snapshot != nil || !providerUsage.isEmpty || !providersWithEffortUsage.isEmpty
+    }
+
     /// Whether the Settings toggle for `provider` may be switched off: at least
     /// one provider must stay enabled.
     func canDisableProvider(_ provider: Provider) -> Bool {
@@ -774,6 +779,12 @@ final class UsageViewModel {
 
         if enabled {
             await refresh(force: true)
+            // Share it right away, as turning a provider off does, rather than
+            // waiting for the automatic publish spacing.
+            if !appConnectionRevoked {
+                await publishContinuitySnapshot(force: true)
+                await syncDeviceLedgers(force: true)
+            }
             return
         }
 
@@ -1496,7 +1507,7 @@ extension UsageViewModel {
         }
 
         #if os(macOS)
-        guard snapshot != nil || !providerUsage.isEmpty || !providersWithEffortUsage.isEmpty else {
+        guard hasContinuityPayload else {
             continuitySyncErrorMessage = "Refresh usage once before sharing it with iPhone and iPad."
             return
         }

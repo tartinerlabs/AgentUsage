@@ -32,9 +32,10 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         self.isProviderEnabled = isProviderEnabled
     }
 
-    /// Extra sources whose provider is enabled. A disabled provider's logs are never read.
-    private var enabledExtraSources: [any UsageLogSource] {
-        extraSources.filter { isProviderEnabled($0.provider) }
+    /// Providers enabled right now. Read once per fetch so a toggle made mid-fetch
+    /// cannot split one fetch's results.
+    private func enabledProviders() -> Set<Provider> {
+        Set(Provider.allCases.filter { isProviderEnabled($0) })
     }
 
     // Reentrancy guard: reuse in-flight fetch instead of starting a new one
@@ -85,7 +86,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
         var entriesByProvider: [Provider: [ProviderUsageEntry]] = [:]
         // Deduplicate across sources by provider-scoped key, as `computeSnapshot` does.
         var seen = Set<String>()
-        for source in enabledExtraSources {
+        let enabled = enabledProviders()
+        for source in extraSources where enabled.contains(source.provider) {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
             // An empty result is still a successful read. Preserve the source
             // provider so callers can distinguish genuine zero usage from an
@@ -93,7 +95,7 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             if entries.isEmpty, entriesByProvider[source.provider] == nil {
                 entriesByProvider[source.provider] = []
             }
-            for entry in entries where isProviderEnabled(entry.provider) {
+            for entry in entries where enabled.contains(entry.provider) {
                 guard seen.insert(entry.dedupKey).inserted else { continue }
                 entriesByProvider[entry.provider, default: []].append(entry)
             }
@@ -124,14 +126,15 @@ actor TokenUsageService: TokenUsageServiceProtocol {
     func fetchExtraProviderEffortSamples(since: Date) async -> [EffortUsageSample] {
         var samples: [EffortUsageSample] = []
         var seen = Set<String>()
-        for source in enabledExtraSources {
+        let enabled = enabledProviders()
+        for source in extraSources where enabled.contains(source.provider) {
             guard let entries = try? await source.fetchEntries(since: since) else { continue }
             // Codex and Grok are the extra providers whose local logs expose a
             // reasoning-effort setting. Do not turn providers without that
             // concept into a misleading all-unclassified distribution.
             samples.append(contentsOf: entries.compactMap { entry in
                 guard entry.provider == .codex || entry.provider == .grok,
-                      isProviderEnabled(entry.provider),
+                      enabled.contains(entry.provider),
                       seen.insert(entry.dedupKey).inserted else { return nil }
                 return EffortUsageSample(
                     provider: entry.provider,
@@ -597,10 +600,11 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             )
         }
 
-        for source in enabledExtraSources {
+        let enabled = enabledProviders()
+        for source in extraSources where enabled.contains(source.provider) {
             do {
                 let entries = try await source.fetchEntries(since: last30DaysStart)
-                unified.append(contentsOf: entries.filter { isProviderEnabled($0.provider) })
+                unified.append(contentsOf: entries.filter { enabled.contains($0.provider) })
             } catch {
                 Logger.tokenUsage.warning("Source \(source.provider.rawValue) failed: \(error.localizedDescription)")
             }

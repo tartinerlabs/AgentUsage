@@ -56,6 +56,12 @@ struct MenuBarView: View {
         .task {
             await viewModel.refresh()
         }
+        // A provider turned off in Settings loses its rail tab; fall back to Overview.
+        .onChange(of: availableProviders) { _, providers in
+            if case .provider(let provider) = selectedPage, !providers.contains(provider) {
+                selectedPage = .overview
+            }
+        }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
             now = date
         }
