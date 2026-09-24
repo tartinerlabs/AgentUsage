@@ -143,7 +143,28 @@ App Store Connect.
 **Version lives only in `Config/Version.xcconfig`**, wired as the project-level
 base configuration for Debug and Release, so every target inherits
 `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`. Adding either to a target's
-build settings overrides the xcconfig — never do that. Bump by hand.
+build settings overrides the xcconfig — never do that. Bump with
+`bundle exec fastlane bump type:patch` (or `release type:minor` for the whole
+release), which rewrites the xcconfig in plain Ruby. fastlane's
+`increment_version_number` and `increment_build_number` write target build
+settings in `AgentUsage.xcodeproj` instead, which override the xcconfig; don't
+use them.
+
+**fastlane is release admin only.** `fastlane/Fastfile` bumps, moves
+`## [Unreleased]` in `CHANGELOG.md` into a dated section, commits, tags, pushes
+`main`, creates the GitHub release (`GITHUB_TOKEN`), and sets App Store and
+TestFlight notes. Xcode Cloud still builds and uploads: no `gym`, `match`, or
+archive lanes, and no `ci_scripts/`. `bump` is the only writer of
+`CURRENT_PROJECT_VERSION`; a second writer (such as `CI_BUILD_NUMBER`) produces
+duplicate build numbers. `release` checks the token and `CHANGELOG.md` before it
+writes anything; if the GitHub release still fails after the push,
+`github_release` creates it from the pushed tag. Run `notes` only after Xcode
+Cloud's build for the version appears in App Store Connect and the version
+exists there. It patches only `whatsNew` through Spaceship on purpose and never
+creates a version: `upload_to_app_store` deletes the version's review
+attachments, phased release, and reset-ratings request. App Store Connect auth
+reads `ASC_KEY_ID`, `ASC_ISSUER_ID`, and `ASC_KEY_PATH` (a `.p8` kept outside
+the repo). `.env` files, which fastlane loads, are gitignored.
 
 **Shipping macOS builds are a menu bar agent; Debug is not.** Release sets
 `INFOPLIST_KEY_LSUIElement[sdk=macosx*] = YES` so archived/TestFlight builds stay

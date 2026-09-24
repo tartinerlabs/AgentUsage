@@ -1,0 +1,297 @@
+# Release admin only: version bump, changelog, tag, GitHub release, and the
+# App Store / TestFlight notes. Xcode Cloud builds, signs, archives, and
+# uploads; do not add gym, match, sigh, or binary-upload lanes here.
+#
+# Config/Version.xcconfig is the only place MARKETING_VERSION and
+# CURRENT_PROJECT_VERSION are defined, and these lanes rewrite it with plain
+# Ruby. Never use increment_version_number or increment_build_number: they
+# write target build settings in AgentUsage.xcodeproj, which override the
+# xcconfig.
+#
+# `bump` is the only writer of CURRENT_PROJECT_VERSION. Do not add a
+# ci_scripts/ hook that sets it from CI_BUILD_NUMBER; two writers produce
+# duplicate build numbers that App Store Connect rejects.
+
+require "spaceship"
+
+opt_out_usage
+
+# fastlane evaluates this file with fastlane/ as the working directory, so
+# resolve repository paths once here instead of relying on it at lane time.
+REPO_ROOT = File.expand_path("..", Dir.pwd)
+VERSION_FILE = File.join(REPO_ROOT, "Config", "Version.xcconfig")
+CHANGELOG_FILE = File.join(REPO_ROOT, "CHANGELOG.md")
+RELEASE_NOTES_FILE = File.join(REPO_ROOT, "fastlane", "metadata", "en-US", "release_notes.txt")
+
+GITHUB_REPOSITORY = "tartinerlabs/AgentUsage"
+NOTES_LOCALE = "en-US"
+NOTES_LIMIT = 4000 # App Store "What's New" and TestFlight "What to Test"
+
+MARKETING_VERSION_LINE = /^MARKETING_VERSION = (\d+\.\d+\.\d+)$/
+BUILD_NUMBER_LINE = /^CURRENT_PROJECT_VERSION = (\d+)$/
+UNRELEASED_HEADING = /^## \[Unreleased\][ \t]*\n/
+UNRELEASED_LINK = %r{^\[Unreleased\]: (\S+)/compare/(\S+)\.\.\.HEAD[ \t]*$}
+SECTION_END = /^## |^\[[^\]]+\]: \S/ # next release heading, or the link references
+BUMP_TYPES = %w[patch minor major].freeze
+PLATFORMS = { "macos" => "osx", "ios" => "ios" }.freeze # lane option => fastlane platform
+
+desc "Bump MARKETING_VERSION (type: patch, minor, or major) and add 1 to CURRENT_PROJECT_VERSION in Config/Version.xcconfig"
+desc "Returns the new marketing version"
+lane :bump do |options|
+  type = validated_bump_type(options[:type])
+  current = read_version_file
+  version = next_marketing_version(current[:marketing], type)
+  build = current[:build].to_i + 1
+
+  text = current[:text]
+    .sub(MARKETING_VERSION_LINE, "MARKETING_VERSION = #{version}")
+    .sub(BUILD_NUMBER_LINE, "CURRENT_PROJECT_VERSION = #{build}")
+  File.write(VERSION_FILE, text, encoding: "UTF-8")
+
+  UI.success("Version #{current[:marketing]} (#{current[:build]}) -> #{version} (#{build})")
+  version
+end
+
+desc "Move the [Unreleased] body of CHANGELOG.md into a dated section for the xcconfig version and add its compare link"
+desc "Run after `bump`. Returns the section body"
+lane :changelog do
+  version = read_version_file[:marketing]
+  text = File.read(CHANGELOG_FILE, encoding: "UTF-8")
+  repository_url, previous_ref = check_changelog_ready(text, version)
+
+  body_start, body_end, body = unreleased_section(text)
+  date = Time.now.strftime("%Y-%m-%d")
+  text = "#{text[0...body_start]}\n## [#{version}] - #{date}\n\n#{body}\n\n#{text[body_end..]}"
+  text = text.sub(UNRELEASED_LINK) do
+    "[Unreleased]: #{repository_url}/compare/v#{version}...HEAD\n" \
+      "[#{version}]: #{repository_url}/compare/#{previous_ref}...v#{version}"
+  end
+  File.write(CHANGELOG_FILE, text, encoding: "UTF-8")
+
+  UI.success("CHANGELOG.md: [Unreleased] -> [#{version}] - #{date}")
+  body
+end
+
+desc "From a clean, up-to-date main: bump (type: patch, minor, or major), changelog, commit, tag vX.Y.Z, push, and create the GitHub release"
+desc "Needs GITHUB_TOKEN with push access. Pushing main may start an Xcode Cloud build, depending on its start conditions in App Store Connect"
+lane :release do |options|
+  type = validated_bump_type(options[:type])
+  github_token = verified_github_token
+
+  ensure_git_branch(branch: "^main$")
+  ensure_git_status_clean
+  sh("git", "fetch", "origin", "main", log: false)
+  unless sh("git", "rev-parse", "HEAD", log: false) == sh("git", "rev-parse", "origin/main", log: false)
+    UI.user_error!("Local main differs from origin/main; pull or push first")
+  end
+
+  # Fail before touching any file if the release cannot complete.
+  version = next_marketing_version(read_version_file[:marketing], type)
+  check_changelog_ready(File.read(CHANGELOG_FILE, encoding: "UTF-8"), version)
+  tag = "v#{version}"
+  UI.user_error!("Tag #{tag} already exists") if git_tag_exists(tag: tag) || git_tag_exists(tag: tag, remote: true)
+
+  bump(type: type)
+  section = changelog
+  git_commit(path: [VERSION_FILE, CHANGELOG_FILE], message: "chore: release #{version}")
+  add_git_tag(tag: tag, message: "AgentUsage #{version}")
+  push_to_git_remote(remote: "origin", local_branch: "main", remote_branch: "main", tags: false)
+  push_git_tags(remote: "origin", tag: tag)
+  create_github_release(version, section, github_token)
+end
+
+desc "Create the GitHub release for the xcconfig version from its CHANGELOG.md section; its vX.Y.Z tag must already be on origin"
+desc "`release` does this last; run it alone to finish a release whose GitHub step failed. Needs GITHUB_TOKEN with push access"
+lane :github_release do
+  github_token = verified_github_token
+  version = read_version_file[:marketing]
+  tag = "v#{version}"
+  UI.user_error!("Tag #{tag} is not on origin; run `release` instead") unless git_tag_exists(tag: tag, remote: true)
+  create_github_release(version, changelog_section(version, limit: nil), github_token)
+end
+
+desc "Write the CHANGELOG.md section for the xcconfig version to fastlane/metadata/en-US/release_notes.txt and set it as the App Store \"What's New\""
+desc "Run only after Xcode Cloud's build for that version appears in App Store Connect (both write the same version record)"
+desc "Updates only whatsNew on the en-US localization of the editable version (platform: macos or ios, default macos); never creates or renames a version"
+desc "`dry_run:true` only writes the file. Needs ASC_KEY_ID, ASC_ISSUER_ID, and ASC_KEY_PATH (a .p8 kept outside the repo)"
+lane :notes do |options|
+  platform = Spaceship::ConnectAPI::Platform.map(validated_platform(options[:platform]))
+  version = read_version_file[:marketing]
+  text = changelog_section(version)
+  FileUtils.mkdir_p(File.dirname(RELEASE_NOTES_FILE))
+  File.write(RELEASE_NOTES_FILE, "#{text}\n", encoding: "UTF-8")
+  UI.success("Wrote #{RELEASE_NOTES_FILE} for #{version}")
+  next if options[:dry_run].to_s == "true"
+
+  # Not upload_to_app_store: deliver always deletes review attachments, and
+  # its phased_release/reset_ratings defaults (false) delete those settings
+  # on the version. This patches whatsNew and nothing else.
+  load_app_store_connect_api_key
+  app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+  app = Spaceship::ConnectAPI::App.find(app_identifier)
+  UI.user_error!("No App Store Connect app with bundle ID #{app_identifier}") unless app
+
+  app_store_version = app.get_edit_app_store_version(platform: platform)
+  UI.user_error!("No editable #{platform} version in App Store Connect; create #{version} there first") unless app_store_version
+  unless app_store_version.version_string == version
+    UI.user_error!("The editable #{platform} version in App Store Connect is #{app_store_version.version_string}, " \
+                   "but Config/Version.xcconfig says #{version}; fix it in App Store Connect first")
+  end
+
+  localization = app_store_version.get_app_store_version_localizations.find { |l| l.locale == NOTES_LOCALE }
+  UI.user_error!("#{platform} version #{version} has no #{NOTES_LOCALE} localization") unless localization
+  localization.update(attributes: { whats_new: text })
+  UI.success("Set #{NOTES_LOCALE} What's New for #{platform} #{version}")
+end
+
+desc "Set TestFlight \"What to Test\" (en-US) on the uploaded build matching Config/Version.xcconfig to its CHANGELOG.md section"
+desc "Run after the build appears in App Store Connect; platform: macos or ios (default macos)"
+desc "Does not distribute: skip_submission leaves groups, beta review, and export compliance untouched. Needs the same ASC_* variables as `notes`"
+lane :testflight_notes do |options|
+  platform = validated_platform(options[:platform])
+  current = read_version_file
+  text = changelog_section(current[:marketing])
+  if text.bytesize > NOTES_LIMIT
+    UI.user_error!("The #{current[:marketing]} section is #{text.bytesize} bytes; TestFlight allows #{NOTES_LIMIT}")
+  end
+
+  load_app_store_connect_api_key
+  upload_to_testflight(
+    distribute_only: true,
+    skip_submission: true,
+    skip_waiting_for_build_processing: true,
+    app_platform: platform,
+    app_version: current[:marketing],
+    build_number: current[:build],
+    localized_build_info: { NOTES_LOCALE => { whats_new: text } }
+  )
+end
+
+def read_version_file
+  text = File.read(VERSION_FILE, encoding: "UTF-8")
+  {
+    text: text,
+    marketing: single_setting(text, "MARKETING_VERSION", MARKETING_VERSION_LINE),
+    build: single_setting(text, "CURRENT_PROJECT_VERSION", BUILD_NUMBER_LINE)
+  }
+end
+
+# Fails unless exactly one line sets `name`, and that line matches `pattern`.
+def single_setting(text, name, pattern)
+  settings = text.lines.grep(/^\s*#{name}\b/)
+  matches = text.scan(pattern)
+  unless settings.length == 1 && matches.length == 1
+    UI.user_error!("Config/Version.xcconfig: expected exactly one line matching #{pattern.inspect}; " \
+                   "found #{matches.length} matching and #{settings.length} setting #{name}")
+  end
+  matches.first.first
+end
+
+def validated_bump_type(type)
+  type = type.to_s
+  UI.user_error!("type must be one of #{BUMP_TYPES.join(', ')}, e.g. `type:patch`") unless BUMP_TYPES.include?(type)
+  type
+end
+
+def next_marketing_version(version, type)
+  major, minor, patch = version.split(".").map(&:to_i)
+  case type
+  when "major" then "#{major + 1}.0.0"
+  when "minor" then "#{major}.#{minor + 1}.0"
+  else "#{major}.#{minor}.#{patch + 1}"
+  end
+end
+
+def validated_platform(name)
+  name = (name || "macos").to_s
+  UI.user_error!("platform must be one of #{PLATFORMS.keys.join(', ')}") unless PLATFORMS.key?(name)
+  PLATFORMS[name]
+end
+
+# Returns [body start offset, body end offset, stripped body] of [Unreleased].
+def unreleased_section(text)
+  headings = text.scan(UNRELEASED_HEADING).length
+  UI.user_error!("CHANGELOG.md: expected exactly one `## [Unreleased]` heading, found #{headings}") unless headings == 1
+
+  body_start = UNRELEASED_HEADING.match(text).end(0)
+  body_end = body_start + (text[body_start..].index(SECTION_END) || text.length - body_start)
+  body = text[body_start...body_end].strip
+  UI.user_error!("CHANGELOG.md: [Unreleased] is empty; add entries before releasing") if body.empty?
+  [body_start, body_end, body]
+end
+
+# Fails unless `changelog` can move [Unreleased] into a [version] section: no
+# such section yet, a non-empty [Unreleased], and exactly one [Unreleased]
+# compare link. Returns that link's [repository URL, previous ref].
+def check_changelog_ready(text, version)
+  if text.match?(/^## \[#{Regexp.escape(version)}\]/)
+    UI.user_error!("CHANGELOG.md already has a [#{version}] section; bump Config/Version.xcconfig past it first")
+  end
+  unreleased_section(text)
+
+  links = text.scan(UNRELEASED_LINK)
+  unless links.length == 1
+    UI.user_error!("CHANGELOG.md: expected exactly one `[Unreleased]: <repo>/compare/<ref>...HEAD` link, found #{links.length}")
+  end
+  links.first
+end
+
+# `limit` is the App Store Connect notes limit; pass nil when it does not apply.
+def changelog_section(version, limit: NOTES_LIMIT)
+  text = File.read(CHANGELOG_FILE, encoding: "UTF-8")
+  heading = /^## \[#{Regexp.escape(version)}\][^\n]*\n/.match(text)
+  UI.user_error!("CHANGELOG.md has no [#{version}] section; release it first") unless heading
+
+  rest = text[heading.end(0)..]
+  body = rest[0...(rest.index(SECTION_END) || rest.length)].strip
+  UI.user_error!("CHANGELOG.md: the [#{version}] section is empty") if body.empty?
+  if limit && body.length > limit
+    UI.user_error!("The [#{version}] section is #{body.length} characters; App Store Connect allows #{limit}")
+  end
+  body
+end
+
+# Returns GITHUB_TOKEN once GitHub confirms it can push to the repository, so
+# a bad token stops `release` before it bumps, commits, or pushes anything.
+def verified_github_token
+  token = ENV["GITHUB_TOKEN"].to_s
+  UI.user_error!("Set GITHUB_TOKEN to create the GitHub release") if token.empty?
+
+  repository = github_api(
+    api_bearer: token, # api_token would send it as Basic auth
+    http_method: "GET",
+    path: "repos/#{GITHUB_REPOSITORY}",
+    error_handlers: {
+      "*" => proc do |result|
+        UI.user_error!("GitHub rejected GITHUB_TOKEN for #{GITHUB_REPOSITORY} (HTTP #{result[:status]})")
+      end
+    }
+  )
+  unless repository[:json].dig("permissions", "push")
+    UI.user_error!("GITHUB_TOKEN has no push access to #{GITHUB_REPOSITORY}")
+  end
+  token
+end
+
+def create_github_release(version, notes, github_token)
+  set_github_release(
+    repository_name: GITHUB_REPOSITORY,
+    api_bearer: github_token, # api_token would send it as Basic auth
+    tag_name: "v#{version}",
+    name: "AgentUsage #{version}",
+    description: "## What's New\n\n#{notes}\n\n" \
+      "See [CHANGELOG.md](https://github.com/#{GITHUB_REPOSITORY}/blob/main/CHANGELOG.md) for full details.\n",
+    is_prerelease: version.start_with?("0.")
+  )
+end
+
+def load_app_store_connect_api_key
+  missing = %w[ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_PATH].select { |name| ENV[name].to_s.empty? }
+  UI.user_error!("Set #{missing.join(', ')} for the App Store Connect API key") unless missing.empty?
+
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"],
+    issuer_id: ENV["ASC_ISSUER_ID"],
+    key_filepath: ENV["ASC_KEY_PATH"]
+  )
+end

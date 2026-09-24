@@ -20,3 +20,21 @@ sparkle_private_key
 
 # Sparkle appcast is a build artifact published to the gh-pages branch, not tracked on main
 appcast.xml
+
+# App Store Connect API key (NEVER commit this!)
+*.p8
+
+# fastlane loads .env files from fastlane/ or the repository root; they hold
+# GITHUB_TOKEN and ASC_* (NEVER commit these!)
+.env
+.env.*
+
+# fastlane output; release_notes.txt is regenerated from CHANGELOG.md by `notes`
+fastlane/report.xml
+fastlane/README.md
+fastlane/test_output/
+fastlane/metadata/en-US/release_notes.txt
+
+# Bundler
+.bundle/
+vendor/bundle/
