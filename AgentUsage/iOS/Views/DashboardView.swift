@@ -44,8 +44,9 @@ struct DashboardView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    // Cached or stale data is flagged per provider card.
-                    if viewModel.isOffline {
+                    // Cached or stale data is flagged per provider card. On iOS 26
+                    // the tab-bar sync accessory already says offline, on every tab.
+                    if viewModel.isOffline, !Self.syncStatusInTabBar {
                         offlineIndicator
                     }
 
@@ -68,6 +69,11 @@ struct DashboardView: View {
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
             now = date
         }
+    }
+
+    private static var syncStatusInTabBar: Bool {
+        if #available(iOS 26, *) { return true }
+        return false
     }
 
     private var sectionPicker: some View {

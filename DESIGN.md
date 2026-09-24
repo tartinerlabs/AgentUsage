@@ -272,6 +272,14 @@ Corner radius is assigned by component scale:
   short at-limit window when the scene is active. Disabled authorization remains visible
   with an Open Settings action; unavailable-window and start-error states stay inline in
   the same card.
+- **Tab-bar sync accessory** (iOS 26+) — Continuity Sync freshness in
+  `tabViewBottomAccessory`, on every tab, laid out like Music's mini player: status on the
+  left, a refresh control on the right. Neutral "Synced from Mac · Updated 4m ago" while healthy;
+  orange icon and title only when the snapshot is older than `syncFallbackThreshold`, the
+  device is offline, or there's no Mac to sync from. Inline (tab bar minimized): icon and a
+  short age ("4m"). Refresh only re-reads what the Mac last published, so a refresh that brings
+  nothing new says "Nothing newer from your Mac" rather than implying a fetch. Tapping the
+  status opens Settings. It replaces the dashboard's offline banner on iOS 26.
 - **Home Screen widgets** — follow Apple HIG widget size roles while keeping the iOS
   provider-card grammar (identity, status-tinted `UsageProgressBar`, rounded numerals,
   `UsageStatus` icon). Use the system widget container as the surface; the 0.06 neutral

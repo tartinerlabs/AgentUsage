@@ -248,7 +248,17 @@ struct MainNavigationView: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
-        .modifier(LiquidGlassTabBarBehaviour())
+        .modifier(liquidGlassTabBarBehaviour)
+    }
+
+    private var liquidGlassTabBarBehaviour: LiquidGlassTabBarBehaviour {
+        #if os(iOS)
+        LiquidGlassTabBarBehaviour(
+            onOpenSyncSettings: { selection = .section(.settings) }
+        )
+        #else
+        LiquidGlassTabBarBehaviour()
+        #endif
     }
 
     // MARK: Section content
@@ -316,15 +326,23 @@ struct MainNavigationView: View {
 
 // MARK: - Liquid Glass behaviours
 
-/// The iOS 26 tab-bar behaviour: the bar minimizes as content scrolls away. A
-/// no-op on older systems, which keep the standard bar.
+/// The iOS 26 tab-bar behaviour: the bar minimizes as content scrolls away, and
+/// `SyncStatusTabAccessory` rides above it on every tab. A no-op on older
+/// systems, which keep the standard bar and the dashboard's offline banner.
 private struct LiquidGlassTabBarBehaviour: ViewModifier {
+    #if os(iOS)
+    var onOpenSyncSettings: () -> Void = {}
+    #endif
+
     @ViewBuilder
     func body(content: Content) -> some View {
         #if os(iOS)
         if #available(iOS 26, *) {
             content
                 .tabBarMinimizeBehavior(.onScrollDown)
+                .tabViewBottomAccessory {
+                    SyncStatusTabAccessory(onOpenSyncSettings: onOpenSyncSettings)
+                }
         } else {
             content
         }
