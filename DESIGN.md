@@ -4,19 +4,19 @@ name: AgentUsage
 description: Visual identity for AgentUsage — a multi-platform SwiftUI usage "weather station" (macOS menu bar + iOS + widgets) for Claude, Codex, Cursor, Grok, and enabled OpenCode usage.
 
 colors:
-  # Provider-neutral identity — approved app-icon color anchors.
-  # These sample the dimensional artwork; they are not instructions to flatten its gradients.
-  icon-pacific-blue: "#7197D4"  # upper timefold surface
-  icon-graphite: "#373A41"      # lower timefold surface
-  icon-ice: "#F5F6F8"           # inner fold highlight
-  icon-background: "#FAF4EF"    # warm off-white app-icon field
+  # Provider-neutral identity — app-icon colors (token stack, Design/AppIcon/AppIcon.icon).
+  icon-cobalt: "#2563EB"         # spent (top) token — the only hue in the mark
+  icon-slate: "#4A525D"          # middle token, light appearance
+  icon-ink: "#1F242B"            # base token, light appearance
+  icon-paper: "#F5F4F0"          # light app-icon field
+  icon-night: "#171B20"          # dark app-icon field
 
   # Application UI — defined in code, not in Assets.xcassets. See AgentUsageKit/.../Design/AgentUsageColors.swift
   primary: "#000000"             # SwiftUI .primary (label) — neutral app tint; hex is the light approximation
   primary-dark: "#FFFFFF"        # SwiftUI .primary in dark appearance
   control-tint: "#373A41"        # switched-on toggle fill (icon graphite), light appearance
   control-tint-dark: "#636366"   # switched-on toggle fill, dark appearance (white knob stays visible)
-  brand-secondary: "#7197D4"     # Pacific Blue — lighter application sibling (same sample as icon-pacific-blue)
+  brand-secondary: "#7197D4"     # Pacific Blue — retained application token; not an app-icon color
   brand-background: "#F4F3EE"    # Pampas — light-mode neutral ground
   extra-usage-accent: "#8B5E83"  # Dusty Plum — RESERVED for over-limit / billed usage only
 
@@ -103,11 +103,10 @@ Claude/Codex/opencode usage is on-track (green), warming up (orange), or about t
 (red). The identity is calm and utilitarian — a menu-bar glyph and a stack of quiet cards, with
 color and a single accent doing all the signalling. Nothing shouts until it needs to.
 
-The provider-neutral product mark is the **timefold**: one continuous interval folding through
-itself, with an open reset notch on the right. Its Pacific-blue upper surface and graphite lower
-surface represent measured usage over time without borrowing the identity of any provider. The
-mark is deliberately dimensional; its overlap, inner ice highlight, and restrained material
-depth are part of the identity rather than optional decoration.
+The provider-neutral product mark is the **token stack**: three stacked tokens, the top one
+cobalt with a wedge already spent. It says "a budget of tokens being used up" without
+borrowing the identity of any provider. The only hue sits on the token being spent; the stack
+beneath it stays ink and slate.
 
 **This is a SwiftUI system, documented in the DESIGN.md format.** The
 [DESIGN.md spec](https://github.com/google-labs-code/design.md) is web/CSS-oriented
@@ -133,11 +132,10 @@ treatments must never become the source of a competing product-wide style.
 
 Four families, each with a distinct job:
 
-- **Provider-neutral identity (Pacific blue + graphite + ice).** The approved timefold artwork
-  uses Pacific blue `#7197D4` as the upper-surface anchor, graphite `#373A41` as the lower-surface
-  anchor, and ice `#F5F6F8` for the inner highlight, on warm off-white `#FAF4EF`. These values are
-  representative points within dimensional gradients, not flat-fill replacements. They govern
-  the app icon and product-level identity, not usage severity or provider attribution.
+- **Provider-neutral identity (cobalt + ink).** The token-stack icon uses cobalt `#2563EB` for
+  the spent top token and ink/slate for the tokens beneath it, on paper `#F5F4F0` in light and
+  night `#171B20` in dark. They govern the app icon and product-level identity, not usage
+  severity or provider attribution.
 
 - **Application chrome (neutral + Pampas).** The UI has no brand hue. `primary`
   (`AgentUsageColors.usageProgress`) is SwiftUI's `.primary` label colour — the single
@@ -148,9 +146,9 @@ Four families, each with a distinct job:
   (`AgentUsageColors.controlTint`: graphite `#373A41` light, `#636366` dark) because a white
   `.primary` track would hide the white knob; **filled buttons** (`.borderedProminent`) pair the
   `.primary` tint with `.foregroundStyle(.background)`, giving an inverted pill (black/white in
-  light, white/black in dark). `brand-secondary` (Pacific Blue) is retained only as an icon
-  sample. Attribution is name + official provider mark, not a per-provider hue. `brand-background` `#F4F3EE` (Pampas) is the light neutral ground and
-  stays fixed sRGB. These tokens are not a substitute for the dimensional app-icon palette.
+  light, white/black in dark). `brand-secondary` (Pacific Blue) is a retained application
+  token, not an icon color. Attribution is name + official provider mark, not a per-provider hue. `brand-background` `#F4F3EE` (Pampas) is the light neutral ground and
+  stays fixed sRGB. These tokens are not a substitute for the app-icon palette.
 - **Status (system-semantic).** On-track/warning/critical map to SwiftUI `.green` / `.orange` /
   `.red`. Because they are system colors, they adapt automatically to light/dark and
   accessibility settings. This is deliberate: usage severity must remain legible in every
@@ -162,28 +160,26 @@ Four families, each with a distinct job:
 
 ## App Icon & Brand Mark
 
-`Design/AppIcon/approved-timefold-mockup.png` is the authoritative visual target. The timefold
-must read as a single continuous measured interval: a blue upper fold passes over a graphite
-lower fold, an ice-lit inner turn preserves the sense of material thickness, and the small open
-notch at the right suggests a reset boundary. Preserve this topology in every appearance.
+The mark is the **token stack**, built in Icon Composer at `Design/AppIcon/AppIcon.icon`. Three
+tokens sit slightly offset, as a casual stack rather than a database cylinder. The top token is
+cobalt and has a narrow wedge (about 45°) cut out: spent usage. Keep the wedge narrow enough that
+it reads as a bite from a token, not a pie chart.
 
 Production requirements:
 
 - Keep the mark provider-neutral. Do not add provider logos or colors, Claude-like sparks,
   initials, robots, chat bubbles, code brackets, or model-specific motifs.
-- Do not use red, orange, or green status colors in the product mark. Those colors remain
-  reserved for live usage severity in the interface.
-- Do not flatten the mark. Preserve the overlapping surfaces, inner fold, restrained gradients,
-  edge highlights, and subtle depth visible in the approved mockup. Avoid text and excessive
-  detail.
-- A transparent source must keep all mark pixels fully opaque; only the exterior background may
-  be transparent. Background removal must not convert the blue or graphite surfaces into
-  semi-transparent pixels.
-- Icon Composer may add a subtle Liquid Glass treatment, with no more than four groups, but its
-  translucency or appearance processing must not materially wash out or recolor the approved
-  Pacific-blue and graphite anchors. Compare every export directly with the approved mockup.
-- Validate Default, Dark, Mono, and iOS tinted appearances at 1024, 128, 32, and 16 points. At
-  small sizes, the outer loop, central opening, and reset notch must remain unmistakable.
+- Do not use red, orange, green, or purple in the product mark. Status colors remain reserved
+  for live usage severity in the interface.
+- Author every layer as a flat SVG: solid fills, no baked blur, glow, shadow, or gradient. Icon
+  Composer supplies Liquid Glass, specular highlights, and shadow. All mark pixels are fully
+  opaque; only the exterior is transparent.
+- One token per group (three groups; the limit is four), top token first. Translucency stays
+  off so the cobalt and ink do not wash out. Dark appearance swaps the two lower tokens to
+  `-dark.svg` variants and the fill to night; cobalt is shared.
+- Validate Default, Dark, Clear, Mono, and iOS tinted appearances at 1024, 128, 32, and 16
+  points. At 16 points the wedge may disappear, but the stack silhouette and the cobalt top
+  must remain unmistakable.
 
 ## Typography
 
@@ -223,9 +219,8 @@ Opacity is a structural tool with fixed conventions:
 In application surfaces, depth comes from **material translucency, not shadows.** `.regularMaterial` is the standard card
 and panel background; `.bar` material appears in a few places. There are **no drop shadows and no
 gradients** in the interface — layering reads through translucency and the subtle
-tinted-fill/border pairing on cards. The dimensional timefold app icon is the deliberate
-exception: its gradients, edge highlights, inner fold, and restrained shadowing are required to
-communicate its layered form.
+tinted-fill/border pairing on cards. The app icon is the deliberate exception: Icon
+Composer's Liquid Glass and shadows give the token stack its depth.
 
 ## Shapes
 
