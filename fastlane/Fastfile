@@ -34,8 +34,6 @@ UNRELEASED_LINK = %r{^\[Unreleased\]: (\S+)/compare/(\S+)\.\.\.HEAD[ \t]*$}
 SECTION_END = /^## |^\[[^\]]+\]: \S/ # next release heading, or the link references
 BUMP_TYPES = %w[patch minor major].freeze
 PLATFORMS = { "macos" => "osx", "ios" => "ios" }.freeze # lane option => fastlane platform
-CONVENTIONAL_SUBJECT = /\A([a-z]+)(?:\([^)]*\))?(!)?: / # type, then "!" when breaking
-BREAKING_FOOTER = /^BREAKING[ -]CHANGE: /
 
 desc "Bump MARKETING_VERSION (type: patch, minor, or major) and add 1 to CURRENT_PROJECT_VERSION in Config/Version.xcconfig"
 desc "Returns the new marketing version"
@@ -74,11 +72,11 @@ lane :changelog do
   body
 end
 
-desc "From a clean, up-to-date main: bump (type: patch, minor, or major), changelog, commit, tag vX.Y.Z, push, and create the GitHub release"
-desc "Without type, picks it from the Conventional Commits since the latest vX.Y.Z tag: breaking -> major (minor before 1.0), feat -> minor, else patch"
+desc "From a clean, up-to-date main: bump (type: minor by default, patch for a hotfix, or major), changelog, commit, tag vX.Y.Z, push, and create the GitHub release"
 desc "Needs GITHUB_TOKEN with push access. Pushing main may start an Xcode Cloud build, depending on its start conditions in App Store Connect"
 lane :release do |options|
-  type = options[:type] && validated_bump_type(options[:type])
+  # Every release is the next minor, as is usual for apps; patch is for hotfixes.
+  type = validated_bump_type(options[:type] || "minor")
   github_token = verified_github_token
 
   ensure_git_branch(branch: "^main$")
@@ -89,9 +87,7 @@ lane :release do |options|
   end
 
   # Fail before touching any file if the release cannot complete.
-  current_version = read_version_file[:marketing]
-  type ||= inferred_bump_type(current_version)
-  version = next_marketing_version(current_version, type)
+  version = next_marketing_version(read_version_file[:marketing], type)
   check_changelog_ready(File.read(CHANGELOG_FILE, encoding: "UTF-8"), version)
   tag = "v#{version}"
   UI.user_error!("Tag #{tag} already exists") if git_tag_exists(tag: tag) || git_tag_exists(tag: tag, remote: true)
@@ -187,26 +183,6 @@ def single_setting(text, name, pattern)
                    "found #{matches.length} matching and #{settings.length} setting #{name}")
   end
   matches.first.first
-end
-
-# Reads the non-merge commits since the latest vX.Y.Z tag; merge commits are
-# skipped because PRs land as merge commits around the real ones.
-def inferred_bump_type(version)
-  tag = sh("git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*", log: false,
-           error_callback: ->(_) { UI.user_error!("No vX.Y.Z tag found; pass type:patch, minor, or major") }).strip
-  messages = sh("git", "log", "#{tag}..HEAD", "--no-merges", "--format=%B%x00", log: false)
-    .split("\0").map(&:strip).reject(&:empty?)
-  UI.user_error!("No commits since #{tag}; nothing to release") if messages.empty?
-
-  breaking = messages.count { |message| message[CONVENTIONAL_SUBJECT, 2] || message.match?(BREAKING_FOOTER) }
-  features = messages.count { |message| message[CONVENTIONAL_SUBJECT, 1] == "feat" }
-  type =
-    if breaking.positive? then version.start_with?("0.") ? "minor" : "major"
-    elsif features.positive? then "minor"
-    else "patch"
-    end
-  UI.message("#{messages.length} commits since #{tag} (#{breaking} breaking, #{features} feat) -> #{type}")
-  type
 end
 
 def validated_bump_type(type)
