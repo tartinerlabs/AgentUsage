@@ -1043,6 +1043,7 @@ extension UsageViewModel {
             extraUsage: snapshot.extraUsage,
             planName: resolvedPlanName,
             rateLimitResetCredits: snapshot.rateLimitResetCredits,
+            creditBalance: snapshot.creditBalance,
             effortSummaries: effortSummaries,
             fetchedAt: snapshot.fetchedAt,
             lastUsedAt: lastUsedAt
@@ -1681,6 +1682,7 @@ extension UsageViewModel {
                 extraUsage: providerSnapshot.extraUsage,
                 planName: providerSnapshot.planName,
                 rateLimitResetCredits: providerSnapshot.rateLimitResetCredits,
+                creditBalance: providerSnapshot.creditBalance,
                 effortSummaries: providerDetails[provider]?.effortSummaries
                     ?? providerSnapshot.effortSummaries,
                 // Providers whose quota endpoint returned no windows are refreshed

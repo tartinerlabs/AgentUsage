@@ -242,7 +242,8 @@ Corner radius is assigned by component scale:
   `markedValueLabels`, so ticks are drawn by the style. Do not hand-roll a new bar.
 - **`ProviderCardView`** — the only provider surface on macOS and iOS. Header (provider glyph +
   name + plan badge + optional `ProviderStatus` badge), a stack of linear `UsageRowView`s, optional
-  reset-credits line, optional extra-usage bar, and a cost section. `.detail` also shows links,
+  reset-credits and credit-balance lines (neutral, never Dusty Plum), optional extra-usage bar,
+  and a cost section. `.detail` also shows links,
   a `ProviderStatus` banner (cached, offline, rate limited, service down, or update failed, with
   the data's age), yesterday, sparkline, effort, and models when those fields exist. Status is
   per provider — never an app-wide stale-data banner; only device-offline is app-wide. Fill

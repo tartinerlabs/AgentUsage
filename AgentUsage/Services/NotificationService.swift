@@ -376,6 +376,24 @@ actor NotificationService: NotificationServiceProtocol {
         return Date(timeIntervalSince1970: seconds)
     }
 
+    /// A window name as it reads mid-sentence, ending in "limit" exactly once:
+    /// "Weekly limit" → "weekly limit", "Current session" → "current session limit".
+    /// Only plain capitalised words are lowercased, so provider-defined names such
+    /// as "GPT-5.3-Codex-Spark" or "API" keep their spelling.
+    private static func limitPhrase(for windowName: String) -> String {
+        let words = windowName.split(separator: " ").map { word -> String in
+            let rest = word.dropFirst()
+            let isPlainCapitalized = word.first?.isUppercase == true
+                && !rest.isEmpty
+                && rest.allSatisfy(\.isLowercase)
+            return isPlainCapitalized ? word.lowercased() : String(word)
+        }
+        if words.last?.lowercased() == "limit" {
+            return words.joined(separator: " ")
+        }
+        return (words + ["limit"]).joined(separator: " ")
+    }
+
     #if DEBUG
     func sendTestResetNotification() async {
         let hasPermission = await checkPermission()
@@ -457,7 +475,7 @@ actor NotificationService: NotificationServiceProtocol {
     ) async {
         let content = UNMutableNotificationContent()
         content.title = "\(providerName) \(windowName) reset"
-        content.body = "Your \(windowName.lowercased()) limit has reset."
+        content.body = "Your \(Self.limitPhrase(for: windowName)) has reset."
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(
@@ -480,7 +498,7 @@ actor NotificationService: NotificationServiceProtocol {
     private func sendResetNotification(windowName: String) async {
         let content = UNMutableNotificationContent()
         content.title = "\(windowName) Usage Reset"
-        content.body = "Your \(windowName.lowercased()) limit has reset."
+        content.body = "Your \(Self.limitPhrase(for: windowName)) has reset."
         content.sound = .default
 
         let request = UNNotificationRequest(

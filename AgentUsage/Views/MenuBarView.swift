@@ -279,6 +279,7 @@ struct MenuBarView: View {
                 status: viewModel.status(for: provider, now: now),
                 fetchedAt: viewModel.usageSnapshot(for: provider)?.fetchedAt,
                 rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits,
+                creditBalance: viewModel.usageSnapshot(for: provider)?.creditBalance,
                 density: .detail,
                 detail: viewModel.providerDetail(for: provider),
                 effortSummaries: viewModel.effortSummaries(for: provider),
@@ -324,7 +325,8 @@ struct MenuBarView: View {
             compact: true,
             status: viewModel.status(for: provider, now: now),
             fetchedAt: viewModel.usageSnapshot(for: provider)?.fetchedAt,
-            rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits
+            rateLimitResetCredits: viewModel.usageSnapshot(for: provider)?.rateLimitResetCredits,
+            creditBalance: viewModel.usageSnapshot(for: provider)?.creditBalance
         )
     }
 

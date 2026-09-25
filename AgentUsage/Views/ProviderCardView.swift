@@ -41,6 +41,8 @@ struct ProviderCardView: View {
     /// When the shown usage was fetched, for the status detail text.
     var fetchedAt: Date? = nil
     var rateLimitResetCredits: RateLimitResetCredits? = nil
+    /// Spendable credits the provider reports (Codex). Shown only with a value.
+    var creditBalance: CreditBalance? = nil
     var density: ProviderCardDensity = .summary
     var detail: ProviderDetail? = nil
     var effortSummaries: [EffortPeriodSummary] = []
@@ -78,6 +80,10 @@ struct ProviderCardView: View {
 
             if let credits = rateLimitResetCredits {
                 resetCreditsRow(credits)
+            }
+
+            if let balance = creditBalance?.displayValue {
+                creditBalanceRow(balance)
             }
 
             if showExtraUsage, let extraUsage {
@@ -224,6 +230,23 @@ struct ProviderCardView: View {
                 .help(credits.tooltipText(now: now) ?? "")
         }
         .help(credits.tooltipText(now: now) ?? "")
+    }
+
+    // MARK: - Credit Balance
+
+    /// Spendable credits, laid out like the reset-credits line. Neutral, not
+    /// Dusty Plum: a balance is not over-limit usage.
+    private func creditBalanceRow(_ balance: String) -> some View {
+        HStack(spacing: 6) {
+            Text("Credits")
+                .font(compact ? .caption : .subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(balance)
+                .font(.system(size: compact ? 13 : 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(AgentUsageColors.usageProgress)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Usage Breakdown

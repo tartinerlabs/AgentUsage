@@ -182,6 +182,7 @@ struct DashboardTabView: View {
             status: viewModel.status(for: provider, now: now),
             fetchedAt: usage?.fetchedAt,
             rateLimitResetCredits: usage?.rateLimitResetCredits,
+            creditBalance: usage?.creditBalance,
             density: .detail,
             detail: viewModel.providerDetail(for: provider),
             effortSummaries: viewModel.effortSummaries(for: provider),

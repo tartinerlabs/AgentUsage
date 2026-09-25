@@ -94,6 +94,62 @@ struct UsageSyncServiceTests {
         #expect(cursor.extraUsage?.currencyCode == "USD")
     }
 
+    @Test func codexExtraQuotasAndCreditBalanceRoundTrip() async throws {
+        let database = StubUsageSyncDatabase()
+        let service = UsageSyncService(database: database)
+        let fetchedAt = Date()
+        let codexSnapshot = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(
+                    utilization: 22,
+                    resetsAt: fetchedAt.addingTimeInterval(3_600),
+                    windowType: .codexFiveHour
+                ),
+                UsageWindow(
+                    utilization: 12,
+                    resetsAt: fetchedAt.addingTimeInterval(86_400),
+                    windowID: "codex.review.weekly",
+                    displayName: "Code review weekly limit",
+                    totalDuration: 604_800
+                ),
+                UsageWindow(
+                    utilization: 40,
+                    resetsAt: fetchedAt.addingTimeInterval(3_600),
+                    windowID: "codex.model.codex_spark.five_hour",
+                    displayName: "GPT-5.3-Codex-Spark 5-hour limit",
+                    totalDuration: 18_000,
+                    scope: UsageWindowScope(model: "GPT-5.3-Codex-Spark")
+                ),
+            ],
+            planName: "Pro 20x",
+            creditBalance: CreditBalance(remaining: 1_250),
+            fetchedAt: fetchedAt
+        )
+
+        _ = try await service.publish(
+            snapshot: nil,
+            planType: "Free",
+            providerSnapshots: [codexSnapshot]
+        )
+        let synced = try #require(await service.fetchLatest())
+        let codex = try #require(synced.providerSnapshots.first)
+
+        #expect(codex.windows.map(\.windowID.rawValue) == [
+            "codexFiveHour",
+            "codex.review.weekly",
+            "codex.model.codex_spark.five_hour",
+        ])
+        #expect(codex.windows.map(\.windowType) == [.codexFiveHour, .custom, .custom])
+        #expect(codex.windows.map(\.displayName) == [
+            "5-hour limit",
+            "Code review weekly limit",
+            "GPT-5.3-Codex-Spark 5-hour limit",
+        ])
+        #expect(codex.windows.last?.scope?.model == "GPT-5.3-Codex-Spark")
+        #expect(codex.creditBalance == CreditBalance(remaining: 1_250))
+    }
+
     @Test func publishStoresProviderSnapshotsWithoutClaudeSnapshot() async throws {
         let database = StubUsageSyncDatabase()
         let service = UsageSyncService(database: database)

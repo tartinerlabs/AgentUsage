@@ -248,24 +248,51 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
 
     // MARK: - Parsing
 
-    private struct UsageResponse: Decodable {
+    private nonisolated struct UsageResponse: Decodable {
         let planType: String?
         let rateLimit: RateLimit?
         let rateLimitResetCredits: ResetCreditsSummary?
+        /// `code_review_rate_limit`: the code review quota, shaped like `rate_limit`.
+        let codeReviewRateLimit: RateLimit?
+        /// `additional_rate_limits[]`: model-specific quotas, in server order.
+        let additionalRateLimits: [AdditionalRateLimit]
+        let credits: Credits?
 
         enum CodingKeys: String, CodingKey {
             case planType = "plan_type"
             case rateLimit = "rate_limit"
             case rateLimitResetCredits = "rate_limit_reset_credits"
+            case codeReviewRateLimit = "code_review_rate_limit"
+            case additionalRateLimits = "additional_rate_limits"
+            case credits
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            planType = try container.decodeIfPresent(String.self, forKey: .planType)
+            rateLimit = try container.decodeIfPresent(RateLimit.self, forKey: .rateLimit)
+            rateLimitResetCredits = try container.decodeIfPresent(
+                ResetCreditsSummary.self,
+                forKey: .rateLimitResetCredits
+            )
+            // The extra blocks decode leniently: a malformed or reshaped one must
+            // never cost the plan's 5-hour and weekly windows.
+            codeReviewRateLimit = try? container.decodeIfPresent(RateLimit.self, forKey: .codeReviewRateLimit)
+            let additional = try? container.decodeIfPresent(
+                [AdditionalRateLimit?].self,
+                forKey: .additionalRateLimits
+            )
+            additionalRateLimits = additional?.compactMap { $0 } ?? []
+            credits = try? container.decodeIfPresent(Credits.self, forKey: .credits)
         }
     }
 
-    private struct ResetCreditsSummary: Decodable {
+    private nonisolated struct ResetCreditsSummary: Decodable {
         let availableCount: Int
         enum CodingKeys: String, CodingKey { case availableCount = "available_count" }
     }
 
-    private struct RateLimit: Decodable {
+    private nonisolated struct RateLimit: Decodable {
         let primaryWindow: Window?
         let secondaryWindow: Window?
 
@@ -275,7 +302,53 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
         }
     }
 
-    private struct Window: Decodable {
+    /// One `additional_rate_limits[]` entry. `limit_name` is the label the Codex
+    /// CLI shows (e.g. "GPT-5.3-Codex-Spark"); `metered_feature` identifies the quota.
+    private nonisolated struct AdditionalRateLimit: Decodable {
+        let limitName: String?
+        let meteredFeature: String?
+        let rateLimit: RateLimit?
+
+        enum CodingKeys: String, CodingKey {
+            case limitName = "limit_name"
+            case meteredFeature = "metered_feature"
+            case rateLimit = "rate_limit"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            limitName = try? container.decodeIfPresent(String.self, forKey: .limitName)
+            meteredFeature = try? container.decodeIfPresent(String.self, forKey: .meteredFeature)
+            rateLimit = try? container.decodeIfPresent(RateLimit.self, forKey: .rateLimit)
+        }
+    }
+
+    /// `credits`: spendable credits. `balance` is a decimal string on the wire;
+    /// a bare number is accepted too.
+    private nonisolated struct Credits: Decodable {
+        let hasCredits: Bool
+        let unlimited: Bool
+        let balance: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case hasCredits = "has_credits"
+            case unlimited
+            case balance
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            hasCredits = (try? container.decodeIfPresent(Bool.self, forKey: .hasCredits)) ?? false
+            unlimited = (try? container.decodeIfPresent(Bool.self, forKey: .unlimited)) ?? false
+            if let text = try? container.decodeIfPresent(String.self, forKey: .balance) {
+                balance = Double(text.trimmingCharacters(in: .whitespacesAndNewlines))
+            } else {
+                balance = try? container.decodeIfPresent(Double.self, forKey: .balance)
+            }
+        }
+    }
+
+    private nonisolated struct Window: Decodable {
         let usedPercent: Double?
         let resetAt: Double?
         let resetAfterSeconds: Double?
@@ -314,7 +387,24 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
             windows.append(secondary)
         }
 
-        guard !windows.isEmpty else { throw CodexError.invalidResponse }
+        // After the plan's own windows: code review, then each model's quota in
+        // server order. Identity is unique per snapshot, so a repeated entry is dropped.
+        var extraWindows = quotaWindows(
+            decoded.codeReviewRateLimit,
+            idPrefix: "codex.review",
+            label: "Code review",
+            now: currentDate
+        )
+        for limit in decoded.additionalRateLimits {
+            extraWindows += modelWindows(limit, now: currentDate)
+        }
+        for window in extraWindows where !windows.contains(where: { $0.windowID == window.windowID }) {
+            windows.append(window)
+        }
+
+        // Credits are independent of the rate limits: a balance alone still shows.
+        let balance = creditBalance(from: decoded.credits)
+        guard !windows.isEmpty || balance != nil else { throw CodexError.invalidResponse }
 
         let resetCredits = decoded.rateLimitResetCredits.map {
             RateLimitResetCredits(availableCount: $0.availableCount, expirations: [])
@@ -325,6 +415,7 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
             windows: windows,
             planName: planName(from: decoded.planType),
             rateLimitResetCredits: resetCredits,
+            creditBalance: balance,
             fetchedAt: currentDate
         )
     }
@@ -402,6 +493,150 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
         Constants.initialRetryDelay * pow(Constants.retryBackoffMultiplier, Double(attempt))
     }
 
+    // MARK: - Code Review and Model Quotas
+
+    /// Windows for one `additional_rate_limits[]` model quota, labelled with the
+    /// model name the Codex CLI shows and keyed by its metered feature.
+    private func modelWindows(_ limit: AdditionalRateLimit, now: Date) -> [UsageWindow] {
+        let name = limit.limitName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let feature = limit.meteredFeature?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let key = [feature, name].compactMap({ $0 }).first(where: { !$0.isEmpty }) else {
+            return []
+        }
+        let label = [name, feature].compactMap { $0 }.first { !$0.isEmpty } ?? key
+        return quotaWindows(
+            limit.rateLimit,
+            idPrefix: "codex.model.\(slug(key))",
+            label: label,
+            scope: name.flatMap { $0.isEmpty ? nil : UsageWindowScope(model: $0) },
+            now: now
+        )
+    }
+
+    /// The primary and secondary windows of a quota outside the plan's own limits
+    /// (code review, or one model).
+    private func quotaWindows(
+        _ rateLimit: RateLimit?,
+        idPrefix: String,
+        label: String,
+        scope: UsageWindowScope? = nil,
+        now: Date
+    ) -> [UsageWindow] {
+        guard let rateLimit else { return [] }
+        let primary = quotaWindow(
+            rateLimit.primaryWindow,
+            slot: "primary",
+            idPrefix: idPrefix,
+            label: label,
+            fallbackLabel: "\(label) limit",
+            scope: scope,
+            now: now
+        )
+        let secondary = quotaWindow(
+            rateLimit.secondaryWindow,
+            slot: "secondary",
+            idPrefix: idPrefix,
+            label: label,
+            fallbackLabel: "\(label) secondary limit",
+            scope: scope,
+            now: now
+        )
+        return [primary, secondary].compactMap { $0 }
+    }
+
+    /// One quota window, labelled "<label> <cadence> limit" and identified by
+    /// cadence rather than slot, since the server can move a window between
+    /// slots. The slot is only the fallback when no length is reported. A window
+    /// without `used_percent` is left out, never zeroed.
+    private func quotaWindow(
+        _ window: Window?,
+        slot: String,
+        idPrefix: String,
+        label: String,
+        fallbackLabel: String,
+        scope: UsageWindowScope?,
+        now: Date
+    ) -> UsageWindow? {
+        guard let window, let percent = window.usedPercent else { return nil }
+        var duration: TimeInterval?
+        if let seconds = window.limitWindowSeconds, seconds > 0 {
+            duration = seconds
+        }
+        let period = duration.map { cadence(forSeconds: $0) }
+
+        let displayName: String
+        if let periodLabel = period?.label {
+            displayName = "\(label) \(periodLabel) limit"
+        } else {
+            displayName = fallbackLabel
+        }
+
+        let resetsAt: Date
+        if let resetAt = window.resetAt {
+            resetsAt = Date(timeIntervalSince1970: resetAt)
+        } else if let after = window.resetAfterSeconds {
+            resetsAt = now.addingTimeInterval(after)
+        } else if let duration {
+            resetsAt = now.addingTimeInterval(duration)
+        } else {
+            resetsAt = .distantFuture
+        }
+
+        return UsageWindow(
+            utilization: percent,
+            resetsAt: resetsAt,
+            windowID: UsageWindowID(rawValue: "\(idPrefix).\(period?.id ?? slot)"),
+            displayName: displayName,
+            totalDuration: duration ?? 0,
+            scope: scope
+        )
+    }
+
+    /// A window length as an identifier and, when it reads naturally, a label.
+    /// Lengths within 5% of a standard period take its name, as in the Codex CLI.
+    private func cadence(forSeconds seconds: TimeInterval) -> (id: String, label: String?) {
+        let hour: TimeInterval = 60 * 60
+        let day = 24 * hour
+        let named: [(length: TimeInterval, id: String, label: String)] = [
+            (5 * hour, "five_hour", "5-hour"),
+            (day, "daily", "daily"),
+            (7 * day, "weekly", "weekly"),
+            (30 * day, "monthly", "monthly"),
+            (365 * day, "annual", "annual"),
+        ]
+        if let match = named.first(where: { abs(seconds - $0.length) <= $0.length * 0.05 }) {
+            return (match.id, match.label)
+        }
+        let whole = Int(seconds.rounded())
+        if whole % Int(day) == 0 {
+            return ("\(whole / Int(day))d", "\(whole / Int(day))-day")
+        }
+        if whole % Int(hour) == 0 {
+            return ("\(whole / Int(hour))h", "\(whole / Int(hour))-hour")
+        }
+        if whole % 60 == 0 {
+            return ("\(whole / 60)m", "\(whole / 60)-minute")
+        }
+        return ("\(whole)s", nil)
+    }
+
+    /// Lower-case identifier fragment: letters and digits kept, all else `_`.
+    private func slug(_ value: String) -> String {
+        String(value.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "_" })
+    }
+
+    /// Spendable credits, kept only when they say something: an unlimited
+    /// allowance or a positive balance. `has_credits: false` means none to spend.
+    private func creditBalance(from credits: Credits?) -> CreditBalance? {
+        guard let credits else { return nil }
+        if credits.unlimited { return .unlimited }
+        guard credits.hasCredits,
+              let balance = credits.balance,
+              balance.isFinite,
+              balance > 0 else { return nil }
+        return CreditBalance(remaining: balance)
+    }
+
     // MARK: - Reset Credits
 
     /// Enriches a usage snapshot with per-credit expiry details from the dedicated
@@ -424,6 +659,7 @@ actor CodexUsageService: ProviderUsageServiceProtocol {
                 availableCount: details.availableCount,
                 expirations: details.expirations
             ),
+            creditBalance: snapshot.creditBalance,
             fetchedAt: snapshot.fetchedAt
         )
     }

@@ -235,6 +235,68 @@ struct NotificationServiceTests {
         #expect(await center.pendingIdentifiers() == ["reset.grok.grokWeekly.2000003600"])
     }
 
+    @Test func resetAlertBodiesKeepProviderNamesAndSayLimitOnce() async {
+        let center = RecordingUserNotificationCenterClient()
+        let service = makeService(
+            center: center,
+            settings: settings(thresholds: [], notifyOnReset: true)
+        )
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let resetsAt = now.addingTimeInterval(3_600)
+        let codex = ProviderUsageSnapshot(
+            provider: .codex,
+            windows: [
+                UsageWindow(utilization: 95, resetsAt: resetsAt, windowType: .codexWeekly),
+                UsageWindow(
+                    utilization: 95,
+                    resetsAt: resetsAt,
+                    windowID: "codex.review.weekly",
+                    displayName: "Code review weekly limit",
+                    totalDuration: 604_800
+                ),
+                UsageWindow(
+                    utilization: 100,
+                    resetsAt: resetsAt,
+                    windowID: "codex.model.codex_spark.five_hour",
+                    displayName: "GPT-5.3-Codex-Spark 5-hour limit",
+                    totalDuration: 18_000,
+                    scope: UsageWindowScope(model: "GPT-5.3-Codex-Spark")
+                ),
+            ],
+            fetchedAt: now
+        )
+        let cursor = ProviderUsageSnapshot(
+            provider: .cursor,
+            windows: [
+                UsageWindow(
+                    utilization: 92,
+                    resetsAt: resetsAt,
+                    windowID: "cursor.api",
+                    displayName: "API usage",
+                    totalDuration: 0
+                ),
+            ],
+            fetchedAt: now
+        )
+
+        await service.armResetNotifications(
+            from: [
+                providerSnapshot(provider: .claude, utilization: 95, resetsAt: resetsAt, type: .session, now: now),
+                codex,
+                cursor,
+            ],
+            now: now
+        )
+
+        #expect(await center.notifications().map(\.body) == [
+            "Your current session limit has reset.",
+            "Your weekly limit has reset.",
+            "Your code review weekly limit has reset.",
+            "Your GPT-5.3-Codex-Spark 5-hour limit has reset.",
+            "Your API usage limit has reset.",
+        ])
+    }
+
     @Test func extraUsageAlertsOncePerActivation() async {
         let center = RecordingUserNotificationCenterClient()
         let service = makeService(
