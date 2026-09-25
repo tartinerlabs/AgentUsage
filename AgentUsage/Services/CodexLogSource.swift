@@ -18,14 +18,17 @@ nonisolated struct CodexLogSourceDiagnostics: Equatable, Sendable {
     var maximumBufferedBytes = 0
 }
 
-/// Reads Codex CLI session rollout logs (`~/.codex/sessions/<y>/<m>/<d>/rollout-*.jsonl`).
+/// Reads Codex session rollout logs (`~/.codex/sessions/<y>/<m>/<d>/rollout-*.jsonl`,
+/// plus the flat `~/.codex/archived_sessions`). Interactive sessions and headless
+/// `codex exec` runs write the same records; `codex exec --ephemeral` writes none.
 ///
 /// Each rollout file is one session. Newer Codex appends a `token_usage_record` after
 /// every completed response, whose `thread_token_usage` is cumulative for the session.
 /// Older rollouts only have `event_msg` payloads of type `token_count`
-/// (`info.total_token_usage`), which leave out remote compaction. We take the newest
-/// total per file and emit a single entry, attributed to the session's most recent
-/// `turn_context.model`.
+/// (`info.total_token_usage`), which leave out remote compaction and restart from
+/// empty after a context-window overflow. We take the newest record per file, or else
+/// the newest `token_count` total plus the newest one before each reset, and emit a
+/// single entry attributed to the session's most recent `turn_context.model`.
 ///
 /// A fork, or the new rollout that reverting a thread starts, begins its running
 /// totals at the source thread's totals. The source's rollout already counts that
@@ -293,7 +296,9 @@ actor CodexLogSource: UsageLogSource {
 
     /// Scans complete JSONL records from the end of the file. Codex appends the
     /// cumulative token usage and current model near the tail, so unchanged history
-    /// never needs to be loaded or decoded.
+    /// never needs to be loaded or decoded. Without usage records, a `token_count`
+    /// total that grew from an empty baseline (a context-window reset or an imported
+    /// session) sends the scan back to that baseline and any total before it.
     private func parseRollout(_ file: RolloutFile) -> ParseResult {
         guard file.fingerprint.size > 0,
               let handle = try? FileHandle(forReadingFrom: file.url) else {
@@ -554,7 +559,11 @@ actor CodexLogSource: UsageLogSource {
                   let info = payload?["info"] as? [String: Any],
                   let total = info["total_token_usage"] as? [String: Any] else { return }
             if needsTotal {
-                tokenScan.recordTokenCount(CodexCumulativeTokenUsage(total))
+                let last = info["last_token_usage"] as? [String: Any]
+                tokenScan.recordTokenCount(
+                    CodexCumulativeTokenUsage(total),
+                    lastTotalTokens: last?["total_tokens"] as? Int
+                )
             }
         default:
             return

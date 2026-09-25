@@ -28,6 +28,30 @@ nonisolated struct CodexCumulativeTokenUsage: Equatable, Sendable {
         totalTokens = usage["total_tokens"] as? Int ?? 0
     }
 
+    /// No priced counter is set. Codex writes this when a request overflows the
+    /// model context window, as an imported session's baseline, and before a
+    /// session's first billed response.
+    var isEmpty: Bool {
+        inputTokens == 0 && cachedInputTokens == 0
+            && outputTokens == 0 && reasoningOutputTokens == 0
+    }
+
+    /// Codex's `total_tokens` is input plus output. A total above that grew from a
+    /// baseline with no priced usage: a context-window reset (`total_tokens` set to
+    /// the window size) or an imported session (`total_tokens` only). An earlier
+    /// segment may hold more usage, so the scan has to find that baseline.
+    var followsEmptyBaseline: Bool {
+        unpricedTokens > 0
+    }
+
+    mutating func add(_ other: CodexCumulativeTokenUsage) {
+        inputTokens += other.inputTokens
+        cachedInputTokens += other.cachedInputTokens
+        outputTokens += other.outputTokens
+        reasoningOutputTokens += other.reasoningOutputTokens
+        totalTokens += other.totalTokens
+    }
+
     /// The usage recorded on top of `inherited`, the running total that a fork or a
     /// reverted thread's rollout starts from. Codex adds each response to that total, so
     /// later totals include it until a context-window reset replaces the running total

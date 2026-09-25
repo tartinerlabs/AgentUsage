@@ -187,6 +187,156 @@ struct CodexLogSourceTests {
         #expect(entry.dedupKey == "codex:\(sessionID)")
     }
 
+    /// When a request overflows the context window, Codex replaces the cumulative
+    /// total with `{ total_tokens: <window> }` and the headless run exits.
+    @Test func keepsUsageWhenHeadlessRunEndsOnContextWindowOverflow() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sessionID = "019f8c2a-4d51-7a30-9e6b-5f0c1d2e3a4c"
+        let file = directory.appendingPathComponent("rollout-2026-09-21T08-00-00-\(sessionID).jsonl")
+        let lines: [String] = [
+            Self.execSessionMeta(sessionID: sessionID, timestamp: "2026-09-21T08:00:00.100Z"),
+            Self.pagedTurnContext(
+                timestamp: "2026-09-21T08:00:00.200Z", ordinal: 1, model: "gpt-5.5-codex", effort: "high"
+            ),
+            Self.pagedTokenCount(
+                timestamp: "2026-09-21T08:40:00.000Z",
+                ordinal: 2,
+                total: Self.codexTokenUsage(input: 180_000, cached: 150_000, output: 6_000, reasoning: 2_500),
+                last: Self.codexTokenUsage(input: 90_000, cached: 80_000, output: 1_000, reasoning: 400)
+            ),
+            Self.pagedTokenCount(
+                timestamp: "2026-09-21T08:41:00.000Z",
+                ordinal: 3,
+                total: Self.codexTokenUsage(input: 0, total: 272_000),
+                last: Self.codexTokenUsage(input: 0, total: 86_000)
+            ),
+        ]
+        try Self.write(lines.joined(separator: "\n") + "\n", to: file)
+
+        let source = CodexLogSource(directories: [directory], readChunkSize: 89)
+        let entry = try #require(try await source.fetchEntries(since: .distantPast).first)
+        let overflow = try Self.codexDate("2026-09-21T08:41:00.000Z")
+
+        #expect(entry.model == "gpt-5.5-codex")
+        #expect(entry.tokens.inputTokens == 30_000)
+        #expect(entry.tokens.cacheReadTokens == 150_000)
+        #expect(entry.tokens.outputTokens == 3_500)
+        #expect(entry.tokens.reasoningTokens == 2_500)
+        #expect(entry.timestamp == overflow)
+    }
+
+    /// After a reset, later responses accumulate from zero, so the newest total
+    /// alone would drop everything recorded before the overflow.
+    @Test func addsUsageRecordedBeforeAndAfterContextWindowReset() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("rollout-reset-then-resumed.jsonl")
+        let emptyAfterReset = Self.codexTokenUsage(input: 0, total: 272_000)
+        let lines: [String] = [
+            Self.pagedTurnContext(
+                timestamp: "2026-09-21T08:00:00.200Z", ordinal: 1, model: "gpt-5.5-codex", effort: "high"
+            ),
+            Self.pagedTokenCount(
+                timestamp: "2026-09-21T08:40:00.000Z",
+                ordinal: 2,
+                total: Self.codexTokenUsage(input: 180_000, cached: 150_000, output: 6_000, reasoning: 2_500),
+                last: Self.codexTokenUsage(input: 90_000, cached: 80_000, output: 1_000, reasoning: 400)
+            ),
+            Self.pagedTokenCount(
+                timestamp: "2026-09-21T08:41:00.000Z",
+                ordinal: 3,
+                total: emptyAfterReset,
+                last: Self.codexTokenUsage(input: 0, total: 86_000)
+            ),
+            // Compaction re-estimates only `last_token_usage`, so the total stays empty.
+            Self.pagedTokenCount(
+                timestamp: "2026-09-21T08:45:00.000Z",
+                ordinal: 4,
+                total: emptyAfterReset,
+                last: Self.codexTokenUsage(input: 0, total: 24_000)
+            ),
+            Self.pagedTurnContext(
+                timestamp: "2026-09-21T08:46:00.000Z", ordinal: 5, turnID: "turn-2",
+                model: "gpt-5.5-codex", effort: "medium"
+            ),
+            Self.pagedTokenCount(
+                timestamp: "2026-09-21T08:47:00.000Z",
+                ordinal: 6,
+                total: Self.codexTokenUsage(
+                    input: 40_000, cached: 30_000, output: 2_000, reasoning: 800, total: 314_000
+                ),
+                last: Self.codexTokenUsage(input: 40_000, cached: 30_000, output: 2_000, reasoning: 800)
+            ),
+        ]
+        // History before the first segment must stay unread.
+        var data = Data(repeating: 0x78, count: 1024 * 1024)
+        data.append(0x0A)
+        data.append(Data((lines.joined(separator: "\n") + "\n").utf8))
+        try data.write(to: file)
+
+        let source = CodexLogSource(directories: [directory], readChunkSize: 101)
+        let entry = try #require(try await source.fetchEntries(since: .distantPast).first)
+        let diagnostics = await source.latestDiagnostics()
+
+        #expect(entry.effortLevel?.rawValue == "medium")
+        #expect(entry.tokens.inputTokens == 40_000)
+        #expect(entry.tokens.cacheReadTokens == 180_000)
+        #expect(entry.tokens.outputTokens == 4_700)
+        #expect(entry.tokens.reasoningTokens == 3_300)
+        // One fixed 8 KiB prefix probe plus the records from the first segment's total on.
+        #expect(diagnostics.bytesRead < 16 * 1024)
+    }
+
+    /// An imported external session ends its copied history with a total that only
+    /// sets `total_tokens`. Continuing it in Codex grows later totals from that
+    /// baseline, which has no usage before it, so the imported history stays unread.
+    @Test func stopsAtImportedSessionBaselineWhenContinued() async throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("rollout-imported-then-continued.jsonl")
+        let importedBaseline = Self.codexTokenUsage(input: 0, total: 48_000)
+        let lines: [String] = [
+            Self.legacyTokenCount(
+                timestamp: "2026-09-22T09:00:00.000Z", total: importedBaseline, last: importedBaseline, contextWindow: nil
+            ),
+            #"{"timestamp":"2026-09-22T09:00:00.001Z","type":"event_msg","#
+                + #""payload":{"type":"task_complete","turn_id":"imported-turn","last_agent_message":null}}"#,
+            Self.turnContext(model: "gpt-5.5-codex", effort: "high"),
+            // Compaction before the first continued response re-estimates only `last_token_usage`.
+            Self.legacyTokenCount(
+                timestamp: "2026-09-22T09:05:00.000Z",
+                total: importedBaseline,
+                last: Self.codexTokenUsage(input: 0, total: 12_000),
+                contextWindow: 272_000
+            ),
+            Self.legacyTokenCount(
+                timestamp: "2026-09-22T09:06:00.000Z",
+                total: Self.codexTokenUsage(input: 30_000, cached: 20_000, output: 1_500, reasoning: 500, total: 79_500),
+                last: Self.codexTokenUsage(input: 30_000, cached: 20_000, output: 1_500, reasoning: 500),
+                contextWindow: 272_000
+            ),
+        ]
+        // Imported history before the baseline must stay unread.
+        var data = Data(repeating: 0x78, count: 1024 * 1024)
+        data.append(0x0A)
+        data.append(Data((lines.joined(separator: "\n") + "\n").utf8))
+        try data.write(to: file)
+
+        let source = CodexLogSource(directories: [directory], readChunkSize: 101)
+        let entry = try #require(try await source.fetchEntries(since: .distantPast).first)
+        let diagnostics = await source.latestDiagnostics()
+        let continued = try Self.codexDate("2026-09-22T09:06:00.000Z")
+
+        #expect(entry.model == "gpt-5.5-codex")
+        #expect(entry.tokens.inputTokens == 10_000)
+        #expect(entry.tokens.cacheReadTokens == 20_000)
+        #expect(entry.tokens.outputTokens == 1_000)
+        #expect(entry.tokens.reasoningTokens == 500)
+        #expect(entry.timestamp == continued)
+        #expect(diagnostics.bytesRead < 16 * 1024)
+    }
+
     @Test @MainActor func successfulEmptyThirtyDayReadRemainsAvailableAlongsideOlderEffort() async throws {
         let directory = try Self.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -626,7 +776,7 @@ struct CodexLogSourceTests {
         #expect(fork.tokens.reasoningTokens == 500)
     }
 
-    @Test func forkThatOverflowsItsOwnWindowKeepsItsPostResetTotal() async throws {
+    @Test func forkThatOverflowsItsOwnWindowKeepsItsOwnUsageAcrossTheReset() async throws {
         let directory = try Self.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let parentID = "019f8a10-0000-7000-8000-00000000a003"
@@ -656,11 +806,12 @@ struct CodexLogSourceTests {
         let source = CodexLogSource(directories: [directory])
         let fork = try #require(try await source.fetchEntries(since: .distantPast).first)
 
-        // The reset dropped the inherited total, so nothing is subtracted from what follows it.
-        #expect(fork.tokens.inputTokens == 7_000)
-        #expect(fork.tokens.cacheReadTokens == 5_000)
-        #expect(fork.tokens.outputTokens == 500)
-        #expect(fork.tokens.reasoningTokens == 400)
+        // The inherited total comes off the segment before the reset only; the reset
+        // dropped it, so nothing is subtracted from what follows.
+        #expect(fork.tokens.inputTokens == 57_000)
+        #expect(fork.tokens.cacheReadTokens == 155_000)
+        #expect(fork.tokens.outputTokens == 4_500)
+        #expect(fork.tokens.reasoningTokens == 1_400)
     }
 
     @Test func referencedForkSubtractsParentTotalAtForkPoint() async throws {
@@ -1454,6 +1605,15 @@ extension CodexLogSourceTests {
         #"{"timestamp":"\#(timestamp)","ordinal":\#(ordinal),"type":"event_msg","payload":{"type":"token_count","#
             + #""info":{"total_token_usage":\#(total),"last_token_usage":\#(last),"model_context_window":272000},"#
             + #""rate_limits":\#(codexRateLimits)}}"#
+    }
+
+    /// `EventMsg::TokenCount` in legacy history, whose records carry no `ordinal`.
+    /// Imported external sessions are written this way.
+    private static func legacyTokenCount(timestamp: String, total: String, last: String, contextWindow: Int?) -> String {
+        let window = contextWindow.map { "\($0)" } ?? "null"
+        return #"{"timestamp":"\#(timestamp)","type":"event_msg","payload":{"type":"token_count","info":{"#
+            + #""total_token_usage":\#(total),"last_token_usage":\#(last),"model_context_window":\#(window)},"#
+            + #""rate_limits":null}}"#
     }
 
     /// `RolloutItem::TokenUsageRecord`, written once per completed response.
