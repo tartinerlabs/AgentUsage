@@ -1,12 +1,12 @@
 {
   "fill" : {
-    "automatic-gradient" : "extended-srgb:0.93333,0.94510,0.96078,1.00000"
+    "automatic-gradient" : "extended-srgb:0.96078,0.95686,0.94118,1.00000"
   },
   "fill-specializations" : [
     {
       "appearance" : "dark",
       "value" : {
-        "automatic-gradient" : "extended-srgb:0.10588,0.11765,0.14118,1.00000"
+        "automatic-gradient" : "extended-srgb:0.09020,0.10588,0.12549,1.00000"
       }
     }
   ],
@@ -14,11 +14,67 @@
     {
       "layers" : [
         {
-          "image-name" : "usage-ring-1024.png",
-          "name" : "Usage Ring"
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "token-spent.svg",
+          "name" : "Spent Token"
         }
       ],
-      "name" : "Usage Ring",
+      "name" : "Spent Token",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.0
+      }
+    },
+    {
+      "layers" : [
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name-specializations" : [
+            {
+              "value" : "token-middle.svg"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "token-middle-dark.svg"
+            }
+          ],
+          "name" : "Middle Token"
+        }
+      ],
+      "name" : "Middle Token",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.4
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.0
+      }
+    },
+    {
+      "layers" : [
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name-specializations" : [
+            {
+              "value" : "token-base.svg"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "token-base-dark.svg"
+            }
+          ],
+          "name" : "Base Token"
+        }
+      ],
+      "name" : "Base Token",
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.35

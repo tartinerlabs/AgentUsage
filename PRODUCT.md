@@ -42,15 +42,15 @@ One SwiftUI product that adapts per OS. It is not a website and not an Android a
 
 - **Name:** AgentUsage.
 - **Personality:** Calm, native, precise. A trustworthy macOS utility that stays quiet until its data needs attention.
-- **Mark:** The **timefold** — a provider-neutral continuous interval that folds through itself and opens at a small reset notch. It expresses usage monitoring, pacing, and reset forecasting. Do not flatten it into a generic ring or traffic light. Do not use provider logos, provider colors, sparks, initials, robots, chat bubbles, or code brackets as the product mark.
-- **Color anchors for the mark** live in DESIGN.md (Pacific blue, graphite, ice, warm off-white). The application UI is neutral (system label colour); it has no brand hue. Status green/orange/red and Dusty Plum extra-usage are reserved roles, not brand decoration.
-- **Authoritative mark target:** `Design/AppIcon/approved-timefold-mockup.png`. Production exports must be compared with it.
+- **Mark:** The **token stack** — three provider-neutral tokens, the top one cobalt with a wedge already spent. It expresses a budget of tokens being used up. Do not turn it into a generic ring, gauge, or traffic light. Do not use provider logos, provider colors, sparks, initials, robots, chat bubbles, or code brackets as the product mark.
+- **Color anchors for the mark** live in DESIGN.md (cobalt, ink, slate, paper, night). The application UI is neutral (system label colour); it has no brand hue. Status green/orange/red and Dusty Plum extra-usage are reserved roles, not brand decoration.
+- **Authoritative mark source:** the Icon Composer bundle `Design/AppIcon/AppIcon.icon`.
 - **Anti-references:** a full analytics dashboard compressed into the menu bar; colorful decoration or motion that competes with live usage data; placeholder values that look like current provider data.
 
 ## Evidence on Hand
 
 - Product and visual records: this file, `DESIGN.md`, `AGENTS.md`.
-- Mark artwork under `Design/AppIcon/` (marketing 1024, `usage-ring-1024`, Icon Composer source). The approved mockup path is the named target; compare production exports to the artwork that actually ships.
+- Mark artwork under `Design/AppIcon/`: the Icon Composer source `AppIcon.icon` and the marketing 1024 exported from it.
 - No customer testimonials, case studies, press quotes, pricing pages, or third-party benchmarks. Do not invent them.
 - `README.md` is stale (still Claude-only, still describes an archived GitHub-release build). Do not treat it as product truth.
 
