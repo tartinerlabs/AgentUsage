@@ -20,13 +20,15 @@ nonisolated struct CodexLogSourceDiagnostics: Equatable, Sendable {
 
 /// Reads Codex CLI session rollout logs (`~/.codex/sessions/<y>/<m>/<d>/rollout-*.jsonl`).
 ///
-/// Each rollout file is one session. Token usage lives in `event_msg` payloads of
-/// type `token_count` (`info.total_token_usage`, cumulative for the session). We
-/// take the last such event per file and emit a single entry, attributed to the
-/// session's most recent `turn_context.model`.
+/// Each rollout file is one session. Newer Codex appends a `token_usage_record` after
+/// every completed response, whose `thread_token_usage` is cumulative for the session.
+/// Older rollouts only have `event_msg` payloads of type `token_count`
+/// (`info.total_token_usage`), which leave out remote compaction. We take the newest
+/// total per file and emit a single entry, attributed to the session's most recent
+/// `turn_context.model`.
 ///
 /// A fork, or the new rollout that reverting a thread starts, begins its running
-/// total at the source thread's total. The source's rollout already counts that
+/// totals at the source thread's totals. The source's rollout already counts that
 /// usage, so it is subtracted from the fork's or revert's entry.
 actor CodexLogSource: UsageLogSource {
     nonisolated let provider: Provider = .codex
@@ -77,9 +79,12 @@ actor CodexLogSource: UsageLogSource {
         let historyBase: HistoryBase?
     }
 
-    /// The running total a rollout started from and where its own records begin.
+    /// The running totals a rollout started from and where its own records begin.
     private struct InheritedUsage: Sendable {
+        /// The `token_count` total.
         let total: CodexCumulativeTokenUsage
+        /// The `token_usage_record` thread total; empty when no record came before.
+        let record: CodexCumulativeTokenUsage
         /// Offset just past the records that came from the source thread.
         let ownRecordsOffset: UInt64
     }
@@ -101,6 +106,8 @@ actor CodexLogSource: UsageLogSource {
 
     private enum LineageRecord {
         case tokenCount(CodexCumulativeTokenUsage, timestamp: Date?)
+        case usageRecord(CodexCumulativeTokenUsage)
+        case turnContext
         case settingsApplied(threadID: String?)
     }
 
@@ -285,7 +292,7 @@ actor CodexLogSource: UsageLogSource {
     // MARK: - Parsing
 
     /// Scans complete JSONL records from the end of the file. Codex appends the
-    /// cumulative token count and current model near the tail, so unchanged history
+    /// cumulative token usage and current model near the tail, so unchanged history
     /// never needs to be loaded or decoded.
     private func parseRollout(_ file: RolloutFile) -> ParseResult {
         guard file.fingerprint.size > 0,
@@ -307,7 +314,7 @@ actor CodexLogSource: UsageLogSource {
             : nil
         var latestModel: String?
         var latestEffortLevel: EffortLevel?
-        var latestTokenUsage: CodexCumulativeTokenUsage?
+        var tokenScan = CodexUsageRecordScan()
         var latestTimestamp: Date?
 
         do {
@@ -322,12 +329,12 @@ actor CodexLogSource: UsageLogSource {
                     line: line,
                     latestModel: &latestModel,
                     latestEffortLevel: &latestEffortLevel,
-                    latestTokenUsage: &latestTokenUsage,
+                    tokenScan: &tokenScan,
                     latestTimestamp: &latestTimestamp
                 )
                 return hasCompleteResult(
                     model: latestModel,
-                    tokenUsage: latestTokenUsage,
+                    tokenScan: tokenScan,
                     timestamp: latestTimestamp
                 )
             }
@@ -335,11 +342,11 @@ actor CodexLogSource: UsageLogSource {
             return ParseResult(entry: nil, reads: reads)
         }
 
-        guard var total = latestTokenUsage else {
+        guard let total = tokenScan.sessionTotal(
+            inheritedTokenCount: inherited?.total,
+            inheritedRecord: inherited?.record
+        ) else {
             return ParseResult(entry: nil, reads: reads)
-        }
-        if let inherited {
-            total = total.excluding(inherited: inherited.total)
         }
 
         // Codex: total = input + output; `input` includes cached, `output` includes reasoning.
@@ -498,10 +505,10 @@ actor CodexLogSource: UsageLogSource {
 
     private func hasCompleteResult(
         model: String?,
-        tokenUsage: CodexCumulativeTokenUsage?,
+        tokenScan: CodexUsageRecordScan,
         timestamp: Date?
     ) -> Bool {
-        model != nil && tokenUsage != nil && timestamp != nil
+        model != nil && tokenScan.isComplete && timestamp != nil
     }
 
     /// Inspects only records that could contain data we still need. The substring
@@ -510,34 +517,49 @@ actor CodexLogSource: UsageLogSource {
         line: Data,
         latestModel: inout String?,
         latestEffortLevel: inout EffortLevel?,
-        latestTokenUsage: inout CodexCumulativeTokenUsage?,
+        tokenScan: inout CodexUsageRecordScan,
         latestTimestamp: inout Date?
     ) {
-        let mayContainModel = latestModel == nil && line.range(of: Self.turnContextMarker) != nil
-        let mayContainTokens = (latestTokenUsage == nil || latestTimestamp == nil)
-            && line.range(of: Self.tokenCountMarker) != nil
-        guard mayContainModel || mayContainTokens,
+        let needsTotal = !tokenScan.isComplete
+        let mayContainTurnContext = (latestModel == nil || tokenScan.needsTurnBoundary)
+            && line.range(of: Self.turnContextMarker) != nil
+        let mayContainUsage = (needsTotal || latestTimestamp == nil)
+            && (line.range(of: Self.tokenCountMarker) != nil
+                || line.range(of: Self.tokenUsageRecordMarker) != nil)
+        guard mayContainTurnContext || mayContainUsage,
               let json = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
               let type = json["type"] as? String else { return }
 
         let payload = json["payload"] as? [String: Any]
-        if mayContainModel,
-           type == "turn_context",
-           let model = payload?["model"] as? String,
-           !model.isEmpty {
-            latestModel = model
-            latestEffortLevel = Self.normalizedEffortLevel(payload?["effort"])
+        if mayContainTurnContext, type == "turn_context" {
+            tokenScan.recordTurnContext()
+            if latestModel == nil,
+               let model = payload?["model"] as? String,
+               !model.isEmpty {
+                latestModel = model
+                latestEffortLevel = Self.normalizedEffortLevel(payload?["effort"])
+            }
+            return
         }
 
-        guard mayContainTokens,
-              type == "event_msg",
-              payload?["type"] as? String == "token_count",
-              let info = payload?["info"] as? [String: Any],
-              let total = info["total_token_usage"] as? [String: Any] else { return }
-
-        if latestTokenUsage == nil {
-            latestTokenUsage = CodexCumulativeTokenUsage(total)
+        guard mayContainUsage else { return }
+        switch type {
+        case "token_usage_record":
+            guard let threadUsage = payload?["thread_token_usage"] as? [String: Any] else { return }
+            if needsTotal {
+                tokenScan.recordUsageRecord(CodexCumulativeTokenUsage(threadUsage))
+            }
+        case "event_msg":
+            guard payload?["type"] as? String == "token_count",
+                  let info = payload?["info"] as? [String: Any],
+                  let total = info["total_token_usage"] as? [String: Any] else { return }
+            if needsTotal {
+                tokenScan.recordTokenCount(CodexCumulativeTokenUsage(total))
+            }
+        default:
+            return
         }
+
         if latestTimestamp == nil {
             latestTimestamp = date(from: json["timestamp"])
         }
@@ -557,6 +579,7 @@ actor CodexLogSource: UsageLogSource {
 
     private static let turnContextMarker = Data(#""turn_context""#.utf8)
     private static let tokenCountMarker = Data(#""token_count""#.utf8)
+    private static let tokenUsageRecordMarker = Data(#""token_usage_record""#.utf8)
     private static let settingsAppliedMarker = Data(#""thread_settings_applied""#.utf8)
     private static let sessionMetaMarker = Data(#""session_meta""#.utf8)
     private static let forkedFromMarker = Data(#""forked_from_id":""#.utf8)
@@ -627,7 +650,7 @@ actor CodexLogSource: UsageLogSource {
     private static let copiedHistoryWriteWindow: TimeInterval = 60
     private static let maximumReferenceDepth = 16
 
-    /// The running total a fork or a reverted thread's rollout started from. The records
+    /// The running totals a fork or a reverted thread's rollout started from. The records
     /// this depends on never change once written, so the result is cached per rollout.
     private func inheritedUsage(
         for file: RolloutFile,
@@ -667,12 +690,16 @@ actor CodexLogSource: UsageLogSource {
 
         if let historyBase = lineage.historyBase {
             // Referenced forks and reverted threads keep the inherited records in the
-            // source rollout, so look up the total there.
-            guard let total = inheritedTotal(at: historyBase, reads: &reads) else {
+            // source rollout, so look up the totals there.
+            guard let totals = inheritedTotals(at: historyBase, reads: &reads) else {
                 return InheritedUsageLookup(usage: nil, headByteCount: metadataEnd, isFinal: false)
             }
             return InheritedUsageLookup(
-                usage: InheritedUsage(total: total, ownRecordsOffset: metadataEnd),
+                usage: InheritedUsage(
+                    total: totals.tokenCount,
+                    record: totals.record,
+                    ownRecordsOffset: metadataEnd
+                ),
                 headByteCount: metadataEnd,
                 isFinal: true
             )
@@ -682,8 +709,10 @@ actor CodexLogSource: UsageLogSource {
         }
 
         // A copied fork repeats its source's records, then records its own settings with
-        // its thread ID. Codex seeded the fork with the newest copied total.
+        // its thread ID. Codex seeded the fork with the newest copied totals. A forked
+        // subagent's copy leaves out usage records, so its records start empty.
         var copiedTotal = CodexCumulativeTokenUsage()
+        var copiedRecord = CodexCumulativeTokenUsage()
         var lookup = InheritedUsageLookup.pending
         try scanRecordsForward(
             handle: handle,
@@ -700,14 +729,20 @@ actor CodexLogSource: UsageLogSource {
                     return true
                 }
                 copiedTotal = total
+            case let .usageRecord(threadTotal):
+                copiedRecord = threadTotal
             case let .settingsApplied(threadID) where threadID == lineage.threadID:
                 lookup = InheritedUsageLookup(
-                    usage: InheritedUsage(total: copiedTotal, ownRecordsOffset: recordEnd),
+                    usage: InheritedUsage(
+                        total: copiedTotal,
+                        record: copiedRecord,
+                        ownRecordsOffset: recordEnd
+                    ),
                     headByteCount: recordEnd,
                     isFinal: true
                 )
                 return true
-            case .settingsApplied, nil:
+            case .settingsApplied, .turnContext, nil:
                 break
             }
             return false
@@ -716,14 +751,15 @@ actor CodexLogSource: UsageLogSource {
     }
 
     /// Codex seeds a Referenced fork or a reverted thread from the newest `token_count`
-    /// before the source point, continuing into the source's own source when its prefix
-    /// has none. Returns nil when a rollout on the way is not readable here, such as a
-    /// compressed one; its usage is not counted here either.
-    private func inheritedTotal(
+    /// and usage record before the source point, continuing into the source's own source
+    /// when its prefix has none. Returns nil when a rollout on the way is not readable
+    /// here, such as a compressed one; its usage is not counted here either.
+    private func inheritedTotals(
         at historyBase: HistoryBase,
         reads: inout ReadStats
-    ) -> CodexCumulativeTokenUsage? {
+    ) -> (tokenCount: CodexCumulativeTokenUsage, record: CodexCumulativeTokenUsage)? {
         var historyBase = historyBase
+        var inheritedRecord: CodexCumulativeTokenUsage?
         for _ in 0..<Self.maximumReferenceDepth {
             guard let url = rolloutURLsByID[historyBase.rolloutID],
                   let handle = try? FileHandle(forReadingFrom: url) else {
@@ -733,21 +769,28 @@ actor CodexLogSource: UsageLogSource {
 
             do {
                 let byteCount = try handle.seekToEnd()
-                var inherited: CodexCumulativeTokenUsage?
+                var scan = CodexUsageRecordScan()
                 try scanRecordsBackward(
                     handle: handle,
                     from: min(historyBase.endByteOffset, byteCount),
                     to: 0,
                     reads: &reads
                 ) { record in
-                    guard case let .tokenCount(total, _) = lineageRecord(in: record) else {
-                        return false
+                    switch lineageRecord(in: record) {
+                    case let .tokenCount(total, _):
+                        scan.recordTokenCount(total)
+                    case let .usageRecord(threadTotal):
+                        scan.recordUsageRecord(threadTotal)
+                    case .turnContext:
+                        scan.recordTurnContext()
+                    case .settingsApplied, nil:
+                        break
                     }
-                    inherited = total
-                    return true
+                    return scan.isComplete
                 }
-                if let inherited {
-                    return inherited
+                inheritedRecord = inheritedRecord ?? scan.recordTotal
+                if let tokenCount = scan.tokenCountTotal {
+                    return (tokenCount, inheritedRecord ?? CodexCumulativeTokenUsage())
                 }
                 guard let (lineage, _) = try readSessionLineage(
                     handle: handle,
@@ -757,7 +800,7 @@ actor CodexLogSource: UsageLogSource {
                     return nil
                 }
                 guard let next = lineage.historyBase else {
-                    return CodexCumulativeTokenUsage()
+                    return (CodexCumulativeTokenUsage(), inheritedRecord ?? CodexCumulativeTokenUsage())
                 }
                 historyBase = next
             } catch {
@@ -813,10 +856,23 @@ actor CodexLogSource: UsageLogSource {
 
     private func lineageRecord(in record: Data) -> LineageRecord? {
         guard record.range(of: Self.tokenCountMarker) != nil
+                || record.range(of: Self.tokenUsageRecordMarker) != nil
+                || record.range(of: Self.turnContextMarker) != nil
                 || record.range(of: Self.settingsAppliedMarker) != nil,
               let json = try? JSONSerialization.jsonObject(with: record) as? [String: Any],
-              json["type"] as? String == "event_msg",
               let payload = json["payload"] as? [String: Any] else { return nil }
+
+        switch json["type"] as? String {
+        case "token_usage_record":
+            guard let threadUsage = payload["thread_token_usage"] as? [String: Any] else { return nil }
+            return .usageRecord(CodexCumulativeTokenUsage(threadUsage))
+        case "turn_context":
+            return .turnContext
+        case "event_msg":
+            break
+        default:
+            return nil
+        }
 
         switch payload["type"] as? String {
         case "token_count":

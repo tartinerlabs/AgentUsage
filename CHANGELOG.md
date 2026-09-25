@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Count only a forked or reverted Codex session's own usage in local token and cost totals
 - Stop mentioning OpenCode in Settings and About while it is unavailable
 - Add privacy manifests for the app and widget
+- Count the tokens Codex spends compacting long conversations in Codex token and cost totals
 
 ## [0.33.0] - 2026-09-24
 
