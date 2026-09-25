@@ -12,8 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Size the menu bar popover to the selected page, up to its previous height, and scroll taller pages
 - Show when the next automatic refresh runs in the menu bar popover footer
 - Stop counting the same Codex or Grok session twice in local token and cost totals
+- Count only a forked or reverted Codex session's own usage in local token and cost totals
 - Stop mentioning OpenCode in Settings and About while it is unavailable
 - Add privacy manifests for the app and widget
+- Count the tokens Codex spends compacting long conversations in Codex token and cost totals
 - Replace the app icon with a new token-stack design
 
 ## [0.33.0] - 2026-09-24
