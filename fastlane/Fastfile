@@ -151,12 +151,9 @@ lane :testflight_notes do |options|
   platform = validated_platform(options[:platform])
   current = read_version_file
   text = changelog_section(current[:marketing])
-  if text.bytesize > NOTES_LIMIT
-    UI.user_error!("The #{current[:marketing]} section is #{text.bytesize} bytes; TestFlight allows #{NOTES_LIMIT}")
-  end
 
-  load_app_store_connect_api_key
   upload_to_testflight(
+    api_key: load_app_store_connect_api_key,
     distribute_only: true,
     skip_submission: true,
     skip_waiting_for_build_processing: true,
@@ -260,7 +257,7 @@ def verified_github_token
   repository = github_api(
     api_bearer: token, # api_token would send it as Basic auth
     http_method: "GET",
-    path: "repos/#{GITHUB_REPOSITORY}",
+    path: "/repos/#{GITHUB_REPOSITORY}",
     error_handlers: {
       "*" => proc do |result|
         UI.user_error!("GitHub rejected GITHUB_TOKEN for #{GITHUB_REPOSITORY} (HTTP #{result[:status]})")
