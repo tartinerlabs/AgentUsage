@@ -9,6 +9,42 @@ import AgentUsageKit
 import SwiftUI
 import WidgetKit
 
+/// Small widget text styles. The HIG asks for widget text of 11 points or
+/// larger, but macOS renders caption, caption 2, and footnote at 10 points;
+/// subheadline is the smallest macOS style that meets it. iOS keeps its own
+/// styles, which are already 11 points or larger.
+extension Font.TextStyle {
+    static var widgetCaption2: Font.TextStyle {
+        #if os(macOS)
+        .subheadline
+        #else
+        .caption2
+        #endif
+    }
+
+    static var widgetCaption: Font.TextStyle {
+        #if os(macOS)
+        .subheadline
+        #else
+        .caption
+        #endif
+    }
+
+    static var widgetFootnote: Font.TextStyle {
+        #if os(macOS)
+        .subheadline
+        #else
+        .footnote
+        #endif
+    }
+}
+
+extension Font {
+    static var widgetCaption2: Font { .system(.widgetCaption2) }
+    static var widgetCaption: Font { .system(.widgetCaption) }
+    static var widgetFootnote: Font { .system(.widgetFootnote) }
+}
+
 /// Brand wash for the system widget container. WidgetKit supplies the outer
 /// shape and 16-point margins; this view must stay inside `containerBackground`
 /// so StandBy and CarPlay can remove it.
@@ -112,7 +148,7 @@ struct WidgetUsageRow: View {
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 WidgetResetLabel(usage: usage, now: now)
-                    .font(.footnote)
+                    .font(.widgetFootnote)
                     .foregroundStyle(.secondary)
             }
 
@@ -123,12 +159,12 @@ struct WidgetUsageRow: View {
                 Text("\(usage.percentUsed)%")
                     .font(.system(.callout, design: .rounded, weight: .bold))
                 Text("used")
-                    .font(.footnote)
+                    .font(.widgetFootnote)
                     .foregroundStyle(.secondary)
 
                 if usage.isUsingExtraUsage {
                     Text("+\(usage.extraUsagePercent)% extra")
-                        .font(.footnote)
+                        .font(.widgetFootnote)
                         .foregroundStyle(AgentUsageColors.extraUsageAccent)
                         .lineLimit(1)
                 }
@@ -136,7 +172,7 @@ struct WidgetUsageRow: View {
                 Spacer(minLength: 4)
 
                 Label(status.label, systemImage: status.icon)
-                    .font(.footnote)
+                    .font(.widgetFootnote)
                     .foregroundStyle(status.color)
                     .lineLimit(1)
             }
@@ -200,7 +236,7 @@ struct WidgetProviderGlanceRow: View {
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 Text("\(usage.percentUsed)%")
-                    .font(.system(.caption, design: .rounded, weight: .bold))
+                    .font(.system(.widgetCaption, design: .rounded, weight: .bold))
                     .layoutPriority(1)
                 if usage.isUsingExtraUsage {
                     Text("+\(usage.extraUsagePercent)% extra")
@@ -211,13 +247,13 @@ struct WidgetProviderGlanceRow: View {
                     .foregroundStyle(status.color)
                     .accessibilityHidden(true)
             }
-            .font(.caption)
+            .font(.widgetCaption)
 
             HStack(spacing: 8) {
                 WidgetRedactableProgressBar(usage: usage, now: now)
                     .accessibilityHidden(true)
                 WidgetResetLabel(usage: usage, now: now, includePrefix: false)
-                    .font(.caption2)
+                    .font(.widgetCaption2)
                     .foregroundStyle(.secondary)
             }
         }
@@ -253,17 +289,17 @@ struct WidgetProviderGlanceRow: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 WidgetResetLabel(usage: usage, now: now)
-                    .font(.footnote)
+                    .font(.widgetFootnote)
                     .foregroundStyle(.secondary)
                 if usage.isUsingExtraUsage {
                     Text("+\(usage.extraUsagePercent)% extra")
-                        .font(.footnote)
+                        .font(.widgetFootnote)
                         .foregroundStyle(AgentUsageColors.extraUsageAccent)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 4)
                 Label(status.label, systemImage: status.icon)
-                    .font(.footnote)
+                    .font(.widgetFootnote)
                     .foregroundStyle(status.color)
                     .lineLimit(1)
             }
@@ -295,7 +331,7 @@ struct WidgetSecondaryWindowRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Text(usage.displayName)
-                .font(.footnote)
+                .font(.widgetFootnote)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 8)
@@ -303,11 +339,11 @@ struct WidgetSecondaryWindowRow: View {
                 .frame(width: 72)
                 .accessibilityHidden(true)
             Text("\(usage.percentUsed)%")
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(.system(.widgetFootnote, design: .rounded, weight: .semibold))
                 .monospacedDigit()
                 .frame(minWidth: 36, alignment: .trailing)
             Image(systemName: status.icon)
-                .font(.footnote)
+                .font(.widgetFootnote)
                 .foregroundStyle(status.color)
                 .accessibilityHidden(true)
         }

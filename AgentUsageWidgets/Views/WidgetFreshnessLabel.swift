@@ -14,9 +14,9 @@ import SwiftUI
 struct WidgetFreshnessLabel: View {
     let entry: WidgetEntry
     var fetchedAt: Date?
-    var font: Font = .caption2
+    var font: Font = .widgetCaption2
 
-    init(entry: WidgetEntry, fetchedAt: Date? = nil, font: Font = .caption2) {
+    init(entry: WidgetEntry, fetchedAt: Date? = nil, font: Font = .widgetCaption2) {
         self.entry = entry
         self.fetchedAt = fetchedAt
         self.font = font

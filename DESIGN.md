@@ -301,6 +301,9 @@ Corner radius is assigned by component scale:
   one-line name · short bar · percent · status icon row when the container has room
   (`ViewThatFits`); a single-provider payload still lists that provider's windows.
   Every family shows last-updated only when the snapshot is stale.
+  Widget text is never smaller than 11pt (HIG). macOS renders caption, caption 2, and footnote
+  at 10pt, so widget views use `.widgetCaption2` / `.widgetCaption` / `.widgetFootnote`, which map
+  to subheadline on macOS and keep the iOS styles elsewhere.
   Grok does not appear until it has rate windows. Only the provider glyph is
   `.widgetAccentable()` so tinted/clear appearances keep the percent in the primary group.
 - **Accessory widgets & Live Activities** — where the platform shape requires a gauge, use

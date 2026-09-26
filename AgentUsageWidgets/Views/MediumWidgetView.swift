@@ -87,7 +87,7 @@ struct MediumWidgetView: View {
 
         return VStack(alignment: .leading, spacing: 4) {
             Text(usage.displayName)
-                .font(.caption)
+                .font(.widgetCaption)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -103,7 +103,7 @@ struct MediumWidgetView: View {
                     .accessibilityHidden(true)
                 if usage.isUsingExtraUsage {
                     Text("+\(usage.extraUsagePercent)%")
-                        .font(.caption2)
+                        .font(.widgetCaption2)
                         .foregroundStyle(AgentUsageColors.extraUsageAccent)
                         .lineLimit(1)
                 }
@@ -113,7 +113,7 @@ struct MediumWidgetView: View {
                 .accessibilityHidden(true)
 
             WidgetResetLabel(usage: usage, now: entry.date)
-                .font(.caption2)
+                .font(.widgetCaption2)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

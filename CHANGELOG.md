@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Make small widget text on the Mac desktop at least 11 points, as Apple's guidelines recommend
 - Lay out the Medium widget's windows side by side as glances instead of stacked rows for a single provider
 - Rename remaining "AgentUsage" mentions to "Agent Usage" in onboarding and error text
 - Show the token stack app icon in the Mac and iPhone onboarding headers, with a dark version in Dark Mode

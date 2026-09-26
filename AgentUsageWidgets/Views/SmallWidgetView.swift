@@ -42,11 +42,11 @@ struct SmallWidgetView: View {
 
     private func header(provider: AgentUsageKit.Provider, isStandBy: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            WidgetProviderIdentity(provider: provider, font: .caption)
+            WidgetProviderIdentity(provider: provider, font: .widgetCaption)
             Spacer(minLength: 4)
             if entry.isStale, !isStandBy {
                 Image(systemName: "clock.arrow.circlepath")
-                    .font(.caption2)
+                    .font(.widgetCaption2)
                     .foregroundStyle(UsageStatus.warning.color)
                     .accessibilityHidden(true)
             }
@@ -72,7 +72,7 @@ struct SmallWidgetView: View {
 
             if usage.isUsingExtraUsage {
                 Text("+\(usage.extraUsagePercent)% extra")
-                    .font(.caption2)
+                    .font(.widgetCaption2)
                     .foregroundStyle(AgentUsageColors.extraUsageAccent)
                     .lineLimit(1)
             }
@@ -88,7 +88,7 @@ struct SmallWidgetView: View {
     private func footer(for usage: UsageWindow, isStandBy: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(usage.displayName)
-                .font(.caption)
+                .font(.widgetCaption)
                 .fontWeight(.semibold)
                 .lineLimit(1)
 
@@ -96,7 +96,7 @@ struct SmallWidgetView: View {
                 staleUpdatedLabel
             } else {
                 WidgetResetLabel(usage: usage, now: entry.date)
-                    .font(.caption2)
+                    .font(.widgetCaption2)
                     .foregroundStyle(.secondary)
             }
         }
@@ -112,7 +112,7 @@ struct SmallWidgetView: View {
                 Text(entry.lastUpdatedDescription)
             }
         }
-        .font(.caption2)
+        .font(.widgetCaption2)
         .foregroundStyle(UsageStatus.warning.color)
         .lineLimit(1)
         .monospacedDigit()

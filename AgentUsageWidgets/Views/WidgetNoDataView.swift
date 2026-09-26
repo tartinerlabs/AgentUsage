@@ -43,14 +43,14 @@ struct WidgetNoDataView: View {
     private var compact: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let provider {
-                WidgetProviderIdentity(provider: provider, font: .caption)
+                WidgetProviderIdentity(provider: provider, font: .widgetCaption)
             }
             Spacer(minLength: 4)
             VStack(alignment: .leading, spacing: 4) {
                 unavailableLabel
                     .font(.headline)
                 Text(copy.hint)
-                    .font(.caption)
+                    .font(.widgetCaption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
             }
@@ -77,7 +77,7 @@ struct WidgetNoDataView: View {
                         .font(.subheadline)
                         .fontWeight(.semibold)
                     Text(copy.hint)
-                        .font(.caption)
+                        .font(.widgetCaption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -106,7 +106,7 @@ struct WidgetNoDataView: View {
             .accessibilityHidden(true)
         } currentValueLabel: {
             Image(systemName: copy.iconName)
-                .font(.caption)
+                .font(.widgetCaption)
         }
         .gaugeStyle(.accessoryCircular)
         .widgetAccentable()
@@ -117,14 +117,14 @@ struct WidgetNoDataView: View {
         VStack(alignment: .leading, spacing: 2) {
             if let provider {
                 Label(provider)
-                    .font(.caption)
+                    .font(.widgetCaption)
                     .fontWeight(.semibold)
             }
             Label(copy.title, systemImage: copy.iconName)
-                .font(.caption)
+                .font(.widgetCaption)
                 .fontWeight(.semibold)
             Text(copy.hint)
-                .font(.caption2)
+                .font(.widgetCaption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }

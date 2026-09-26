@@ -30,7 +30,7 @@ struct LargeWidgetView: View {
             if let fetchedAt = glances.map(\.fetchedAt).max(), entry.isStale(fetchedAt: fetchedAt) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Spacer(minLength: 0)
-                    WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt, font: .caption)
+                    WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt, font: .widgetCaption)
                 }
             }
 
@@ -85,7 +85,7 @@ struct LargeWidgetView: View {
                 WidgetProviderIdentity(provider: provider, font: .headline)
                 Spacer(minLength: 8)
                 if entry.isStale(fetchedAt: fetchedAt) {
-                    WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt, font: .caption)
+                    WidgetFreshnessLabel(entry: entry, fetchedAt: fetchedAt, font: .widgetCaption)
                 }
             }
 
