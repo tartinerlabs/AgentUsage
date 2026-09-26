@@ -45,8 +45,8 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 
 **macOS:**
 1. Download `AgentUsage.zip` from [Releases](https://github.com/tartinerlabs/AgentUsage/releases)
-2. Move `AgentUsage.app` to Applications
-3. Open AgentUsage. Because current releases are ad-hoc signed, macOS will initially block the app as coming from an unidentified developer.
+2. Move `Agent Usage.app` to Applications
+3. Open Agent Usage. Because current releases are ad-hoc signed, macOS will initially block the app as coming from an unidentified developer.
 4. Open **System Settings → Privacy & Security**, scroll to the security message for Agent Usage, click **Open Anyway**, then confirm **Open**. See [Apple's guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
 5. Agent Usage appears in the menu bar.
 
@@ -117,7 +117,7 @@ MVVM with Swift Actors for thread safety, @Observable for reactive UI, and async
 
 **Unauthorized error:** Re-authenticate with `claude auth login`
 
-**App not in menu bar:** Check Activity Monitor for "AgentUsage" and restart if needed
+**App not in menu bar:** Check Activity Monitor for "Agent Usage" and restart if needed
 
 **macOS cannot verify the developer:** Follow the **Open Anyway** steps under Installation. Do not disable Gatekeeper globally.
 

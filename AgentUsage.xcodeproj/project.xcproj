@@ -67,7 +67,7 @@
       "kind": "group",
       "name": "Products",
       "children": [
-        { "path": "<PRODUCTS>/AgentUsage.app", "id": "D8EFFF722F05796A006A2183", "type": "wrapper.application", "index": false },
+        { "path": "<PRODUCTS>/Agent Usage.app", "id": "D8EFFF722F05796A006A2183", "type": "wrapper.application", "index": false },
         { "path": "<PRODUCTS>/AgentUsageTests.xctest", "id": "D8EFFF832F05796C006A2183", "type": "wrapper.cfbundle", "index": false },
         { "path": "<PRODUCTS>/AgentUsageUITests.xctest", "id": "D8EFFF8D2F05796C006A2183", "type": "wrapper.cfbundle", "index": false },
         { "path": "<PRODUCTS>/AgentUsageWidgetsExtension.appex", "id": "D835E8502F06D377001A996A", "type": "wrapper.app-extension", "index": false, "target-membership": [ { "build-phase": "AgentUsage/copy/Embed Foundation Extensions", "platforms": [ "ios" ], "header-preservation": "remove-on-copy" } ] },
@@ -78,7 +78,7 @@
     {
       "name": "AgentUsage",
       "id": "D8EFFF712F05796A006A2183",
-      "product": "Products/AgentUsage.app",
+      "product": "Products/Agent Usage.app",
       "product-type": "application",
       "dependencies": [
         { "target": "AgentUsageWidgetsExtension", "platforms": [ "ios" ] },
@@ -160,7 +160,8 @@
         "MACOSX_DEPLOYMENT_TARGET": "15.0",
         "OTHER_LDFLAGS": "-lsqlite3",
         "PRODUCT_BUNDLE_IDENTIFIER": "com.tartinerlabs.AgentUsage",
-        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "PRODUCT_MODULE_NAME": "AgentUsage",
+        "PRODUCT_NAME": "Agent Usage",
         "PROVISIONING_PROFILE_SPECIFIER": "",
         "REGISTER_APP_GROUPS": "YES",
         "SDKROOT": "auto",
@@ -209,7 +210,7 @@
         "SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY": "YES",
         "SWIFT_VERSION": "6.0",
         "TARGETED_DEVICE_FAMILY": "1,2,7",
-        "TEST_HOST": "$(BUILT_PRODUCTS_DIR)/AgentUsage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AgentUsage",
+        "TEST_HOST": "$(BUILT_PRODUCTS_DIR)/Agent Usage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Agent Usage",
       },
     }, {
       "name": "AgentUsageUITests",

@@ -30,7 +30,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D8EFFF712F05796A006A2183"
-               BuildableName = "AgentUsage.app"
+               BuildableName = "Agent Usage.app"
                BlueprintName = "AgentUsage"
                ReferencedContainer = "container:AgentUsage.xcodeproj">
             </BuildableReference>
@@ -61,7 +61,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D8EFFF712F05796A006A2183"
-            BuildableName = "AgentUsage.app"
+            BuildableName = "Agent Usage.app"
             BlueprintName = "AgentUsage"
             ReferencedContainer = "container:AgentUsage.xcodeproj">
          </BuildableReference>
@@ -97,7 +97,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D8EFFF712F05796A006A2183"
-            BuildableName = "AgentUsage.app"
+            BuildableName = "Agent Usage.app"
             BlueprintName = "AgentUsage"
             ReferencedContainer = "container:AgentUsage.xcodeproj">
          </BuildableReference>
