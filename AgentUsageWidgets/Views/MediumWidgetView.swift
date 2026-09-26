@@ -68,18 +68,67 @@ struct MediumWidgetView: View {
                 }
             }
 
-            VStack(spacing: 8) {
+            Spacer(minLength: 4)
+
+            // Medium is wide, not tall: windows sit side by side as Small-style
+            // glances so the percent leads instead of stacking three-line rows.
+            HStack(alignment: .top, spacing: 16) {
                 ForEach(windows, id: \.windowID) { usage in
-                    WidgetUsageRow(
-                        title: usage.displayName,
-                        usage: usage,
-                        now: entry.date
-                    )
+                    windowGlance(usage)
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
+    }
+
+    private func windowGlance(_ usage: UsageWindow) -> some View {
+        let status = usage.status(from: entry.date)
+
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(usage.displayName)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(usage.percentUsed)%")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                Image(systemName: status.icon)
+                    .font(.title3)
+                    .foregroundStyle(status.color)
+                    .accessibilityHidden(true)
+                if usage.isUsingExtraUsage {
+                    Text("+\(usage.extraUsagePercent)%")
+                        .font(.caption2)
+                        .foregroundStyle(AgentUsageColors.extraUsageAccent)
+                        .lineLimit(1)
+                }
+            }
+
+            WidgetRedactableProgressBar(usage: usage, now: entry.date)
+                .accessibilityHidden(true)
+
+            WidgetResetLabel(usage: usage, now: entry.date)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(usage.displayName) usage")
+        .accessibilityValue(accessibilityValue(for: usage, status: status))
+        .accessibilityHint(usage.resetDescription(from: entry.date))
+    }
+
+    private func accessibilityValue(for usage: UsageWindow, status: UsageStatus) -> String {
+        var parts = ["\(usage.percentUsed) percent used", status.label]
+        if usage.isUsingExtraUsage {
+            parts.append("\(usage.extraUsagePercent) percent extra usage")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

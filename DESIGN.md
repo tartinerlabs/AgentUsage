@@ -293,7 +293,8 @@ Corner radius is assigned by component scale:
   symbol, then window name and a system-updating reset date; last-updated only when stale.
   In StandBy the bar drops and the percent is the distance-readable graphic. Medium compact
   rows add window name, compact reset, and an icon-only status on two lines. Medium
-  single-provider and Large keep `WidgetUsageRow`. Small and Lock Screen default to the most
+  single-provider lays up to two windows side by side as Small-style glances (window name,
+  28pt percent + status symbol, bar, reset). Large single-provider keeps `WidgetUsageRow`. Small and Lock Screen default to the most
   urgent live window, not Claude. Medium and Large show one primary window per provider that
   currently has quota data, most recently used first, then higher live utilization;
   Medium stops at three rows; Large adds one secondary window per provider as a
