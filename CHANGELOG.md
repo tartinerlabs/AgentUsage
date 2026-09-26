@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Stop iPhone and iPad from repeating usage alerts when a Mac shares older usage than another Mac already did
 - Stop reset notifications from saying "limit" twice or lowercasing model names
 - Show Codex code review and model-specific limits after the 5-hour and weekly limits, and the Codex credit balance when the account has one
 - Turn individual providers off in macOS Settings; they are no longer checked, are hidden on the Mac, and stop syncing to iPhone and iPad

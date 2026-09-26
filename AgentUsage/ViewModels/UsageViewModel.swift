@@ -1409,6 +1409,17 @@ extension UsageViewModel {
 
         if let synced = await usageSyncService.fetchLatest() {
             let oldSnapshot = snapshot
+            // Another Mac can overwrite the shared record with an older fetch. Applying
+            // it would lower the baseline, and the next fresh snapshot would re-alert
+            // every threshold between the two.
+            if let oldFetchedAt = oldSnapshot?.fetchedAt,
+               let newFetchedAt = synced.snapshot?.fetchedAt,
+               newFetchedAt < oldFetchedAt {
+                Logger.viewModel.info("Ignored a macOS-synced snapshot older than the current one")
+                isUsingCachedData = Date().timeIntervalSince(oldFetchedAt) > Constants.syncFallbackThreshold
+                errorMessage = nil
+                return .skipped
+            }
             let hasNewSnapshot = synced.snapshot.map { oldSnapshot?.fetchedAt != $0.fetchedAt } ?? false
             let isCached = synced.age() > Constants.syncFallbackThreshold
             await applySyncedSnapshot(synced, isCached: isCached)
