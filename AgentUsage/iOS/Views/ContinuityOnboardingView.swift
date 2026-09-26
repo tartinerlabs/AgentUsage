@@ -159,9 +159,9 @@ struct ContinuityOnboardingView: View {
 
     private var introductionText: String {
         if connectionState == .connected {
-            return "Your Mac shared the latest usage snapshot. AgentUsage will keep this device updated automatically."
+            return "Your Mac shared the latest usage snapshot. Agent Usage will keep this device updated automatically."
         }
-        return "AgentUsage for iPhone and iPad receives usage snapshots from AgentUsage on your Mac through iCloud."
+        return "Agent Usage for iPhone and iPad receives usage snapshots from Agent Usage on your Mac through iCloud."
     }
 
     private func checkConnection() async {

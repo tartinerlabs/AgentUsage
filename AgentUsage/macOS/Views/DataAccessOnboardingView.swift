@@ -174,9 +174,9 @@ struct DataAccessOnboardingView: View {
 
     private var introductionText: String {
         if connectionState == .connected {
-            return "AgentUsage can now read local provider data and privately share the latest usage snapshot through your iCloud database."
+            return "Agent Usage can now read local provider data and privately share the latest usage snapshot through your iCloud database."
         }
-        return "AgentUsage reads local provider data on this Mac and privately shares the latest usage snapshot through your iCloud database."
+        return "Agent Usage reads local provider data on this Mac and privately shares the latest usage snapshot through your iCloud database."
     }
 
     private func chooseHomeFolder() {

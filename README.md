@@ -47,8 +47,8 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 1. Download `AgentUsage.zip` from [Releases](https://github.com/tartinerlabs/AgentUsage/releases)
 2. Move `AgentUsage.app` to Applications
 3. Open AgentUsage. Because current releases are ad-hoc signed, macOS will initially block the app as coming from an unidentified developer.
-4. Open **System Settings → Privacy & Security**, scroll to the security message for AgentUsage, click **Open Anyway**, then confirm **Open**. See [Apple's guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
-5. AgentUsage appears in the menu bar.
+4. Open **System Settings → Privacy & Security**, scroll to the security message for Agent Usage, click **Open Anyway**, then confirm **Open**. See [Apple's guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
+5. Agent Usage appears in the menu bar.
 
 **iOS:** Currently in development. Build from source (see below).
 
@@ -79,7 +79,7 @@ xcodebuild -project AgentUsage.xcodeproj -scheme AgentUsage -configuration Relea
 
 **iOS:**
 - Dashboard tab shows usage stats
-- Add widgets: Long-press Home Screen → "+" → "AgentUsage"
+- Add widgets: Long-press Home Screen → "+" → "Agent Usage"
 - Lock Screen widget: Customize Lock Screen → widget area
 
 **Token Usage:**
