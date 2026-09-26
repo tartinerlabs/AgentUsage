@@ -78,15 +78,16 @@ actor NotificationService: NotificationServiceProtocol {
     /// Identifies one window's reset period. Keeping `resetsAt` as a field rather than
     /// baking it into a string lets eviction order by recency instead of by name.
     private struct WindowPeriodKey: Hashable {
-        let name: String
+        let provider: Provider
+        let windowID: UsageWindowID
         let resetsAt: TimeInterval
     }
 
-    // Track notified thresholds per window type and reset time to avoid duplicates
+    // Track notified thresholds per provider window and reset time to avoid duplicates
     private var notifiedThresholds: [WindowPeriodKey: Set<Int>] = [:]
 
-    // Track whether we've already notified about extra usage activation
-    private var notifiedExtraUsage: Bool = false
+    // Providers already notified about the current extra usage activation
+    private var notifiedExtraUsage: Set<Provider> = []
 
     init(
         notificationCenter: any UserNotificationCenterClient = SystemUserNotificationCenterClient(),
@@ -143,80 +144,50 @@ actor NotificationService: NotificationServiceProtocol {
 
     /// Check for threshold crossings and send notifications
     /// - Parameters:
-    ///   - oldSnapshot: Previous usage snapshot (nil on first fetch)
+    ///   - oldSnapshot: Previous usage snapshot for the same provider (nil on first fetch)
     ///   - newSnapshot: Current usage snapshot
     func checkThresholdCrossings(
-        oldSnapshot: UsageSnapshot?,
-        newSnapshot: UsageSnapshot
+        oldSnapshot: ProviderUsageSnapshot?,
+        newSnapshot: ProviderUsageSnapshot
     ) async {
         let currentSettings = settings
+        let provider = newSnapshot.provider
 
-        // Check each usage window based on settings
-        if currentSettings.notifySession {
+        // Windows are matched by ID; providers may reorder them between fetches.
+        for newUsage in newSnapshot.windows where currentSettings.notifies(newUsage.windowType) {
+            let oldUsage = oldSnapshot?.windows.first { $0.windowID == newUsage.windowID }
             await checkWindow(
-                name: newSnapshot.session.displayName,
-                oldUsage: oldSnapshot?.session,
-                newUsage: newSnapshot.session,
-                settings: currentSettings
-            )
-        }
-
-        if currentSettings.notifyOpus {
-            await checkWindow(
-                name: newSnapshot.opus.displayName,
-                oldUsage: oldSnapshot?.opus,
-                newUsage: newSnapshot.opus,
-                settings: currentSettings
-            )
-        }
-
-        if let newSonnet = newSnapshot.sonnet, currentSettings.notifySonnet {
-            await checkWindow(
-                name: newSonnet.displayName,
-                oldUsage: oldSnapshot?.sonnet,
-                newUsage: newSonnet,
-                settings: currentSettings
-            )
-        }
-
-        if let newDesign = newSnapshot.design, currentSettings.notifyDesign {
-            await checkWindow(
-                name: newDesign.displayName,
-                oldUsage: oldSnapshot?.design,
-                newUsage: newDesign,
-                settings: currentSettings
-            )
-        }
-
-        if let newFable = newSnapshot.fable, currentSettings.notifyFable {
-            await checkWindow(
-                name: newFable.displayName,
-                oldUsage: oldSnapshot?.fable,
-                newUsage: newFable,
+                provider: provider,
+                oldUsage: oldUsage,
+                newUsage: newUsage,
                 settings: currentSettings
             )
         }
 
         // Check for extra usage activation
         if currentSettings.notifyExtraUsage {
-            let wasActive = oldSnapshot?.isExtraUsageActive ?? false
-            let isActive = newSnapshot.isExtraUsageActive
+            let wasActive = oldSnapshot?.windows.contains(where: \.isUsingExtraUsage) ?? false
+            let isActive = newSnapshot.windows.contains(where: \.isUsingExtraUsage)
 
             if oldSnapshot == nil {
                 // First-observation suppression applies to extra usage too. Remember
                 // the observed state so a later deactivation can re-arm the alert.
-                notifiedExtraUsage = isActive
-            } else if !wasActive && isActive && !notifiedExtraUsage {
-                await sendExtraUsageNotification()
-                notifiedExtraUsage = true
+                if isActive {
+                    notifiedExtraUsage.insert(provider)
+                } else {
+                    notifiedExtraUsage.remove(provider)
+                }
+            } else if !wasActive && isActive && !notifiedExtraUsage.contains(provider) {
+                await sendExtraUsageNotification(providerName: provider.displayName)
+                notifiedExtraUsage.insert(provider)
             } else if !isActive {
-                notifiedExtraUsage = false
+                notifiedExtraUsage.remove(provider)
             }
         }
     }
 
     private func checkWindow(
-        name: String,
+        provider: Provider,
         oldUsage: UsageWindow?,
         newUsage: UsageWindow,
         settings: NotificationSettings
@@ -225,12 +196,20 @@ actor NotificationService: NotificationServiceProtocol {
         let oldPercent = oldUsage?.percentUsed ?? 0
 
         // Create unique key for this window's reset period (using second precision)
-        let windowKey = WindowPeriodKey(name: name, resetsAt: dateToSeconds(newUsage.resetsAt))
+        let windowKey = WindowPeriodKey(
+            provider: provider,
+            windowID: newUsage.windowID,
+            resetsAt: dateToSeconds(newUsage.resetsAt)
+        )
 
         // Reset alerts are scheduled against `resetsAt` rather than observed on
         // the next snapshot. Still drop threshold-dedup state for the old period.
         if let oldUsage, dateToSeconds(oldUsage.resetsAt) != dateToSeconds(newUsage.resetsAt) {
-            let oldKey = WindowPeriodKey(name: name, resetsAt: dateToSeconds(oldUsage.resetsAt))
+            let oldKey = WindowPeriodKey(
+                provider: provider,
+                windowID: newUsage.windowID,
+                resetsAt: dateToSeconds(oldUsage.resetsAt)
+            )
             notifiedThresholds.removeValue(forKey: oldKey)
         }
 
@@ -257,22 +236,29 @@ actor NotificationService: NotificationServiceProtocol {
             let alreadyNotified = notifiedThresholds[windowKey]?.contains(threshold) ?? false
 
             if crossed && !alreadyNotified {
-                await sendNotification(windowName: name, threshold: threshold, usage: newUsage)
+                await sendNotification(
+                    providerName: provider.displayName,
+                    threshold: threshold,
+                    usage: newUsage
+                )
                 notifiedThresholds[windowKey]?.insert(threshold)
             }
         }
 
-        // Clean up old window keys (keep the 10 most recent reset periods). Evicting by
+        // Clean up old window keys, keeping the most recent reset periods. Evicting by
         // reset time rather than by key ordering keeps every live window's dedupe state.
-        if notifiedThresholds.count > 10 {
+        if notifiedThresholds.count > Self.maxTrackedWindowPeriods {
             let staleKeys = notifiedThresholds.keys
                 .sorted { $0.resetsAt < $1.resetsAt }
-                .prefix(notifiedThresholds.count - 10)
+                .prefix(notifiedThresholds.count - Self.maxTrackedWindowPeriods)
             for key in staleKeys {
                 notifiedThresholds.removeValue(forKey: key)
             }
         }
     }
+
+    /// Room for every live window across all providers plus their previous periods.
+    private static let maxTrackedWindowPeriods = 64
 
     // MARK: - Test Notifications
 
@@ -406,31 +392,18 @@ actor NotificationService: NotificationServiceProtocol {
     #endif
 
     private func sendNotification(
-        windowName: String,
+        providerName: String,
         threshold: Int,
         usage: UsageWindow
     ) async {
         let content = UNMutableNotificationContent()
-        content.title = "\(windowName) Usage: \(threshold)%"
+        content.title = "\(providerName) \(usage.displayName): \(threshold)%"
 
-        let windowDescription: String
-        switch usage.windowType {
-        case .session, .codexFiveHour:
-            windowDescription = "5-hour session"
-        case .openCodeGoFiveHour:
-            windowDescription = "rolling"
-        case .opus, .sonnet, .design, .fable, .codexWeekly, .openCodeGoWeekly, .grokWeekly:
-            windowDescription = "weekly"
-        case .openCodeGoMonthly:
-            windowDescription = "monthly"
-        case .custom:
-            windowDescription = usage.displayName.lowercased()
-        }
-
+        let limit = Self.limitPhrase(for: usage.displayName)
         if threshold == 100 {
-            content.body = "You've reached your \(windowDescription) limit. \(usage.resetDescription())."
+            content.body = "You've reached your \(limit). \(usage.resetDescription())."
         } else {
-            content.body = "You've used \(threshold)% of your \(windowDescription) limit."
+            content.body = "You've used \(threshold)% of your \(limit). \(usage.resetDescription())."
         }
 
         content.sound = .default
@@ -448,9 +421,9 @@ actor NotificationService: NotificationServiceProtocol {
         }
     }
 
-    private func sendExtraUsageNotification() async {
+    private func sendExtraUsageNotification(providerName: String) async {
         let content = UNMutableNotificationContent()
-        content.title = "Extra Usage Started"
+        content.title = "\(providerName) Extra Usage Started"
         content.body = "You've exceeded your plan limit. Usage is now billed at API rates."
         content.sound = .default
 

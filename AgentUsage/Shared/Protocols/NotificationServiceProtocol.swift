@@ -22,11 +22,11 @@ protocol NotificationServiceProtocol: Actor {
 
     /// Check for threshold crossings and send notifications
     /// - Parameters:
-    ///   - oldSnapshot: Previous usage snapshot (nil on first fetch)
+    ///   - oldSnapshot: Previous usage snapshot for the same provider (nil on first fetch)
     ///   - newSnapshot: Current usage snapshot
     func checkThresholdCrossings(
-        oldSnapshot: UsageSnapshot?,
-        newSnapshot: UsageSnapshot
+        oldSnapshot: ProviderUsageSnapshot?,
+        newSnapshot: ProviderUsageSnapshot
     ) async
 
     /// Schedule a local notification for each near-limit rate window's `resetsAt`.

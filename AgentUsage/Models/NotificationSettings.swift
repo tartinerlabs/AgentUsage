@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AgentUsageKit
 
 /// User-configurable notification settings
 nonisolated struct NotificationSettings: Codable, Equatable, Sendable {
@@ -126,5 +127,18 @@ nonisolated struct NotificationSettings: Codable, Equatable, Sendable {
     /// Check if a threshold is enabled
     func isThresholdEnabled(_ threshold: Int) -> Bool {
         thresholds.contains(threshold)
+    }
+
+    /// Whether threshold alerts are on for a window. Windows without their own
+    /// toggle, including every non-Claude provider's, always alert.
+    func notifies(_ windowType: UsageWindowType) -> Bool {
+        switch windowType {
+        case .session: notifySession
+        case .opus: notifyOpus
+        case .sonnet: notifySonnet
+        case .design: notifyDesign
+        case .fable: notifyFable
+        default: true
+        }
     }
 }

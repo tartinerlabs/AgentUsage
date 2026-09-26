@@ -1294,8 +1294,8 @@ struct UsageViewModelMobileContinuityTests {
         await viewModel.refreshContinuitySync()
 
         #expect(await notifications.thresholdCheckCount == 1)
-        #expect(await notifications.lastOldSnapshot?.session.percentUsed == 20)
-        #expect(await notifications.lastNewSnapshot?.session.percentUsed == 30)
+        #expect(await notifications.lastOldSnapshot?.windows.first?.percentUsed == 20)
+        #expect(await notifications.lastNewSnapshot?.windows.first?.percentUsed == 30)
     }
 
     @Test @MainActor func notificationsEvaluateOnlyNewFreshSyncedSnapshots() async {
@@ -1333,8 +1333,8 @@ struct UsageViewModelMobileContinuityTests {
         await viewModel.refreshContinuitySync()
 
         #expect(await notifications.thresholdCheckCount == 2)
-        #expect(await notifications.lastOldSnapshot?.session.percentUsed == 20)
-        #expect(await notifications.lastNewSnapshot?.session.percentUsed == 30)
+        #expect(await notifications.lastOldSnapshot?.windows.first?.percentUsed == 20)
+        #expect(await notifications.lastNewSnapshot?.windows.first?.percentUsed == 30)
     }
 
     @Test @MainActor func olderSyncedSnapshotFromAnotherMacDoesNotReplayAlerts() async {

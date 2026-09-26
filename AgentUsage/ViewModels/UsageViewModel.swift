@@ -888,8 +888,8 @@ final class UsageViewModel {
     }
 
     private func checkUsageNotifications(
-        oldSnapshot: UsageSnapshot?,
-        newSnapshot: UsageSnapshot
+        oldSnapshot: ProviderUsageSnapshot?,
+        newSnapshot: ProviderUsageSnapshot
     ) async {
         guard notificationsEnabled else { return }
         await notificationService.checkThresholdCrossings(
@@ -1323,7 +1323,12 @@ extension UsageViewModel {
             await usageHistoryService.record(snapshot: newSnapshot)
 
             // Check for threshold crossings before platform-specific follow-up work.
-            await checkUsageNotifications(oldSnapshot: oldSnapshot, newSnapshot: newSnapshot)
+            if let newProviderSnapshot = providerUsage[.claude] {
+                await checkUsageNotifications(
+                    oldSnapshot: oldSnapshot.map { ClaudeAPIService.providerSnapshot(from: $0) },
+                    newSnapshot: newProviderSnapshot
+                )
+            }
 
             // Cache every provider for widgets and update Live Activity (iOS only).
             #if os(iOS)
@@ -1420,14 +1425,19 @@ extension UsageViewModel {
                 errorMessage = nil
                 return .skipped
             }
-            let hasNewSnapshot = synced.snapshot.map { oldSnapshot?.fetchedAt != $0.fetchedAt } ?? false
+            let oldProviderSnapshots = Dictionary(
+                uniqueKeysWithValues: availableProviderSnapshots.map { ($0.provider, $0) }
+            )
             let isCached = synced.age() > Constants.syncFallbackThreshold
             await applySyncedSnapshot(synced, isCached: isCached)
-            if !isCached, hasNewSnapshot, let newSnapshot = synced.snapshot {
-                await checkUsageNotifications(
-                    oldSnapshot: oldSnapshot,
-                    newSnapshot: newSnapshot
-                )
+            if !isCached {
+                // Each provider is fetched on its own schedule; only evaluate the ones
+                // this record actually refreshed.
+                for newSnapshot in availableProviderSnapshots {
+                    let old = oldProviderSnapshots[newSnapshot.provider]
+                    if let old, newSnapshot.fetchedAt <= old.fetchedAt { continue }
+                    await checkUsageNotifications(oldSnapshot: old, newSnapshot: newSnapshot)
+                }
             }
             if !isCached, synced.syncGeneration != nil {
                 do {
@@ -1768,9 +1778,14 @@ extension UsageViewModel {
                 let providerSnapshot = try await service.fetchSnapshot()
                 // It may have been turned off while the request was in flight.
                 guard isProviderEnabled(provider) else { continue }
+                let oldProviderSnapshot = providerUsage[provider]
                 providerUsage[provider] = providerSnapshot
                 if let providerSnapshot {
                     await usageHistoryService.record(providerSnapshot: providerSnapshot)
+                    await checkUsageNotifications(
+                        oldSnapshot: oldProviderSnapshot,
+                        newSnapshot: providerSnapshot
+                    )
                 }
                 rateLimitedUntil[provider] = nil
                 providerErrors[provider] = nil

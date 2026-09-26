@@ -23,8 +23,8 @@ actor MockNotificationService: NotificationServiceProtocol {
     private(set) var testNotificationCount = 0
 
     /// Track threshold crossing calls
-    private(set) var lastOldSnapshot: UsageSnapshot?
-    private(set) var lastNewSnapshot: UsageSnapshot?
+    private(set) var lastOldSnapshot: ProviderUsageSnapshot?
+    private(set) var lastNewSnapshot: ProviderUsageSnapshot?
     private(set) var resetArmCount = 0
     private(set) var resetCancelCount = 0
     private(set) var lastResetSnapshots: [ProviderUsageSnapshot] = []
@@ -44,8 +44,8 @@ actor MockNotificationService: NotificationServiceProtocol {
     }
 
     func checkThresholdCrossings(
-        oldSnapshot: UsageSnapshot?,
-        newSnapshot: UsageSnapshot
+        oldSnapshot: ProviderUsageSnapshot?,
+        newSnapshot: ProviderUsageSnapshot
     ) async {
         thresholdCheckCount += 1
         lastOldSnapshot = oldSnapshot

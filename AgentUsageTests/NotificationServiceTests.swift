@@ -44,7 +44,7 @@ struct NotificationServiceTests {
         )
 
         let notifications = await center.notifications()
-        #expect(notifications.map(\.title) == ["Current session Usage: 25%"])
+        #expect(notifications.map(\.title) == ["Claude Current session: 25%"])
     }
 
     @Test func repeatedCrossingDoesNotDuplicateAlert() async {
@@ -58,6 +58,41 @@ struct NotificationServiceTests {
         await service.checkThresholdCrossings(oldSnapshot: oldSnapshot, newSnapshot: newSnapshot)
 
         #expect(await center.notifications().count == 1)
+    }
+
+    @Test func otherProvidersAlertWithTheirOwnLimitNames() async {
+        let center = RecordingUserNotificationCenterClient()
+        let service = makeService(center: center, settings: settings(thresholds: [75]))
+        let now = Date()
+        let reset = now.addingTimeInterval(3 * 86_400 + 60)
+
+        await service.checkThresholdCrossings(
+            oldSnapshot: providerSnapshot(provider: .codex, utilization: 70, resetsAt: reset, type: .codexWeekly, now: now),
+            newSnapshot: providerSnapshot(provider: .codex, utilization: 80, resetsAt: reset, type: .codexWeekly, now: now)
+        )
+
+        let notifications = await center.notifications()
+        #expect(notifications.map(\.title) == ["Codex Weekly limit: 75%"])
+        #expect(notifications.first?.body.hasPrefix("You've used 75% of your weekly limit. Resets in ") == true)
+    }
+
+    @Test func sameWindowNamesOnDifferentProvidersAlertSeparately() async {
+        let center = RecordingUserNotificationCenterClient()
+        let service = makeService(center: center, settings: settings(thresholds: [50]))
+        let now = Date()
+        let reset = now.addingTimeInterval(86_400)
+
+        for provider in [Provider.codex, .grok] {
+            await service.checkThresholdCrossings(
+                oldSnapshot: providerSnapshot(provider: provider, utilization: 40, resetsAt: reset, type: .codexWeekly, now: now),
+                newSnapshot: providerSnapshot(provider: provider, utilization: 60, resetsAt: reset, type: .codexWeekly, now: now)
+            )
+        }
+
+        #expect(await center.notifications().map(\.title) == [
+            "Codex Weekly limit: 50%",
+            "Grok Weekly limit: 50%",
+        ])
     }
 
     @Test func snapshotComparisonNoLongerFiresResetAlerts() async {
@@ -324,7 +359,7 @@ struct NotificationServiceTests {
 
         #expect(
             await center.notifications().map(\.title)
-                == ["Extra Usage Started", "Extra Usage Started"]
+                == ["Claude Extra Usage Started", "Claude Extra Usage Started"]
         )
     }
 
@@ -440,8 +475,8 @@ struct NotificationServiceTests {
     private func snapshot(
         session: Double,
         sessionReset: Date = Date().addingTimeInterval(3_600)
-    ) -> UsageSnapshot {
-        UsageSnapshot(
+    ) -> ProviderUsageSnapshot {
+        ClaudeAPIService.providerSnapshot(from: UsageSnapshot(
             session: UsageWindow(
                 utilization: session,
                 resetsAt: sessionReset,
@@ -454,7 +489,7 @@ struct NotificationServiceTests {
             ),
             sonnet: nil,
             fetchedAt: Date()
-        )
+        ))
     }
 }
 
