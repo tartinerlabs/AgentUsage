@@ -1337,6 +1337,36 @@ struct UsageViewModelMobileContinuityTests {
         #expect(await notifications.lastNewSnapshot?.session.percentUsed == 30)
     }
 
+    @Test @MainActor func olderSyncedSnapshotFromAnotherMacDoesNotReplayAlerts() async {
+        let reset = Date().addingTimeInterval(3_600)
+        let fresh = Self.snapshot(session: 80, reset: reset, fetchedAt: Date())
+        let older = Self.snapshot(
+            session: 40,
+            reset: reset,
+            fetchedAt: fresh.fetchedAt.addingTimeInterval(-600)
+        )
+        let syncService = MockUsageSyncService()
+        let notifications = MockNotificationService()
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(true, forKey: "notificationsEnabled")
+        await syncService.configureFetchedSnapshot(Self.synced(fresh))
+        let viewModel = UsageViewModel(
+            credentialProvider: MockCredentialProvider(),
+            usageSyncService: syncService,
+            notificationService: notifications,
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.refreshContinuitySync()
+        await syncService.configureFetchedSnapshot(Self.synced(older))
+        await viewModel.refreshContinuitySync()
+        await syncService.configureFetchedSnapshot(Self.synced(fresh))
+        await viewModel.refreshContinuitySync()
+
+        #expect(viewModel.snapshot?.session.percentUsed == 80)
+        #expect(await notifications.thresholdCheckCount == 1)
+    }
+
     @Test @MainActor func disabledUsageAlertsSkipSyncedSnapshotEvaluation() async {
         let syncService = MockUsageSyncService()
         let notifications = MockNotificationService()
