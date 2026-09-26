@@ -44,7 +44,6 @@ struct ContinuityOnboardingView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 60, height: 60)
-                .clipShape(Circle())
 
             Text(Constants.appDisplayName)
                 .font(.title.weight(.semibold))

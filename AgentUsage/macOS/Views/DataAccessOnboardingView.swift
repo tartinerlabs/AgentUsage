@@ -54,7 +54,6 @@ struct DataAccessOnboardingView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 68, height: 68)
-                .clipShape(Circle())
 
             Text(Constants.appDisplayName)
                 .font(.largeTitle.weight(.semibold))
