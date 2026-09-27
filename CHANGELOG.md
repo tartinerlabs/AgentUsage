@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Keep sharing usage from a Mac after another Mac shares first, instead of showing "Not sharing yet"
 - Keep Home Screen widgets showing usage in Today View and StandBy while iPhone is locked, instead of a blank tile
 - Name the app bundle "Agent Usage.app" so Finder, Spotlight, and Activity Monitor show "Agent Usage"
 - Make small widget text on the Mac desktop at least 11 points, as Apple's guidelines recommend

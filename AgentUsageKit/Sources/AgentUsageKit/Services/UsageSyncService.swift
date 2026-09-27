@@ -490,7 +490,12 @@ public actor UsageSyncService: UsageSyncServicing {
             // until the record leaves the pending list.
             for _ in 0..<Self.maxSendAttempts {
                 sendFailure = nil
-                try await syncEngine.sendChanges()
+                do {
+                    try await syncEngine.sendChanges()
+                } catch let error as CKError where error.code == .partialFailure {
+                    // The sent-changes event already re-queued recoverable
+                    // item failures; only unrecoverable ones set sendFailure.
+                }
                 if let sendFailure {
                     throw sendFailure
                 }
