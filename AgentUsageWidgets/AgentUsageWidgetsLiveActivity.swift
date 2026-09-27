@@ -65,56 +65,58 @@ struct AgentUsageWidgetsLiveActivity: Widget {
 private struct LockScreenBannerView: View {
     let context: ActivityViewContext<AgentUsageLiveActivityAttributes>
 
+    private var state: AgentUsageLiveActivityAttributes.ContentState { context.state }
+
     private var displayState: LiveActivityDisplayState {
-        context.state.displayState(isStale: context.isStale)
+        state.displayState(isStale: context.isStale)
     }
 
     var body: some View {
-        HStack(spacing: 16) {
-            LiveActivityCircularGauge(state: context.state, displayState: displayState)
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Label(context.state.provider)
-                        .font(.headline)
-                        .foregroundStyle(AgentUsageColors.usageProgress)
-                    Spacer(minLength: 4)
-                    if displayState == .available {
-                        Label(context.state.status.label, systemImage: context.state.status.icon)
-                            .font(.caption)
-                            .foregroundStyle(context.state.status.color)
-                    }
-                }
-
-                Text(context.state.windowName(fallback: context.attributes.selectedMetric))
-                    .font(.callout)
-                    .fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                ProviderIcon(state.provider, size: 14)
+                    .foregroundStyle(AgentUsageColors.usageProgress)
+                Text(state.provider.displayName)
+                    .fontWeight(.bold)
+                Text(state.windowName(fallback: context.attributes.selectedMetric))
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
-
+                Spacer(minLength: 8)
                 if displayState == .available {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(context.state.percentageLabel)
-                            .font(.system(.title2, design: .rounded, weight: .bold))
-                        if context.state.isUsingExtraUsage {
-                            Text("+\(context.state.extraUsagePercent)% extra")
-                                .font(.caption2)
-                                .foregroundStyle(AgentUsageColors.extraUsageAccent)
-                        }
-                        Spacer(minLength: 8)
-                        ResetCountdownView(state: context.state)
-                    }
-                } else {
-                    NeutralStateLabel(
-                        displayState: displayState,
-                        fetchedAt: context.state.fetchedAt
-                    )
+                    Label(state.status.label, systemImage: state.status.icon)
+                        .foregroundStyle(state.status.color)
                 }
             }
+            .font(.subheadline)
+            .lineLimit(1)
+
+            if displayState == .available {
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(state.percentageLabel)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text("used")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if state.isUsingExtraUsage {
+                        Text("+\(state.extraUsagePercent)% extra")
+                            .font(.footnote)
+                            .foregroundStyle(AgentUsageColors.extraUsageAccent)
+                    }
+                    Spacer(minLength: 8)
+                    BannerResetView(state: state)
+                }
+
+                UsageProgressBar(progress: state.normalizedProgress, tint: state.status.color)
+            } else {
+                NeutralStateLabel(displayState: displayState, fetchedAt: state.fetchedAt)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .padding()
+        .padding(16)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            context.state.accessibilityDescription(
+            state.accessibilityDescription(
                 fallbackWindowName: context.attributes.selectedMetric,
                 displayState: displayState
             )
@@ -122,23 +124,29 @@ private struct LockScreenBannerView: View {
     }
 }
 
-private struct LiveActivityCircularGauge: View {
+/// Trailing reset figure for the banner: a live countdown once the window is
+/// under a day away, otherwise the static phrase.
+private struct BannerResetView: View {
     let state: AgentUsageLiveActivityAttributes.ContentState
-    let displayState: LiveActivityDisplayState
 
     var body: some View {
-        Gauge(value: displayState == .available ? state.normalizedProgress : 0) {
-            ProviderIcon(state.provider, size: 12)
-                .foregroundStyle(AgentUsageColors.usageProgress)
-        } currentValueLabel: {
-            Image(systemName: displayState == .available ? state.status.icon : displayState.iconName)
-                .font(.caption2)
-                .foregroundStyle(displayState == .available ? state.status.color : .secondary)
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(state.percentUsed >= 100 ? "Available in" : "Resets in")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let resetsAt = state.resetsAt {
+                // Timer Text claims all offered width; trailing alignment keeps it flush right.
+                Text(timerInterval: Date.now...max(resetsAt, .now), countsDown: true)
+                    .font(.system(.title3, design: .rounded, weight: .semibold))
+                    .monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 110, alignment: .trailing)
+            } else {
+                Text(state.timeUntilReset)
+                    .font(.system(.title3, design: .rounded, weight: .semibold))
+            }
         }
-        .gaugeStyle(.accessoryCircular)
-        .tint(displayState == .available ? state.status.color : .secondary)
-        .frame(width: 50, height: 50)
-        .accessibilityHidden(true)
+        .lineLimit(1)
     }
 }
 
@@ -170,14 +178,10 @@ private struct LiveActivityValueView: View {
 
     var body: some View {
         if displayState == .available {
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(state.percentageLabel)
-                    .font(.system(.title2, design: .rounded, weight: .bold))
-                Image(systemName: state.status.icon)
-                    .font(.caption)
-                    .foregroundStyle(state.status.color)
-            }
-            .accessibilityElement(children: .ignore)
+            Text(state.percentageLabel)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .accessibilityElement(children: .ignore)
             .accessibilityLabel(state.usageAccessibilityDescription)
         } else {
             NeutralStateLabel(
@@ -230,12 +234,8 @@ private struct ExpandedDetailView: View {
     var body: some View {
         if displayState == .available {
             VStack(spacing: 8) {
-                Gauge(value: state.normalizedProgress) {
-                    EmptyView()
-                }
-                .gaugeStyle(.accessoryLinear)
-                .tint(state.status.color)
-                .accessibilityHidden(true)
+                UsageProgressBar(progress: state.normalizedProgress, tint: state.status.color)
+                    .accessibilityHidden(true)
 
                 HStack {
                     Label(state.status.label, systemImage: state.status.icon)
@@ -279,11 +279,9 @@ private struct ResetCountdownView: View {
     let state: AgentUsageLiveActivityAttributes.ContentState
 
     var body: some View {
-        HStack(spacing: 3) {
+        Group {
             if let resetsAt = state.resetsAt {
-                Text("Resets in")
-                Text(resetsAt, style: .timer)
-                    .monospacedDigit()
+                Text("Resets in ") + Text(resetsAt, style: .timer)
             } else if state.timeUntilReset == "now" {
                 Text("Resets now")
             } else {
@@ -291,8 +289,12 @@ private struct ResetCountdownView: View {
             }
         }
         .font(.caption)
+        .monospacedDigit()
         .foregroundStyle(.secondary)
         .lineLimit(1)
+        // Timer Text claims all offered width; trailing alignment keeps it flush right.
+        .multilineTextAlignment(.trailing)
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 

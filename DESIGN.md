@@ -310,6 +310,11 @@ Corner radius is assigned by component scale:
   SwiftUI `Gauge` (`.accessoryCircular` / `.accessoryLinear`) colored by `status.color` with
   matching `.keylineTint`. Live Activity content carries the selected provider and stable window
   ID so Claude, Codex, Cursor, Grok, and future enabled providers share the same presentation.
+  The Lock Screen banner is not a gauge: it follows the Small widget glance — provider mark,
+  name, and window on one line with the status label trailing; a 34pt rounded percent with
+  the reset countdown trailing ("Available in" at 100%); then a status-tinted
+  `UsageProgressBar`. The expanded Dynamic Island uses the same bar, a 28pt percent, and a
+  status + reset row; the status symbol appears once per surface.
   At 100% the compact Dynamic Island shows the reset timer instead of the percentage. When the
   tracked window resets, the activity presents a brief "Limit reset" state and dismisses after
   30 seconds.
