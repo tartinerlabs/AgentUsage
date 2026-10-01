@@ -124,8 +124,8 @@ private struct LockScreenBannerView: View {
     }
 }
 
-/// Trailing reset figure for the banner: a live countdown once the window is
-/// under a day away, otherwise the static phrase.
+/// Trailing reset figure for the banner: a live countdown plus the clock time
+/// it resets at, otherwise the static phrase.
 private struct BannerResetView: View {
     let state: AgentUsageLiveActivityAttributes.ContentState
 
@@ -141,6 +141,9 @@ private struct BannerResetView: View {
                     .monospacedDigit()
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 110, alignment: .trailing)
+                Text("at \(state.resetClockLabel(for: resetsAt))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else {
                 Text(state.timeUntilReset)
                     .font(.system(.title3, design: .rounded, weight: .semibold))
@@ -282,6 +285,7 @@ private struct ResetCountdownView: View {
         Group {
             if let resetsAt = state.resetsAt {
                 Text("Resets in ") + Text(resetsAt, style: .timer)
+                    + Text(" · \(state.resetClockLabel(for: resetsAt))")
             } else if state.timeUntilReset == "now" {
                 Text("Resets now")
             } else {
@@ -417,9 +421,17 @@ private extension AgentUsageLiveActivityAttributes.ContentState {
         }
     }
 
+    /// Clock time of the reset, prefixed with the weekday when it isn't today.
+    func resetClockLabel(for resetsAt: Date) -> String {
+        if Calendar.current.isDateInToday(resetsAt) {
+            return resetsAt.formatted(date: .omitted, time: .shortened)
+        }
+        return resetsAt.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+    }
+
     var resetAccessibilityDescription: String {
         if let resetsAt {
-            return "resets at \(resetsAt.formatted(date: .omitted, time: .shortened))"
+            return "resets at \(resetClockLabel(for: resetsAt))"
         }
         if timeUntilReset == "now" {
             return "resets now"
