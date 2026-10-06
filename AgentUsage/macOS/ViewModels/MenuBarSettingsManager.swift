@@ -83,6 +83,7 @@ final class MenuBarSettingsManager {
         case .openCode, .openCodeGo: [.openCodeGoFiveHour, .openCodeGoWeekly].map(id)
         case .cursor: ["cursor.total"]
         case .grok: ["grok.monthly"]
+        case .gemini, .antigravity: [] // Model quota IDs are discovered from the account.
         }
     }
 

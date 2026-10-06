@@ -28,7 +28,7 @@ final class SandboxFolderAccessService {
     /// Providers whose logs or local session state require disk access.
     /// `.openCodeGo` is remote-only, so it is not included.
     /// `.openCode` stays listed while unshipped so legacy bookmarks still resolve.
-    static let grantableProviders: [Provider] = [.claude, .codex, .openCode, .cursor, .grok]
+    static let grantableProviders: [Provider] = [.claude, .codex, .openCode, .cursor, .grok, .gemini, .antigravity]
 
     /// Grantable providers named in user-facing copy: unshipped ones are left out.
     static var shippedGrantableProviders: [Provider] {
@@ -74,6 +74,8 @@ final class SandboxFolderAccessService {
         case .openCode, .openCodeGo: Constants.openCodeHomeDirectory
         case .cursor: Constants.cursorStateDirectory
         case .grok: Constants.grokHomeDirectory
+        case .gemini: Constants.geminiHomeDirectory
+        case .antigravity: Constants.antigravityStateDirectory
         }
     }
 

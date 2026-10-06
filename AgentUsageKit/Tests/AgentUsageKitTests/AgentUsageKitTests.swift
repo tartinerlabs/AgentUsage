@@ -232,7 +232,7 @@ struct ProviderTests {
         #expect(Provider.grok.iconName == "bolt.fill")
         #expect(Provider.grok.markAssetName == "GrokProviderMark")
 
-        #expect(Set(Provider.allCases.map(\.markAssetName)).count == 5)
+        #expect(Set(Provider.allCases.map(\.markAssetName)).count == 7)
         for provider in Provider.allCases {
             #expect(provider.hasMarkAsset)
         }

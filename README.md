@@ -35,6 +35,8 @@ Multi-platform app that monitors Claude Code API usage in real-time. Tracks sess
 - Live Activity for Dynamic Island
 - Full dashboard app with tabs
 
+For Gemini CLI and Antigravity setup and supported data, see [Google providers](docs/google-providers.md).
+
 ## Requirements
 
 - **macOS**: 15.0+ (Sequoia), Claude CLI authenticated

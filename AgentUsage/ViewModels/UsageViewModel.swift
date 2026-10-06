@@ -218,6 +218,10 @@ final class UsageViewModel {
             default: return nil
             }
         }
+        if let googleError = error as? GoogleUsageService.UsageError,
+           case .serverError(let code) = googleError, (500...599).contains(code) {
+            return code
+        }
         if let cursorError = error as? CursorUsageService.CursorError {
             switch cursorError {
             case .serverError(let code) where (500...599).contains(code): return code
@@ -259,6 +263,10 @@ final class UsageViewModel {
             return retryAfter ?? Constants.rateLimitCooldownFallback
         }
         #if os(macOS)
+        if let googleError = error as? GoogleUsageService.UsageError,
+           case .rateLimited(let retryAfter) = googleError {
+            return retryAfter ?? Constants.rateLimitCooldownFallback
+        }
         if let cursorError = error as? CursorUsageService.CursorError,
            case .rateLimited = cursorError {
             return Constants.rateLimitCooldownFallback

@@ -43,6 +43,7 @@ enum DependencyContainer {
         let sources: [any UsageLogSource] = [
             CodexLogSource(),
             GrokLogSource(),
+            GeminiLogSource(),
             // OpenCodeLogSource(), // Disabled: OpenCode usage is currently unreliable.
         ]
         // Providers turned off in Settings are skipped at read time, so a toggle
@@ -81,6 +82,8 @@ enum DependencyContainer {
             .codex: CodexUsageService(),
             .cursor: CursorUsageService(),
             .grok: GrokUsageService(),
+            .gemini: GoogleUsageService(provider: .gemini),
+            .antigravity: GoogleUsageService(provider: .antigravity),
             // .openCodeGo: OpenCodeGoLocalUsageService(), // Disabled: OpenCode usage is currently unreliable.
         ]
     }

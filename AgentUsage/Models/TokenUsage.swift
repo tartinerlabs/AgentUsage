@@ -201,7 +201,50 @@ nonisolated enum ModelPricing: Sendable {
             }
         }
 
+        if lowercasedProvider == "gemini" {
+            return geminiFallbackRates(for: model)
+        }
+
         return nil
+    }
+
+    /// Concrete text model IDs, including historical CLI recordings. Routing
+    /// aliases (`auto`, `pro`, `flash`) are deliberately left to the CLI to resolve.
+    /// Rates: ai.google.dev/gemini-api/docs/pricing; legacy rates: LiteLLM's
+    /// 13e74dd389ef131631ef045620b2c253b1178b8c pricing snapshot.
+    nonisolated static func geminiFallbackRates(
+        for model: String,
+        promptTokens: Int = 0,
+        at date: Date = Date()
+    ) -> Rates? {
+        let id = geminiModelID(model)
+        let longPrompt = promptTokens > 200_000
+        let values: (Double, Double, Double)? = switch id {
+        case "gemini-2.0-flash", "gemini-2.0-flash-001": (0.10, 0.40, 0.025)
+        case "gemini-2.0-flash-lite", "gemini-2.0-flash-lite-001": (0.075, 0.30, 0.01875)
+        case "gemini-2.5-flash": (0.30, 2.50, 0.03)
+        case "gemini-2.5-flash-lite": (0.10, 0.40, 0.01)
+        case "gemini-2.5-pro": longPrompt ? (2.50, 15, 0.25) : (1.25, 10, 0.125)
+        case "gemini-3-flash-preview": (0.50, 3, 0.05)
+        case "gemini-3.5-flash", "gemini-3-flash": (1.50, 9, 0.15)
+        case "gemini-3.5-flash-lite": (0.30, 2.50, 0.03)
+        case "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash":
+            // Google's introductory price ends on January 1, 2027 UTC. Use the
+            // usage timestamp so revisiting older sessions preserves their cost.
+            date.timeIntervalSince1970 < 1_798_761_600 ? (0.75, 3.75, 0.075) : (1.50, 7.50, 0.15)
+        case "gemini-3-pro-preview", "gemini-3.1-pro-preview", "gemini-3.1-pro-preview-customtools":
+            longPrompt ? (4, 18, 0.40) : (2, 12, 0.20)
+        case "gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite": (0.25, 1.50, 0.025)
+        default: nil
+        }
+        guard let values else { return nil }
+        return Rates(inputPerMTok: values.0, outputPerMTok: values.1, cacheWritePerMTok: 0, cacheReadPerMTok: values.2)
+    }
+
+    private nonisolated static func geminiModelID(_ model: String) -> String {
+        let normalized = model.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // Accept API resource names and LiteLLM/provider-prefixed model IDs.
+        return String(normalized.split(separator: "/").last ?? Substring(normalized))
     }
 
     nonisolated static func costUSD(
@@ -213,10 +256,18 @@ nonisolated enum ModelPricing: Sendable {
         cacheWriteTokens: Int,
         reasoningTokens: Int,
         cacheWrite1hTokens: Int = 0,
-        fastMode: Bool = false
+        fastMode: Bool = false,
+        pricingDate: Date = Date()
     ) -> Double? {
-        guard let rates = rates(forProvider: provider, model: model) else { return nil }
-        let billsReasoningAsOutput = provider.lowercased() == "openai"
+        let isGemini = provider.lowercased() == "gemini"
+        let modelID = isGemini ? geminiModelID(model) : model
+        guard var rates = rates(forProvider: provider, model: modelID) else { return nil }
+        let promotional = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"].contains(modelID)
+        if isGemini, inputTokens + cacheReadTokens > 200_000 || promotional,
+           let effectiveRates = geminiFallbackRates(for: modelID, promptTokens: inputTokens + cacheReadTokens, at: pricingDate) {
+            rates = effectiveRates
+        }
+        let billsReasoningAsOutput = ["openai", "gemini", "vertex_ai"].contains(provider.lowercased())
         let billableOutputTokens = outputTokens + (billsReasoningAsOutput ? reasoningTokens : 0)
         // `cacheWrite1hTokens` is a subset of `cacheWriteTokens`; the remainder is 5-minute cache.
         let cacheWrite5mTokens = max(0, cacheWriteTokens - cacheWrite1hTokens)

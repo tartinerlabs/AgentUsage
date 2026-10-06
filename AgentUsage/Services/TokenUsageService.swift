@@ -742,7 +742,8 @@ actor TokenUsageService: TokenUsageServiceProtocol {
             cacheWriteTokens: entry.tokens.cacheCreationTokens,
             reasoningTokens: entry.tokens.reasoningTokens,
             cacheWrite1hTokens: entry.tokens.cacheCreation1hTokens,
-            fastMode: entry.fastMode
+            fastMode: entry.fastMode,
+            pricingDate: entry.timestamp
         ) ?? 0
     }
 }

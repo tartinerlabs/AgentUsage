@@ -12,6 +12,23 @@ import AgentUsageKit
 /// (`ClaudeAPIService`, `CodexUsageService`, the log sources) cannot read
 /// them. These are immutable `Sendable` values, safe from any isolation.
 nonisolated enum Constants {
+    // MARK: - Google providers
+    #if os(macOS)
+    static var geminiHomeDirectory: URL { realHomeDirectory.appendingPathComponent(".gemini") }
+    static var geminiSessionsDirectory: URL { geminiHomeDirectory.appendingPathComponent("tmp") }
+    static var geminiCredentialsURL: URL { geminiHomeDirectory.appendingPathComponent("oauth_creds.json") }
+    static var antigravityStateDirectory: URL {
+        antigravityStateDirectories.first { FileManager.default.fileExists(atPath: $0.path) }
+            ?? antigravityStateDirectories[0]
+    }
+    static var antigravityStateDirectories: [URL] {
+        ["Antigravity", "Antigravity IDE", "antigravity"].map {
+            realHomeDirectory.appendingPathComponent("Library/Application Support/\($0)/User/globalStorage")
+        }
+    }
+
+    #endif
+
     // MARK: - Branding
     /// User-facing product name shown in the UI (window/nav titles, About and Settings
     /// headings, notifications, share card). Single source of truth for in-app display.
