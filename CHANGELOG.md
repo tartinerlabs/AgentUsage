@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Keep Claude credentials local to the Mac and make iOS depend only on CloudKit usage snapshots
+
 - Show the time a limit resets alongside the countdown in the Live Activity
 - Redesign the Lock Screen Live Activity as a clear glance: a large percentage, a live reset countdown, and a usage bar instead of a small circular gauge
 - Keep sharing usage from a Mac after another Mac shares first, instead of showing "Not sharing yet"

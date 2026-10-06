@@ -16,13 +16,10 @@ import SwiftData
 enum DependencyContainer {
     // MARK: - Credential Services
 
-    /// Create the platform-appropriate credential provider
+    #if os(macOS)
+    /// Create the Mac-only credential provider
     static func createCredentialProvider() -> any CredentialProvider {
-        #if os(macOS)
         return MacOSCredentialService()
-        #else
-        return iOSCredentialService()
-        #endif
     }
 
     // MARK: - API Services
@@ -31,6 +28,8 @@ enum DependencyContainer {
     static func createAPIService() -> ClaudeAPIService {
         ClaudeAPIService()
     }
+
+    #endif
 
     // MARK: - Token Usage Services (macOS only)
 
@@ -110,9 +109,7 @@ enum DependencyContainer {
     /// Create the usage view model with all dependencies (iOS)
     /// - Returns: Configured UsageViewModel
     static func createUsageViewModel() -> UsageViewModel {
-        let credentialProvider = createCredentialProvider()
         return UsageViewModel(
-            credentialProvider: credentialProvider,
             usageSyncService: UsageSyncService.shared
         )
     }

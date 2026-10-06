@@ -33,6 +33,9 @@ struct AgentUsageApp: App {
     #endif
 
     init() {
+        if !Self.isRunningTests {
+            KeychainHelper.deleteLegacyClaudeCredentials()
+        }
         #if os(macOS)
         // Resolve any user-granted folder bookmarks and begin holding their security
         // scope before any log-reading service runs, so reads under the sandbox succeed.

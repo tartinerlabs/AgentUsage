@@ -105,8 +105,9 @@ remaining); weekly/monthly limits stay on notifications and widgets.
 **iOS never fetches provider usage directly.** It consumes snapshots the Mac
 publishes over CloudKit
 (`AgentUsageKit/Sources/AgentUsageKit/Services/UsageSyncService.swift`).
-`iOS/Services/iOSCredentialService.swift` exists, but the
-`~/.claude/.credentials.json` path it refers to does not exist on iOS.
+The iOS view model has no provider credential or API dependencies, and Claude
+provider requests compile only on macOS. Never mirror provider credentials into
+iCloud Keychain; iOS needs only the published usage snapshots.
 
 **Several Macs can publish to Continuity Sync.** All Macs are assumed to use the
 same provider accounts, so the quota snapshot stays one last-writer-wins

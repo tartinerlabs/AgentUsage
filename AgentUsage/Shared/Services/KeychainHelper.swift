@@ -7,17 +7,9 @@ import Foundation
 import OSLog
 import Security
 
-/// Helper for Keychain credential storage.
-///
-/// Credential items are marked synchronizable so they sync across a user's
-/// devices via iCloud Keychain. This relies on the app being signed with the
-/// team's Keychain Sharing capability (`keychain-access-groups`), already
-/// present in the iOS and macOS entitlements. iOS reads and writes these
-/// credentials directly; macOS mirrors Claude Code credentials here so iCloud
-/// Keychain can sync them to iOS.
+/// Stores app-owned secrets. Provider OAuth credentials are never stored or synced here.
 nonisolated enum KeychainHelper {
     nonisolated static let service = "com.tartinerlabs.AgentUsage"
-    static let account = "claude-oauth-credentials"
 
     /// Get human-readable description for an OSStatus code
     static func describeStatus(_ status: OSStatus) -> String {
@@ -64,98 +56,19 @@ nonisolated enum KeychainHelper {
         }
     }
 
-    /// Save credentials to Keychain using update-or-add pattern
-    static func saveCredentials(_ credentials: ClaudeOAuthCredentials) throws {
-        let encoder = JSONEncoder()
-        let data = try encoder.encode(credentials)
-
+    /// Remove the obsolete app-owned Claude credential copy, including iCloud Keychain copies.
+    /// This query cannot match Claude Code or Claude Desktop's Keychain items.
+    static func deleteLegacyClaudeCredentials() {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            // Mark the item synchronizable so it syncs via iCloud Keychain.
-            // Must be a concrete boolean on add — kSecAttrSynchronizableAny is a
-            // query-only value and is rejected by SecItemAdd (errSecParam).
-            kSecAttrSynchronizable as String: kCFBooleanTrue!
-        ]
-
-        let attributes: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-        ]
-
-        // Try updating existing item first
-        var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-
-        if status == errSecItemNotFound {
-            // Item doesn't exist yet — add it
-            var addQuery = query
-            addQuery.merge(attributes) { _, new in new }
-            status = SecItemAdd(addQuery as CFDictionary, nil)
-        }
-
-        if status == errSecSuccess {
-            Logger.keychain.debug("Save credentials: success")
-        } else {
-            Logger.keychain.error("Save credentials failed: \(status)")
-            throw CredentialError.keychainError(status)
-        }
-
-        Logger.keychain.info("Credentials saved to Keychain successfully")
-    }
-
-    /// Load credentials from Keychain
-    static func loadCredentials() throws -> ClaudeOAuthCredentials {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: kCFBooleanTrue!,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            // Match both synchronizable and non-synchronizable items so existing
-            // local-only credentials keep loading after enabling iCloud sync.
+            kSecAttrAccount as String: "claude-oauth-credentials",
             kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        if status == errSecSuccess {
-            Logger.keychain.debug("Load credentials: success")
-        } else if status == errSecItemNotFound {
-            Logger.keychain.debug("Load credentials: not found")
-        } else {
-            Logger.keychain.error("Load credentials failed: \(status)")
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            Logger.keychain.error("Legacy Claude credential cleanup failed: \(status)")
         }
-
-        guard status == errSecSuccess else {
-            if status == errSecItemNotFound {
-                throw CredentialError.keychainNotFound
-            }
-            throw CredentialError.keychainError(status)
-        }
-
-        guard let data = result as? Data else {
-            throw CredentialError.invalidFormat
-        }
-
-        let decoder = JSONDecoder()
-        let credentials = try decoder.decode(ClaudeOAuthCredentials.self, from: data)
-        Logger.keychain.info("Credentials loaded successfully")
-        return credentials
-    }
-
-    /// Delete credentials from Keychain
-    static func deleteCredentials() {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            // Match both synchronizable and non-synchronizable items so a
-            // credential saved on any device (or a legacy local-only item) is removed.
-            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
-        ]
-        SecItemDelete(query as CFDictionary)
     }
 
     /// Save a generic UTF-8 secret string to Keychain.
