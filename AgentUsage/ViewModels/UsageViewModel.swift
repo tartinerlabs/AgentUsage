@@ -377,8 +377,10 @@ final class UsageViewModel {
     #endif
     #endif
 
+    #if os(macOS)
     private let credentialProvider: any CredentialProvider
     private let apiService: any APIServiceProtocol
+    #endif
     private let usageSyncService: any UsageSyncServicing
     private let usageHistoryService: UsageHistoryService
     private let defaults: UserDefaults
@@ -624,16 +626,12 @@ final class UsageViewModel {
     }
     #else
     init(
-        credentialProvider: any CredentialProvider,
-        apiService: (any APIServiceProtocol)? = nil,
         usageHistoryService: UsageHistoryService? = nil,
         usageSyncService: any UsageSyncServicing = InactiveUsageSyncService.shared,
         notificationService: any NotificationServiceProtocol = NotificationService.shared,
         liveActivityManager: LiveActivityManager? = nil,
         defaults: UserDefaults = .standard
     ) {
-        self.credentialProvider = credentialProvider
-        self.apiService = apiService ?? ClaudeAPIService()
         self.usageSyncService = usageSyncService
         self.usageHistoryService = usageHistoryService ?? UsageHistoryService(defaults: defaults)
         self.defaults = defaults
@@ -1246,6 +1244,7 @@ extension UsageViewModel {
     }
     #endif
 
+    #if os(macOS)
     /// Fetch the Claude rate-window usage snapshot. Runs as an independent arm of
     /// `refresh()`; its success/failure no longer gates the shared rate-limit timestamp.
     private func refreshClaude() async -> ClaudeRefreshOutcome {
@@ -1389,6 +1388,8 @@ extension UsageViewModel {
             return .failed
         }
     }
+
+    #endif
 
     #if os(iOS)
     /// iOS refresh reads only the macOS-published snapshot from CloudKit. The Mac
@@ -1731,7 +1732,6 @@ extension UsageViewModel {
         await notificationService.cancelResetNotifications()
 
         #if os(iOS)
-        KeychainHelper.deleteCredentials()
         snapshotStore.clear()
         snapshot = nil
         planType = "Free"

@@ -7,7 +7,7 @@ import Foundation
 import AgentUsageKit
 import OSLog
 
-actor ClaudeAPIService: APIServiceProtocol {
+actor ClaudeAPIService {
     enum APIError: LocalizedError {
         case unauthorized
         case networkError(Error)
@@ -90,6 +90,7 @@ actor ClaudeAPIService: APIServiceProtocol {
             ?? wholeSecondTimestampFormatter.date(from: value)
     }
 
+    #if os(macOS)
     func fetchUsage(token: String) async throws -> UsageSnapshot {
         var lastError: APIError?
 
@@ -174,6 +175,8 @@ actor ClaudeAPIService: APIServiceProtocol {
             throw APIError.serverError(httpResponse.statusCode)
         }
     }
+
+    #endif
 
     /// Calculate retry delay with exponential backoff, capped at `Constants.maxRetryDelay`.
     private func calculateRetryDelay(attempt: Int, error: APIError) -> TimeInterval {
@@ -653,3 +656,7 @@ extension ClaudeAPIService {
         )
     }
 }
+
+#if os(macOS)
+extension ClaudeAPIService: APIServiceProtocol {}
+#endif

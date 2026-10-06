@@ -510,7 +510,6 @@ struct LiveActivityManagerTests {
         let activity = try #require(client.requestedActivities.first)
         let testDefaults = TestUserDefaults()
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             liveActivityManager: manager,
             defaults: testDefaults.defaults
         )

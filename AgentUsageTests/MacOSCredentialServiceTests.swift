@@ -1,110 +1,59 @@
-//
-//  MacOSCredentialServiceTests.swift
-//  AgentUsageTests
-//
-
 #if os(macOS)
 import Foundation
-import Synchronization
 import Testing
 @testable import AgentUsage
 
 @Suite("macOS Credential Service")
 struct MacOSCredentialServiceTests {
-    @Test func macOSCredentialServiceFallsBackToAppKeychain() async throws {
-        let fallbackCredentials = credentials(
-            accessToken: "fallback-token",
-            expiresIn: 3_600,
-            refreshToken: nil
-        )
-        let mirroredCredentials = Mutex<ClaudeOAuthCredentials?>(nil)
-        let service = MacOSCredentialService(
-            claudeCodeKeychainLoader: {
-                throw CredentialError.keychainNotFound
-            },
-            appKeychainLoader: {
-                fallbackCredentials
-            },
-            appKeychainSaver: { credentials in
-                mirroredCredentials.withLock { $0 = credentials }
-            }
-        )
-
+    @Test func readsLocalClaudeCodeCredentials() async throws {
+        let expected = credentials()
+        let service = MacOSCredentialService(claudeCodeKeychainLoader: { expected })
         let loaded = try await service.loadCredentials()
-
-        #expect(loaded.accessToken == "fallback-token")
-        #expect(mirroredCredentials.withLock { $0 }?.accessToken == "fallback-token")
+        #expect(loaded.accessToken == expected.accessToken)
     }
 
-    @Test func macOSCredentialServicePrefersClaudeCodeKeychain() async throws {
-        let claudeCodeCredentials = credentials(
-            accessToken: "claude-code-token",
-            expiresIn: 3_600,
-            refreshToken: nil
-        )
-        let fallbackCredentials = credentials(
-            accessToken: "fallback-token",
-            expiresIn: 3_600,
-            refreshToken: nil
-        )
-        let mirroredCredentials = Mutex<ClaudeOAuthCredentials?>(nil)
-        let service = MacOSCredentialService(
-            claudeCodeKeychainLoader: {
-                (claudeCodeCredentials, Data(#"{"claudeAiOauth":{"accessToken":"claude-code-token"}}"#.utf8))
-            },
-            appKeychainLoader: {
-                fallbackCredentials
-            },
-            appKeychainSaver: { credentials in
-                mirroredCredentials.withLock { $0 = credentials }
-            }
-        )
-
-        let loaded = try await service.loadCredentials()
-
-        #expect(loaded.accessToken == "claude-code-token")
-        #expect(mirroredCredentials.withLock { $0 }?.accessToken == "claude-code-token")
+    @Test func missingLocalCredentialsFailsWithoutFallback() async {
+        let service = MacOSCredentialService(claudeCodeKeychainLoader: {
+            throw CredentialError.keychainNotFound
+        })
+        await #expect(throws: CredentialError.self) {
+            try await service.loadCredentials()
+        }
     }
 
-    @Test func macOSCredentialServiceValidatesFallbackCredentials() async {
-        let invalidCredentials = ClaudeOAuthCredentials(
-            accessToken: "fallback-token",
-            refreshToken: nil,
-            expiresAt: Date().addingTimeInterval(3_600).timeIntervalSince1970 * 1_000,
-            scopes: ["other:scope"],
-            subscriptionType: "max",
-            rateLimitTier: nil
-        )
-        let service = MacOSCredentialService(
-            claudeCodeKeychainLoader: {
-                throw CredentialError.keychainNotFound
-            },
-            appKeychainLoader: {
-                invalidCredentials
-            },
-            appKeychainSaver: { _ in }
-        )
+    @Test func expiredLocalCredentialsAreNotRefreshed() async {
+        let expired = credentials(expiresIn: -60)
+        let service = MacOSCredentialService(claudeCodeKeychainLoader: { expired })
+        do {
+            _ = try await service.loadCredentials()
+            Issue.record("Expected expired credential error")
+        } catch CredentialError.expired {
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
 
+    @Test func missingProfileScopeIsRejected() async {
+        let invalid = credentials(scopes: ["user:inference"])
+        let service = MacOSCredentialService(claudeCodeKeychainLoader: { invalid })
         do {
             _ = try await service.loadCredentials()
             Issue.record("Expected missing scope error")
         } catch CredentialError.missingScope {
-            // Expected.
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
     }
 
     private func credentials(
-        accessToken: String = "access-token",
-        expiresIn interval: TimeInterval,
-        refreshToken: String?
+        expiresIn: TimeInterval = 3_600,
+        scopes: [String] = ["user:profile"]
     ) -> ClaudeOAuthCredentials {
         ClaudeOAuthCredentials(
-            accessToken: accessToken,
-            refreshToken: refreshToken,
-            expiresAt: Date().addingTimeInterval(interval).timeIntervalSince1970 * 1_000,
-            scopes: ["user:profile"],
+            accessToken: "local-access-token",
+            refreshToken: "local-refresh-token",
+            expiresAt: Date().addingTimeInterval(expiresIn).timeIntervalSince1970 * 1_000,
+            scopes: scopes,
             subscriptionType: "max",
             rateLimitTier: nil
         )

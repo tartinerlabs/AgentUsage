@@ -20,11 +20,17 @@ struct UsageViewModelInitialStateTests {
 
     @Test @MainActor func initialStateIsCorrect() async {
         let testDefaults = TestUserDefaults()
+        #if os(macOS)
         let mockCredentials = MockCredentialProvider()
         let viewModel = UsageViewModel(
             credentialProvider: mockCredentials,
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         #expect(viewModel.snapshot == nil)
         #expect(viewModel.isLoading == false)
@@ -35,11 +41,17 @@ struct UsageViewModelInitialStateTests {
 
     @Test @MainActor func defaultRefreshIntervalIsFiveMinutes() async {
         let testDefaults = TestUserDefaults()
+        #if os(macOS)
         let mockCredentials = MockCredentialProvider()
         let viewModel = UsageViewModel(
             credentialProvider: mockCredentials,
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         #expect(viewModel.refreshInterval == .fiveMinutes)
     }
@@ -81,10 +93,16 @@ struct UsageViewModelInitialStateTests {
             fetchedAt: fetchedAt
         )
 
+        #if os(macOS)
         let viewModel = UsageViewModel(
             credentialProvider: MockCredentialProvider(),
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         #expect(viewModel.snapshot == nil)
         #expect(viewModel.usageSnapshot(for: .codex)?.planName == "Plus")
@@ -152,10 +170,16 @@ struct UsageViewModelInitialStateTests {
             fetchedAt: fetchedAt
         )
 
+        #if os(macOS)
         let viewModel = UsageViewModel(
             credentialProvider: MockCredentialProvider(),
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         #expect(viewModel.availableProviders == [.codex, .cursor, .claude])
         #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.codex, .cursor, .claude])
@@ -214,10 +238,16 @@ struct UsageViewModelInitialStateTests {
             fetchedAt: fetchedAt
         )
 
+        #if os(macOS)
         let viewModel = UsageViewModel(
             credentialProvider: MockCredentialProvider(),
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         #expect(viewModel.availableProviders == [.cursor, .codex, .claude])
         #if os(macOS)
@@ -254,10 +284,16 @@ struct UsageViewModelInitialStateTests {
             fetchedAt: fetchedAt
         )
 
+        #if os(macOS)
         let viewModel = UsageViewModel(
             credentialProvider: MockCredentialProvider(),
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         let bridged = viewModel.providerUsage[.claude]
         #expect(bridged?.provider == .claude)
@@ -272,11 +308,17 @@ struct UsageViewModelInitialStateTests {
         let testDefaults = TestUserDefaults()
         testDefaults.defaults.set("1min", forKey: "refreshInterval")
 
+        #if os(macOS)
         let mockCredentials = MockCredentialProvider()
         let viewModel = UsageViewModel(
             credentialProvider: mockCredentials,
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         #expect(viewModel.refreshInterval == .oneMinute)
     }
@@ -348,11 +390,18 @@ struct UsageViewModelNotificationTests {
         let testDefaults = TestUserDefaults()
         let notifications = MockNotificationService()
         await notifications.configurePermission(state: .notDetermined, grantsPermission: true)
+        #if os(macOS)
         let viewModel = UsageViewModel(
             credentialProvider: MockCredentialProvider(),
             notificationService: notifications,
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            notificationService: notifications,
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         await viewModel.setNotificationsEnabled(true)
 
@@ -367,11 +416,18 @@ struct UsageViewModelNotificationTests {
         testDefaults.defaults.set(true, forKey: "notificationsEnabled")
         let notifications = MockNotificationService()
         await notifications.configurePermission(state: .denied, grantsPermission: false)
+        #if os(macOS)
         let viewModel = UsageViewModel(
             credentialProvider: MockCredentialProvider(),
             notificationService: notifications,
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            notificationService: notifications,
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         await viewModel.refreshNotificationPermissionState()
 
@@ -382,11 +438,18 @@ struct UsageViewModelNotificationTests {
 
     @Test @MainActor func testNotificationUsesInjectedServiceWithoutUsageDataOrPreference() async {
         let notifications = MockNotificationService()
+        #if os(macOS)
         let viewModel = UsageViewModel(
             credentialProvider: MockCredentialProvider(),
             notificationService: notifications,
             defaults: TestUserDefaults().defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            notificationService: notifications,
+            defaults: TestUserDefaults().defaults
+        )
+        #endif
 
         await viewModel.sendTestNotification()
 
@@ -404,11 +467,17 @@ struct UsageViewModelStatusTests {
 
     @Test @MainActor func overallStatusIsOnTrackWhenNoSnapshot() async {
         let testDefaults = TestUserDefaults()
+        #if os(macOS)
         let mockCredentials = MockCredentialProvider()
         let viewModel = UsageViewModel(
             credentialProvider: mockCredentials,
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         // No snapshot means on track (default state)
         #expect(viewModel.overallStatus == .onTrack)
@@ -416,11 +485,17 @@ struct UsageViewModelStatusTests {
 
     @Test @MainActor func overallStatusReflectsWorstWindow() async {
         let testDefaults = TestUserDefaults()
+        #if os(macOS)
         let mockCredentials = MockCredentialProvider()
         let viewModel = UsageViewModel(
             credentialProvider: mockCredentials,
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         // Create a snapshot with mixed statuses
         let sessionWindow = UsageWindow(
@@ -452,11 +527,17 @@ struct UsageViewModelOfflineModeTests {
 
     @Test @MainActor func isUsingCachedDataDefaultsToFalse() async {
         let testDefaults = TestUserDefaults()
+        #if os(macOS)
         let mockCredentials = MockCredentialProvider()
         let viewModel = UsageViewModel(
             credentialProvider: mockCredentials,
             defaults: testDefaults.defaults
         )
+        #else
+        let viewModel = UsageViewModel(
+            defaults: testDefaults.defaults
+        )
+        #endif
 
         // With no cache, should not be using cached data initially
         #expect(viewModel.isUsingCachedData == false || viewModel.snapshot != nil)
@@ -1266,6 +1347,33 @@ struct UsageViewModelVerifiedContinuitySyncTests {
 #if os(iOS)
 @Suite("UsageViewModel mobile continuity acknowledgement")
 struct UsageViewModelMobileContinuityTests {
+    @Test @MainActor func refreshConsumesMacSnapshotWithoutProviderDependencies() async {
+        let snapshot = Self.snapshot(
+            session: 42,
+            reset: Date().addingTimeInterval(3_600),
+            fetchedAt: Date()
+        )
+        let syncService = MockUsageSyncService()
+        await syncService.configureFetchedSnapshot(SyncedUsageSnapshot(
+            snapshot: snapshot,
+            planType: "Max",
+            providerSnapshots: [ClaudeAPIService.providerSnapshot(from: snapshot)],
+            fetchedAt: snapshot.fetchedAt,
+            syncGeneration: "cloudkit-only-refresh"
+        ))
+        let viewModel = UsageViewModel(
+            usageSyncService: syncService,
+            notificationService: MockNotificationService(),
+            defaults: TestUserDefaults().defaults
+        )
+
+        await viewModel.refresh(force: true)
+
+        #expect(viewModel.snapshot?.session.utilization == 42)
+        #expect(viewModel.snapshot?.fetchedAt == snapshot.fetchedAt)
+        #expect(viewModel.providerUsage[.claude]?.windows.first?.utilization == 42)
+    }
+
     @Test @MainActor func cachedPreThresholdSnapshotAlertsAfterRelaunch() async {
         let reset = Date().addingTimeInterval(3_600)
         let cached = Self.snapshot(session: 20, reset: reset, fetchedAt: Date())
@@ -1285,7 +1393,6 @@ struct UsageViewModelMobileContinuityTests {
         await syncService.configureFetchedSnapshot(Self.synced(crossed))
         let notifications = MockNotificationService()
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             notificationService: notifications,
             defaults: testDefaults.defaults
@@ -1312,7 +1419,6 @@ struct UsageViewModelMobileContinuityTests {
         testDefaults.defaults.set(true, forKey: "notificationsEnabled")
         await syncService.configureFetchedSnapshot(Self.synced(initial))
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             notificationService: notifications,
             defaults: testDefaults.defaults
@@ -1351,7 +1457,6 @@ struct UsageViewModelMobileContinuityTests {
         testDefaults.defaults.set(true, forKey: "notificationsEnabled")
         await syncService.configureFetchedSnapshot(Self.synced(fresh))
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             notificationService: notifications,
             defaults: testDefaults.defaults
@@ -1377,7 +1482,6 @@ struct UsageViewModelMobileContinuityTests {
         )
         await syncService.configureFetchedSnapshot(Self.synced(snapshot))
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             notificationService: notifications,
             defaults: TestUserDefaults().defaults
@@ -1421,7 +1525,6 @@ struct UsageViewModelMobileContinuityTests {
         )
         let testDefaults = TestUserDefaults()
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             defaults: testDefaults.defaults
         )
@@ -1434,7 +1537,6 @@ struct UsageViewModelMobileContinuityTests {
         #expect(viewModel.hasProviderData(.codex))
 
         let relaunchedViewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: MockUsageSyncService(),
             defaults: testDefaults.defaults
         )
@@ -1459,7 +1561,6 @@ struct UsageViewModelMobileContinuityTests {
             )
         )
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             defaults: testDefaults.defaults
         )
@@ -1498,7 +1599,6 @@ struct UsageViewModelMobileContinuityTests {
         #expect(viewModel.availableProviderSnapshots.map(\.provider) == [.claude])
 
         let relaunchedViewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: MockUsageSyncService(),
             defaults: testDefaults.defaults
         )
@@ -1593,7 +1693,6 @@ struct UsageViewModelMobileContinuityTests {
             )
         )
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             defaults: testDefaults.defaults
         )
@@ -1638,7 +1737,6 @@ struct UsageViewModelMobileContinuityTests {
             .recordOperationFailed(recordName: "continuity-iphone", message: "offline")
         )
         let viewModel = UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             defaults: TestUserDefaults().defaults
         )
@@ -1726,7 +1824,6 @@ struct UsageViewModelMobileContinuityTests {
     @MainActor
     private static func makeViewModel(syncService: MockUsageSyncService) -> UsageViewModel {
         UsageViewModel(
-            credentialProvider: MockCredentialProvider(),
             usageSyncService: syncService,
             defaults: TestUserDefaults().defaults
         )

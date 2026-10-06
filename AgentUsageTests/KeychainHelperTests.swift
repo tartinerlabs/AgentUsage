@@ -7,6 +7,7 @@
 
 import Testing
 import Foundation
+import Security
 @testable import AgentUsage
 
 // MARK: - Credential Error Tests
@@ -137,5 +138,40 @@ struct ClaudeOAuthCredentialsSerializationTests {
         #expect(decoded.accessToken == original.accessToken)
         #expect(decoded.refreshToken == original.refreshToken)
         #expect(decoded.subscriptionType == original.subscriptionType)
+    }
+}
+
+@Suite("Legacy Claude credential cleanup")
+struct LegacyClaudeCredentialCleanupTests {
+    @Test(arguments: [errSecSuccess, errSecItemNotFound])
+    @MainActor func successfulCleanupRunsOnlyOnce(status: OSStatus) {
+        let testDefaults = TestUserDefaults()
+        var deletionCount = 0
+        let deleteItem: ([String: Any]) -> OSStatus = { query in
+            deletionCount += 1
+            #expect(query[kSecAttrService as String] as? String == "com.tartinerlabs.AgentUsage")
+            #expect(query[kSecAttrAccount as String] as? String == "claude-oauth-credentials")
+            return status
+        }
+
+        KeychainHelper.deleteLegacyClaudeCredentials(defaults: testDefaults.defaults, deleteItem: deleteItem)
+        KeychainHelper.deleteLegacyClaudeCredentials(defaults: testDefaults.defaults, deleteItem: deleteItem)
+
+        #expect(deletionCount == 1)
+    }
+
+    @Test @MainActor func failedCleanupRetriesUntilSuccessful() {
+        let testDefaults = TestUserDefaults()
+        var deletionCount = 0
+        let deleteItem: ([String: Any]) -> OSStatus = { _ in
+            deletionCount += 1
+            return deletionCount == 1 ? errSecInteractionNotAllowed : errSecSuccess
+        }
+
+        KeychainHelper.deleteLegacyClaudeCredentials(defaults: testDefaults.defaults, deleteItem: deleteItem)
+        KeychainHelper.deleteLegacyClaudeCredentials(defaults: testDefaults.defaults, deleteItem: deleteItem)
+        KeychainHelper.deleteLegacyClaudeCredentials(defaults: testDefaults.defaults, deleteItem: deleteItem)
+
+        #expect(deletionCount == 2)
     }
 }

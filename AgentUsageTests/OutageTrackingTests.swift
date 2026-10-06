@@ -10,6 +10,7 @@ import Foundation
 @testable import AgentUsage
 @testable import AgentUsageKit
 
+#if os(macOS)
 @MainActor
 private final class OutageViewModelTestContext {
     let viewModel: UsageViewModel
@@ -24,6 +25,8 @@ private final class OutageViewModelTestContext {
         )
     }
 }
+
+#endif
 
 // MARK: - Outage Classification Tests
 

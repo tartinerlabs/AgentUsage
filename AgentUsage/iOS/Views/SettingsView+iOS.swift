@@ -279,9 +279,7 @@ private struct RevokeSyncConfirmationPopover: View {
 #Preview {
     NavigationStack {
         SettingsView()
-            .environment(UsageViewModel(
-                credentialProvider: iOSCredentialService()
-            ))
+            .environment(UsageViewModel())
     }
     // Match the app-wide tint MainNavigationView applies.
     .tint(Constants.brandPrimary)

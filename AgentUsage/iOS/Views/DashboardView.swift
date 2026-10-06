@@ -382,9 +382,7 @@ private extension View {
 #Preview {
     NavigationStack {
         DashboardView()
-            .environment(UsageViewModel(
-                credentialProvider: iOSCredentialService()
-            ))
+            .environment(UsageViewModel())
     }
 }
 #endif
