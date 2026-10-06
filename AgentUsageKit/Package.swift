@@ -19,8 +19,7 @@ let package = Package(
         .target(
             name: "AgentUsageKit",
             resources: [
-                .process("Assets.xcassets"),
-                .copy("ProviderMarks-LICENSE.txt")
+                .process("Assets.xcassets")
             ]
         ),
         .testTarget(
