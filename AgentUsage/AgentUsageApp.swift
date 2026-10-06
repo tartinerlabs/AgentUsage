@@ -33,6 +33,7 @@ struct AgentUsageApp: App {
     #endif
 
     init() {
+        // One-time migration; unsuccessful Keychain cleanup retries on a later launch.
         if !Self.isRunningTests {
             KeychainHelper.deleteLegacyClaudeCredentials()
         }

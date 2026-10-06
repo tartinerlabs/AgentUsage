@@ -56,17 +56,28 @@ nonisolated enum KeychainHelper {
         }
     }
 
-    /// Remove the obsolete app-owned Claude credential copy, including iCloud Keychain copies.
+    /// Remove the obsolete app-owned Claude credential copy once per defaults domain.
+    /// Includes iCloud Keychain copies; failed deletions retry on the next launch.
     /// This query cannot match Claude Code or Claude Desktop's Keychain items.
-    static func deleteLegacyClaudeCredentials() {
+    // TODO: Sunset after two subsequent releases and 90 days from the first cleanup release,
+    // whichever is later. Record shipping details and removal checks in docs/credential-cleanup-sunset.md.
+    static func deleteLegacyClaudeCredentials(
+        defaults: UserDefaults = .standard,
+        deleteItem: ([String: Any]) -> OSStatus = { SecItemDelete($0 as CFDictionary) }
+    ) {
+        let migrationKey = "legacyClaudeCredentialCleanupCompleted"
+        guard !defaults.bool(forKey: migrationKey) else { return }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: "claude-oauth-credentials",
             kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
-        let status = SecItemDelete(query as CFDictionary)
-        if status != errSecSuccess && status != errSecItemNotFound {
+        let status = deleteItem(query)
+        if status == errSecSuccess || status == errSecItemNotFound {
+            defaults.set(true, forKey: migrationKey)
+        } else {
             Logger.keychain.error("Legacy Claude credential cleanup failed: \(status)")
         }
     }
