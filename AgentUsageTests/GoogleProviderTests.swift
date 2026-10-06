@@ -106,7 +106,71 @@ struct GoogleProviderTests {
         #expect(snapshot.provider == .antigravity)
         #expect(snapshot.windows.first?.utilization == 25)
         #expect(snapshot.windows.first?.windowID.rawValue == "antigravity.model.gemini-2.5-flash")
-        #expect(await transport.requests.count == 3)
+        #expect(await transport.requests.count == 4)
+        #expect(await transport.requests.allSatisfy {
+            $0.value(forHTTPHeaderField: "User-Agent") == "antigravity/hub/2.9.1 darwin/arm64"
+                || $0.value(forHTTPHeaderField: "User-Agent") == "antigravity/hub/2.9.1 darwin/amd64"
+        })
+    }
+
+    @Test func antigravityPrefersQuotaSummaryPools() async throws {
+        let summary = """
+        {"groups":[{"displayName":"Gemini Models","buckets":[{"bucketId":"gemini-weekly","remainingFraction":0.3,"resetTime":"2026-10-13T00:00:00Z","window":"weekly"}]},\
+        {"displayName":"Claude and GPT models","buckets":[{"bucketId":"3p-weekly","remainingFraction":1,"resetTime":"2026-10-13T00:00:00Z","window":"weekly"}]}]}
+        """
+        let transport = GoogleFixtureTransport(quota: Self.quota, summary: summary)
+        let service = GoogleUsageService(
+            provider: .antigravity, loadCredentials: { GoogleUsageCredentials(accessToken: "local") },
+            dataLoader: { try await transport.load($0) }
+        )
+        let snapshot = try #require(try await service.fetchSnapshot())
+        #expect(snapshot.windows.map(\.windowID.rawValue) == ["antigravity.quota.3p-weekly", "antigravity.quota.gemini-weekly"])
+        #expect(snapshot.windows.map(\.displayName) == ["Claude and GPT models weekly limit", "Gemini Models weekly limit"])
+        #expect(snapshot.windows.map(\.utilization) == [0, 70])
+        #expect(snapshot.windows.allSatisfy { $0.totalDuration == 7 * 24 * 3_600 })
+        #expect(await transport.requests.map { $0.url?.absoluteString.hasSuffix(":retrieveUserQuotaSummary") } == [false, true])
+    }
+
+    @Test func antigravityKeepsModelCatalogWhenQuotaBucketsAreForbidden() async throws {
+        let catalog = #"{"models":{"gemini-2.5-flash":{"displayName":"Gemini Flash","quotaInfo":{"remainingFraction":1,"resetTime":"2026-10-07T00:00:00Z"}}}}"#
+        let service = GoogleUsageService(
+            provider: .antigravity,
+            loadCredentials: { GoogleUsageCredentials(accessToken: "local") },
+            dataLoader: { request in
+                let url = try #require(request.url)
+                let path = url.absoluteString
+                let status: Int
+                let body: String
+                if path.hasSuffix(":loadCodeAssist") {
+                    status = 200
+                    body = #"{"cloudaicompanionProject":"project","paidTier":{"name":"Antigravity"}}"#
+                } else if path.hasSuffix(":retrieveUserQuotaSummary") {
+                    status = 403
+                    body = "{}"
+                } else if path.hasSuffix(":fetchAvailableModels") {
+                    status = 200
+                    body = catalog
+                } else {
+                    status = 403
+                    body = "{}"
+                }
+                let response = try #require(HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil))
+                return (Data(body.utf8), response)
+            }
+        )
+        let snapshot = try #require(try await service.fetchSnapshot())
+        #expect(snapshot.planName == "Antigravity")
+        #expect(snapshot.windows.map(\.displayName) == ["Gemini Flash limit"])
+        #expect(snapshot.windows.first?.utilization == 0)
+    }
+
+    @Test func readsAntigravityCLIKeychainSession() throws {
+        let json = #"{"token":{"access_token":"ya29.test","expiry":"2026-10-06T22:10:40.66361+08:00"}}"#
+        let wrapped = "go-keyring-base64:" + Data(json.utf8).base64EncodedString()
+        let credentials = try #require(GoogleUsageAuth.parseAntigravityKeychain(wrapped))
+        #expect(credentials.accessToken == "ya29.test")
+        #expect(credentials.expiresAt == GoogleUsageService.parseDate("2026-10-06T22:10:40.66361+08:00"))
+        #expect(GoogleUsageAuth.parseAntigravityKeychain(#"{"access_token":""}"#) == nil)
     }
 
     @Test func geminiApiKeyLoginIgnoresOldOAuthCredentials() throws {
@@ -169,15 +233,19 @@ private actor GoogleFixtureTransport {
     var requests: [URLRequest] = []
     let quota: String
     let modelCatalog: String?
-    init(quota: String, modelCatalog: String? = nil) {
+    let summary: String?
+    init(quota: String, modelCatalog: String? = nil, summary: String? = nil) {
         self.quota = quota
         self.modelCatalog = modelCatalog
+        self.summary = summary
     }
     func load(_ request: URLRequest) throws -> (Data, URLResponse) {
         requests.append(request)
         let body: String
         if request.url?.absoluteString.hasSuffix(":loadCodeAssist") == true {
             body = #"{"cloudaicompanionProject":{"id":"managed-project"},"currentTier":{"name":"Pro"}}"#
+        } else if request.url?.absoluteString.hasSuffix(":retrieveUserQuotaSummary") == true {
+            body = summary ?? #"{"groups":[]}"#
         } else if request.url?.absoluteString.hasSuffix(":fetchAvailableModels") == true {
             body = modelCatalog ?? quota
         } else { body = quota }

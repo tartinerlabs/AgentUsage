@@ -54,6 +54,64 @@ nonisolated enum GoogleUsageAuth {
         return nil
     }
 
+    /// `agy` stores the signed-in session in the login keychain, not in the IDE database.
+    static func antigravityKeychain() -> GoogleUsageCredentials? {
+        guard let raw = readKeychain(service: "gemini", account: "antigravity") else { return nil }
+        return parseAntigravityKeychain(raw)
+    }
+
+    static func antigravitySession(at urls: [URL]) -> GoogleUsageCredentials? {
+        antigravityKeychain() ?? antigravity(at: urls)
+    }
+
+    /// Decodes the `go-keyring` JSON blob `agy` writes, or a bare token JSON object.
+    static func parseAntigravityKeychain(_ raw: String) -> GoogleUsageCredentials? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let jsonText: String
+        let prefix = "go-keyring-base64:"
+        if trimmed.hasPrefix(prefix) {
+            guard let data = Data(base64Encoded: String(trimmed.dropFirst(prefix.count))),
+                  let decoded = String(data: data, encoding: .utf8) else { return nil }
+            jsonText = decoded
+        } else {
+            jsonText = trimmed
+        }
+        guard let json = (try? JSONSerialization.jsonObject(with: Data(jsonText.utf8))) as? [String: Any] else {
+            return nil
+        }
+        let source = (json["token"] as? [String: Any]) ?? json
+        guard let token = source["access_token"] as? String, !token.isEmpty else { return nil }
+        return GoogleUsageCredentials(accessToken: token, expiresAt: expiryDate(in: source))
+    }
+
+    private static func expiryDate(in source: [String: Any]) -> Date? {
+        if let expiry = source["expiry"] as? String { return GoogleUsageService.parseDate(expiry) }
+        if let milliseconds = source["expiry"] as? Double ?? source["expiry_date"] as? Double {
+            return Date(timeIntervalSince1970: milliseconds / 1_000)
+        }
+        return nil
+    }
+
+    private static func readKeychain(service: String, account: String) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        process.arguments = ["find-generic-password", "-s", service, "-a", account, "-w"]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return nil
+        }
+        guard process.terminationStatus == 0 else { return nil }
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        let value = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return value?.isEmpty == false ? value : nil
+    }
+
     static func parseAntigravity(_ value: String, key: String) -> GoogleUsageCredentials? {
         if key == "antigravityAuthStatus" {
             guard let json = (try? JSONSerialization.jsonObject(with: Data(value.utf8))) as? [String: Any],
@@ -142,6 +200,16 @@ actor GoogleUsageService: ProviderUsageServiceProtocol {
         }
     }
 
+    /// Cloud Code only returns Antigravity quota to the Hub client family. CodexBar uses the same identity.
+    private static let antigravityUserAgent: String = {
+        #if arch(arm64)
+        let architecture = "arm64"
+        #else
+        let architecture = "amd64"
+        #endif
+        return "antigravity/hub/2.9.1 darwin/\(architecture)"
+    }()
+
     private let loadCredentials: @Sendable () -> GoogleUsageCredentials?
     private let dataLoader: @Sendable (URLRequest) async throws -> (Data, URLResponse)
     private let now: @Sendable () -> Date
@@ -159,7 +227,9 @@ actor GoogleUsageService: ProviderUsageServiceProtocol {
         self.loadCredentials = loadCredentials ?? {
             provider == .gemini
                 ? GoogleUsageAuth.gemini(at: Constants.geminiCredentialsURL)
-                : GoogleUsageAuth.antigravity(at: Constants.antigravityStateDirectories.map { $0.appendingPathComponent("state.vscdb") })
+                : GoogleUsageAuth.antigravitySession(at: Constants.antigravityStateDirectories.map {
+                    $0.appendingPathComponent("state.vscdb")
+                })
         }
         self.projectID = projectID ?? (provider == .gemini
             ? ProcessInfo.processInfo.environment["GOOGLE_CLOUD_PROJECT"]
@@ -183,33 +253,59 @@ actor GoogleUsageService: ProviderUsageServiceProtocol {
             "pluginType": "GEMINI", "platform": "PLATFORM_UNSPECIFIED",
         ]]
         if let projectID { body["cloudaicompanionProject"] = projectID }
-        let account = try await request(method: "loadCodeAssist", token: credentials.accessToken, body: body)
+        let userAgent = provider == .antigravity ? Self.antigravityUserAgent : nil
+        let account = try await request(
+            method: "loadCodeAssist", token: credentials.accessToken, body: body, userAgent: userAgent
+        )
         let managed = account["cloudaicompanionProject"]
         let project = projectID ?? (managed as? String) ?? ((managed as? [String: Any])?["id"] as? String)
         let tier = (account["paidTier"] as? [String: Any]) ?? (account["currentTier"] as? [String: Any])
         let planName = tier?["name"] as? String
         let quotaBody: [String: Any] = project.map { ["project": $0] } ?? [:]
+        if provider == .antigravity {
+            do {
+                let summary = try await request(
+                    method: "retrieveUserQuotaSummary", token: credentials.accessToken,
+                    body: quotaBody, userAgent: userAgent
+                )
+                if let snapshot = Self.mapQuotaSummary(summary, provider: provider, planName: planName, now: now()) {
+                    return snapshot
+                }
+            } catch UsageError.forbidden {
+                // Older accounts have no summary. The model catalog is the fallback.
+            }
+        }
         let quota: [String: Any]
         do {
             quota = try await request(
                 method: provider == .gemini ? "retrieveUserQuota" : "fetchAvailableModels",
-                token: credentials.accessToken, body: quotaBody
+                token: credentials.accessToken, body: quotaBody, userAgent: userAgent
             )
         } catch UsageError.forbidden where provider == .antigravity {
-            let fallback = try await request(method: "retrieveUserQuota", token: credentials.accessToken, body: quotaBody)
+            let fallback = try await request(
+                method: "retrieveUserQuota", token: credentials.accessToken, body: quotaBody, userAgent: userAgent
+            )
             return try Self.mapQuota(fallback, provider: provider, planName: planName, now: now())
         }
         let snapshot = try Self.mapQuota(quota, provider: provider, planName: planName, now: now())
         if provider == .antigravity, snapshot.windows.allSatisfy({ $0.utilization <= 0.1 }) {
             // Some accounts receive placeholder full allowances from the model
             // catalog. Verify those against the actual quota buckets.
-            let verified = try await request(method: "retrieveUserQuota", token: credentials.accessToken, body: quotaBody)
-            return try Self.mapQuota(verified, provider: provider, planName: planName, now: now())
+            do {
+                let verified = try await request(
+                    method: "retrieveUserQuota", token: credentials.accessToken, body: quotaBody, userAgent: userAgent
+                )
+                return try Self.mapQuota(verified, provider: provider, planName: planName, now: now())
+            } catch UsageError.forbidden {
+                return snapshot
+            }
         }
         return snapshot
     }
 
-    private func request(method: String, token: String, body: [String: Any]) async throws -> [String: Any] {
+    private func request(
+        method: String, token: String, body: [String: Any], userAgent: String? = nil
+    ) async throws -> [String: Any] {
         guard let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:\(method)") else {
             throw UsageError.invalidResponse
         }
@@ -217,6 +313,7 @@ actor GoogleUsageService: ProviderUsageServiceProtocol {
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let userAgent { request.setValue(userAgent, forHTTPHeaderField: "User-Agent") }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = Constants.requestTimeout
         let (data, response) = try await dataLoader(request)
@@ -277,6 +374,59 @@ actor GoogleUsageService: ProviderUsageServiceProtocol {
         return ProviderUsageSnapshot(
             provider: provider, windows: windows.sorted { $0.key < $1.key }.map(\.value), planName: planName, fetchedAt: now
         )
+    }
+
+    /// `retrieveUserQuotaSummary` reports shared pools. Nil means the body is not a summary.
+    nonisolated static func mapQuotaSummary(
+        _ body: [String: Any], provider: Provider, planName: String?, now: Date
+    ) -> ProviderUsageSnapshot? {
+        let groups = body["groups"] as? [[String: Any]]
+            ?? (body["response"] as? [String: Any])?["groups"] as? [[String: Any]]
+        guard let groups else { return nil }
+        var windows: [UsageWindow] = []
+        for group in groups {
+            let groupName = ((group["displayName"] as? String) ?? (group["name"] as? String))?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            for bucket in group["buckets"] as? [[String: Any]] ?? [] {
+                guard bucket["disabled"] as? Bool != true,
+                      let id = (bucket["bucketId"] as? String) ?? (bucket["id"] as? String),
+                      !id.isEmpty,
+                      let fraction = bucket["remainingFraction"] as? Double,
+                      fraction.isFinite, (0...1).contains(fraction),
+                      let reset = parseDate(bucket["resetTime"] as? String) else { continue }
+                let windowName = bucket["window"] as? String
+                let period = switch windowName {
+                case "weekly": "weekly"
+                case "5h": "5-hour"
+                default: ""
+                }
+                let label = groupName.isEmpty
+                    ? ((bucket["displayName"] as? String) ?? id)
+                    : period.isEmpty ? groupName : "\(groupName) \(period)"
+                windows.append(UsageWindow(
+                    utilization: (1 - fraction) * 100, resetsAt: reset,
+                    windowID: UsageWindowID(rawValue: "\(provider.rawValue).quota.\(id)"),
+                    displayName: "\(label) limit",
+                    totalDuration: quotaWindowDuration(windowName),
+                    scope: nil
+                ))
+            }
+        }
+        guard !windows.isEmpty else { return nil }
+        return ProviderUsageSnapshot(
+            provider: provider,
+            windows: windows.sorted { $0.windowID.rawValue < $1.windowID.rawValue },
+            planName: planName,
+            fetchedAt: now
+        )
+    }
+
+    private nonisolated static func quotaWindowDuration(_ window: String?) -> TimeInterval {
+        switch window {
+        case "weekly": 7 * 24 * 3_600
+        case "5h": 5 * 3_600
+        default: 0
+        }
     }
 }
 #endif
