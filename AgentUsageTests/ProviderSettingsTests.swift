@@ -12,8 +12,8 @@ import Testing
 struct ProviderSettingsTests {
     @Test func shippedProvidersLeaveOutUnshippedOnes() {
         #expect(ProviderSettings.unshippedProviders == [.openCode, .openCodeGo])
-        #expect(ProviderSettings.shippedProviders == [.claude, .codex, .cursor, .grok])
-        #expect(ProviderSettings.shippedProviderNames == "Claude, Codex, Cursor, and Grok")
+        #expect(ProviderSettings.shippedProviders == [.claude, .codex, .cursor, .grok, .gemini, .antigravity])
+        #expect(ProviderSettings.shippedProviderNames == "Claude, Codex, Cursor, Grok, Gemini CLI, and Antigravity")
     }
 
     @Test func displayListJoinsNamesAsEnglishList() {
@@ -57,7 +57,7 @@ struct ProviderSettingsTests {
 
     @Test func refusesToDisableTheLastEnabledProvider() {
         let testDefaults = TestUserDefaults()
-        for provider in [Provider.claude, .codex, .cursor] {
+        for provider in ProviderSettings.shippedProviders where provider != .grok {
             ProviderSettings.setEnabled(false, for: provider, defaults: testDefaults.defaults)
         }
         let disabled = ProviderSettings.userDisabledProviders(defaults: testDefaults.defaults)
@@ -65,14 +65,14 @@ struct ProviderSettingsTests {
         #expect(!ProviderSettings.canDisable(.grok, userDisabled: disabled))
         let result = ProviderSettings.setEnabled(false, for: .grok, defaults: testDefaults.defaults)
 
-        #expect(result == [.claude, .codex, .cursor])
+        #expect(result == Set(ProviderSettings.shippedProviders.filter { $0 != .grok }))
         #expect(ProviderSettings.isEnabled(.grok, defaults: testDefaults.defaults))
     }
 
     @Test func storedValueDisablingEverythingIsIgnored() {
         let testDefaults = TestUserDefaults()
         testDefaults.defaults.set(
-            ["claude", "codex", "cursor", "grok", "unknown"],
+            ProviderSettings.shippedProviders.map(\.rawValue) + ["unknown"],
             forKey: Constants.disabledProvidersKey
         )
 
@@ -229,7 +229,7 @@ struct UsageViewModelProviderSettingsTests {
             usageHistoryService: UsageHistoryService(defaults: testDefaults.defaults),
             defaults: testDefaults.defaults
         )
-        for provider in [Provider.claude, .codex, .cursor] {
+        for provider in ProviderSettings.shippedProviders where provider != .grok {
             await viewModel.setProviderEnabled(provider, enabled: false)
         }
 
@@ -237,8 +237,8 @@ struct UsageViewModelProviderSettingsTests {
         await viewModel.setProviderEnabled(.grok, enabled: false)
 
         #expect(viewModel.isProviderEnabled(.grok))
-        #expect(viewModel.userDisabledProviders == [.claude, .codex, .cursor])
-        #expect(viewModel.disabledProviders == [.claude, .codex, .cursor, .openCode, .openCodeGo])
+        #expect(viewModel.userDisabledProviders == Set(ProviderSettings.shippedProviders.filter { $0 != .grok }))
+        #expect(viewModel.disabledProviders == Set(Provider.allCases.filter { $0 != .grok }))
     }
 
     private static func makeUsageSnapshot() -> UsageSnapshot {

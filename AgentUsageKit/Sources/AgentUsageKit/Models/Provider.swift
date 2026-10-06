@@ -17,6 +17,8 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
     case openCodeGo
     case cursor
     case grok
+    case gemini
+    case antigravity
 
     public var id: String { rawValue }
 
@@ -29,6 +31,8 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCodeGo: "OpenCode Go"
         case .cursor: "Cursor"
         case .grok: "Grok"
+        case .gemini: "Gemini CLI"
+        case .antigravity: "Antigravity"
         }
     }
 
@@ -40,6 +44,8 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCode, .openCodeGo: "curlybraces"
         case .cursor: "cursorarrow"
         case .grok: "bolt.fill"
+        case .gemini: "sparkle"
+        case .antigravity: "triangle"
         }
     }
 
@@ -51,6 +57,8 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCode, .openCodeGo: "OpenCodeProviderMark"
         case .cursor: "CursorProviderMark"
         case .grok: "GrokProviderMark"
+        case .gemini: "GeminiProviderMark"
+        case .antigravity: "AntigravityProviderMark"
         }
     }
 
@@ -69,6 +77,10 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
             ]
         case .openCode, .openCodeGo:
             []
+        case .gemini:
+            [ProviderLink(label: "Usage", urlString: "https://aistudio.google.com/usage")]
+        case .antigravity:
+            [ProviderLink(label: "Plans", urlString: "https://antigravity.google/docs/plans")]
         case .cursor:
             [
                 ProviderLink(label: "Status", urlString: "https://status.cursor.com"),
@@ -101,6 +113,8 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCodeGo: [.rateWindows, .tokenCost]
         case .cursor: [.rateWindows]
         case .grok: [.rateWindows, .tokenCost]
+        case .gemini: [.rateWindows, .tokenCost]
+        case .antigravity: [.rateWindows]
         }
     }
 
@@ -119,6 +133,7 @@ public enum Provider: String, Sendable, Codable, CaseIterable, Identifiable {
         case .openCode, .openCodeGo: "openai"
         case .cursor: "cursor"
         case .grok: "xai"
+        case .gemini, .antigravity: "gemini"
         }
     }
 

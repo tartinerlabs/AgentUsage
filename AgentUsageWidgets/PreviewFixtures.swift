@@ -176,7 +176,7 @@ extension WidgetEntry {
             case .claude: "session"
             case .codex: "codexFiveHour"
             case .cursor: "cursor.monthly.requests"
-            case .openCode, .openCodeGo, .grok: "custom"
+            case .openCode, .openCodeGo, .grok, .gemini, .antigravity: "custom"
             }
             return UsageActivitySelection(provider: selected, windowID: fallbackWindowID)
         }

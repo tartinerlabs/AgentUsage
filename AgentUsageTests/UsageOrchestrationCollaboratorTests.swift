@@ -66,7 +66,7 @@ struct MenuBarSettingsManagerTests {
     @Test @MainActor func compositionRootRegistersCursorUnconditionally() {
         let services = DependencyContainer.createProviderUsageServices()
 
-        #expect(Set(services.keys) == [.codex, .cursor, .grok])
+        #expect(Set(services.keys) == [.codex, .cursor, .grok, .gemini, .antigravity])
     }
 
     @Test @MainActor func supportsEveryProviderWithRateWindows() {

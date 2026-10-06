@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add Gemini CLI and Antigravity model quotas, and track Gemini CLI local tokens and estimated API cost
+
 - Keep Claude credentials local to the Mac and make iOS depend only on CloudKit usage snapshots
 
 - Show the time a limit resets alongside the countdown in the Live Activity
