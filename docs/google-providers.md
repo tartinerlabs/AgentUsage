@@ -34,12 +34,20 @@ the billable ID and applicable pricing period can be verified.
 
 ## Antigravity
 
-Sign in through Antigravity on the Mac. Agent Usage reads the IDE's existing
-Google access token from `state.vscdb` in the `User/globalStorage` directory under
+Sign in through Antigravity or the `agy` CLI on the Mac. Agent Usage reads the
+CLI session from the macOS Keychain item `agy` writes (service `gemini`, account
+`antigravity`). When that item is absent, it falls back to the IDE's access token
+in `state.vscdb` under `User/globalStorage` in
 `~/Library/Application Support/Antigravity`, `Antigravity IDE`, or `antigravity`.
-It supports both unified OAuth state and older agent-manager/auth-status entries.
-The database is opened read-only, including its active WAL state. Antigravity owns
-its token renewal; reopen or sign in through Antigravity if the token expires.
+The database is opened read-only, including its active WAL state. It supports both
+unified OAuth state and older agent-manager/auth-status entries. Antigravity owns
+its token renewal; run `agy` or reopen Antigravity if the token expires.
+
+Quota requests use the Antigravity Hub client identity. Cloud Code hides the real
+pools from other user agents and answers with a model catalog of untouched
+allowances instead. The shared Gemini and Claude/GPT pools from
+`retrieveUserQuotaSummary` are preferred. A full model catalog is checked against
+`retrieveUserQuota`; if that check is denied, the catalog is kept.
 
 Model quotas, including proxied Claude models, remain attributed to Antigravity.
 The provider currently supplies quota windows only. Antigravity CLI token logs and
@@ -50,13 +58,14 @@ an independent Agent Usage Google login are outside this implementation.
 Google's internal Code Assist quota endpoints can change or deny access for an
 account. Missing percentages or reset timestamps are omitted. Model-catalog
 allowances that all appear full are verified against actual quota buckets before
-publication. Failures keep the last snapshot with a provider-specific error;
-HTTP 429 respects the app's refresh cooldown, and HTTP 5xx participates in outage
-tracking. Window durations remain unknown because the responses supply reset
-instants rather than period lengths.
+publication. A denied bucket check keeps the catalog. Failures keep the last
+snapshot with a provider-specific error; HTTP 429 respects the app's refresh
+cooldown, and HTTP 5xx participates in outage tracking. Summary pools use their
+weekly or 5-hour period. Per-model windows still have an unknown duration because
+those responses supply a reset instant rather than a period length.
 
 Credentials stay on the Mac. Each tool owns its token renewal; run Gemini CLI or
-reopen Antigravity when its session expires, then refresh usage. Agent Usage
+`agy`, or reopen Antigravity, when its session expires, then refresh usage. Agent Usage
 reloads access tokens on each refresh, without reading refresh tokens, embedding
 OAuth client credentials, or rewriting either tool's credential store. iOS and widgets consume published
 usage through the existing CloudKit path, without provider authentication.
