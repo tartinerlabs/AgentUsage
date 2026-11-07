@@ -146,6 +146,13 @@ struct ClaudeAPIServiceTests {
 
     // MARK: - Full Response (real parser)
 
+    /// `parseUsageResponse` checks grant expiry against the real clock, so the full-response
+    /// fixture needs an end date that never passes.
+    private static let unexpiredLaunchGrant = launchGrant.replacingOccurrences(
+        of: "2026-10-22T16:00:00+00:00",
+        with: "2099-12-31T00:00:00+00:00"
+    )
+
     /// Trimmed from a live `/api/oauth/usage?cedar_ember=1` body, 2026-09-24.
     private static let liveResponse = """
     {
@@ -161,7 +168,7 @@ struct ClaudeAPIServiceTests {
                        "used_dollars": null, "remaining_dollars": null, "locked_reason": null},
       "cinder_cove": null,
       "cedar_ember": {"eligible": true, "ineligible_reason": null, "at_limit": false, "exhausted": [],
-                      "grants": [\(launchGrant)], "next_grant_id": "opus55-launch-promax-20260921",
+                      "grants": [\(unexpiredLaunchGrant)], "next_grant_id": "opus55-launch-promax-20260921",
                       "weekly_resets_at": "2026-09-30T08:00:00+00:00", "cooldown_until": null},
       "extra_usage": {"is_enabled": false, "monthly_limit": null, "used_credits": null, "utilization": null,
                       "currency": null, "disabled_reason": null, "user_disabled": true},

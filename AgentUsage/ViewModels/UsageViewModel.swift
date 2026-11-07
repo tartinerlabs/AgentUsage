@@ -421,6 +421,7 @@ final class UsageViewModel {
     #endif
     private var lastRefreshTime: Date?
     private let minRefreshInterval: TimeInterval = 30
+    private let popoverStaleInterval: TimeInterval = 300
     private var hasInitialized = false
 
     /// Per-provider cooldown after an HTTP 429. While a provider's date is in the future,
@@ -951,6 +952,16 @@ enum ClaudeRefreshOutcome: Equatable, Sendable {
 }
 
 extension UsageViewModel {
+    /// Refresh for opening the popover, which happens far more often than the schedule
+    /// fires. Recent data is shown as is, so a glance costs no provider request.
+    func refreshIfStale() async {
+        if let lastRefresh = lastRefreshTime,
+           Date().timeIntervalSince(lastRefresh) < popoverStaleInterval {
+            return
+        }
+        await refresh()
+    }
+
     @discardableResult
     func refresh(force: Bool = false) async -> ClaudeRefreshOutcome {
         // Rate limit auto-refresh; a forced refresh (manual) always proceeds.
