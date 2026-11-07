@@ -622,6 +622,28 @@ struct UsageViewModelRefreshGateTests {
         #expect(viewModel.errorMessage?.hasPrefix("Rate limited. Try again in") == true)
     }
 
+    @Test @MainActor func refreshIfStaleSkipsRecentDataButForcedRefreshStillFetches() async {
+        let testDefaults = TestUserDefaults()
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        await mockAPI.setMockSnapshot(makeSnapshot())
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            defaults: testDefaults.defaults
+        )
+
+        await viewModel.refreshIfStale()
+        #expect(await mockAPI.fetchCallCount == 1)
+
+        await viewModel.refreshIfStale()
+        #expect(await mockAPI.fetchCallCount == 1)
+
+        await viewModel.refresh(force: true)
+        #expect(await mockAPI.fetchCallCount == 2)
+    }
+
     /// Regression: a rate-limit cooldown belongs to the provider that was throttled.
     /// Claude returning 429 must not stop other providers from refreshing, and a
     /// throttled provider must skip only its own fetch. The second view model shares

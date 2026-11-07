@@ -54,7 +54,7 @@ struct MenuBarView: View {
         // ScrollView has no natural height of its own (see `scrollHeight`).
         .frame(width: Layout.width, height: popoverHeight, alignment: .top)
         .task {
-            await viewModel.refresh()
+            await viewModel.refreshIfStale()
         }
         // A provider turned off in Settings loses its rail tab; fall back to Overview.
         .onChange(of: availableProviders) { _, providers in

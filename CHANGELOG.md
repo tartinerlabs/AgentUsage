@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Reuse usage from the last 5 minutes when opening the menu bar popover, reducing the chance of provider rate limits
 - Show Antigravity quotas for the `agy` CLI by reading its Keychain session and requesting the shared Gemini and Claude pools
 - Add Gemini CLI and Antigravity model quotas, and track Gemini CLI local tokens and estimated API cost
 
