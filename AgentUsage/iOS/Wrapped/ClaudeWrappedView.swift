@@ -165,7 +165,7 @@ struct ClaudeWrappedView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.background)
                         .background(Constants.brandPrimary, in: RoundedRectangle(cornerRadius: 16))
                 }
             } else {

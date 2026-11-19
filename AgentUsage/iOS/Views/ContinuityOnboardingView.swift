@@ -130,7 +130,6 @@ struct ContinuityOnboardingView: View {
                     if connectionState == .connecting {
                         ProgressView()
                             .controlSize(.small)
-                            .tint(.white)
                     }
                     Text(connectionState == .waiting ? "Check Again" : "Check for Updates")
                 }
@@ -139,7 +138,8 @@ struct ContinuityOnboardingView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(Constants.brandPrimary)
-            .foregroundStyle(.background)
+            // A disabled prominent button turns grey, where the inverted label vanishes.
+            .foregroundStyle(connectionState == .connecting ? AnyShapeStyle(.secondary) : AnyShapeStyle(.background))
             .disabled(connectionState == .connecting)
 
             Button("Explore Without Data") {
