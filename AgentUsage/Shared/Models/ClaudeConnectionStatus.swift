@@ -54,7 +54,7 @@ extension ClaudeConnectionStatus {
         }
     }
 
-    /// System-semantic status color (see DESIGN.md): green on-track, orange
+    /// System-semantic status color: green on-track, orange
     /// warning, red critical.
     var tint: Color {
         switch self {

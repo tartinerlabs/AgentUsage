@@ -9,7 +9,7 @@ import SwiftUI
 /// A branded, fixed-layout card summarizing the year, rendered to an image for
 /// social sharing via `ImageRenderer`.
 ///
-/// Uses solid brand fills only — no gradients or shadows, per DESIGN.md — so it
+/// Uses solid brand fills only — no gradients or shadows — so it
 /// renders deterministically offscreen and reads the same in every appearance.
 /// The colour scheme is pinned to light because the brand ground (Pampas) is a
 /// fixed sRGB value that does not adapt to dark mode.

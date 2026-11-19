@@ -8,9 +8,9 @@ dashboard + widgets) that monitors usage across several AI coding CLIs.
 
 ## Design system
 
-`DESIGN.md` is the source of truth for the SwiftUI visual system. Consult it
-before changing views, widgets, menu bar UI, or Live Activities. Note that the
-palette lives in `Utilities/Constants.swift`, not `Assets.xcassets`.
+There is no design document; the code is the source of truth. The palette lives
+in `AgentUsageKit/Sources/AgentUsageKit/Design/AgentUsageColors.swift` (aliased
+in `Utilities/Constants.swift`), not `Assets.xcassets`.
 
 ## Build
 
