@@ -130,7 +130,6 @@ struct ContinuityOnboardingView: View {
                     if connectionState == .connecting {
                         ProgressView()
                             .controlSize(.small)
-                            .tint(.white)
                     }
                     Text(connectionState == .waiting ? "Check Again" : "Check for Updates")
                 }
