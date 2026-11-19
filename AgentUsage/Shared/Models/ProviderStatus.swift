@@ -47,7 +47,7 @@ extension ProviderStatus {
         }
     }
 
-    /// Severity expressed as `UsageStatus` so colors stay centralized (see DESIGN.md).
+    /// Severity expressed as `UsageStatus` so colors stay centralized.
     var severity: UsageStatus {
         switch self {
         case .fresh: .onTrack
