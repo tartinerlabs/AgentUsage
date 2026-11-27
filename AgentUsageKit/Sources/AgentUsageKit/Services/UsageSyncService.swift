@@ -151,22 +151,43 @@ protocol UsageSyncDatabase: AnyObject, Sendable {
 }
 
 extension CKDatabase: UsageSyncDatabase {
+    /// The Continuity zone holds a handful of records and normally fits in one
+    /// page. A nil-token fetch walks the zone's whole change history, which
+    /// once paged for minutes inside a 30-second silent-push window.
+    static let maxZonePages = 10
+
     func allRecords(inZone zoneID: CKRecordZone.ID) async throws -> [CKRecord] {
-        var records: [CKRecord] = []
-        var changeToken: CKServerChangeToken?
-        while true {
-            let (modifications, _, nextToken, moreComing) = try await recordZoneChanges(
+        try await Self.collectZonePages(zoneName: zoneID.zoneName) { (token: CKServerChangeToken?) in
+            let (modifications, _, nextToken, moreComing) = try await self.recordZoneChanges(
                 inZoneWith: zoneID,
-                since: changeToken
+                since: token
             )
-            for result in modifications.values {
-                if case .success(let modification) = result {
-                    records.append(modification.record)
-                }
+            let records = modifications.values.compactMap { result -> CKRecord? in
+                guard case .success(let modification) = result else { return nil }
+                return modification.record
             }
-            changeToken = nextToken
-            guard moreComing else { return records }
+            return (records, nextToken, moreComing)
         }
+    }
+
+    /// Pages through a zone, stopping after `maxZonePages` even if the server
+    /// still reports more. Generic over the token so tests can drive it.
+    static func collectZonePages<Token>(
+        zoneName: String,
+        fetchPage: (Token?) async throws -> (records: [CKRecord], token: Token, moreComing: Bool)
+    ) async throws -> [CKRecord] {
+        var records: [CKRecord] = []
+        var changeToken: Token?
+        for _ in 0..<maxZonePages {
+            let page = try await fetchPage(changeToken)
+            records.append(contentsOf: page.records)
+            changeToken = page.token
+            guard page.moreComing else { return records }
+        }
+        Logger(subsystem: "com.tartinerlabs.AgentUsage", category: "UsageSync").fault(
+            "Stopped reading zone \(zoneName, privacy: .public) after \(maxZonePages) pages with more still coming"
+        )
+        return records
     }
 }
 

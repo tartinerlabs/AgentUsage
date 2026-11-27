@@ -382,6 +382,30 @@ struct UsageSyncServiceTests {
         #expect(ledgers.map(\.deviceID) == ["mac-a"])
     }
 
+    @Test func zonePagingStopsAtThePageCapWhenMoreKeepsComing() async throws {
+        var calls = 0
+        let records = try await CKDatabase.collectZonePages(zoneName: "Continuity") { (_: Int?) in
+            calls += 1
+            let record = CKRecord(recordType: "DeviceUsageLedger")
+            return ([record], calls, true)
+        }
+
+        #expect(calls == CKDatabase.maxZonePages)
+        #expect(records.count == CKDatabase.maxZonePages)
+    }
+
+    @Test func zonePagingStopsWhenTheServerHasNoMore() async throws {
+        var receivedTokens: [Int?] = []
+        let records = try await CKDatabase.collectZonePages(zoneName: "Continuity") { (token: Int?) in
+            receivedTokens.append(token)
+            let page = receivedTokens.count
+            return ([CKRecord(recordType: "DeviceUsageLedger")], page, page < 3)
+        }
+
+        #expect(receivedTokens == [nil, 1, 2])
+        #expect(records.count == 3)
+    }
+
     @Test func deleteDeviceLedgerRemovesOnlyThatMac() async throws {
         let database = StubUsageSyncDatabase()
         let service = UsageSyncService(database: database)

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Stop iPhone and iPad from repeatedly reading iCloud after each Continuity update, which drained battery in the background
 - Keep the button label and progress spinner visible while iPhone and iPad setup checks for your Mac
 - Reuse usage from the last 5 minutes when opening the menu bar popover, reducing the chance of provider rate limits
 - Show Antigravity quotas for the `agy` CLI by reading its Keychain session and requesting the shared Gemini and Claude pools
