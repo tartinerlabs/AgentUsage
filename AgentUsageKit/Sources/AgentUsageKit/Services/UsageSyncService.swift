@@ -151,10 +151,15 @@ protocol UsageSyncDatabase: AnyObject, Sendable {
 }
 
 extension CKDatabase: UsageSyncDatabase {
+    /// The Continuity zone holds a handful of records and normally fits in one
+    /// page. A nil-token fetch walks the zone's whole change history, which
+    /// once paged for minutes inside a 30-second silent-push window.
+    private static let maxZonePages = 10
+
     func allRecords(inZone zoneID: CKRecordZone.ID) async throws -> [CKRecord] {
         var records: [CKRecord] = []
         var changeToken: CKServerChangeToken?
-        while true {
+        for _ in 0..<Self.maxZonePages {
             let (modifications, _, nextToken, moreComing) = try await recordZoneChanges(
                 inZoneWith: zoneID,
                 since: changeToken
@@ -167,6 +172,10 @@ extension CKDatabase: UsageSyncDatabase {
             changeToken = nextToken
             guard moreComing else { return records }
         }
+        Logger(subsystem: "com.tartinerlabs.AgentUsage", category: "UsageSync").fault(
+            "Stopped reading zone \(zoneID.zoneName, privacy: .public) after \(Self.maxZonePages) pages with more still coming"
+        )
+        return records
     }
 }
 
