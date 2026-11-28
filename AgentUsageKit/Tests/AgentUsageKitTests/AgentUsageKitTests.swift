@@ -998,6 +998,14 @@ struct UsageSnapshotTests {
         #expect(window.isExpired(from: now) == false)
     }
 
+    @Test func usageWindowHasRolledOverOnlyForPastRecurringReset() {
+        let now = Date()
+        let past = UsageWindow(utilization: 55, resetsAt: now.addingTimeInterval(-60), windowType: .session)
+        let future = UsageWindow(utilization: 55, resetsAt: now.addingTimeInterval(3600), windowType: .session)
+        #expect(past.hasRolledOver(from: now) == true)
+        #expect(future.hasRolledOver(from: now) == false)
+    }
+
     @Test func extraUsageCostPercentUsed() {
         let cost = ExtraUsageCost(used: 25.0, limit: 50.0, currencyCode: "USD")
         #expect(cost.percentUsed == 50.0)

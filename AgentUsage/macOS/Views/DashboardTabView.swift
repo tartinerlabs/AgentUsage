@@ -113,7 +113,7 @@ struct DashboardTabView: View {
                     Text("Refreshing")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                } else if let fetchedAt = latestProviderFetchDate {
+                } else if let fetchedAt = viewModel.displayedFetchDate(now: now) {
                     LastUpdatedLabel(
                         relativeText: relativeDescription(from: fetchedAt, to: now),
                         isCached: viewModel.hasStaleProviderStatus,
@@ -518,12 +518,6 @@ struct DashboardTabView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: past, relativeTo: current)
-    }
-
-    /// The aggregate badge reports the most recent visible snapshot; a provider with
-    /// stale data flags itself on its own card.
-    private var latestProviderFetchDate: Date? {
-        viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
     }
 }
 

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Show why a provider card is stale and when its data was fetched, and base "Updated" on the stalest provider instead of the freshest
+- Show a usage limit that has reset since the last fetch as waiting for an update instead of its old percentage
 - Stop iPhone and iPad from repeatedly reading iCloud after each Continuity update, which drained battery in the background
 - Keep the button label and progress spinner visible while iPhone and iPad setup checks for your Mac
 - Reuse usage from the last 5 minutes when opening the menu bar popover, reducing the chance of provider rate limits

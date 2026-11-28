@@ -1154,6 +1154,18 @@ extension UsageViewModel {
         availableProviders.compactMap { usageSnapshot(for: $0) }
     }
 
+    /// When the usage on screen was fetched, for the "Updated X ago" label. While any
+    /// provider is not fresh, this is the oldest such provider's fetch, so one
+    /// provider's recent success never makes another's stale data look current.
+    func displayedFetchDate(now: Date = Date()) -> Date? {
+        let snapshots = availableProviderSnapshots
+        let stale = snapshots.filter { status(for: $0.provider, now: now) != .fresh }
+        if !stale.isEmpty {
+            return stale.map(\.fetchedAt).min()
+        }
+        return snapshots.map(\.fetchedAt).max()
+    }
+
     func hasProviderData(_ provider: Provider) -> Bool {
         availableProviders.contains(provider)
     }

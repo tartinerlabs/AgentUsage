@@ -283,6 +283,12 @@ public struct UsageWindow: Sendable, Codable, Identifiable {
         resetsAt < now
     }
 
+    /// Whether a recurring window has reset since it was fetched, so its percentage
+    /// belongs to the previous period and must not be shown as current usage.
+    public func hasRolledOver(from now: Date) -> Bool {
+        !isOneTime && isExpired(from: now)
+    }
+
     /// Whether this window is in extra usage territory (billed at API rates)
     public var isUsingExtraUsage: Bool {
         utilization > 100

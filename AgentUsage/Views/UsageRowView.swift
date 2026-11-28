@@ -21,20 +21,27 @@ struct UsageRowView: View {
                 Text(title)
                     .font(.callout)
                     .fontWeight(.semibold)
-                if showStatusDot {
+                if showStatusDot, !hasRolledOver {
                     Circle()
                         .fill(status.color)
                         .frame(width: 7, height: 7)
                 }
                 Spacer()
-                Text(usage.resetDescription(from: now))
+                Text(resetDescription)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
-            // Progress bar
-            UsageProgressBar(usage: usage, now: now)
-                .accessibilityHidden(true) // Progress bar is decorative; info is in text
+            // Progress bar — empty once the window has rolled over, since the
+            // cached percentage belongs to the previous period.
+            Group {
+                if hasRolledOver {
+                    UsageProgressBar(progress: 0)
+                } else {
+                    UsageProgressBar(usage: usage, now: now)
+                }
+            }
+            .accessibilityHidden(true) // Progress bar is decorative; info is in text
 
             // Stats row
             HStack {
@@ -42,7 +49,7 @@ struct UsageRowView: View {
                     Text(usedDescription)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    if showExtraUsage, usage.isUsingExtraUsage {
+                    if showExtraUsage, !hasRolledOver, usage.isUsingExtraUsage {
                         Text("+\(usage.extraUsagePercent)% extra")
                             .font(.footnote)
                             .foregroundStyle(Constants.extraUsageAccent)
@@ -53,7 +60,7 @@ struct UsageRowView: View {
                     Label("Locked", systemImage: "lock.fill")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                } else {
+                } else if !hasRolledOver {
                     Label(status.label, systemImage: status.icon)
                         .font(.footnote)
                         .foregroundStyle(status.color)
@@ -64,7 +71,7 @@ struct UsageRowView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
-        .accessibilityHint(usage.resetDescription(from: now))
+        .accessibilityHint(resetDescription)
     }
 
     // MARK: - Accessibility Helpers
@@ -73,13 +80,24 @@ struct UsageRowView: View {
         "\(title) usage"
     }
 
+    /// The window reset after the shown data was fetched; its percentage is stale.
+    private var hasRolledOver: Bool {
+        usage.hasRolledOver(from: now)
+    }
+
+    private var resetDescription: String {
+        hasRolledOver ? "Reset" : usage.resetDescription(from: now)
+    }
+
     /// "12% used", or "$2.47 of $250.00 used" for a dollar-denominated window.
     private var usedDescription: String {
+        if hasRolledOver { return "Waiting for update" }
         guard let budget = usage.budget else { return "\(usage.percentUsed)% used" }
         return "\(budget.formattedUsed) of \(budget.formattedLimit) used"
     }
 
     private var accessibilityValue: String {
+        if hasRolledOver { return usedDescription }
         var parts = [usage.budget == nil ? "\(usage.percentUsed) percent used" : usedDescription]
         if usage.lockedReason != nil {
             parts.append("locked")
