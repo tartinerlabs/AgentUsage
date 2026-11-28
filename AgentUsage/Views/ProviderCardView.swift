@@ -56,6 +56,14 @@ struct ProviderCardView: View {
         VStack(alignment: .leading, spacing: compact ? 10 : 16) {
             header
 
+            if density == .summary, status != .fresh {
+                // The badge alone hides why; say it, and how old the shown data is.
+                Text(statusDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if density == .detail, status != .fresh {
                 statusBanner
             }

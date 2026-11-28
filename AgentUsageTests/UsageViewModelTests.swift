@@ -720,6 +720,38 @@ struct UsageViewModelRefreshGateTests {
         )
         #expect(viewModel.usageSnapshot(for: .cursor) != nil, "a failing provider keeps its last snapshot")
     }
+
+    /// Regression: a fresh Codex fetch made the footer read "Updated 4 min ago" while
+    /// Claude's card still showed data from hours earlier.
+    @Test @MainActor func displayedFetchDateFollowsTheStaleProvider() async {
+        let testDefaults = TestUserDefaults()
+        let mockAPI = MockAPIService()
+        let mockCredentials = MockCredentialProvider()
+        await mockCredentials.configure(credentials: MockCredentialProvider.validCredentials())
+        let codex = MockProviderUsageService(provider: .codex)
+        let viewModel = UsageViewModel(
+            credentialProvider: mockCredentials,
+            apiService: mockAPI,
+            providerUsageServices: [.codex: codex],
+            defaults: testDefaults.defaults
+        )
+
+        let claudeFetchedAt = Date().addingTimeInterval(-3600)
+        await mockAPI.setMockSnapshot(UsageSnapshot(
+            session: UsageWindow(utilization: 50, resetsAt: Date().addingTimeInterval(3600), windowType: .session),
+            opus: UsageWindow(utilization: 30, resetsAt: Date().addingTimeInterval(86400), windowType: .opus),
+            sonnet: nil,
+            fetchedAt: claudeFetchedAt
+        ))
+        await viewModel.refresh(force: true)
+        let newest = viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
+        #expect(viewModel.displayedFetchDate() == newest, "all fresh: newest fetch")
+
+        await mockAPI.setMockError(CredentialError.expired)
+        await viewModel.refresh(force: true)
+        #expect(viewModel.status(for: .codex) == .fresh)
+        #expect(viewModel.displayedFetchDate() == claudeFetchedAt, "Claude failing: its older fetch")
+    }
 }
 
 private actor MockProviderUsageService: ProviderUsageServiceProtocol {

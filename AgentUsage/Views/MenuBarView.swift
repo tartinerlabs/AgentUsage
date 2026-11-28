@@ -422,7 +422,7 @@ struct MenuBarView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                if let fetchedAt = latestProviderFetchDate {
+                if let fetchedAt = viewModel.displayedFetchDate(now: context.date) {
                     LastUpdatedLabel(
                         relativeText: DateFormatters.relativeDescription(from: fetchedAt, to: context.date),
                         isCached: viewModel.hasStaleProviderStatus,
@@ -452,12 +452,6 @@ struct MenuBarView: View {
     private func nextRefreshText(now: Date) -> String? {
         guard viewModel.refreshInterval != .manual, !isRefreshing else { return nil }
         return RefreshCountdown.text(until: viewModel.nextScheduledRefresh, now: now)
-    }
-
-    /// Global freshness reports the most recent visible provider fetch; a provider
-    /// with stale data flags itself on its own card.
-    private var latestProviderFetchDate: Date? {
-        viewModel.availableProviderSnapshots.map(\.fetchedAt).max()
     }
 }
 
